@@ -30,7 +30,7 @@ jobs:
       - name: Run semantic-release
         id: semantic
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.SDK_DISPATCH_TOKEN }}
         run: npx --yes semantic-release
 
       - name: Determine version
