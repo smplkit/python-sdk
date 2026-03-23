@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -16,9 +18,7 @@ T = TypeVar("T", bound="FlagEnvironments")
 class FlagEnvironments:
     """ """
 
-    additional_properties: dict[str, "FlagEnvironment"] = _attrs_field(
-        init=False, factory=dict
-    )
+    additional_properties: dict[str, FlagEnvironment] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
 
@@ -48,10 +48,10 @@ class FlagEnvironments:
     def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
-    def __getitem__(self, key: str) -> "FlagEnvironment":
+    def __getitem__(self, key: str) -> FlagEnvironment:
         return self.additional_properties[key]
 
-    def __setitem__(self, key: str, value: "FlagEnvironment") -> None:
+    def __setitem__(self, key: str, value: FlagEnvironment) -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:

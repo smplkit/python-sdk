@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
 
 import httpx
 
@@ -14,33 +14,33 @@ from ...types import Unset
 
 def _get_kwargs(
     *,
-    environment_id: Union[None, Unset, str] = UNSET,
-    type_: Union[None, Unset, str] = UNSET,
-    status: Union[None, Unset, str] = UNSET,
+    filterenvironment: None | str | Unset = UNSET,
+    filtertype: None | str | Unset = UNSET,
+    filterstatus: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
-    json_environment_id: Union[None, Unset, str]
-    if isinstance(environment_id, Unset):
-        json_environment_id = UNSET
+    json_filterenvironment: None | str | Unset
+    if isinstance(filterenvironment, Unset):
+        json_filterenvironment = UNSET
     else:
-        json_environment_id = environment_id
-    params["environment_id"] = json_environment_id
+        json_filterenvironment = filterenvironment
+    params["filter[environment]"] = json_filterenvironment
 
-    json_type_: Union[None, Unset, str]
-    if isinstance(type_, Unset):
-        json_type_ = UNSET
+    json_filtertype: None | str | Unset
+    if isinstance(filtertype, Unset):
+        json_filtertype = UNSET
     else:
-        json_type_ = type_
-    params["type"] = json_type_
+        json_filtertype = filtertype
+    params["filter[type]"] = json_filtertype
 
-    json_status: Union[None, Unset, str]
-    if isinstance(status, Unset):
-        json_status = UNSET
+    json_filterstatus: None | str | Unset
+    if isinstance(filterstatus, Unset):
+        json_filterstatus = UNSET
     else:
-        json_status = status
-    params["status"] = json_status
+        json_filterstatus = filterstatus
+    params["filter[status]"] = json_filterstatus
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -54,8 +54,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[ApiKeyListResponse, ErrorResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ApiKeyListResponse | ErrorResponse | None:
     if response.status_code == 200:
         response_200 = ApiKeyListResponse.from_dict(response.json())
 
@@ -88,8 +88,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[ApiKeyListResponse, ErrorResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ApiKeyListResponse | ErrorResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -101,29 +101,29 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    environment_id: Union[None, Unset, str] = UNSET,
-    type_: Union[None, Unset, str] = UNSET,
-    status: Union[None, Unset, str] = UNSET,
-) -> Response[Union[ApiKeyListResponse, ErrorResponse]]:
+    filterenvironment: None | str | Unset = UNSET,
+    filtertype: None | str | Unset = UNSET,
+    filterstatus: None | str | Unset = UNSET,
+) -> Response[ApiKeyListResponse | ErrorResponse]:
     """List API Keys
 
     Args:
-        environment_id (Union[None, Unset, str]):
-        type_ (Union[None, Unset, str]):
-        status (Union[None, Unset, str]):
+        filterenvironment (None | str | Unset):
+        filtertype (None | str | Unset):
+        filterstatus (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ApiKeyListResponse, ErrorResponse]]
+        Response[ApiKeyListResponse | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
-        environment_id=environment_id,
-        type_=type_,
-        status=status,
+        filterenvironment=filterenvironment,
+        filtertype=filtertype,
+        filterstatus=filterstatus,
     )
 
     response = client.get_httpx_client().request(
@@ -136,59 +136,59 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    environment_id: Union[None, Unset, str] = UNSET,
-    type_: Union[None, Unset, str] = UNSET,
-    status: Union[None, Unset, str] = UNSET,
-) -> Optional[Union[ApiKeyListResponse, ErrorResponse]]:
+    filterenvironment: None | str | Unset = UNSET,
+    filtertype: None | str | Unset = UNSET,
+    filterstatus: None | str | Unset = UNSET,
+) -> ApiKeyListResponse | ErrorResponse | None:
     """List API Keys
 
     Args:
-        environment_id (Union[None, Unset, str]):
-        type_ (Union[None, Unset, str]):
-        status (Union[None, Unset, str]):
+        filterenvironment (None | str | Unset):
+        filtertype (None | str | Unset):
+        filterstatus (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ApiKeyListResponse, ErrorResponse]
+        ApiKeyListResponse | ErrorResponse
     """
 
     return sync_detailed(
         client=client,
-        environment_id=environment_id,
-        type_=type_,
-        status=status,
+        filterenvironment=filterenvironment,
+        filtertype=filtertype,
+        filterstatus=filterstatus,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    environment_id: Union[None, Unset, str] = UNSET,
-    type_: Union[None, Unset, str] = UNSET,
-    status: Union[None, Unset, str] = UNSET,
-) -> Response[Union[ApiKeyListResponse, ErrorResponse]]:
+    filterenvironment: None | str | Unset = UNSET,
+    filtertype: None | str | Unset = UNSET,
+    filterstatus: None | str | Unset = UNSET,
+) -> Response[ApiKeyListResponse | ErrorResponse]:
     """List API Keys
 
     Args:
-        environment_id (Union[None, Unset, str]):
-        type_ (Union[None, Unset, str]):
-        status (Union[None, Unset, str]):
+        filterenvironment (None | str | Unset):
+        filtertype (None | str | Unset):
+        filterstatus (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ApiKeyListResponse, ErrorResponse]]
+        Response[ApiKeyListResponse | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
-        environment_id=environment_id,
-        type_=type_,
-        status=status,
+        filterenvironment=filterenvironment,
+        filtertype=filtertype,
+        filterstatus=filterstatus,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -199,30 +199,30 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    environment_id: Union[None, Unset, str] = UNSET,
-    type_: Union[None, Unset, str] = UNSET,
-    status: Union[None, Unset, str] = UNSET,
-) -> Optional[Union[ApiKeyListResponse, ErrorResponse]]:
+    filterenvironment: None | str | Unset = UNSET,
+    filtertype: None | str | Unset = UNSET,
+    filterstatus: None | str | Unset = UNSET,
+) -> ApiKeyListResponse | ErrorResponse | None:
     """List API Keys
 
     Args:
-        environment_id (Union[None, Unset, str]):
-        type_ (Union[None, Unset, str]):
-        status (Union[None, Unset, str]):
+        filterenvironment (None | str | Unset):
+        filtertype (None | str | Unset):
+        filterstatus (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ApiKeyListResponse, ErrorResponse]
+        ApiKeyListResponse | ErrorResponse
     """
 
     return (
         await asyncio_detailed(
             client=client,
-            environment_id=environment_id,
-            type_=type_,
-            status=status,
+            filterenvironment=filterenvironment,
+            filtertype=filtertype,
+            filterstatus=filterstatus,
         )
     ).parsed

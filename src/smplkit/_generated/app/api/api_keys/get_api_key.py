@@ -1,5 +1,6 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -19,7 +20,7 @@ def _get_kwargs(
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/api/v1/api_keys/{id}".format(
-            id=id,
+            id=quote(str(id), safe=""),
         ),
     }
 
@@ -27,8 +28,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[ApiKeyResponse, ErrorResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ApiKeyResponse | ErrorResponse | None:
     if response.status_code == 200:
         response_200 = ApiKeyResponse.from_dict(response.json())
 
@@ -61,8 +62,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[ApiKeyResponse, ErrorResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ApiKeyResponse | ErrorResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -75,7 +76,7 @@ def sync_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Response[Union[ApiKeyResponse, ErrorResponse]]:
+) -> Response[ApiKeyResponse | ErrorResponse]:
     """Get API Key
 
     Args:
@@ -86,7 +87,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ApiKeyResponse, ErrorResponse]]
+        Response[ApiKeyResponse | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
@@ -104,7 +105,7 @@ def sync(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Optional[Union[ApiKeyResponse, ErrorResponse]]:
+) -> ApiKeyResponse | ErrorResponse | None:
     """Get API Key
 
     Args:
@@ -115,7 +116,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ApiKeyResponse, ErrorResponse]
+        ApiKeyResponse | ErrorResponse
     """
 
     return sync_detailed(
@@ -128,7 +129,7 @@ async def asyncio_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Response[Union[ApiKeyResponse, ErrorResponse]]:
+) -> Response[ApiKeyResponse | ErrorResponse]:
     """Get API Key
 
     Args:
@@ -139,7 +140,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ApiKeyResponse, ErrorResponse]]
+        Response[ApiKeyResponse | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
@@ -155,7 +156,7 @@ async def asyncio(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Optional[Union[ApiKeyResponse, ErrorResponse]]:
+) -> ApiKeyResponse | ErrorResponse | None:
     """Get API Key
 
     Args:
@@ -166,7 +167,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ApiKeyResponse, ErrorResponse]
+        ApiKeyResponse | ErrorResponse
     """
 
     return (

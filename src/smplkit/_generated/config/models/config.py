@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -8,12 +10,11 @@ from ..types import UNSET, Unset
 
 from dateutil.parser import isoparse
 from typing import cast
-from typing import Union
 import datetime
 
 if TYPE_CHECKING:
-    from ..models.config_values_type_0 import ConfigValuesType0
     from ..models.config_environments_type_0 import ConfigEnvironmentsType0
+    from ..models.config_values_type_0 import ConfigValuesType0
 
 
 T = TypeVar("T", bound="Config")
@@ -28,50 +29,50 @@ class Config:
 
     Attributes:
         name (str):
-        key (Union[None, Unset, str]):
-        description (Union[None, Unset, str]):
-        parent (Union[None, Unset, str]):
-        values (Union['ConfigValuesType0', None, Unset]):
-        environments (Union['ConfigEnvironmentsType0', None, Unset]):
-        created_at (Union[None, Unset, datetime.datetime]):
-        updated_at (Union[None, Unset, datetime.datetime]):
+        key (None | str | Unset):
+        description (None | str | Unset):
+        parent (None | str | Unset):
+        values (ConfigValuesType0 | None | Unset):
+        environments (ConfigEnvironmentsType0 | None | Unset):
+        created_at (datetime.datetime | None | Unset):
+        updated_at (datetime.datetime | None | Unset):
     """
 
     name: str
-    key: Union[None, Unset, str] = UNSET
-    description: Union[None, Unset, str] = UNSET
-    parent: Union[None, Unset, str] = UNSET
-    values: Union["ConfigValuesType0", None, Unset] = UNSET
-    environments: Union["ConfigEnvironmentsType0", None, Unset] = UNSET
-    created_at: Union[None, Unset, datetime.datetime] = UNSET
-    updated_at: Union[None, Unset, datetime.datetime] = UNSET
+    key: None | str | Unset = UNSET
+    description: None | str | Unset = UNSET
+    parent: None | str | Unset = UNSET
+    values: ConfigValuesType0 | None | Unset = UNSET
+    environments: ConfigEnvironmentsType0 | None | Unset = UNSET
+    created_at: datetime.datetime | None | Unset = UNSET
+    updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.config_values_type_0 import ConfigValuesType0
         from ..models.config_environments_type_0 import ConfigEnvironmentsType0
+        from ..models.config_values_type_0 import ConfigValuesType0
 
         name = self.name
 
-        key: Union[None, Unset, str]
+        key: None | str | Unset
         if isinstance(self.key, Unset):
             key = UNSET
         else:
             key = self.key
 
-        description: Union[None, Unset, str]
+        description: None | str | Unset
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        parent: Union[None, Unset, str]
+        parent: None | str | Unset
         if isinstance(self.parent, Unset):
             parent = UNSET
         else:
             parent = self.parent
 
-        values: Union[None, Unset, dict[str, Any]]
+        values: dict[str, Any] | None | Unset
         if isinstance(self.values, Unset):
             values = UNSET
         elif isinstance(self.values, ConfigValuesType0):
@@ -79,7 +80,7 @@ class Config:
         else:
             values = self.values
 
-        environments: Union[None, Unset, dict[str, Any]]
+        environments: dict[str, Any] | None | Unset
         if isinstance(self.environments, Unset):
             environments = UNSET
         elif isinstance(self.environments, ConfigEnvironmentsType0):
@@ -87,7 +88,7 @@ class Config:
         else:
             environments = self.environments
 
-        created_at: Union[None, Unset, str]
+        created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -95,7 +96,7 @@ class Config:
         else:
             created_at = self.created_at
 
-        updated_at: Union[None, Unset, str]
+        updated_at: None | str | Unset
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -129,40 +130,40 @@ class Config:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.config_values_type_0 import ConfigValuesType0
         from ..models.config_environments_type_0 import ConfigEnvironmentsType0
+        from ..models.config_values_type_0 import ConfigValuesType0
 
         d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_key(data: object) -> Union[None, Unset, str]:
+        def _parse_key(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         key = _parse_key(d.pop("key", UNSET))
 
-        def _parse_description(data: object) -> Union[None, Unset, str]:
+        def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
 
-        def _parse_parent(data: object) -> Union[None, Unset, str]:
+        def _parse_parent(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         parent = _parse_parent(d.pop("parent", UNSET))
 
-        def _parse_values(data: object) -> Union["ConfigValuesType0", None, Unset]:
+        def _parse_values(data: object) -> ConfigValuesType0 | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -173,15 +174,13 @@ class Config:
                 values_type_0 = ConfigValuesType0.from_dict(data)
 
                 return values_type_0
-            except:  # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union["ConfigValuesType0", None, Unset], data)
+            return cast(ConfigValuesType0 | None | Unset, data)
 
         values = _parse_values(d.pop("values", UNSET))
 
-        def _parse_environments(
-            data: object,
-        ) -> Union["ConfigEnvironmentsType0", None, Unset]:
+        def _parse_environments(data: object) -> ConfigEnvironmentsType0 | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -192,13 +191,13 @@ class Config:
                 environments_type_0 = ConfigEnvironmentsType0.from_dict(data)
 
                 return environments_type_0
-            except:  # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union["ConfigEnvironmentsType0", None, Unset], data)
+            return cast(ConfigEnvironmentsType0 | None | Unset, data)
 
         environments = _parse_environments(d.pop("environments", UNSET))
 
-        def _parse_created_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -209,13 +208,13 @@ class Config:
                 created_at_type_0 = isoparse(data)
 
                 return created_at_type_0
-            except:  # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(datetime.datetime | None | Unset, data)
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -226,9 +225,9 @@ class Config:
                 updated_at_type_0 = isoparse(data)
 
                 return updated_at_type_0
-            except:  # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(datetime.datetime | None | Unset, data)
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 

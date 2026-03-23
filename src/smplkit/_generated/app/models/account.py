@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar
 
@@ -8,7 +10,6 @@ from ..types import UNSET, Unset
 
 from dateutil.parser import isoparse
 from typing import cast
-from typing import Union
 import datetime
 
 
@@ -25,14 +26,14 @@ class Account:
     Attributes:
         name (str):
         key (str):
-        has_stripe_customer (Union[Unset, bool]):  Default: False.
-        created_at (Union[None, Unset, datetime.datetime]):
+        has_stripe_customer (bool | Unset):  Default: False.
+        created_at (datetime.datetime | None | Unset):
     """
 
     name: str
     key: str
-    has_stripe_customer: Union[Unset, bool] = False
-    created_at: Union[None, Unset, datetime.datetime] = UNSET
+    has_stripe_customer: bool | Unset = False
+    created_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -42,7 +43,7 @@ class Account:
 
         has_stripe_customer = self.has_stripe_customer
 
-        created_at: Union[None, Unset, str]
+        created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -74,7 +75,7 @@ class Account:
 
         has_stripe_customer = d.pop("has_stripe_customer", UNSET)
 
-        def _parse_created_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -85,9 +86,9 @@ class Account:
                 created_at_type_0 = isoparse(data)
 
                 return created_at_type_0
-            except:  # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(datetime.datetime | None | Unset, data)
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
