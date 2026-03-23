@@ -44,9 +44,10 @@ jobs:
 
       - name: Check if a new release was created
         id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git fetch --tags origin
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')
+          LATEST_TAG=$(gh api repos/${{ github.repository }}/tags --jq '.[0].name' 2>/dev/null || echo '')
           if [ "$LATEST_TAG" != "${{ steps.before.outputs.tag }}" ] && [ -n "$LATEST_TAG" ]; then
             VERSION="${LATEST_TAG#v}"
             echo "released=true" >> "$GITHUB_OUTPUT"
