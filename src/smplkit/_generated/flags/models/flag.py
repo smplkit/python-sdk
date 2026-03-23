@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -8,12 +10,11 @@ from ..types import UNSET, Unset
 
 from dateutil.parser import isoparse
 from typing import cast
-from typing import Union
 import datetime
 
 if TYPE_CHECKING:
-    from ..models.flag_value import FlagValue
     from ..models.flag_environments import FlagEnvironments
+    from ..models.flag_value import FlagValue
 
 
 T = TypeVar("T", bound="Flag")
@@ -27,22 +28,22 @@ class Flag:
         name (str): Human-readable display name
         type_ (str): Value type: STRING, BOOLEAN, NUMERIC, or JSON
         default (Any): Default value; must reference a value in the values array
-        values (list['FlagValue']): Closed set of possible values
-        description (Union[None, Unset, str]):
-        environments (Union[Unset, FlagEnvironments]):
-        created_at (Union[None, Unset, datetime.datetime]):
-        updated_at (Union[None, Unset, datetime.datetime]):
+        values (list[FlagValue]): Closed set of possible values
+        description (None | str | Unset):
+        environments (FlagEnvironments | Unset):
+        created_at (datetime.datetime | None | Unset):
+        updated_at (datetime.datetime | None | Unset):
     """
 
     key: str
     name: str
     type_: str
     default: Any
-    values: list["FlagValue"]
-    description: Union[None, Unset, str] = UNSET
-    environments: Union[Unset, "FlagEnvironments"] = UNSET
-    created_at: Union[None, Unset, datetime.datetime] = UNSET
-    updated_at: Union[None, Unset, datetime.datetime] = UNSET
+    values: list[FlagValue]
+    description: None | str | Unset = UNSET
+    environments: FlagEnvironments | Unset = UNSET
+    created_at: datetime.datetime | None | Unset = UNSET
+    updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -59,17 +60,17 @@ class Flag:
             values_item = values_item_data.to_dict()
             values.append(values_item)
 
-        description: Union[None, Unset, str]
+        description: None | str | Unset
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        environments: Union[Unset, dict[str, Any]] = UNSET
+        environments: dict[str, Any] | Unset = UNSET
         if not isinstance(self.environments, Unset):
             environments = self.environments.to_dict()
 
-        created_at: Union[None, Unset, str]
+        created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -77,7 +78,7 @@ class Flag:
         else:
             created_at = self.created_at
 
-        updated_at: Union[None, Unset, str]
+        updated_at: None | str | Unset
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -109,8 +110,8 @@ class Flag:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.flag_value import FlagValue
         from ..models.flag_environments import FlagEnvironments
+        from ..models.flag_value import FlagValue
 
         d = dict(src_dict)
         key = d.pop("key")
@@ -128,23 +129,23 @@ class Flag:
 
             values.append(values_item)
 
-        def _parse_description(data: object) -> Union[None, Unset, str]:
+        def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
 
         _environments = d.pop("environments", UNSET)
-        environments: Union[Unset, FlagEnvironments]
+        environments: FlagEnvironments | Unset
         if isinstance(_environments, Unset):
             environments = UNSET
         else:
             environments = FlagEnvironments.from_dict(_environments)
 
-        def _parse_created_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -155,13 +156,13 @@ class Flag:
                 created_at_type_0 = isoparse(data)
 
                 return created_at_type_0
-            except:  # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(datetime.datetime | None | Unset, data)
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -172,9 +173,9 @@ class Flag:
                 updated_at_type_0 = isoparse(data)
 
                 return updated_at_type_0
-            except:  # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(datetime.datetime | None | Unset, data)
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 

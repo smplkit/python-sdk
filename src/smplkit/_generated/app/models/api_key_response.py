@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -23,7 +25,7 @@ class ApiKeyResponse:
             'b2c3d4e5-f6a7-8901-bcde-f12345678901', 'type': 'api_key'}.
     """
 
-    data: "ApiKeyResource"
+    data: ApiKeyResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
