@@ -52,11 +52,11 @@ The SDK supports Python 3.10 through 3.13. Development uses Python 3.13 (the lat
 
 ## Publishing
 
-Publishing is fully automated:
+Publishing is fully automated in a single workflow (`release.yml`):
 
 1. Every push to main triggers `release.yml`, which runs `semantic-release`.
 2. If conventional commits warrant a version bump, semantic-release creates a git tag (`vX.Y.Z`) and GitHub release.
-3. The tag push triggers `publish.yml`, which builds the package and publishes to PyPI via OIDC trusted publishing.
+3. The same workflow then builds the package and publishes to PyPI via OIDC trusted publishing.
 
 - **Do not create tags manually.** Semantic-release owns versioning.
 - **Do not set version in pyproject.toml.** Version is derived from git tags via `hatch-vcs`.
