@@ -2,19 +2,25 @@
 
 Official Python SDK for the [smplkit](https://www.smplkit.com) platform.
 
-> **Note:** This SDK is in early development. APIs may change between versions.
-
 ## Installation
 
 ```bash
 pip install smplkit
 ```
 
+## Quick Start
+
+```python
+from smplkit import SmplkitClient
+
+client = SmplkitClient(api_key="sk_api_...")
+```
+
 ## Documentation
 
-- [SDK Documentation](https://docs.smplkit.com)
-- [smplkit Platform](https://www.smplkit.com)
+* [API Reference](https://docs.smplkit.com)
+* [Getting Started](https://docs.smplkit.com/getting-started)
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+MIT

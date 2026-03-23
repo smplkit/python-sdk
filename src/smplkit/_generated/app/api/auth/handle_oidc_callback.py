@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union, cast
+from typing import Any, Optional, Union
 
 import httpx
 
@@ -8,13 +8,8 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error_response import ErrorResponse
-from ...models.oidc_provider import check_oidc_provider
 from ...models.oidc_provider import OidcProvider
-from ...types import UNSET, Unset
-from typing import cast
-from typing import cast, Union
-from typing import Union
-
+from ...types import Unset
 
 
 def _get_kwargs(
@@ -24,11 +19,7 @@ def _get_kwargs(
     state: Union[None, Unset, str] = UNSET,
     error: Union[None, Unset, str] = UNSET,
     error_description: Union[None, Unset, str] = UNSET,
-
 ) -> dict[str, Any]:
-    
-
-    
 
     params: dict[str, Any] = {}
 
@@ -60,22 +51,22 @@ def _get_kwargs(
         json_error_description = error_description
     params["error_description"] = json_error_description
 
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/api/v1/auth/callback/{provider}".format(provider=provider,),
+        "url": "/api/v1/auth/callback/{provider}".format(
+            provider=provider,
+        ),
         "params": params,
     }
-
 
     return _kwargs
 
 
-
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[Any, ErrorResponse]]:
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[Any, ErrorResponse]]:
     if response.status_code == 200:
         response_200 = response.json()
         return response_200
@@ -83,28 +74,20 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_400
 
     if response.status_code == 401:
         response_401 = ErrorResponse.from_dict(response.json())
-
-
 
         return response_401
 
     if response.status_code == 404:
         response_404 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_404
 
     if response.status_code == 429:
         response_429 = ErrorResponse.from_dict(response.json())
-
-
 
         return response_429
 
@@ -114,7 +97,9 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[Any, ErrorResponse]]:
+def _build_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[Any, ErrorResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -131,9 +116,8 @@ def sync_detailed(
     state: Union[None, Unset, str] = UNSET,
     error: Union[None, Unset, str] = UNSET,
     error_description: Union[None, Unset, str] = UNSET,
-
 ) -> Response[Union[Any, ErrorResponse]]:
-    """ Handle OIDC Callback
+    """Handle OIDC Callback
 
      Handles the callback from the OIDC provider, exchanges the authorization code for tokens, and
     redirects to the frontend.
@@ -151,16 +135,14 @@ def sync_detailed(
 
     Returns:
         Response[Union[Any, ErrorResponse]]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         provider=provider,
-code=code,
-state=state,
-error=error,
-error_description=error_description,
-
+        code=code,
+        state=state,
+        error=error,
+        error_description=error_description,
     )
 
     response = client.get_httpx_client().request(
@@ -168,6 +150,7 @@ error_description=error_description,
     )
 
     return _build_response(client=client, response=response)
+
 
 def sync(
     provider: OidcProvider,
@@ -177,9 +160,8 @@ def sync(
     state: Union[None, Unset, str] = UNSET,
     error: Union[None, Unset, str] = UNSET,
     error_description: Union[None, Unset, str] = UNSET,
-
 ) -> Optional[Union[Any, ErrorResponse]]:
-    """ Handle OIDC Callback
+    """Handle OIDC Callback
 
      Handles the callback from the OIDC provider, exchanges the authorization code for tokens, and
     redirects to the frontend.
@@ -197,18 +179,17 @@ def sync(
 
     Returns:
         Union[Any, ErrorResponse]
-     """
-
+    """
 
     return sync_detailed(
         provider=provider,
-client=client,
-code=code,
-state=state,
-error=error,
-error_description=error_description,
-
+        client=client,
+        code=code,
+        state=state,
+        error=error,
+        error_description=error_description,
     ).parsed
+
 
 async def asyncio_detailed(
     provider: OidcProvider,
@@ -218,9 +199,8 @@ async def asyncio_detailed(
     state: Union[None, Unset, str] = UNSET,
     error: Union[None, Unset, str] = UNSET,
     error_description: Union[None, Unset, str] = UNSET,
-
 ) -> Response[Union[Any, ErrorResponse]]:
-    """ Handle OIDC Callback
+    """Handle OIDC Callback
 
      Handles the callback from the OIDC provider, exchanges the authorization code for tokens, and
     redirects to the frontend.
@@ -238,23 +218,20 @@ async def asyncio_detailed(
 
     Returns:
         Response[Union[Any, ErrorResponse]]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         provider=provider,
-code=code,
-state=state,
-error=error,
-error_description=error_description,
-
+        code=code,
+        state=state,
+        error=error,
+        error_description=error_description,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     provider: OidcProvider,
@@ -264,9 +241,8 @@ async def asyncio(
     state: Union[None, Unset, str] = UNSET,
     error: Union[None, Unset, str] = UNSET,
     error_description: Union[None, Unset, str] = UNSET,
-
 ) -> Optional[Union[Any, ErrorResponse]]:
-    """ Handle OIDC Callback
+    """Handle OIDC Callback
 
      Handles the callback from the OIDC provider, exchanges the authorization code for tokens, and
     redirects to the frontend.
@@ -284,15 +260,15 @@ async def asyncio(
 
     Returns:
         Union[Any, ErrorResponse]
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        provider=provider,
-client=client,
-code=code,
-state=state,
-error=error,
-error_description=error_description,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            provider=provider,
+            client=client,
+            code=code,
+            state=state,
+            error=error,
+            error_description=error_description,
+        )
+    ).parsed

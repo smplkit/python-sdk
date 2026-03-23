@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union, cast
+from typing import Any, Optional, Union
 
 import httpx
 
@@ -8,26 +8,18 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error_response import ErrorResponse
-from typing import cast
-
 
 
 def _get_kwargs(
     *,
     token: str,
-
 ) -> dict[str, Any]:
-    
-
-    
 
     params: dict[str, Any] = {}
 
     params["token"] = token
 
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
 
     _kwargs: dict[str, Any] = {
         "method": "get",
@@ -35,12 +27,12 @@ def _get_kwargs(
         "params": params,
     }
 
-
     return _kwargs
 
 
-
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[Any, ErrorResponse]]:
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[Any, ErrorResponse]]:
     if response.status_code == 200:
         response_200 = response.json()
         return response_200
@@ -48,28 +40,20 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_400
 
     if response.status_code == 401:
         response_401 = ErrorResponse.from_dict(response.json())
-
-
 
         return response_401
 
     if response.status_code == 404:
         response_404 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_404
 
     if response.status_code == 429:
         response_429 = ErrorResponse.from_dict(response.json())
-
-
 
         return response_429
 
@@ -79,7 +63,9 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[Any, ErrorResponse]]:
+def _build_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[Any, ErrorResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -92,9 +78,8 @@ def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     token: str,
-
 ) -> Response[Union[Any, ErrorResponse]]:
-    """ Accept Invitation
+    """Accept Invitation
 
     Args:
         token (str):
@@ -105,12 +90,10 @@ def sync_detailed(
 
     Returns:
         Response[Union[Any, ErrorResponse]]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         token=token,
-
     )
 
     response = client.get_httpx_client().request(
@@ -119,13 +102,13 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: Union[AuthenticatedClient, Client],
     token: str,
-
 ) -> Optional[Union[Any, ErrorResponse]]:
-    """ Accept Invitation
+    """Accept Invitation
 
     Args:
         token (str):
@@ -136,22 +119,20 @@ def sync(
 
     Returns:
         Union[Any, ErrorResponse]
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-token=token,
-
+        token=token,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     token: str,
-
 ) -> Response[Union[Any, ErrorResponse]]:
-    """ Accept Invitation
+    """Accept Invitation
 
     Args:
         token (str):
@@ -162,27 +143,23 @@ async def asyncio_detailed(
 
     Returns:
         Response[Union[Any, ErrorResponse]]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         token=token,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
     token: str,
-
 ) -> Optional[Union[Any, ErrorResponse]]:
-    """ Accept Invitation
+    """Accept Invitation
 
     Args:
         token (str):
@@ -193,11 +170,11 @@ async def asyncio(
 
     Returns:
         Union[Any, ErrorResponse]
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-token=token,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            token=token,
+        )
+    ).parsed

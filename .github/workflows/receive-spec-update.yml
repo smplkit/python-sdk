@@ -1,0 +1,51 @@
+name: Receive spec update
+
+on:
+  repository_dispatch:
+    types: [spec-updated]
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Update spec file
+        run: |
+          SERVICE="${{ github.event.client_payload.service }}"
+          SPEC_B64="${{ github.event.client_payload.spec_b64 }}"
+          echo "$SPEC_B64" | base64 -d > "openapi/${SERVICE}.json"
+          echo "Updated spec for service: $SERVICE"
+
+      - name: Regenerate client
+        run: bash scripts/generate.sh
+
+      - name: Run tests
+        run: pytest --cov=smplkit --cov-report=term-missing
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: regenerate ${{ github.event.client_payload.service }} client from spec ${{ github.event.client_payload.sha }}"
+          title: "chore: regenerate ${{ github.event.client_payload.service }} client"
+          body: |
+            Automated client regeneration triggered by spec change in `smplkit/${{ github.event.client_payload.service }}`.
+
+            Source commit: smplkit/${{ github.event.client_payload.service }}@${{ github.event.client_payload.sha }}
+          branch: "regen/${{ github.event.client_payload.service }}-${{ github.event.client_payload.sha }}"
+          delete-branch: true

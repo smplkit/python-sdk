@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union, cast
+from typing import Any, Optional, Union
 
 import httpx
 
@@ -9,11 +9,7 @@ from ... import errors
 
 from ...models.api_key_list_response import ApiKeyListResponse
 from ...models.error_response import ErrorResponse
-from ...types import UNSET, Unset
-from typing import cast
-from typing import cast, Union
-from typing import Union
-
+from ...types import Unset
 
 
 def _get_kwargs(
@@ -21,11 +17,7 @@ def _get_kwargs(
     environment_id: Union[None, Unset, str] = UNSET,
     type_: Union[None, Unset, str] = UNSET,
     status: Union[None, Unset, str] = UNSET,
-
 ) -> dict[str, Any]:
-    
-
-    
 
     params: dict[str, Any] = {}
 
@@ -50,9 +42,7 @@ def _get_kwargs(
         json_status = status
     params["status"] = json_status
 
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
 
     _kwargs: dict[str, Any] = {
         "method": "get",
@@ -60,44 +50,34 @@ def _get_kwargs(
         "params": params,
     }
 
-
     return _kwargs
 
 
-
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[ApiKeyListResponse, ErrorResponse]]:
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[ApiKeyListResponse, ErrorResponse]]:
     if response.status_code == 200:
         response_200 = ApiKeyListResponse.from_dict(response.json())
-
-
 
         return response_200
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_400
 
     if response.status_code == 401:
         response_401 = ErrorResponse.from_dict(response.json())
-
-
 
         return response_401
 
     if response.status_code == 404:
         response_404 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_404
 
     if response.status_code == 429:
         response_429 = ErrorResponse.from_dict(response.json())
-
-
 
         return response_429
 
@@ -107,7 +87,9 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[ApiKeyListResponse, ErrorResponse]]:
+def _build_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[ApiKeyListResponse, ErrorResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -122,9 +104,8 @@ def sync_detailed(
     environment_id: Union[None, Unset, str] = UNSET,
     type_: Union[None, Unset, str] = UNSET,
     status: Union[None, Unset, str] = UNSET,
-
 ) -> Response[Union[ApiKeyListResponse, ErrorResponse]]:
-    """ List API Keys
+    """List API Keys
 
     Args:
         environment_id (Union[None, Unset, str]):
@@ -137,14 +118,12 @@ def sync_detailed(
 
     Returns:
         Response[Union[ApiKeyListResponse, ErrorResponse]]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         environment_id=environment_id,
-type_=type_,
-status=status,
-
+        type_=type_,
+        status=status,
     )
 
     response = client.get_httpx_client().request(
@@ -153,15 +132,15 @@ status=status,
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient,
     environment_id: Union[None, Unset, str] = UNSET,
     type_: Union[None, Unset, str] = UNSET,
     status: Union[None, Unset, str] = UNSET,
-
 ) -> Optional[Union[ApiKeyListResponse, ErrorResponse]]:
-    """ List API Keys
+    """List API Keys
 
     Args:
         environment_id (Union[None, Unset, str]):
@@ -174,16 +153,15 @@ def sync(
 
     Returns:
         Union[ApiKeyListResponse, ErrorResponse]
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-environment_id=environment_id,
-type_=type_,
-status=status,
-
+        environment_id=environment_id,
+        type_=type_,
+        status=status,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
@@ -191,9 +169,8 @@ async def asyncio_detailed(
     environment_id: Union[None, Unset, str] = UNSET,
     type_: Union[None, Unset, str] = UNSET,
     status: Union[None, Unset, str] = UNSET,
-
 ) -> Response[Union[ApiKeyListResponse, ErrorResponse]]:
-    """ List API Keys
+    """List API Keys
 
     Args:
         environment_id (Union[None, Unset, str]):
@@ -206,21 +183,18 @@ async def asyncio_detailed(
 
     Returns:
         Response[Union[ApiKeyListResponse, ErrorResponse]]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         environment_id=environment_id,
-type_=type_,
-status=status,
-
+        type_=type_,
+        status=status,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
@@ -228,9 +202,8 @@ async def asyncio(
     environment_id: Union[None, Unset, str] = UNSET,
     type_: Union[None, Unset, str] = UNSET,
     status: Union[None, Unset, str] = UNSET,
-
 ) -> Optional[Union[ApiKeyListResponse, ErrorResponse]]:
-    """ List API Keys
+    """List API Keys
 
     Args:
         environment_id (Union[None, Unset, str]):
@@ -243,13 +216,13 @@ async def asyncio(
 
     Returns:
         Union[ApiKeyListResponse, ErrorResponse]
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-environment_id=environment_id,
-type_=type_,
-status=status,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            environment_id=environment_id,
+            type_=type_,
+            status=status,
+        )
+    ).parsed

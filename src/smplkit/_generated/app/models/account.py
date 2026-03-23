@@ -1,50 +1,39 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from ..types import UNSET, Unset
 from dateutil.parser import isoparse
 from typing import cast
-from typing import cast, Union
 from typing import Union
 import datetime
-
-
-
-
 
 
 T = TypeVar("T", bound="Account")
 
 
-
 @_attrs_define
 class Account:
-    """ 
-        Example:
-            {'created_at': '2026-03-20T11:02:16.616Z', 'has_stripe_customer': False, 'key': 'acme_corp', 'name': 'Acme
-                Corp'}
+    """
+    Example:
+        {'created_at': '2026-03-20T11:02:16.616Z', 'has_stripe_customer': False, 'key': 'acme_corp', 'name': 'Acme
+            Corp'}
 
-        Attributes:
-            name (str):
-            key (str):
-            has_stripe_customer (Union[Unset, bool]):  Default: False.
-            created_at (Union[None, Unset, datetime.datetime]):
-     """
+    Attributes:
+        name (str):
+        key (str):
+        has_stripe_customer (Union[Unset, bool]):  Default: False.
+        created_at (Union[None, Unset, datetime.datetime]):
+    """
 
     name: str
     key: str
     has_stripe_customer: Union[Unset, bool] = False
     created_at: Union[None, Unset, datetime.datetime] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         name = self.name
@@ -61,21 +50,20 @@ class Account:
         else:
             created_at = self.created_at
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "name": name,
-            "key": key,
-        })
+        field_dict.update(
+            {
+                "name": name,
+                "key": key,
+            }
+        )
         if has_stripe_customer is not UNSET:
             field_dict["has_stripe_customer"] = has_stripe_customer
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
@@ -96,15 +84,12 @@ class Account:
                     raise TypeError()
                 created_at_type_0 = isoparse(data)
 
-
-
                 return created_at_type_0
-            except: # noqa: E722
+            except:  # noqa: E722
                 pass
             return cast(Union[None, Unset, datetime.datetime], data)
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
-
 
         account = cls(
             name=name,
@@ -112,7 +97,6 @@ class Account:
             has_stripe_customer=has_stripe_customer,
             created_at=created_at,
         )
-
 
         account.additional_properties = d
         return account

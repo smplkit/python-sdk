@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union, cast
+from typing import Any, Optional, Union
 
 import httpx
 
@@ -9,21 +9,13 @@ from ... import errors
 
 from ...models.error_response import ErrorResponse
 from ...models.service_list_response import ServiceListResponse
-from ...types import UNSET, Unset
-from typing import cast
-from typing import cast, Union
-from typing import Union
-
+from ...types import Unset
 
 
 def _get_kwargs(
     *,
     filterkey: Union[None, Unset, str] = UNSET,
-
 ) -> dict[str, Any]:
-    
-
-    
 
     params: dict[str, Any] = {}
 
@@ -34,9 +26,7 @@ def _get_kwargs(
         json_filterkey = filterkey
     params["filter[key]"] = json_filterkey
 
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
 
     _kwargs: dict[str, Any] = {
         "method": "get",
@@ -44,44 +34,34 @@ def _get_kwargs(
         "params": params,
     }
 
-
     return _kwargs
 
 
-
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[ErrorResponse, ServiceListResponse]]:
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[ErrorResponse, ServiceListResponse]]:
     if response.status_code == 200:
         response_200 = ServiceListResponse.from_dict(response.json())
-
-
 
         return response_200
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_400
 
     if response.status_code == 401:
         response_401 = ErrorResponse.from_dict(response.json())
-
-
 
         return response_401
 
     if response.status_code == 404:
         response_404 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_404
 
     if response.status_code == 429:
         response_429 = ErrorResponse.from_dict(response.json())
-
-
 
         return response_429
 
@@ -91,7 +71,9 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[ErrorResponse, ServiceListResponse]]:
+def _build_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[ErrorResponse, ServiceListResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -104,9 +86,8 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     filterkey: Union[None, Unset, str] = UNSET,
-
 ) -> Response[Union[ErrorResponse, ServiceListResponse]]:
-    """ List Services
+    """List Services
 
     Args:
         filterkey (Union[None, Unset, str]):
@@ -117,12 +98,10 @@ def sync_detailed(
 
     Returns:
         Response[Union[ErrorResponse, ServiceListResponse]]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         filterkey=filterkey,
-
     )
 
     response = client.get_httpx_client().request(
@@ -131,13 +110,13 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient,
     filterkey: Union[None, Unset, str] = UNSET,
-
 ) -> Optional[Union[ErrorResponse, ServiceListResponse]]:
-    """ List Services
+    """List Services
 
     Args:
         filterkey (Union[None, Unset, str]):
@@ -148,22 +127,20 @@ def sync(
 
     Returns:
         Union[ErrorResponse, ServiceListResponse]
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-filterkey=filterkey,
-
+        filterkey=filterkey,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     filterkey: Union[None, Unset, str] = UNSET,
-
 ) -> Response[Union[ErrorResponse, ServiceListResponse]]:
-    """ List Services
+    """List Services
 
     Args:
         filterkey (Union[None, Unset, str]):
@@ -174,27 +151,23 @@ async def asyncio_detailed(
 
     Returns:
         Response[Union[ErrorResponse, ServiceListResponse]]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         filterkey=filterkey,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient,
     filterkey: Union[None, Unset, str] = UNSET,
-
 ) -> Optional[Union[ErrorResponse, ServiceListResponse]]:
-    """ List Services
+    """List Services
 
     Args:
         filterkey (Union[None, Unset, str]):
@@ -205,11 +178,11 @@ async def asyncio(
 
     Returns:
         Union[ErrorResponse, ServiceListResponse]
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-filterkey=filterkey,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            filterkey=filterkey,
+        )
+    ).parsed
