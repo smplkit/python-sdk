@@ -44,8 +44,22 @@ The SDK supports Python 3.10 through 3.13. Development uses Python 3.13 (the lat
 - `from __future__ import annotations` IS safe for forward references if needed.
 - When adding new dependencies, verify their minimum Python version is <= 3.10.
 
+## Package Naming
+
+- **PyPI project name:** `smplkit-sdk` (install via `pip install smplkit-sdk`)
+- **Python package name:** `smplkit` (import via `from smplkit import SmplkitClient`)
+- The PyPI name `smplkit` is taken by an unrelated project. The `-sdk` suffix is the PyPI project name only; it does not affect imports.
+
 ## Publishing
 
-- Publishing is triggered by git tags: `git tag v0.1.0 && git push --tags`
-- Uses PyPI trusted publishing (OIDC) — no API tokens
-- Do not publish without explicit instruction from the developer
+Publishing is fully automated:
+
+1. Every push to main triggers `release.yml`, which runs `semantic-release`.
+2. If conventional commits warrant a version bump, semantic-release creates a git tag (`vX.Y.Z`) and GitHub release.
+3. The tag push triggers `publish.yml`, which builds the package and publishes to PyPI via OIDC trusted publishing.
+
+- **Do not create tags manually.** Semantic-release owns versioning.
+- **Do not set version in pyproject.toml.** Version is derived from git tags via `hatch-vcs`.
+- **Conventional commits drive version bumps:** `feat:` → minor, `fix:` → patch, `BREAKING CHANGE:` → major.
+- **PyPI project name:** `smplkit-sdk` (the `smplkit` name on PyPI is taken by an unrelated project).
+- **Python package name:** `smplkit` (import path is unchanged: `from smplkit import SmplkitClient`).

@@ -5,7 +5,7 @@ Official Python SDK for the [smplkit](https://www.smplkit.com) platform.
 ## Installation
 
 ```bash
-pip install smplkit
+pip install smplkit-sdk
 ```
 
 ## Quick Start

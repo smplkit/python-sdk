@@ -3,4 +3,8 @@
 from smplkit.client import SmplkitClient
 
 __all__ = ["SmplkitClient"]
-__version__ = "0.1.0"
+
+try:
+    from smplkit._version import __version__
+except ImportError:
+    __version__ = "0.0.0"  # Fallback for editable installs without VCS
