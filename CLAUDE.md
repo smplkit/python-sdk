@@ -18,7 +18,7 @@ Do NOT edit files under `_generated/` manually — they will be overwritten on n
 ## Commits
 
 Commit directly to main with conventional commit messages. No branches or PRs.
-Exception: automated spec-update PRs from `receive-spec-update.yml` use branches by design.
+Exception: automated regeneration PRs from `regenerate-clients.yml` use branches by design.
 
 ## Testing
 

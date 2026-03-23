@@ -1,0 +1,100 @@
+name: Regenerate Clients
+
+on:
+  repository_dispatch:
+    types: [spec-updated]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout python-sdk
+        uses: actions/checkout@v4
+
+      - name: Pull latest specs from source repos
+        run: |
+          declare -A REPOS=(
+            [app]="smplkit/app"
+            [config]="smplkit/config"
+            [flags]="smplkit/flags"
+            [logging]="smplkit/logging"
+          )
+
+          for service in "${!REPOS[@]}"; do
+            repo="${REPOS[$service]}"
+            echo "Fetching spec for $service from $repo ..."
+            curl -sf \
+              -H "Authorization: token ${{ secrets.SDK_DISPATCH_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3.raw" \
+              "https://api.github.com/repos/${repo}/contents/openapi/openapi.json" \
+              -o "openapi/${service}.json"
+            echo "  -> openapi/${service}.json updated"
+          done
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet openapi/; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No spec changes detected."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Spec changes detected:"
+            git diff --stat openapi/
+          fi
+
+      - name: Set up Python
+        if: steps.diff.outputs.changed == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Regenerate clients
+        if: steps.diff.outputs.changed == 'true'
+        run: bash scripts/generate.sh
+
+      - name: Run tests
+        if: steps.diff.outputs.changed == 'true'
+        run: pytest --cov=smplkit --cov-report=term-missing
+
+      - name: Create pull request
+        if: steps.diff.outputs.changed == 'true'
+        id: pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: regenerate clients from latest upstream specs"
+          title: "chore: regenerate clients from latest upstream specs"
+          body: |
+            Automated client regeneration from latest OpenAPI specs.
+
+            Triggered by: `${{ github.event_name }}` ${{ github.event.client_payload.service && format('(spec change in smplkit/{0})', github.event.client_payload.service) || '' }}
+          branch: "regen/clients"
+          delete-branch: true
+
+      - name: Summary
+        run: |
+          echo "## Regenerate Clients" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.diff.outputs.changed }}" == "true" ]; then
+            echo "Spec changes detected. Regenerated clients and created/updated PR." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Changed specs" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            git diff --stat openapi/ >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "(changes already committed to PR branch)" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No spec changes detected. All specs are up to date." >> "$GITHUB_STEP_SUMMARY"
+          fi
