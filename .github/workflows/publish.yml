@@ -33,49 +33,60 @@ jobs:
         with:
           node-version-file: ".nvmrc"
 
+      - name: Record latest tag before release
+        id: before
+        run: echo "tag=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> "$GITHUB_OUTPUT"
+
       - name: Run semantic-release
-        id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx --yes semantic-release
 
-      - name: Determine version
-        id: version
+      - name: Check if a new release was created
+        id: check
         run: |
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
-          VERSION="${VERSION#v}"
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          git fetch --tags origin
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')
+          if [ "$LATEST_TAG" != "${{ steps.before.outputs.tag }}" ] && [ -n "$LATEST_TAG" ]; then
+            VERSION="${LATEST_TAG#v}"
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "New release detected: ${LATEST_TAG}"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            echo "No new release."
+          fi
 
       - name: Set up Python
-        if: steps.semantic.outputs.new_release_published == 'true'
+        if: steps.check.outputs.released == 'true'
         uses: actions/setup-python@v6
         with:
           python-version: '3.13'
 
       - name: Install build tools
-        if: steps.semantic.outputs.new_release_published == 'true'
+        if: steps.check.outputs.released == 'true'
         run: pip install build
 
       - name: Build package
-        if: steps.semantic.outputs.new_release_published == 'true'
+        if: steps.check.outputs.released == 'true'
         run: python -m build
 
       - name: Verify package name and version
-        if: steps.semantic.outputs.new_release_published == 'true'
+        if: steps.check.outputs.released == 'true'
         run: |
           ls dist/
           ls dist/smplkit_sdk-*.whl || { echo "ERROR: Expected smplkit_sdk wheel not found"; exit 1; }
 
       - name: Publish to PyPI
-        if: steps.semantic.outputs.new_release_published == 'true'
+        if: steps.check.outputs.released == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
 
-      - name: Release summary
+      - name: Summary
         run: |
-          echo "## Release" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Publish" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.semantic.outputs.new_release_published }}" = "true" ]; then
-            echo "**Version:** v${{ steps.version.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.check.outputs.released }}" = "true" ]; then
+            echo "**Version:** v${{ steps.check.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
             echo "**Published to PyPI:** yes" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "No release warranted by commits since last release." >> "$GITHUB_STEP_SUMMARY"
