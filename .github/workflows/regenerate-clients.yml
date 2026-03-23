@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Checkout python-sdk
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Pull latest specs from source repos
         run: |
@@ -47,13 +47,15 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "Spec changes detected:"
             git diff --stat openapi/
+            # Save the diff summary for the step summary (it will be gone after commit)
+            git diff --stat openapi/ > /tmp/spec-diff.txt
           fi
 
       - name: Set up Python
         if: steps.diff.outputs.changed == 'true'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install dependencies
         if: steps.diff.outputs.changed == 'true'
@@ -72,7 +74,7 @@ jobs:
       - name: Create pull request
         if: steps.diff.outputs.changed == 'true'
         id: pr
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: regenerate clients from latest upstream specs"
@@ -90,10 +92,14 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ steps.diff.outputs.changed }}" == "true" ]; then
             echo "Spec changes detected. Regenerated clients and created/updated PR." >> "$GITHUB_STEP_SUMMARY"
+            if [ "${{ steps.pr.outputs.pull-request-url }}" != "" ]; then
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "**PR:** ${{ steps.pr.outputs.pull-request-url }}" >> "$GITHUB_STEP_SUMMARY"
+            fi
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "### Changed specs" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
-            git diff --stat openapi/ >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "(changes already committed to PR branch)" >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/spec-diff.txt >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           else
             echo "No spec changes detected. All specs are up to date." >> "$GITHUB_STEP_SUMMARY"
