@@ -71,19 +71,24 @@ jobs:
         if: steps.diff.outputs.changed == 'true'
         run: pytest --cov=smplkit --cov-report=term-missing
 
+      - name: Generate branch name
+        if: steps.diff.outputs.changed == 'true'
+        id: branch
+        run: echo "name=regen/clients-$(date -u +'%Y%m%d-%H%M%S')" >> "$GITHUB_OUTPUT"
+
       - name: Create pull request
         if: steps.diff.outputs.changed == 'true'
         id: pr
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.SDK_DISPATCH_TOKEN }}
           commit-message: "chore: regenerate clients from latest upstream specs"
           title: "chore: regenerate clients from latest upstream specs"
           body: |
             Automated client regeneration from latest OpenAPI specs.
 
             Triggered by: `${{ github.event_name }}` ${{ github.event.client_payload.service && format('(spec change in smplkit/{0})', github.event.client_payload.service) || '' }}
-          branch: "regen/clients"
+          branch: ${{ steps.branch.outputs.name }}
           delete-branch: true
 
       - name: Summary
