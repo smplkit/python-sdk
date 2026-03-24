@@ -7,6 +7,7 @@ from .api_key import ApiKey
 from .api_key_list_response import ApiKeyListResponse
 from .api_key_resource import ApiKeyResource
 from .api_key_response import ApiKeyResponse
+from .api_key_scopes import ApiKeyScopes
 from .auth_token_response import AuthTokenResponse
 from .environment import Environment
 from .environment_list_response import EnvironmentListResponse
@@ -41,6 +42,7 @@ __all__ = (
     "ApiKeyListResponse",
     "ApiKeyResource",
     "ApiKeyResponse",
+    "ApiKeyScopes",
     "AuthTokenResponse",
     "Environment",
     "EnvironmentListResponse",
