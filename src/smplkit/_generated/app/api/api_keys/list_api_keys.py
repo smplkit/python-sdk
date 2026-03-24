@@ -14,26 +14,10 @@ from ...types import Unset
 
 def _get_kwargs(
     *,
-    filterenvironment: None | str | Unset = UNSET,
-    filtertype: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
-
-    json_filterenvironment: None | str | Unset
-    if isinstance(filterenvironment, Unset):
-        json_filterenvironment = UNSET
-    else:
-        json_filterenvironment = filterenvironment
-    params["filter[environment]"] = json_filterenvironment
-
-    json_filtertype: None | str | Unset
-    if isinstance(filtertype, Unset):
-        json_filtertype = UNSET
-    else:
-        json_filtertype = filtertype
-    params["filter[type]"] = json_filtertype
 
     json_filterstatus: None | str | Unset
     if isinstance(filterstatus, Unset):
@@ -101,15 +85,11 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    filterenvironment: None | str | Unset = UNSET,
-    filtertype: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
 ) -> Response[ApiKeyListResponse | ErrorResponse]:
     """List API Keys
 
     Args:
-        filterenvironment (None | str | Unset):
-        filtertype (None | str | Unset):
         filterstatus (None | str | Unset):
 
     Raises:
@@ -121,8 +101,6 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
-        filterenvironment=filterenvironment,
-        filtertype=filtertype,
         filterstatus=filterstatus,
     )
 
@@ -136,15 +114,11 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    filterenvironment: None | str | Unset = UNSET,
-    filtertype: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
 ) -> ApiKeyListResponse | ErrorResponse | None:
     """List API Keys
 
     Args:
-        filterenvironment (None | str | Unset):
-        filtertype (None | str | Unset):
         filterstatus (None | str | Unset):
 
     Raises:
@@ -157,8 +131,6 @@ def sync(
 
     return sync_detailed(
         client=client,
-        filterenvironment=filterenvironment,
-        filtertype=filtertype,
         filterstatus=filterstatus,
     ).parsed
 
@@ -166,15 +138,11 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    filterenvironment: None | str | Unset = UNSET,
-    filtertype: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
 ) -> Response[ApiKeyListResponse | ErrorResponse]:
     """List API Keys
 
     Args:
-        filterenvironment (None | str | Unset):
-        filtertype (None | str | Unset):
         filterstatus (None | str | Unset):
 
     Raises:
@@ -186,8 +154,6 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
-        filterenvironment=filterenvironment,
-        filtertype=filtertype,
         filterstatus=filterstatus,
     )
 
@@ -199,15 +165,11 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    filterenvironment: None | str | Unset = UNSET,
-    filtertype: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
 ) -> ApiKeyListResponse | ErrorResponse | None:
     """List API Keys
 
     Args:
-        filterenvironment (None | str | Unset):
-        filtertype (None | str | Unset):
         filterstatus (None | str | Unset):
 
     Raises:
@@ -221,8 +183,6 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
-            filterenvironment=filterenvironment,
-            filtertype=filtertype,
             filterstatus=filterstatus,
         )
     ).parsed

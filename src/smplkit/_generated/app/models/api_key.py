@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, TYPE_CHECKING
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -11,6 +11,9 @@ from ..types import UNSET, Unset
 from dateutil.parser import isoparse
 from typing import cast
 import datetime
+
+if TYPE_CHECKING:
+    from ..models.api_key_scopes import ApiKeyScopes
 
 
 T = TypeVar("T", bound="ApiKey")
@@ -22,14 +25,13 @@ class ApiKey:
     Example:
         {'created_at': '2026-03-20T11:02:16.616Z', 'created_by': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'expires_at':
             '2027-03-20T11:02:16.616Z', 'key': 'sk_api_a1b2c3d4e5f6g7h8i9j0', 'last_used_at': '2026-03-19T08:45:00.000Z',
-            'name': 'Production API Key', 'status': 'ACTIVE', 'type': 'API_KEY', 'updated_at': '2026-03-20T11:02:16.616Z'}
+            'name': 'Production API Key', 'scopes': {}, 'status': 'ACTIVE', 'updated_at': '2026-03-20T11:02:16.616Z'}
 
     Attributes:
         name (str):
-        type_ (str): API_KEY or SDK_KEY
         status (str | Unset):  Default: ''.
         key (str | Unset):  Default: ''.
-        environment_id (None | str | Unset): Required for SDK_KEY, optional for API_KEY
+        scopes (ApiKeyScopes | Unset):
         created_by (str | Unset):  Default: ''.
         expires_at (datetime.datetime | None | Unset):
         last_used_at (datetime.datetime | None | Unset):
@@ -38,10 +40,9 @@ class ApiKey:
     """
 
     name: str
-    type_: str
     status: str | Unset = ""
     key: str | Unset = ""
-    environment_id: None | str | Unset = UNSET
+    scopes: ApiKeyScopes | Unset = UNSET
     created_by: str | Unset = ""
     expires_at: datetime.datetime | None | Unset = UNSET
     last_used_at: datetime.datetime | None | Unset = UNSET
@@ -52,17 +53,13 @@ class ApiKey:
     def to_dict(self) -> dict[str, Any]:
         name = self.name
 
-        type_ = self.type_
-
         status = self.status
 
         key = self.key
 
-        environment_id: None | str | Unset
-        if isinstance(self.environment_id, Unset):
-            environment_id = UNSET
-        else:
-            environment_id = self.environment_id
+        scopes: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.scopes, Unset):
+            scopes = self.scopes.to_dict()
 
         created_by = self.created_by
 
@@ -103,15 +100,14 @@ class ApiKey:
         field_dict.update(
             {
                 "name": name,
-                "type": type_,
             }
         )
         if status is not UNSET:
             field_dict["status"] = status
         if key is not UNSET:
             field_dict["key"] = key
-        if environment_id is not UNSET:
-            field_dict["environment_id"] = environment_id
+        if scopes is not UNSET:
+            field_dict["scopes"] = scopes
         if created_by is not UNSET:
             field_dict["created_by"] = created_by
         if expires_at is not UNSET:
@@ -127,23 +123,21 @@ class ApiKey:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.api_key_scopes import ApiKeyScopes
+
         d = dict(src_dict)
         name = d.pop("name")
-
-        type_ = d.pop("type")
 
         status = d.pop("status", UNSET)
 
         key = d.pop("key", UNSET)
 
-        def _parse_environment_id(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        environment_id = _parse_environment_id(d.pop("environment_id", UNSET))
+        _scopes = d.pop("scopes", UNSET)
+        scopes: ApiKeyScopes | Unset
+        if isinstance(_scopes, Unset):
+            scopes = UNSET
+        else:
+            scopes = ApiKeyScopes.from_dict(_scopes)
 
         created_by = d.pop("created_by", UNSET)
 
@@ -217,10 +211,9 @@ class ApiKey:
 
         api_key = cls(
             name=name,
-            type_=type_,
             status=status,
             key=key,
-            environment_id=environment_id,
+            scopes=scopes,
             created_by=created_by,
             expires_at=expires_at,
             last_used_at=last_used_at,
