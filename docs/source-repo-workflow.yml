@@ -8,6 +8,9 @@
 #   - MIKES_PAT secret: a PAT (owned by notmikegorman) with
 #     contents:write and pull-requests:write on smplkit/python-sdk.
 #     Can be an org secret scoped to private repos only.
+#   - WORKFLOW_APP_ID and WORKFLOW_PRIVATE_KEY org secrets: credentials
+#     for the GitHub App that approves auto-merge PRs in python-sdk.
+#     The app needs pull-requests:write on smplkit/python-sdk.
 #
 # The python-sdk repo's auto-merge workflow will merge the PR once
 # CI passes, provided the PR author matches the PAT owner and the
