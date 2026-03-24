@@ -8,17 +8,18 @@ Two-layer architecture per ADR-021:
 
 ## Regenerating clients
 
-After updating a spec in `openapi/`:
 ```bash
-bash scripts/generate.sh
+make generate
 ```
 
-Do NOT edit files under `_generated/` manually — they will be overwritten on next generation.
+This regenerates ALL clients from ALL specs in `openapi/`. Do NOT edit files under `_generated/` manually — they will be overwritten on next generation.
+
+Spec updates are automated: each source repo (app, config, flags, logging) pushes spec changes to this repo via PR. See `docs/source-repo-workflow.yml` for the template. PRs from `regen/` branches authored by `notmikegorman` are auto-merged after CI passes (see `.github/workflows/auto-merge.yml`).
 
 ## Commits
 
 Commit directly to main with conventional commit messages. No branches or PRs.
-Exception: automated regeneration PRs from `regenerate-clients.yml` use branches by design.
+Exception: automated regeneration PRs from source repos use `regen/` branches by design.
 
 ## Testing
 
