@@ -2697,6 +2697,19 @@
             ],
             "title": "Created At",
             "readOnly": true
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At",
+            "readOnly": true
           }
         },
         "type": "object",
