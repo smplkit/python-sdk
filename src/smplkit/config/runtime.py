@@ -168,6 +168,15 @@ class ConfigRuntime:
         except Exception:
             ws_logger.error("WebSocket thread exited unexpectedly", exc_info=True)
         finally:
+            # Cancel all remaining tasks (e.g. websockets keepalive) before
+            # closing the loop so they don't leak "Task was destroyed" warnings.
+            pending = asyncio.all_tasks(loop)
+            for task in pending:
+                task.cancel()
+            if pending:
+                loop.run_until_complete(
+                    asyncio.gather(*pending, return_exceptions=True)
+                )
             loop.close()
 
     async def _ws_main(self) -> None:
