@@ -177,6 +177,10 @@ class Config:
         values for the given environment via deep merge, and returns a
         :class:`ConfigRuntime` with a fully populated local cache.
 
+        A background WebSocket connection is started for real-time updates.
+        If the WebSocket fails to connect, the runtime operates in
+        cache-only mode.
+
         Args:
             environment: The environment to resolve for (e.g.
                 ``"production"``).
@@ -190,19 +194,30 @@ class Config:
             SmplConnectionError: If a network request fails.
         """
         chain = self._build_chain()
+        api_key = self._client._parent._api_key
+        base_url = self._client._parent._http_client._base_url
+
+        def _fetch_chain() -> list[dict[str, Any]]:
+            return self._build_chain()
+
         return ConfigRuntime(
             config_key=self.key,
+            config_id=self.id,
             environment=environment,
             chain=chain,
+            api_key=api_key,
+            base_url=base_url,
+            fetch_chain_fn=_fetch_chain,
         )
 
     def _build_chain(self) -> list[dict[str, Any]]:
         """Walk the parent chain and return config data dicts child-to-root."""
-        chain = [{"values": self.values, "environments": self.environments}]
+        chain = [{"id": self.id, "values": self.values, "environments": self.environments}]
         current = self
         while current.parent is not None:
             parent_config = self._client.get(id=current.parent)
             chain.append({
+                "id": parent_config.id,
                 "values": parent_config.values,
                 "environments": parent_config.environments,
             })
@@ -371,6 +386,10 @@ class AsyncConfig:
         values for the given environment via deep merge, and returns a
         :class:`ConfigRuntime` with a fully populated local cache.
 
+        A background WebSocket connection is started for real-time updates.
+        If the WebSocket fails to connect, the runtime operates in
+        cache-only mode.
+
         Args:
             environment: The environment to resolve for (e.g.
                 ``"production"``).
@@ -384,19 +403,38 @@ class AsyncConfig:
             SmplConnectionError: If a network request fails.
         """
         chain = await self._build_chain()
+        api_key = self._client._parent._api_key
+        base_url = self._client._parent._http_client._base_url
+
+        def _fetch_chain() -> list[dict[str, Any]]:
+            # For async clients, we build a sync fetch by running in a new loop
+            # This is used only during reconnection (background thread)
+            import asyncio as _asyncio
+
+            loop = _asyncio.new_event_loop()
+            try:
+                return loop.run_until_complete(self._build_chain())
+            finally:
+                loop.close()
+
         return ConfigRuntime(
             config_key=self.key,
+            config_id=self.id,
             environment=environment,
             chain=chain,
+            api_key=api_key,
+            base_url=base_url,
+            fetch_chain_fn=_fetch_chain,
         )
 
     async def _build_chain(self) -> list[dict[str, Any]]:
         """Walk the parent chain and return config data dicts child-to-root."""
-        chain = [{"values": self.values, "environments": self.environments}]
+        chain = [{"id": self.id, "values": self.values, "environments": self.environments}]
         current = self
         while current.parent is not None:
             parent_config = await self._client.get(id=current.parent)
             chain.append({
+                "id": parent_config.id,
                 "values": parent_config.values,
                 "environments": parent_config.environments,
             })

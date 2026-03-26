@@ -1,6 +1,7 @@
 """Tests for ConfigRuntime, ConfigChangeEvent, and ConfigStats."""
 
 import asyncio
+from unittest.mock import patch
 
 import pytest
 
@@ -10,20 +11,38 @@ from smplkit.config.runtime import ConfigChangeEvent, ConfigRuntime, ConfigStats
 def _make_runtime(
     *,
     config_key: str = "test_config",
+    config_id: str = "5a0c6be1-0000-0000-0000-000000000001",
     environment: str = "production",
     chain: list | None = None,
+    api_key: str = "sk_test",
+    base_url: str = "https://config.smplkit.com",
+    fetch_chain_fn=None,
 ) -> ConfigRuntime:
-    """Helper to create a ConfigRuntime with sensible defaults."""
+    """Helper to create a ConfigRuntime with sensible defaults.
+
+    Patches the WebSocket thread so it doesn't actually connect.
+    """
     if chain is None:
         chain = [
             {
+                "id": config_id,
                 "values": {"retries": 5, "name": "test", "enabled": True, "count": 42},
                 "environments": {
                     "production": {"values": {"retries": 10}},
                 },
             }
         ]
-    return ConfigRuntime(config_key=config_key, environment=environment, chain=chain)
+    with patch.object(ConfigRuntime, "_start_ws_thread"):
+        rt = ConfigRuntime(
+            config_key=config_key,
+            config_id=config_id,
+            environment=environment,
+            chain=chain,
+            api_key=api_key,
+            base_url=base_url,
+            fetch_chain_fn=fetch_chain_fn,
+        )
+    return rt
 
 
 class TestConfigRuntime:
@@ -100,9 +119,9 @@ class TestConfigRuntime:
 
     def test_stats_fetch_count_matches_chain_length(self):
         chain = [
-            {"values": {"a": 1}, "environments": {}},
-            {"values": {"b": 2}, "environments": {}},
-            {"values": {"c": 3}, "environments": {}},
+            {"id": "a", "values": {"a": 1}, "environments": {}},
+            {"id": "b", "values": {"b": 2}, "environments": {}},
+            {"id": "c", "values": {"c": 3}, "environments": {}},
         ]
         rt = _make_runtime(chain=chain)
         assert rt.stats().fetch_count == 3
@@ -123,15 +142,11 @@ class TestConfigRuntime:
         rt.on_change(lambda e: None, key="retries")
         assert rt._listeners[0][1] == "retries"
 
-    def test_refresh_raises_not_implemented(self):
-        rt = _make_runtime()
-        with pytest.raises(NotImplementedError, match="WebSocket not yet implemented"):
-            asyncio.run(rt.refresh())
-
     def test_close_sets_closed(self):
         rt = _make_runtime()
         asyncio.run(rt.close())
         assert rt._closed is True
+        assert rt.connection_status() == "disconnected"
 
     def test_sync_context_manager(self):
         rt = _make_runtime()
