@@ -63,3 +63,33 @@ def test_async_smpl_client_close():
         await client.close()
 
     asyncio.run(_run())
+
+
+def test_smpl_client_close_with_existing_client():
+    """Exercise close() when an httpx.Client has been created."""
+    client = SmplClient(api_key="sk_api_test")
+    # Force the lazy client to be created by accessing it
+    http_client = client._http_client.get_httpx_client()
+    assert http_client is not None
+    client.close()
+    assert client._http_client._client is None
+
+
+def test_smpl_client_close_idempotent():
+    """Closing twice should not raise."""
+    client = SmplClient(api_key="sk_api_test")
+    client.close()
+    client.close()
+
+
+def test_async_smpl_client_close_with_existing_client():
+    """Exercise async close() when an httpx.AsyncClient has been created."""
+    async def _run():
+        client = AsyncSmplClient(api_key="sk_api_test")
+        # Force the lazy async client to be created
+        http_client = client._http_client.get_async_httpx_client()
+        assert http_client is not None
+        await client.close()
+        assert client._http_client._async_client is None
+
+    asyncio.run(_run())

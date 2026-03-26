@@ -1,7 +1,7 @@
 """Tests for ConfigRuntime, ConfigChangeEvent, and ConfigStats."""
 
 import asyncio
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from smplkit.config.runtime import ConfigChangeEvent, ConfigRuntime, ConfigStats
 
@@ -172,6 +172,116 @@ class TestConfigRuntime:
         rt = _make_runtime(chain=[])
         assert rt.get_all() == {}
         assert rt.stats().fetch_count == 0
+
+    def test_refresh_with_sync_fetch(self):
+        chain = [
+            {
+                "id": "cfg-1",
+                "values": {"retries": 5},
+                "environments": {"production": {"values": {"retries": 10}}},
+            }
+        ]
+        new_chain = [
+            {
+                "id": "cfg-1",
+                "values": {"retries": 99},
+                "environments": {"production": {"values": {"retries": 99}}},
+            }
+        ]
+        rt = _make_runtime(chain=chain, fetch_chain_fn=lambda: new_chain)
+        asyncio.run(rt.refresh())
+        assert rt.get("retries") == 99
+        assert rt.stats().fetch_count == 2  # 1 initial + 1 refresh
+
+    def test_refresh_with_coroutine_fetch(self):
+        chain = [
+            {
+                "id": "cfg-1",
+                "values": {"retries": 5},
+                "environments": {"production": {"values": {"retries": 10}}},
+            }
+        ]
+        new_chain = [
+            {
+                "id": "cfg-1",
+                "values": {"retries": 77},
+                "environments": {"production": {"values": {"retries": 77}}},
+            }
+        ]
+
+        async def async_fetch():
+            return new_chain
+
+        rt = _make_runtime(chain=chain, fetch_chain_fn=async_fetch)
+        asyncio.run(rt.refresh())
+        assert rt.get("retries") == 77
+
+    def test_refresh_no_fetch_fn(self):
+        rt = _make_runtime()
+        # Should not raise when fetch_chain_fn is None
+        asyncio.run(rt.refresh())
+
+    def test_refresh_fires_listeners(self):
+        chain = [
+            {
+                "id": "cfg-1",
+                "values": {"retries": 5},
+                "environments": {"production": {"values": {"retries": 10}}},
+            }
+        ]
+        new_chain = [
+            {
+                "id": "cfg-1",
+                "values": {"retries": 20},
+                "environments": {"production": {"values": {"retries": 20}}},
+            }
+        ]
+        rt = _make_runtime(chain=chain, fetch_chain_fn=lambda: new_chain)
+        events = []
+        rt.on_change(lambda e: events.append(e))
+        asyncio.run(rt.refresh())
+        assert len(events) == 1
+        assert events[0].key == "retries"
+        assert events[0].source == "manual"
+
+    def test_get_after_deleted_warns(self):
+        rt = _make_runtime()
+        rt._deleted = True
+        # First access after deletion should not raise but should mark warned
+        val = rt.get("retries")
+        assert val == 10
+        assert rt._access_after_delete_warned is True
+
+    def test_close_with_no_ws(self):
+        """Close should work cleanly when no WebSocket is active."""
+        rt = _make_runtime()
+        rt._ws = None
+        rt._ws_loop = None
+        asyncio.run(rt.close())
+        assert rt._closed is True
+        assert rt.connection_status() == "disconnected"
+
+    def test_sync_exit_with_ws_loop(self):
+        """Sync __exit__ should close WebSocket via the background loop."""
+        rt = _make_runtime()
+        mock_ws = MagicMock()
+        mock_ws.close = AsyncMock()
+        rt._ws = mock_ws
+        # Create and start a loop on a background thread
+        import threading
+
+        loop = asyncio.new_event_loop()
+        thread = threading.Thread(target=loop.run_forever, daemon=True)
+        thread.start()
+        rt._ws_loop = loop
+        rt._ws_thread = thread
+        try:
+            rt.__exit__(None, None, None)
+        finally:
+            loop.call_soon_threadsafe(loop.stop)
+            thread.join(timeout=2)
+            loop.close()
+        assert rt._closed is True
 
 
 class TestConfigChangeEvent:

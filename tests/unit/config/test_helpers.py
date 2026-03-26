@@ -60,6 +60,10 @@ class TestExtractValues:
         obj.additional_properties = {"x": 42}
         assert _extract_values(obj) == {"x": 42}
 
+    def test_unknown_type_returns_empty(self):
+        assert _extract_values(42) == {}
+        assert _extract_values("not a dict") == {}
+
 
 class TestExtractEnvironments:
     def test_none_returns_empty(self):
@@ -73,6 +77,10 @@ class TestExtractEnvironments:
         obj.additional_properties = {"staging": {"values": {}}}
         assert _extract_environments(obj) == {"staging": {"values": {}}}
 
+    def test_unknown_type_returns_empty(self):
+        assert _extract_environments(42) == {}
+        assert _extract_environments("not a dict") == {}
+
 
 class TestExtractDatetime:
     def test_none_returns_none(self):
@@ -84,6 +92,11 @@ class TestExtractDatetime:
         dt = datetime.datetime(2026, 1, 1)
         assert _extract_datetime(dt) is dt
 
+    def test_unset_returns_none(self):
+        class Unset:
+            pass
+        assert _extract_datetime(Unset()) is None
+
 
 class TestUnsetToNone:
     def test_none_stays_none(self):
@@ -91,6 +104,11 @@ class TestUnsetToNone:
 
     def test_string_passes_through(self):
         assert _unset_to_none("hello") == "hello"
+
+    def test_unset_returns_none(self):
+        class Unset:
+            pass
+        assert _unset_to_none(Unset()) is None
 
 
 class TestCheckResponseStatus:

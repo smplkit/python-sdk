@@ -3,7 +3,7 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from smplkit.config.models import AsyncConfig, Config
+from smplkit.config.models import AsyncConfig, Config, _AsyncConnectResult
 from smplkit.config.runtime import ConfigRuntime
 
 
@@ -335,7 +335,96 @@ class TestAsyncConfig:
             environments={},
         )
 
-        runtime = asyncio.run(child.connect("production"))
-        assert runtime.get("inherited") == "yes"
-        assert runtime.get("shared") == "child_val"
+        async def _run():
+            runtime = await child.connect("production")
+            assert runtime.get("inherited") == "yes"
+            assert runtime.get("shared") == "child_val"
+
+        asyncio.run(_run())
         mock_client.get.assert_called_once_with(id="parent-1")
+
+    @patch.object(ConfigRuntime, "_start_ws_thread")
+    def test_connect_no_parent(self, _mock_ws):
+        mock_client = MagicMock()
+        mock_client._parent._api_key = "sk_test"
+        mock_client._parent._http_client._base_url = "https://config.smplkit.com"
+
+        cfg = AsyncConfig(
+            mock_client,
+            id="abc-123",
+            key="test_config",
+            name="Test",
+            values={"a": 1},
+            environments={"prod": {"values": {"a": 2}}},
+        )
+
+        async def _run():
+            runtime = await cfg.connect("prod")
+            assert runtime.get("a") == 2
+
+        asyncio.run(_run())
+
+    @patch.object(ConfigRuntime, "_start_ws_thread")
+    def test_connect_as_async_context_manager(self, _mock_ws):
+        mock_client = MagicMock()
+        mock_client._parent._api_key = "sk_test"
+        mock_client._parent._http_client._base_url = "https://config.smplkit.com"
+
+        cfg = AsyncConfig(
+            mock_client,
+            id="abc-123",
+            key="test_config",
+            name="Test",
+            values={"a": 1},
+            environments={},
+        )
+
+        async def _run():
+            async with cfg.connect("production") as runtime:
+                assert runtime.get("a") == 1
+            assert runtime._closed is True
+
+        asyncio.run(_run())
+
+
+class TestAsyncConnectResult:
+    def test_await_returns_runtime(self):
+        async def fake_coro():
+            return "runtime_obj"
+
+        result = _AsyncConnectResult(fake_coro())
+
+        async def _run():
+            val = await result
+            assert val == "runtime_obj"
+
+        asyncio.run(_run())
+
+    def test_async_with_returns_runtime_and_closes(self):
+        mock_runtime = MagicMock()
+        mock_runtime.close = AsyncMock()
+
+        async def fake_coro():
+            return mock_runtime
+
+        result = _AsyncConnectResult(fake_coro())
+
+        async def _run():
+            async with result as rt:
+                assert rt is mock_runtime
+            mock_runtime.close.assert_called_once()
+
+        asyncio.run(_run())
+
+    def test_async_with_no_runtime(self):
+        """__aexit__ with no runtime (e.g. if __aenter__ wasn't called) should not raise."""
+        async def fake_coro():
+            return MagicMock()
+
+        result = _AsyncConnectResult(fake_coro())
+
+        async def _run():
+            # Call __aexit__ directly without __aenter__
+            await result.__aexit__(None, None, None)
+
+        asyncio.run(_run())
