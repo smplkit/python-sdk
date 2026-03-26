@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+from collections.abc import Coroutine
 from typing import TYPE_CHECKING, Any
 
 from smplkit.config.runtime import ConfigRuntime
@@ -12,6 +13,27 @@ if TYPE_CHECKING:
     from smplkit.config.client import AsyncConfigClient, ConfigClient
 
 logger = logging.getLogger("smplkit")
+
+
+class _AsyncConnectResult:
+    """Wrapper that makes ``AsyncConfig.connect()`` usable as both
+    ``await config.connect(...)`` and ``async with config.connect(...) as rt:``.
+    """
+
+    def __init__(self, coro: Coroutine[Any, Any, ConfigRuntime]) -> None:
+        self._coro = coro
+        self._runtime: ConfigRuntime | None = None
+
+    def __await__(self):
+        return self._coro.__await__()
+
+    async def __aenter__(self) -> ConfigRuntime:
+        self._runtime = await self._coro
+        return self._runtime
+
+    async def __aexit__(self, *args: Any) -> None:
+        if self._runtime is not None:
+            await self._runtime.close()
 
 
 class Config:
@@ -379,7 +401,7 @@ class AsyncConfig:
             existing[key] = value
             await self.set_values(existing, environment=environment)
 
-    async def connect(self, environment: str, *, timeout: float = 30) -> ConfigRuntime:
+    def connect(self, environment: str, *, timeout: float = 30) -> _AsyncConnectResult:
         """Connect to this config for runtime value resolution.
 
         Eagerly fetches this config and its full parent chain, resolves
@@ -389,6 +411,12 @@ class AsyncConfig:
         A background WebSocket connection is started for real-time updates.
         If the WebSocket fails to connect, the runtime operates in
         cache-only mode.
+
+        Supports both ``await`` and ``async with``::
+
+            runtime = await config.connect("production")
+            async with config.connect("production") as runtime:
+                ...
 
         Args:
             environment: The environment to resolve for (e.g.
@@ -402,30 +430,25 @@ class AsyncConfig:
             SmplTimeoutError: If the fetch exceeds *timeout*.
             SmplConnectionError: If a network request fails.
         """
-        chain = await self._build_chain()
-        api_key = self._client._parent._api_key
-        base_url = self._client._parent._http_client._base_url
+        async def _connect() -> ConfigRuntime:
+            chain = await self._build_chain()
+            api_key = self._client._parent._api_key
+            base_url = self._client._parent._http_client._base_url
 
-        def _fetch_chain() -> list[dict[str, Any]]:
-            # For async clients, we build a sync fetch by running in a new loop
-            # This is used only during reconnection (background thread)
-            import asyncio as _asyncio
+            def _fetch_chain():
+                return self._build_chain()
 
-            loop = _asyncio.new_event_loop()
-            try:
-                return loop.run_until_complete(self._build_chain())
-            finally:
-                loop.close()
+            return ConfigRuntime(
+                config_key=self.key,
+                config_id=self.id,
+                environment=environment,
+                chain=chain,
+                api_key=api_key,
+                base_url=base_url,
+                fetch_chain_fn=_fetch_chain,
+            )
 
-        return ConfigRuntime(
-            config_key=self.key,
-            config_id=self.id,
-            environment=environment,
-            chain=chain,
-            api_key=api_key,
-            base_url=base_url,
-            fetch_chain_fn=_fetch_chain,
-        )
+        return _AsyncConnectResult(_connect())
 
     async def _build_chain(self) -> list[dict[str, Any]]:
         """Walk the parent chain and return config data dicts child-to-root."""

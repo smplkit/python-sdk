@@ -573,7 +573,11 @@ class ConfigRuntime:
             ws_logger.debug("No fetch_chain_fn provided, cannot refresh")
             return
 
-        new_chain = self._fetch_chain_fn()
+        result = self._fetch_chain_fn()
+        if asyncio.iscoroutine(result):
+            new_chain = await result
+        else:
+            new_chain = result
         self._chain = new_chain
         new_cache = resolve(new_chain, self._environment)
         self._fetch_count += len(new_chain)
@@ -597,10 +601,14 @@ class ConfigRuntime:
         self._closed = True
         self._connection_status = "disconnected"
 
-        # Close the WebSocket if open
-        if self._ws is not None:
+        # The WebSocket lives on the background thread's event loop, so we
+        # must close it there — not on the caller's loop.
+        if self._ws is not None and self._ws_loop is not None:
             try:
-                await self._ws.close()
+                future = asyncio.run_coroutine_threadsafe(
+                    self._ws.close(), self._ws_loop
+                )
+                future.result(timeout=2.0)
             except Exception:
                 pass
 
