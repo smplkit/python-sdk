@@ -2,34 +2,49 @@
 Smpl Config SDK Showcase
 ========================
 
-This program exercises the smplkit Python SDK for Smpl Config the way
-a customer SHOULD be able to use it.  It is the finish line — when this
-program runs to completion, Smpl Config is done.
+Demonstrates the smplkit Python SDK for Smpl Config, covering:
 
-It is intentionally written as a linear, self-contained script that a
-developer can read top-to-bottom to understand every capability of the
-SDK.  It is NOT a test in the pytest sense, but it can be run on demand
-to validate the full customer experience end-to-end.
+- Client initialization (``AsyncSmplClient``)
+- Management-plane CRUD: create, update, list, and delete configs
+- Environment-specific overrides and multi-level inheritance
+- Runtime value resolution: ``connect()``, ``get()``, typed accessors
+- Real-time updates via WebSocket and change listeners
+- Manual refresh and cache diagnostics
+- Async context manager pattern for automatic cleanup
 
-Usage:
-    python programs/config_showcase.py
+This script is designed to be read top-to-bottom as a walkthrough of the
+SDK's full capability surface. It is runnable against a live smplkit
+environment, but is *not* a test — it creates, modifies, and deletes
+real configs.
 
 Prerequisites:
-    - pip install smplkit-sdk
-    - A valid smplkit API key with access to the target environment
+    - ``pip install smplkit-sdk``
+    - A valid smplkit API key (set via ``SMPLKIT_API_KEY`` env var)
     - The smplkit Config service running and reachable
+
+Usage::
+
+    export SMPLKIT_API_KEY="sk_api_..."
+    python examples/config_showcase.py
 """
 
 import asyncio
+import os
+import sys
 import time
 
 from smplkit import AsyncSmplClient
 
 # ---------------------------------------------------------------------------
-# Configuration
+# Configuration — set your API key via the SMPLKIT_API_KEY env var
 # ---------------------------------------------------------------------------
 
-API_KEY = "sk_api_REPLACE_ME"
+API_KEY = os.environ.get("SMPLKIT_API_KEY", "")
+
+if not API_KEY:
+    print("ERROR: Set the SMPLKIT_API_KEY environment variable before running.")
+    print("  export SMPLKIT_API_KEY='sk_api_...'")
+    sys.exit(1)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -95,7 +110,6 @@ async def main() -> None:
             "credentials": {
                 "oauth_provider": "https://auth.acme.dev",
                 "client_id": "acme_default_client",
-                "client_secret": "default_secret_DO_NOT_USE_IN_PROD",
                 "scopes": ["read"],
             },
             "feature_flags": {
@@ -114,7 +128,6 @@ async def main() -> None:
             "max_retries": 5,
             "request_timeout_ms": 10000,
             "credentials": {
-                "client_secret": "PROD_SECRET_FROM_VAULT",
                 "scopes": ["read", "write", "admin"],
             },
         },
@@ -127,7 +140,6 @@ async def main() -> None:
         {
             "max_retries": 2,
             "credentials": {
-                "client_secret": "STAGING_SECRET",
                 "scopes": ["read", "write"],
             },
         },
@@ -173,9 +185,6 @@ async def main() -> None:
                 "ssl_mode": "require",
             },
             "cache_ttl_seconds": 600,
-            "credentials": {
-                "client_secret": "USER_SVC_PROD_SECRET",
-            },
         },
         environment="production",
     )
@@ -306,13 +315,6 @@ async def main() -> None:
 
     creds = runtime.get("credentials")
     step(f"credentials = {creds}")
-    # Expected (deep-merged across the full chain):
-    # {
-    #     "oauth_provider": "https://auth.acme.dev",  ← common base
-    #     "client_id": "acme_default_client",          ← common base
-    #     "client_secret": "USER_SVC_PROD_SECRET",     ← user_service prod
-    #     "scopes": ["read", "write", "admin"],        ← common prod
-    # }
 
     cache_ttl = runtime.get("cache_ttl_seconds")
     step(f"cache_ttl_seconds = {cache_ttl}")
@@ -410,12 +412,10 @@ async def main() -> None:
         # Keys inherited from user_service:
         db = auth_runtime.get("database")
         step(f"database (inherited from user_service) = {db}")
-        # Expected: user_service's production-resolved database config
 
         # Keys inherited all the way from common:
         app = auth_runtime.get("app_name")
         step(f"app_name (inherited from common) = {app}")
-        # Expected: "Acme SaaS Platform"
 
     step("auth_runtime closed via context manager")
 
@@ -503,8 +503,7 @@ async def main() -> None:
         async with user_service.connect(env, timeout=10) as env_runtime:
             db_host = env_runtime.get("database", default={}).get("host", "N/A")
             retries = env_runtime.get("max_retries")
-            secret = env_runtime.get("credentials", default={}).get("client_secret", "N/A")
-            step(f"[{env:12}] db.host={db_host}, retries={retries}, secret={secret}")
+            step(f"[{env:12}] db.host={db_host}, retries={retries}")
 
     # ======================================================================
     # 6. SYNC CLIENT DEMO
