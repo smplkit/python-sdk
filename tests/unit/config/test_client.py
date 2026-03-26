@@ -6,9 +6,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from smplkit._errors import SmplNotFoundError, SmplValidationError
+from smplkit._errors import SmplNotFoundError
 from smplkit.client import AsyncSmplClient, SmplClient
-from smplkit.config.client import AsyncConfigClient, ConfigClient
+from smplkit.config.client import AsyncConfigClient
 
 _TEST_UUID = "5a0c6be1-0000-0000-0000-000000000001"
 _TEST_UUID_2 = "5a0c6be1-0000-0000-0000-000000000002"
