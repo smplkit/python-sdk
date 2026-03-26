@@ -28,12 +28,14 @@ class Account:
         key (str):
         has_stripe_customer (bool | Unset):  Default: False.
         created_at (datetime.datetime | None | Unset):
+        deleted_at (datetime.datetime | None | Unset):
     """
 
     name: str
     key: str
     has_stripe_customer: bool | Unset = False
     created_at: datetime.datetime | None | Unset = UNSET
+    deleted_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -51,6 +53,14 @@ class Account:
         else:
             created_at = self.created_at
 
+        deleted_at: None | str | Unset
+        if isinstance(self.deleted_at, Unset):
+            deleted_at = UNSET
+        elif isinstance(self.deleted_at, datetime.datetime):
+            deleted_at = self.deleted_at.isoformat()
+        else:
+            deleted_at = self.deleted_at
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -63,6 +73,8 @@ class Account:
             field_dict["has_stripe_customer"] = has_stripe_customer
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
+        if deleted_at is not UNSET:
+            field_dict["deleted_at"] = deleted_at
 
         return field_dict
 
@@ -92,11 +104,29 @@ class Account:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
+        def _parse_deleted_at(data: object) -> datetime.datetime | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                deleted_at_type_0 = isoparse(data)
+
+                return deleted_at_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None | Unset, data)
+
+        deleted_at = _parse_deleted_at(d.pop("deleted_at", UNSET))
+
         account = cls(
             name=name,
             key=key,
             has_stripe_customer=has_stripe_customer,
             created_at=created_at,
+            deleted_at=deleted_at,
         )
 
         account.additional_properties = d
