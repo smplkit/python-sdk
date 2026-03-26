@@ -1,8 +1,8 @@
 """smplkit — Official Python SDK for the smplkit platform."""
 
-from smplkit.client import SmplkitClient
+from smplkit.client import AsyncSmplClient, SmplClient
 
-__all__ = ["SmplkitClient"]
+__all__ = ["AsyncSmplClient", "SmplClient"]
 
 try:
     from smplkit._version import __version__

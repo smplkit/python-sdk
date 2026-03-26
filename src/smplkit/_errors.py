@@ -1,25 +1,27 @@
 """Structured SDK error types."""
 
+from __future__ import annotations
 
-class SmplkitError(Exception):
+
+class SmplError(Exception):
     """Base exception for all smplkit SDK errors."""
 
 
-class AuthenticationError(SmplkitError):
-    """Raised when authentication fails."""
+class SmplConnectionError(SmplError):
+    """Raised when a network request fails."""
 
 
-class NotFoundError(SmplkitError):
-    """Raised when a resource is not found."""
+class SmplTimeoutError(SmplError):
+    """Raised when an operation exceeds its timeout."""
 
 
-class ValidationError(SmplkitError):
-    """Raised when the API rejects a request due to validation."""
+class SmplNotFoundError(SmplError):
+    """Raised when a requested resource does not exist."""
 
 
-class RateLimitError(SmplkitError):
-    """Raised when the API rate limit is exceeded."""
+class SmplConflictError(SmplError):
+    """Raised when an operation conflicts with current state (e.g., deleting a config that has children)."""
 
 
-class ServerError(SmplkitError):
-    """Raised when the API returns a 5xx error."""
+class SmplValidationError(SmplError):
+    """Raised when the server rejects a request due to validation errors."""
