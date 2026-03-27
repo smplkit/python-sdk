@@ -21,6 +21,12 @@ T = TypeVar("T", bound="LoggerResource")
 @_attrs_define
 class LoggerResource:
     """
+    Example:
+        {'attributes': {'aliases': ['sequelize'], 'created_at': '2026-03-27T10:00:00Z', 'default': 'DEBUG',
+            'description': 'Controls SQL query log verbosity.', 'environments': {'production': {'level': 'WARN'}, 'staging':
+            {'level': 'DEBUG'}}, 'key': 'sql', 'name': 'SQL Logger', 'updated_at': '2026-03-27T10:00:00Z'}, 'id':
+            '550e8400-e29b-41d4-a716-446655440000', 'type': 'logger'}
+
     Attributes:
         type_ (Literal['logger']):
         attributes (Logger):  Example: {'aliases': ['sequelize'], 'created_at': '2026-03-27T10:00:00Z', 'default':
