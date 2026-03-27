@@ -17,6 +17,15 @@ T = TypeVar("T", bound="ConfigListResponse")
 @_attrs_define
 class ConfigListResponse:
     """
+    Example:
+        {'data': [{'attributes': {'created_at': '2026-03-27T10:00:00Z', 'description': 'PostgreSQL connection string',
+            'environments': {'production': {}, 'staging': {}}, 'key': 'database_url', 'name': 'Database URL', 'updated_at':
+            '2026-03-27T10:00:00Z', 'values': {'production': 'postgresql://prod-db:5432/smplkit'}}, 'id':
+            '550e8400-e29b-41d4-a716-446655440000', 'type': 'config'}, {'attributes': {'created_at': '2026-03-27T10:00:00Z',
+            'description': 'Application log level', 'environments': {'production': {}, 'staging': {}}, 'key': 'log_level',
+            'name': 'Log Level', 'updated_at': '2026-03-27T10:00:00Z', 'values': {'production': 'info', 'staging':
+            'debug'}}, 'id': '660e8400-e29b-41d4-a716-446655440001', 'type': 'config'}]}
+
     Attributes:
         data (list[ConfigResource]):
     """
