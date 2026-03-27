@@ -23,8 +23,9 @@ T = TypeVar("T", bound="Logger")
 class Logger:
     """
     Example:
-        {'aliases': ['sequelize'], 'default': 'DEBUG', 'description': 'Controls SQL query log verbosity.',
-            'environments': {}, 'key': 'sql', 'name': 'SQL Logger'}
+        {'aliases': ['sequelize'], 'created_at': '2026-03-27T10:00:00Z', 'default': 'DEBUG', 'description': 'Controls
+            SQL query log verbosity.', 'environments': {'production': {'level': 'WARN'}, 'staging': {'level': 'DEBUG'}},
+            'key': 'sql', 'name': 'SQL Logger', 'updated_at': '2026-03-27T10:00:00Z'}
 
     Attributes:
         name (str):

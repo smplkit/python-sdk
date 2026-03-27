@@ -32,7 +32,7 @@
           "201": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/LoggerResponse"
                 }
@@ -42,7 +42,7 @@
           "400": {
             "description": "Validation error or malformed request",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -52,7 +52,7 @@
           "401": {
             "description": "Missing or invalid authentication",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -62,7 +62,7 @@
           "404": {
             "description": "Resource not found",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -72,7 +72,7 @@
           "429": {
             "description": "Rate limit exceeded",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -82,7 +82,7 @@
           "422": {
             "description": "Validation Error",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
@@ -124,7 +124,7 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/LoggerListResponse"
                 }
@@ -134,7 +134,7 @@
           "400": {
             "description": "Validation error or malformed request",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -144,7 +144,7 @@
           "401": {
             "description": "Missing or invalid authentication",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -154,7 +154,7 @@
           "404": {
             "description": "Resource not found",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -164,7 +164,7 @@
           "429": {
             "description": "Rate limit exceeded",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -174,7 +174,7 @@
           "422": {
             "description": "Validation Error",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
@@ -212,7 +212,7 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/LoggerResponse"
                 }
@@ -222,7 +222,7 @@
           "400": {
             "description": "Validation error or malformed request",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -232,7 +232,7 @@
           "401": {
             "description": "Missing or invalid authentication",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -242,7 +242,7 @@
           "404": {
             "description": "Resource not found",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -252,7 +252,7 @@
           "429": {
             "description": "Rate limit exceeded",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -262,7 +262,7 @@
           "422": {
             "description": "Validation Error",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
@@ -308,7 +308,7 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/LoggerResponse"
                 }
@@ -318,7 +318,7 @@
           "400": {
             "description": "Validation error or malformed request",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -328,7 +328,7 @@
           "401": {
             "description": "Missing or invalid authentication",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -338,7 +338,7 @@
           "404": {
             "description": "Resource not found",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -348,7 +348,7 @@
           "429": {
             "description": "Rate limit exceeded",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -358,7 +358,7 @@
           "422": {
             "description": "Validation Error",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
@@ -397,7 +397,7 @@
           "400": {
             "description": "Validation error or malformed request",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -407,7 +407,7 @@
           "401": {
             "description": "Missing or invalid authentication",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -417,7 +417,7 @@
           "404": {
             "description": "Resource not found",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -427,7 +427,7 @@
           "429": {
             "description": "Rate limit exceeded",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
@@ -437,7 +437,7 @@
           "422": {
             "description": "Validation Error",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
@@ -621,11 +621,20 @@
           "aliases": [
             "sequelize"
           ],
+          "created_at": "2026-03-27T10:00:00Z",
           "default": "DEBUG",
           "description": "Controls SQL query log verbosity.",
-          "environments": {},
+          "environments": {
+            "production": {
+              "level": "WARN"
+            },
+            "staging": {
+              "level": "DEBUG"
+            }
+          },
           "key": "sql",
-          "name": "SQL Logger"
+          "name": "SQL Logger",
+          "updated_at": "2026-03-27T10:00:00Z"
         }
       },
       "LoggerListResponse": {
@@ -642,7 +651,58 @@
         "required": [
           "data"
         ],
-        "title": "LoggerListResponse"
+        "title": "LoggerListResponse",
+        "example": {
+          "data": [
+            {
+              "attributes": {
+                "aliases": [
+                  "sequelize"
+                ],
+                "created_at": "2026-03-27T10:00:00Z",
+                "default": "DEBUG",
+                "description": "Controls SQL query log verbosity.",
+                "environments": {
+                  "production": {
+                    "level": "WARN"
+                  },
+                  "staging": {
+                    "level": "DEBUG"
+                  }
+                },
+                "key": "sql",
+                "name": "SQL Logger",
+                "updated_at": "2026-03-27T10:00:00Z"
+              },
+              "id": "550e8400-e29b-41d4-a716-446655440000",
+              "type": "logger"
+            },
+            {
+              "attributes": {
+                "aliases": [
+                  "request",
+                  "response"
+                ],
+                "created_at": "2026-03-27T10:00:00Z",
+                "default": "INFO",
+                "description": "Controls HTTP request/response log output.",
+                "environments": {
+                  "production": {
+                    "level": "WARN"
+                  },
+                  "staging": {
+                    "level": "TRACE"
+                  }
+                },
+                "key": "http",
+                "name": "HTTP Logger",
+                "updated_at": "2026-03-27T10:00:00Z"
+              },
+              "id": "660e8400-e29b-41d4-a716-446655440001",
+              "type": "logger"
+            }
+          ]
+        }
       },
       "LoggerResource": {
         "properties": {
@@ -683,7 +743,32 @@
         "required": [
           "data"
         ],
-        "title": "LoggerResponse"
+        "title": "LoggerResponse",
+        "example": {
+          "data": {
+            "attributes": {
+              "aliases": [
+                "sequelize"
+              ],
+              "created_at": "2026-03-27T10:00:00Z",
+              "default": "DEBUG",
+              "description": "Controls SQL query log verbosity.",
+              "environments": {
+                "production": {
+                  "level": "WARN"
+                },
+                "staging": {
+                  "level": "DEBUG"
+                }
+              },
+              "key": "sql",
+              "name": "SQL Logger",
+              "updated_at": "2026-03-27T10:00:00Z"
+            },
+            "id": "550e8400-e29b-41d4-a716-446655440000",
+            "type": "logger"
+          }
+        }
       },
       "Resource_Logger_": {
         "properties": {

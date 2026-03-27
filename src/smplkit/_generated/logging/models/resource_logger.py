@@ -21,8 +21,9 @@ T = TypeVar("T", bound="ResourceLogger")
 class ResourceLogger:
     """
     Attributes:
-        attributes (Logger):  Example: {'aliases': ['sequelize'], 'default': 'DEBUG', 'description': 'Controls SQL query
-            log verbosity.', 'environments': {}, 'key': 'sql', 'name': 'SQL Logger'}.
+        attributes (Logger):  Example: {'aliases': ['sequelize'], 'created_at': '2026-03-27T10:00:00Z', 'default':
+            'DEBUG', 'description': 'Controls SQL query log verbosity.', 'environments': {'production': {'level': 'WARN'},
+            'staging': {'level': 'DEBUG'}}, 'key': 'sql', 'name': 'SQL Logger', 'updated_at': '2026-03-27T10:00:00Z'}.
         id (None | str | Unset):
         type_ (str | Unset):  Default: ''.
     """
