@@ -23,9 +23,10 @@ class ConfigResource:
     """
     Attributes:
         type_ (Literal['config']):
-        attributes (Config):  Example: {'description': 'Configuration for the user service.', 'environments': {}, 'key':
-            'user_service', 'name': 'User Service', 'parent': 'c837fa31-9c27-47e6-85e6-6e4c06bcf642', 'values':
-            {'max_retries': 3}}.
+        attributes (Config):  Example: {'created_at': '2026-03-27T10:00:00Z', 'description': 'PostgreSQL connection
+            string', 'environments': {'production': {}, 'staging': {}}, 'key': 'database_url', 'name': 'Database URL',
+            'updated_at': '2026-03-27T10:00:00Z', 'values': {'production': 'postgresql://prod-db:5432/smplkit', 'staging':
+            'postgresql://staging-db:5432/smplkit_test'}}.
         id (None | str | Unset):
     """
 
