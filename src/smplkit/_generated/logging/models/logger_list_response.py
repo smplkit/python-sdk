@@ -17,6 +17,16 @@ T = TypeVar("T", bound="LoggerListResponse")
 @_attrs_define
 class LoggerListResponse:
     """
+    Example:
+        {'data': [{'attributes': {'aliases': ['sequelize'], 'created_at': '2026-03-27T10:00:00Z', 'default': 'DEBUG',
+            'description': 'Controls SQL query log verbosity.', 'environments': {'production': {'level': 'WARN'}, 'staging':
+            {'level': 'DEBUG'}}, 'key': 'sql', 'name': 'SQL Logger', 'updated_at': '2026-03-27T10:00:00Z'}, 'id':
+            '550e8400-e29b-41d4-a716-446655440000', 'type': 'logger'}, {'attributes': {'aliases': ['request', 'response'],
+            'created_at': '2026-03-27T10:00:00Z', 'default': 'INFO', 'description': 'Controls HTTP request/response log
+            output.', 'environments': {'production': {'level': 'WARN'}, 'staging': {'level': 'TRACE'}}, 'key': 'http',
+            'name': 'HTTP Logger', 'updated_at': '2026-03-27T10:00:00Z'}, 'id': '660e8400-e29b-41d4-a716-446655440001',
+            'type': 'logger'}]}
+
     Attributes:
         data (list[LoggerResource]):
     """
