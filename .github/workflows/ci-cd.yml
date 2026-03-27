@@ -57,7 +57,7 @@ jobs:
     needs: [lint, test]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: pypi
+    environment: production
     permissions:
       contents: write
       issues: write
