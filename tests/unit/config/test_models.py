@@ -82,6 +82,27 @@ class TestConfig:
         assert runtime.get("a") == 2
 
     @patch.object(ConfigRuntime, "_start_ws_thread")
+    def test_connect_fetch_chain_fn_calls_build_chain(self, _mock_ws):
+        """The fetch_chain_fn closure passed to ConfigRuntime calls _build_chain."""
+        mock_client = MagicMock()
+        mock_client._parent._api_key = "sk_test"
+        mock_client._parent._http_client._base_url = "https://config.smplkit.com"
+
+        cfg = Config(
+            mock_client,
+            id="abc-123",
+            key="test_config",
+            name="Test",
+            values={"a": 1},
+            environments={},
+        )
+        runtime = cfg.connect("production")
+        # Call the fetch_chain_fn — this exercises models.py line 223
+        chain = runtime._fetch_chain_fn()
+        assert isinstance(chain, list)
+        assert chain[0]["id"] == "abc-123"
+
+    @patch.object(ConfigRuntime, "_start_ws_thread")
     def test_connect_builds_chain_with_parent(self, _mock_ws):
         parent_cfg = _make_config(
             id="parent-1",
@@ -361,6 +382,36 @@ class TestAsyncConfig:
         async def _run():
             runtime = await cfg.connect("prod")
             assert runtime.get("a") == 2
+
+        asyncio.run(_run())
+
+    @patch.object(ConfigRuntime, "_start_ws_thread")
+    def test_connect_fetch_chain_fn_calls_build_chain(self, _mock_ws):
+        """The async fetch_chain_fn closure calls _build_chain (returns coroutine)."""
+        mock_client = MagicMock()
+        mock_client._parent._api_key = "sk_test"
+        mock_client._parent._http_client._base_url = "https://config.smplkit.com"
+
+        cfg = AsyncConfig(
+            mock_client,
+            id="abc-123",
+            key="test_config",
+            name="Test",
+            values={"a": 1},
+            environments={},
+        )
+
+        async def _run():
+            runtime = await cfg.connect("production")
+            # Call the fetch_chain_fn — this exercises models.py line 439
+            result = runtime._fetch_chain_fn()
+            # For async config, _fetch_chain returns a coroutine
+            if asyncio.iscoroutine(result):
+                chain = await result
+            else:
+                chain = result
+            assert isinstance(chain, list)
+            assert chain[0]["id"] == "abc-123"
 
         asyncio.run(_run())
 

@@ -833,3 +833,206 @@ class TestFireChangeListeners:
         assert events[0].key == "a"
         assert events[0].old_value == 1
         assert events[0].new_value is None
+
+
+# ===================================================================
+# 10. _build_ws_url bare URL (no scheme)
+# ===================================================================
+
+
+class TestBuildWsUrlBareHost:
+    def test_bare_url_gets_wss_prefix(self):
+        """A URL with no http/https scheme gets wss:// prefix."""
+        rt = _make_runtime(base_url="config.smplkit.com", api_key="sk_bare")
+        url = rt._build_ws_url()
+        assert url == "wss://config.smplkit.com/api/ws/v1/configs?api_key=sk_bare"
+
+
+# ===================================================================
+# 11. _ws_thread_entry exception + pending task cleanup
+# ===================================================================
+
+
+class TestWsThreadEntryException:
+    def test_exception_in_ws_main_is_caught(self):
+        """An exception in _ws_main is caught and the loop is closed."""
+        rt = _make_runtime()
+
+        async def boom():
+            raise RuntimeError("boom")
+
+        with patch.object(rt, "_ws_main", side_effect=boom):
+            rt._ws_thread_entry()
+
+        # Loop should have been closed
+        assert rt._ws_loop is not None
+        assert rt._ws_loop.is_closed()
+
+    def test_pending_tasks_are_cancelled_on_exit(self):
+        """Pending tasks on the ws loop are cancelled before closing."""
+        rt = _make_runtime()
+
+        async def leave_pending_task():
+            # Create a task that will still be pending when _ws_main returns
+            loop = asyncio.get_event_loop()
+            loop.create_task(asyncio.sleep(999))
+
+        with patch.object(rt, "_ws_main", side_effect=leave_pending_task):
+            rt._ws_thread_entry()
+
+        assert rt._ws_loop is not None
+        assert rt._ws_loop.is_closed()
+
+
+# ===================================================================
+# 12. _ws_receive_loop unexpected exception when _closed
+# ===================================================================
+
+
+class TestReceiveLoopExceptionWhenClosed:
+    def test_unexpected_exception_when_closed_breaks(self):
+        """An unexpected exception when _closed becomes True breaks the loop."""
+        rt = _make_runtime()
+
+        mock_ws = AsyncMock()
+
+        async def recv_sets_closed():
+            rt._closed = True
+            raise RuntimeError("unexpected")
+
+        mock_ws.recv = recv_sets_closed
+        rt._ws = mock_ws
+
+        # Should exit without calling _reconnect
+        with patch.object(rt, "_reconnect", new_callable=AsyncMock) as mock_reconnect:
+            asyncio.run(rt._ws_receive_loop())
+            mock_reconnect.assert_not_called()
+
+
+# ===================================================================
+# 13. _reconnect closed during backoff sleep
+# ===================================================================
+
+
+class TestReconnectClosedDuringBackoff:
+    def test_reconnect_exits_when_closed_during_sleep(self):
+        """_reconnect returns when _closed is set during backoff sleep."""
+        rt = _make_runtime()
+
+        original_sleep = asyncio.sleep
+
+        async def close_during_sleep(delay):
+            rt._closed = True
+            await original_sleep(0)  # yield control
+
+        async def _run():
+            with patch.object(rt, "_connect_and_subscribe", new_callable=AsyncMock,
+                              side_effect=OSError("refused")):
+                with patch("smplkit.config.runtime._BACKOFF_SCHEDULE", [0.01]):
+                    with patch("asyncio.sleep", side_effect=close_during_sleep):
+                        await rt._reconnect()
+
+        asyncio.run(_run())
+        assert rt._closed is True
+
+
+# ===================================================================
+# 14. _resync_cache exception path
+# ===================================================================
+
+
+class TestResyncCacheException:
+    def test_resync_cache_catches_fetch_exception(self):
+        """_resync_cache logs and swallows exceptions from fetch_chain_fn."""
+        def bad_fetch():
+            raise RuntimeError("fetch failed")
+
+        rt = _make_runtime(fetch_chain_fn=bad_fetch)
+        old_cache = rt.get_all()
+
+        # Should not raise
+        asyncio.run(rt._resync_cache())
+
+        # Cache should be unchanged
+        assert rt.get_all() == old_cache
+
+
+# ===================================================================
+# 15. close() with ws and ws_loop + thread join
+# ===================================================================
+
+
+class TestCloseMethod:
+    def test_close_with_ws_and_loop(self):
+        """close() closes ws via run_coroutine_threadsafe and joins thread."""
+        rt = _make_runtime()
+        loop = asyncio.new_event_loop()
+        # Run the loop in a thread so run_coroutine_threadsafe works
+        loop_thread = threading.Thread(target=loop.run_forever, daemon=True)
+        loop_thread.start()
+
+        rt._ws_loop = loop
+        rt._ws = AsyncMock()
+        mock_thread = MagicMock()
+        mock_thread.is_alive.return_value = True
+        rt._ws_thread = mock_thread
+
+        asyncio.run(rt.close())
+
+        assert rt._closed is True
+        assert rt._connection_status == "disconnected"
+        mock_thread.join.assert_called_once_with(timeout=2.0)
+
+        loop.call_soon_threadsafe(loop.stop)
+        loop_thread.join(timeout=2.0)
+
+    def test_close_exception_in_ws_close_is_swallowed(self):
+        """close() swallows exceptions from run_coroutine_threadsafe."""
+        rt = _make_runtime()
+        rt._ws_loop = MagicMock()
+        rt._ws = AsyncMock()
+        # Make run_coroutine_threadsafe raise
+        with patch("asyncio.run_coroutine_threadsafe", side_effect=RuntimeError("loop closed")):
+            asyncio.run(rt.close())
+
+        assert rt._closed is True
+
+    def test_close_joins_alive_thread(self):
+        """close() joins the background thread if it's alive."""
+        rt = _make_runtime()
+        mock_thread = MagicMock()
+        mock_thread.is_alive.return_value = True
+        rt._ws_thread = mock_thread
+
+        asyncio.run(rt.close())
+
+        mock_thread.join.assert_called_once_with(timeout=2.0)
+
+    def test_close_skips_join_when_thread_not_alive(self):
+        """close() skips join when thread is not alive."""
+        rt = _make_runtime()
+        mock_thread = MagicMock()
+        mock_thread.is_alive.return_value = False
+        rt._ws_thread = mock_thread
+
+        asyncio.run(rt.close())
+
+        mock_thread.join.assert_not_called()
+
+
+# ===================================================================
+# 16. __exit__ exception path
+# ===================================================================
+
+
+class TestSyncExitExceptionPath:
+    def test_exit_swallows_exception_from_run_coroutine_threadsafe(self):
+        """__exit__ swallows exceptions from run_coroutine_threadsafe."""
+        rt = _make_runtime()
+        rt._ws_loop = MagicMock()
+        rt._ws = AsyncMock()
+
+        with patch("asyncio.run_coroutine_threadsafe", side_effect=RuntimeError("loop closed")):
+            rt.__exit__(None, None, None)
+
+        assert rt._closed is True
