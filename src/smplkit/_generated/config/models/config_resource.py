@@ -21,6 +21,12 @@ T = TypeVar("T", bound="ConfigResource")
 @_attrs_define
 class ConfigResource:
     """
+    Example:
+        {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'description': 'PostgreSQL connection string',
+            'environments': {'production': {}, 'staging': {}}, 'key': 'database_url', 'name': 'Database URL', 'updated_at':
+            '2026-03-27T10:00:00Z', 'values': {'production': 'postgresql://prod-db:5432/smplkit', 'staging':
+            'postgresql://staging-db:5432/smplkit_test'}}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type': 'config'}
+
     Attributes:
         type_ (Literal['config']):
         attributes (Config):  Example: {'created_at': '2026-03-27T10:00:00Z', 'description': 'PostgreSQL connection
