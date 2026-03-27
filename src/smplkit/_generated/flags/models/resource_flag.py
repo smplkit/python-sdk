@@ -21,7 +21,12 @@ T = TypeVar("T", bound="ResourceFlag")
 class ResourceFlag:
     """
     Attributes:
-        attributes (Flag):
+        attributes (Flag):  Example: {'created_at': '2026-03-27T10:00:00Z', 'default': False, 'description': 'Enable
+            dark mode for the application UI', 'environments': {'production': {'default': False, 'enabled': True, 'rules':
+            [{'description': 'Beta users get dark mode', 'logic': {'attribute': 'beta', 'op': 'eq', 'value': True}, 'value':
+            True}]}, 'staging': {'default': True, 'enabled': True, 'rules': []}}, 'key': 'dark_mode', 'name': 'Dark Mode',
+            'type': 'BOOLEAN', 'updated_at': '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name':
+            'off', 'value': False}]}.
         id (None | str | Unset):
         type_ (str | Unset):  Default: ''.
     """
