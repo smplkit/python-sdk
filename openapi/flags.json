@@ -558,71 +558,7 @@
         "required": [
           "data"
         ],
-        "title": "FlagListResponse",
-        "example": {
-          "data": [
-            {
-              "attributes": {
-                "created_at": "2026-03-27T10:00:00Z",
-                "default": false,
-                "description": "Enable dark mode for the application UI",
-                "environments": {
-                  "production": {
-                    "default": false,
-                    "enabled": true,
-                    "rules": []
-                  }
-                },
-                "key": "dark_mode",
-                "name": "Dark Mode",
-                "type": "BOOLEAN",
-                "updated_at": "2026-03-27T10:00:00Z",
-                "values": [
-                  {
-                    "name": "on",
-                    "value": true
-                  },
-                  {
-                    "name": "off",
-                    "value": false
-                  }
-                ]
-              },
-              "id": "550e8400-e29b-41d4-a716-446655440000",
-              "type": "flag"
-            },
-            {
-              "attributes": {
-                "created_at": "2026-03-27T10:00:00Z",
-                "default": false,
-                "description": "Roll out redesigned checkout experience",
-                "environments": {
-                  "production": {
-                    "default": false,
-                    "enabled": false,
-                    "rules": []
-                  }
-                },
-                "key": "new_checkout",
-                "name": "New Checkout Flow",
-                "type": "BOOLEAN",
-                "updated_at": "2026-03-27T10:00:00Z",
-                "values": [
-                  {
-                    "name": "enabled",
-                    "value": true
-                  },
-                  {
-                    "name": "disabled",
-                    "value": false
-                  }
-                ]
-              },
-              "id": "660e8400-e29b-41d4-a716-446655440001",
-              "type": "flag"
-            }
-          ]
-        }
+        "title": "FlagListResponse"
       },
       "FlagResource": {
         "properties": {
@@ -651,7 +587,47 @@
           "type",
           "attributes"
         ],
-        "title": "FlagResource"
+        "title": "FlagResource",
+        "example": {
+          "attributes": {
+            "created_at": "2026-03-27T10:00:00Z",
+            "default": false,
+            "description": "Enable dark mode for the application UI",
+            "environments": {
+              "production": {
+                "default": false,
+                "enabled": true,
+                "rules": [
+                  {
+                    "description": "Beta users get dark mode",
+                    "logic": {
+                      "attribute": "beta",
+                      "op": "eq",
+                      "value": true
+                    },
+                    "value": true
+                  }
+                ]
+              }
+            },
+            "key": "dark_mode",
+            "name": "Dark Mode",
+            "type": "BOOLEAN",
+            "updated_at": "2026-03-27T10:00:00Z",
+            "values": [
+              {
+                "name": "on",
+                "value": true
+              },
+              {
+                "name": "off",
+                "value": false
+              }
+            ]
+          },
+          "id": "550e8400-e29b-41d4-a716-446655440000",
+          "type": "flag"
+        }
       },
       "FlagResponse": {
         "properties": {
@@ -663,49 +639,7 @@
         "required": [
           "data"
         ],
-        "title": "FlagResponse",
-        "example": {
-          "data": {
-            "attributes": {
-              "created_at": "2026-03-27T10:00:00Z",
-              "default": false,
-              "description": "Enable dark mode for the application UI",
-              "environments": {
-                "production": {
-                  "default": false,
-                  "enabled": true,
-                  "rules": [
-                    {
-                      "description": "Beta users get dark mode",
-                      "logic": {
-                        "attribute": "beta",
-                        "op": "eq",
-                        "value": true
-                      },
-                      "value": true
-                    }
-                  ]
-                }
-              },
-              "key": "dark_mode",
-              "name": "Dark Mode",
-              "type": "BOOLEAN",
-              "updated_at": "2026-03-27T10:00:00Z",
-              "values": [
-                {
-                  "name": "on",
-                  "value": true
-                },
-                {
-                  "name": "off",
-                  "value": false
-                }
-              ]
-            },
-            "id": "550e8400-e29b-41d4-a716-446655440000",
-            "type": "flag"
-          }
-        }
+        "title": "FlagResponse"
       },
       "FlagRule": {
         "properties": {
