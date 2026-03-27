@@ -23,6 +23,14 @@ T = TypeVar("T", bound="Flag")
 @_attrs_define
 class Flag:
     """
+    Example:
+        {'created_at': '2026-03-27T10:00:00Z', 'default': False, 'description': 'Enable dark mode for the application
+            UI', 'environments': {'production': {'default': False, 'enabled': True, 'rules': [{'description': 'Beta users
+            get dark mode', 'logic': {'attribute': 'beta', 'op': 'eq', 'value': True}, 'value': True}]}, 'staging':
+            {'default': True, 'enabled': True, 'rules': []}}, 'key': 'dark_mode', 'name': 'Dark Mode', 'type': 'BOOLEAN',
+            'updated_at': '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value':
+            False}]}
+
     Attributes:
         key (str): Unique key within account
         name (str): Human-readable display name

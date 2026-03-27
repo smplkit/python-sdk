@@ -31,15 +31,17 @@
           "201": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/vnd.api+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagResponse"
+                }
               }
             }
           },
           "422": {
             "description": "Validation Error",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
@@ -97,15 +99,17 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/vnd.api+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagListResponse"
+                }
               }
             }
           },
           "422": {
             "description": "Validation Error",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
@@ -143,15 +147,17 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/vnd.api+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagResponse"
+                }
               }
             }
           },
           "422": {
             "description": "Validation Error",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
@@ -197,15 +203,17 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/vnd.api+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagResponse"
+                }
               }
             }
           },
           "422": {
             "description": "Validation Error",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
@@ -244,7 +252,7 @@
           "422": {
             "description": "Validation Error",
             "content": {
-              "application/json": {
+              "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
@@ -257,7 +265,7 @@
   },
   "components": {
     "schemas": {
-      "Flag": {
+      "Flag-Input": {
         "properties": {
           "key": {
             "type": "string",
@@ -340,7 +348,174 @@
           "default",
           "values"
         ],
-        "title": "Flag"
+        "title": "Flag",
+        "example": {
+          "created_at": "2026-03-27T10:00:00Z",
+          "default": false,
+          "description": "Enable dark mode for the application UI",
+          "environments": {
+            "production": {
+              "default": false,
+              "enabled": true,
+              "rules": [
+                {
+                  "description": "Beta users get dark mode",
+                  "logic": {
+                    "attribute": "beta",
+                    "op": "eq",
+                    "value": true
+                  },
+                  "value": true
+                }
+              ]
+            },
+            "staging": {
+              "default": true,
+              "enabled": true,
+              "rules": []
+            }
+          },
+          "key": "dark_mode",
+          "name": "Dark Mode",
+          "type": "BOOLEAN",
+          "updated_at": "2026-03-27T10:00:00Z",
+          "values": [
+            {
+              "name": "on",
+              "value": true
+            },
+            {
+              "name": "off",
+              "value": false
+            }
+          ]
+        }
+      },
+      "Flag-Output": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "Unique key within account"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Human-readable display name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "description": "Value type: STRING, BOOLEAN, NUMERIC, or JSON",
+            "x-immutable": true
+          },
+          "default": {
+            "title": "Default",
+            "description": "Default value; must reference a value in the values array"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/FlagValue"
+            },
+            "type": "array",
+            "title": "Values",
+            "description": "Closed set of possible values"
+          },
+          "environments": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/FlagEnvironment"
+            },
+            "type": "object",
+            "title": "Environments"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At",
+            "readOnly": true
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "type",
+          "default",
+          "values"
+        ],
+        "title": "Flag",
+        "example": {
+          "created_at": "2026-03-27T10:00:00Z",
+          "default": false,
+          "description": "Enable dark mode for the application UI",
+          "environments": {
+            "production": {
+              "default": false,
+              "enabled": true,
+              "rules": [
+                {
+                  "description": "Beta users get dark mode",
+                  "logic": {
+                    "attribute": "beta",
+                    "op": "eq",
+                    "value": true
+                  },
+                  "value": true
+                }
+              ]
+            },
+            "staging": {
+              "default": true,
+              "enabled": true,
+              "rules": []
+            }
+          },
+          "key": "dark_mode",
+          "name": "Dark Mode",
+          "type": "BOOLEAN",
+          "updated_at": "2026-03-27T10:00:00Z",
+          "values": [
+            {
+              "name": "on",
+              "value": true
+            },
+            {
+              "name": "off",
+              "value": false
+            }
+          ]
+        }
       },
       "FlagEnvironment": {
         "properties": {
@@ -368,6 +543,169 @@
         },
         "type": "object",
         "title": "FlagEnvironment"
+      },
+      "FlagListResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/FlagResource"
+            },
+            "type": "array",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "FlagListResponse",
+        "example": {
+          "data": [
+            {
+              "attributes": {
+                "created_at": "2026-03-27T10:00:00Z",
+                "default": false,
+                "description": "Enable dark mode for the application UI",
+                "environments": {
+                  "production": {
+                    "default": false,
+                    "enabled": true,
+                    "rules": []
+                  }
+                },
+                "key": "dark_mode",
+                "name": "Dark Mode",
+                "type": "BOOLEAN",
+                "updated_at": "2026-03-27T10:00:00Z",
+                "values": [
+                  {
+                    "name": "on",
+                    "value": true
+                  },
+                  {
+                    "name": "off",
+                    "value": false
+                  }
+                ]
+              },
+              "id": "550e8400-e29b-41d4-a716-446655440000",
+              "type": "flag"
+            },
+            {
+              "attributes": {
+                "created_at": "2026-03-27T10:00:00Z",
+                "default": false,
+                "description": "Roll out redesigned checkout experience",
+                "environments": {
+                  "production": {
+                    "default": false,
+                    "enabled": false,
+                    "rules": []
+                  }
+                },
+                "key": "new_checkout",
+                "name": "New Checkout Flow",
+                "type": "BOOLEAN",
+                "updated_at": "2026-03-27T10:00:00Z",
+                "values": [
+                  {
+                    "name": "enabled",
+                    "value": true
+                  },
+                  {
+                    "name": "disabled",
+                    "value": false
+                  }
+                ]
+              },
+              "id": "660e8400-e29b-41d4-a716-446655440001",
+              "type": "flag"
+            }
+          ]
+        }
+      },
+      "FlagResource": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "type": {
+            "type": "string",
+            "const": "flag",
+            "title": "Type"
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/Flag-Output"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "attributes"
+        ],
+        "title": "FlagResource"
+      },
+      "FlagResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/FlagResource"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "FlagResponse",
+        "example": {
+          "data": {
+            "attributes": {
+              "created_at": "2026-03-27T10:00:00Z",
+              "default": false,
+              "description": "Enable dark mode for the application UI",
+              "environments": {
+                "production": {
+                  "default": false,
+                  "enabled": true,
+                  "rules": [
+                    {
+                      "description": "Beta users get dark mode",
+                      "logic": {
+                        "attribute": "beta",
+                        "op": "eq",
+                        "value": true
+                      },
+                      "value": true
+                    }
+                  ]
+                }
+              },
+              "key": "dark_mode",
+              "name": "Dark Mode",
+              "type": "BOOLEAN",
+              "updated_at": "2026-03-27T10:00:00Z",
+              "values": [
+                {
+                  "name": "on",
+                  "value": true
+                },
+                {
+                  "name": "off",
+                  "value": false
+                }
+              ]
+            },
+            "id": "550e8400-e29b-41d4-a716-446655440000",
+            "type": "flag"
+          }
+        }
       },
       "FlagRule": {
         "properties": {
@@ -447,7 +785,7 @@
             "default": ""
           },
           "attributes": {
-            "$ref": "#/components/schemas/Flag"
+            "$ref": "#/components/schemas/Flag-Input"
           }
         },
         "type": "object",
