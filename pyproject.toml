@@ -53,6 +53,7 @@ testpaths = ["tests"]
 omit = ["src/smplkit/_generated/*", "src/smplkit/_version.py"]
 
 [tool.coverage.report]
+fail_under = 100
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
 
 [tool.ruff]
