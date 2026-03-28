@@ -1,36 +1,38 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, TYPE_CHECKING
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-T = TypeVar("T", bound="FlagValue")
+if TYPE_CHECKING:
+    from ..models.flag_resource import FlagResource
+
+
+T = TypeVar("T", bound="FlagListResponse")
 
 
 @_attrs_define
-class FlagValue:
+class FlagListResponse:
     """
     Attributes:
-        name (str):
-        value (Any):
+        data (list['FlagResource']):
     """
 
-    name: str
-    value: Any
+    data: list["FlagResource"]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        name = self.name
-
-        value = self.value
+        data = []
+        for data_item_data in self.data:
+            data_item = data_item_data.to_dict()
+            data.append(data_item)
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "name": name,
-                "value": value,
+                "data": data,
             }
         )
 
@@ -38,18 +40,22 @@ class FlagValue:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.flag_resource import FlagResource
+
         d = dict(src_dict)
-        name = d.pop("name")
+        data = []
+        _data = d.pop("data")
+        for data_item_data in _data:
+            data_item = FlagResource.from_dict(data_item_data)
 
-        value = d.pop("value")
+            data.append(data_item)
 
-        flag_value = cls(
-            name=name,
-            value=value,
+        flag_list_response = cls(
+            data=data,
         )
 
-        flag_value.additional_properties = d
-        return flag_value
+        flag_list_response.additional_properties = d
+        return flag_list_response
 
     @property
     def additional_keys(self) -> list[str]:

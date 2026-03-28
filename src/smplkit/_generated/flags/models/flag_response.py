@@ -6,20 +6,25 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.resource_flag import ResourceFlag
+    from ..models.flag_resource import FlagResource
 
 
-T = TypeVar("T", bound="ResponseFlag")
+T = TypeVar("T", bound="FlagResponse")
 
 
 @_attrs_define
-class ResponseFlag:
+class FlagResponse:
     """
     Attributes:
-        data (ResourceFlag):
+        data (FlagResource):  Example: {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'default': False,
+            'description': 'Enable dark mode for the application UI', 'environments': {'production': {'default': False,
+            'enabled': True, 'rules': [{'description': 'Beta users get dark mode', 'logic': {'attribute': 'beta', 'op':
+            'eq', 'value': True}, 'value': True}]}}, 'key': 'dark_mode', 'name': 'Dark Mode', 'type': 'BOOLEAN',
+            'updated_at': '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value':
+            False}]}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type': 'flag'}.
     """
 
-    data: "ResourceFlag"
+    data: "FlagResource"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -37,17 +42,17 @@ class ResponseFlag:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.resource_flag import ResourceFlag
+        from ..models.flag_resource import FlagResource
 
         d = dict(src_dict)
-        data = ResourceFlag.from_dict(d.pop("data"))
+        data = FlagResource.from_dict(d.pop("data"))
 
-        response_flag = cls(
+        flag_response = cls(
             data=data,
         )
 
-        response_flag.additional_properties = d
-        return response_flag
+        flag_response.additional_properties = d
+        return flag_response
 
     @property
     def additional_keys(self) -> list[str]:

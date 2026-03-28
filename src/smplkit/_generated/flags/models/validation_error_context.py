@@ -5,51 +5,29 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-T = TypeVar("T", bound="FlagValue")
+T = TypeVar("T", bound="ValidationErrorContext")
 
 
 @_attrs_define
-class FlagValue:
-    """
-    Attributes:
-        name (str):
-        value (Any):
-    """
+class ValidationErrorContext:
+    """ """
 
-    name: str
-    value: Any
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        name = self.name
-
-        value = self.value
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "name": name,
-                "value": value,
-            }
-        )
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        name = d.pop("name")
+        validation_error_context = cls()
 
-        value = d.pop("value")
-
-        flag_value = cls(
-            name=name,
-            value=value,
-        )
-
-        flag_value.additional_properties = d
-        return flag_value
+        validation_error_context.additional_properties = d
+        return validation_error_context
 
     @property
     def additional_keys(self) -> list[str]:

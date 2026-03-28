@@ -8,18 +8,28 @@ from ..types import UNSET, Unset
 
 from typing import cast
 from typing import Union
+from typing import Literal
 
 if TYPE_CHECKING:
     from ..models.flag import Flag
 
 
-T = TypeVar("T", bound="ResourceFlag")
+T = TypeVar("T", bound="FlagResource")
 
 
 @_attrs_define
-class ResourceFlag:
+class FlagResource:
     """
+    Example:
+        {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'default': False, 'description': 'Enable dark mode for the
+            application UI', 'environments': {'production': {'default': False, 'enabled': True, 'rules': [{'description':
+            'Beta users get dark mode', 'logic': {'attribute': 'beta', 'op': 'eq', 'value': True}, 'value': True}]}}, 'key':
+            'dark_mode', 'name': 'Dark Mode', 'type': 'BOOLEAN', 'updated_at': '2026-03-27T10:00:00Z', 'values': [{'name':
+            'on', 'value': True}, {'name': 'off', 'value': False}]}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type':
+            'flag'}
+
     Attributes:
+        type_ (Literal['flag']):
         attributes (Flag):  Example: {'created_at': '2026-03-27T10:00:00Z', 'default': False, 'description': 'Enable
             dark mode for the application UI', 'environments': {'production': {'default': False, 'enabled': True, 'rules':
             [{'description': 'Beta users get dark mode', 'logic': {'attribute': 'beta', 'op': 'eq', 'value': True}, 'value':
@@ -27,15 +37,16 @@ class ResourceFlag:
             'type': 'BOOLEAN', 'updated_at': '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name':
             'off', 'value': False}]}.
         id (Union[None, Unset, str]):
-        type_ (Union[Unset, str]):  Default: ''.
     """
 
+    type_: Literal["flag"]
     attributes: "Flag"
     id: Union[None, Unset, str] = UNSET
-    type_: Union[Unset, str] = ""
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        type_ = self.type_
+
         attributes = self.attributes.to_dict()
 
         id: Union[None, Unset, str]
@@ -44,19 +55,16 @@ class ResourceFlag:
         else:
             id = self.id
 
-        type_ = self.type_
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "type": type_,
                 "attributes": attributes,
             }
         )
         if id is not UNSET:
             field_dict["id"] = id
-        if type_ is not UNSET:
-            field_dict["type"] = type_
 
         return field_dict
 
@@ -65,6 +73,10 @@ class ResourceFlag:
         from ..models.flag import Flag
 
         d = dict(src_dict)
+        type_ = cast(Literal["flag"], d.pop("type"))
+        if type_ != "flag":
+            raise ValueError(f"type must match const 'flag', got '{type_}'")
+
         attributes = Flag.from_dict(d.pop("attributes"))
 
         def _parse_id(data: object) -> Union[None, Unset, str]:
@@ -76,16 +88,14 @@ class ResourceFlag:
 
         id = _parse_id(d.pop("id", UNSET))
 
-        type_ = d.pop("type", UNSET)
-
-        resource_flag = cls(
+        flag_resource = cls(
+            type_=type_,
             attributes=attributes,
             id=id,
-            type_=type_,
         )
 
-        resource_flag.additional_properties = d
-        return resource_flag
+        flag_resource.additional_properties = d
+        return flag_resource
 
     @property
     def additional_keys(self) -> list[str]:
