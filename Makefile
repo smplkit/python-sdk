@@ -1,4 +1,7 @@
-.PHONY: generate test lint
+.PHONY: install generate test lint
+
+install:
+	pip install -e '.[dev]'
 
 generate:
 	bash scripts/generate.sh
