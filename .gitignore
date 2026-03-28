@@ -16,3 +16,8 @@ venv/
 .env
 .idea/
 src/smplkit/_version.py
+
+# Claude Code
+CLAUDE.md
+CLAUDE.local.md
+.claude/
