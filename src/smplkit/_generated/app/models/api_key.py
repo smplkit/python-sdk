@@ -13,6 +13,7 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
+    from ..models.api_key_data import ApiKeyData
     from ..models.api_key_scopes import ApiKeyScopes
 
 
@@ -37,6 +38,7 @@ class ApiKey:
         last_used_at (datetime.datetime | None | Unset):
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
+        data (ApiKeyData | Unset):
     """
 
     name: str
@@ -48,6 +50,7 @@ class ApiKey:
     last_used_at: datetime.datetime | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
+    data: ApiKeyData | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -95,6 +98,10 @@ class ApiKey:
         else:
             updated_at = self.updated_at
 
+        data: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.data, Unset):
+            data = self.data.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -118,11 +125,14 @@ class ApiKey:
             field_dict["created_at"] = created_at
         if updated_at is not UNSET:
             field_dict["updated_at"] = updated_at
+        if data is not UNSET:
+            field_dict["data"] = data
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.api_key_data import ApiKeyData
         from ..models.api_key_scopes import ApiKeyScopes
 
         d = dict(src_dict)
@@ -209,6 +219,13 @@ class ApiKey:
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 
+        _data = d.pop("data", UNSET)
+        data: ApiKeyData | Unset
+        if isinstance(_data, Unset):
+            data = UNSET
+        else:
+            data = ApiKeyData.from_dict(_data)
+
         api_key = cls(
             name=name,
             status=status,
@@ -219,6 +236,7 @@ class ApiKey:
             last_used_at=last_used_at,
             created_at=created_at,
             updated_at=updated_at,
+            data=data,
         )
 
         api_key.additional_properties = d
