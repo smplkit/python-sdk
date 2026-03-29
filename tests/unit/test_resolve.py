@@ -73,9 +73,13 @@ class TestResolveApiKey:
         config_file.write_text('[default]\napi_key = "sk_api_tomli"\n')
         monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
 
-        import tomllib as real_tomllib
+        # Use whichever TOML library is available as the stand-in for tomli
+        try:
+            import tomllib as _toml_mod
+        except ModuleNotFoundError:
+            import tomli as _toml_mod  # type: ignore[no-redef]
 
-        with mock.patch.dict(sys.modules, {"tomllib": None, "tomli": real_tomllib}):
+        with mock.patch.dict(sys.modules, {"tomllib": None, "tomli": _toml_mod}):
             importlib.reload(sys.modules["smplkit._resolve"])
             from smplkit._resolve import _resolve_api_key as patched_resolve
 
