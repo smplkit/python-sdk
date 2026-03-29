@@ -37,6 +37,9 @@ from smplkit import AsyncSmplClient
 
 # ---------------------------------------------------------------------------
 # Configuration — set your API key via the SMPLKIT_API_KEY env var
+# You can also omit the API key entirely — the SDK will resolve it from
+# the SMPLKIT_API_KEY environment variable or ~/.smplkit config file.
+# See the SDK README for details.
 # ---------------------------------------------------------------------------
 
 API_KEY = os.environ.get("SMPLKIT_API_KEY", "")

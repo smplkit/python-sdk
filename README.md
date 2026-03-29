@@ -17,6 +17,22 @@ pip install smplkit-sdk
 ```python
 from smplkit import SmplClient
 
+# Option 1: Explicit API key
+client = SmplClient(api_key="sk_api_...")
+
+# Option 2: Environment variable (SMPLKIT_API_KEY)
+# export SMPLKIT_API_KEY=sk_api_...
+client = SmplClient()
+
+# Option 3: Configuration file (~/.smplkit)
+# [default]
+# api_key = "sk_api_..."
+client = SmplClient()
+```
+
+```python
+from smplkit import SmplClient
+
 with SmplClient(api_key="sk_api_...") as client:
     # Get a config by key
     config = client.config.get(key="user_service")
@@ -47,9 +63,18 @@ async with AsyncSmplClient(api_key="sk_api_...") as client:
 
 ## Configuration
 
-```python
-client = SmplClient(api_key="sk_api_...")
+The API key is resolved using the following priority:
+
+1. **Explicit argument:** Pass `api_key` directly to the constructor.
+2. **Environment variable:** Set `SMPLKIT_API_KEY`.
+3. **Configuration file:** Add `api_key` under `[default]` in `~/.smplkit` (TOML format):
+
+```toml
+[default]
+api_key = "sk_api_..."
 ```
+
+If none of these are set, the SDK raises `SmplError` with a message listing all three methods.
 
 ## Error Handling
 

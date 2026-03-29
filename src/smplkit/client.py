@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
+from smplkit._errors import SmplError
 from smplkit._generated.config.client import AuthenticatedClient
+from smplkit._resolve import _resolve_api_key
 from smplkit.config.client import AsyncConfigClient, ConfigClient
 
 _DEFAULT_BASE_URL = "https://config.smplkit.com"
+
+_NO_API_KEY_MESSAGE = (
+    "No API key provided. Set one of:\n"
+    "  1. Pass api_key to the constructor\n"
+    "  2. Set the SMPLKIT_API_KEY environment variable\n"
+    "  3. Add api_key to [default] in ~/.smplkit"
+)
 
 
 class SmplClient:
@@ -18,19 +27,27 @@ class SmplClient:
         with SmplClient("sk_api_...") as client:
             cfg = client.config.get(key="common")
 
+    The API key is optional. When omitted, it is resolved from the
+    ``SMPLKIT_API_KEY`` environment variable or the ``~/.smplkit``
+    configuration file.
+
     All methods that make network requests may raise
     :exc:`SmplConnectionError` if the server is unreachable or
     :exc:`SmplTimeoutError` if the request exceeds the timeout.
 
     Args:
         api_key: API key for authenticating with the smplkit platform.
+            When *None*, the SDK resolves it automatically.
     """
 
-    def __init__(self, api_key: str) -> None:
-        self._api_key = api_key
+    def __init__(self, api_key: str | None = None) -> None:
+        resolved = _resolve_api_key(api_key)
+        if resolved is None:
+            raise SmplError(_NO_API_KEY_MESSAGE)
+        self._api_key = resolved
         self._http_client = AuthenticatedClient(
             base_url=_DEFAULT_BASE_URL,
-            token=api_key,
+            token=resolved,
         )
         self.config = ConfigClient(self)
 
@@ -58,19 +75,27 @@ class AsyncSmplClient:
         async with AsyncSmplClient("sk_api_...") as client:
             cfg = await client.config.get(key="common")
 
+    The API key is optional. When omitted, it is resolved from the
+    ``SMPLKIT_API_KEY`` environment variable or the ``~/.smplkit``
+    configuration file.
+
     All methods that make network requests may raise
     :exc:`SmplConnectionError` if the server is unreachable or
     :exc:`SmplTimeoutError` if the request exceeds the timeout.
 
     Args:
         api_key: API key for authenticating with the smplkit platform.
+            When *None*, the SDK resolves it automatically.
     """
 
-    def __init__(self, api_key: str) -> None:
-        self._api_key = api_key
+    def __init__(self, api_key: str | None = None) -> None:
+        resolved = _resolve_api_key(api_key)
+        if resolved is None:
+            raise SmplError(_NO_API_KEY_MESSAGE)
+        self._api_key = resolved
         self._http_client = AuthenticatedClient(
             base_url=_DEFAULT_BASE_URL,
-            token=api_key,
+            token=resolved,
         )
         self.config = AsyncConfigClient(self)
 
