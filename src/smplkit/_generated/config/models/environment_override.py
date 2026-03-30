@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -9,6 +7,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from typing import cast
+from typing import Union
 
 if TYPE_CHECKING:
     from ..models.environment_override_values_type_0 import EnvironmentOverrideValuesType0
@@ -22,16 +21,16 @@ class EnvironmentOverride:
     """Schema for per-environment overrides.
 
     Attributes:
-        values (EnvironmentOverrideValuesType0 | None | Unset):
+        values (Union['EnvironmentOverrideValuesType0', None, Unset]):
     """
 
-    values: EnvironmentOverrideValuesType0 | None | Unset = UNSET
+    values: Union["EnvironmentOverrideValuesType0", None, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.environment_override_values_type_0 import EnvironmentOverrideValuesType0
 
-        values: dict[str, Any] | None | Unset
+        values: Union[None, Unset, dict[str, Any]]
         if isinstance(self.values, Unset):
             values = UNSET
         elif isinstance(self.values, EnvironmentOverrideValuesType0):
@@ -53,7 +52,7 @@ class EnvironmentOverride:
 
         d = dict(src_dict)
 
-        def _parse_values(data: object) -> EnvironmentOverrideValuesType0 | None | Unset:
+        def _parse_values(data: object) -> Union["EnvironmentOverrideValuesType0", None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -64,9 +63,9 @@ class EnvironmentOverride:
                 values_type_0 = EnvironmentOverrideValuesType0.from_dict(data)
 
                 return values_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except:  # noqa: E722
                 pass
-            return cast(EnvironmentOverrideValuesType0 | None | Unset, data)
+            return cast(Union["EnvironmentOverrideValuesType0", None, Unset], data)
 
         values = _parse_values(d.pop("values", UNSET))
 

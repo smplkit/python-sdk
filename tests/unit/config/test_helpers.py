@@ -15,28 +15,41 @@ from smplkit._errors import (
 from smplkit._generated.config.models.config_environments_type_0 import (
     ConfigEnvironmentsType0,
 )
-from smplkit._generated.config.models.config_values_type_0 import ConfigValuesType0
+from smplkit._generated.config.models.config_item_definition import (
+    ConfigItemDefinition,
+)
+from smplkit._generated.config.models.config_item_override import ConfigItemOverride
+from smplkit._generated.config.models.config_items_type_0 import ConfigItemsType0
+from smplkit._generated.config.models.environment_override import EnvironmentOverride
+from smplkit._generated.config.models.environment_override_values_type_0 import (
+    EnvironmentOverrideValuesType0,
+)
 from smplkit.config.client import (
     _build_request_body,
     _check_response_status,
     _extract_datetime,
     _extract_environments,
-    _extract_values,
+    _extract_items,
     _make_environments,
-    _make_values,
+    _make_items,
     _maybe_reraise_network_error,
     _unset_to_none,
 )
 
 
-class TestMakeValues:
+class TestMakeItems:
     def test_none_returns_none(self):
-        assert _make_values(None) is None
+        assert _make_items(None) is None
 
-    def test_dict_returns_values_type(self):
-        result = _make_values({"a": 1})
-        assert isinstance(result, ConfigValuesType0)
-        assert result.additional_properties == {"a": 1}
+    def test_typed_shape_wraps_correctly(self):
+        result = _make_items({"host": {"value": "localhost", "type": "STRING"}})
+        assert isinstance(result, ConfigItemsType0)
+        assert result.additional_properties["host"].value == "localhost"
+
+    def test_plain_values_auto_wrapped(self):
+        result = _make_items({"retries": 3})
+        assert isinstance(result, ConfigItemsType0)
+        assert result.additional_properties["retries"].value == 3
 
 
 class TestMakeEnvironments:
@@ -44,25 +57,49 @@ class TestMakeEnvironments:
         assert _make_environments(None) is None
 
     def test_dict_returns_environments_type(self):
-        result = _make_environments({"prod": {"values": {}}})
+        result = _make_environments({"prod": {"values": {"host": "db-prod"}}})
         assert isinstance(result, ConfigEnvironmentsType0)
+        env_override = result.additional_properties["prod"]
+        assert isinstance(env_override, EnvironmentOverride)
+        assert env_override.values.additional_properties["host"].value == "db-prod"
+
+    def test_already_wrapped_values(self):
+        """Env values already in {value: raw} shape are unwrapped."""
+        result = _make_environments({"prod": {"values": {"host": {"value": "db-prod"}}}})
+        env_override = result.additional_properties["prod"]
+        assert env_override.values.additional_properties["host"].value == "db-prod"
+
+    def test_non_dict_env_data(self):
+        """Non-dict env data creates an empty EnvironmentOverride."""
+        result = _make_environments({"prod": "invalid"})
+        env_override = result.additional_properties["prod"]
+        assert isinstance(env_override, EnvironmentOverride)
 
 
-class TestExtractValues:
+class TestExtractItems:
     def test_none_returns_empty(self):
-        assert _extract_values(None) == {}
+        assert _extract_items(None) == {}
 
     def test_dict_returns_copy(self):
-        assert _extract_values({"a": 1}) == {"a": 1}
+        assert _extract_items({"a": 1}) == {"a": 1}
 
-    def test_values_type_returns_dict(self):
-        obj = ConfigValuesType0()
-        obj.additional_properties = {"x": 42}
-        assert _extract_values(obj) == {"x": 42}
+    def test_items_type_returns_typed_dict(self):
+        obj = ConfigItemsType0()
+        item = ConfigItemDefinition(value=42, type_="NUMBER", description="count")
+        obj.additional_properties = {"x": item}
+        result = _extract_items(obj)
+        assert result["x"]["value"] == 42
+        assert result["x"]["type"] == "NUMBER"
+        assert result["x"]["description"] == "count"
 
     def test_unknown_type_returns_empty(self):
-        assert _extract_values(42) == {}
-        assert _extract_values("not a dict") == {}
+        assert _extract_items(42) == {}
+        assert _extract_items("not a dict") == {}
+
+    def test_unset_returns_empty(self):
+        class Unset:
+            pass
+        assert _extract_items(Unset()) == {}
 
 
 class TestExtractEnvironments:
@@ -72,14 +109,38 @@ class TestExtractEnvironments:
     def test_dict_returns_copy(self):
         assert _extract_environments({"prod": {}}) == {"prod": {}}
 
-    def test_environments_type_returns_dict(self):
+    def test_environments_type_returns_unwrapped_values(self):
+        vals = EnvironmentOverrideValuesType0()
+        vals.additional_properties = {"host": ConfigItemOverride(value="db-prod")}
+        env_override = EnvironmentOverride(values=vals)
         obj = ConfigEnvironmentsType0()
-        obj.additional_properties = {"staging": {"values": {}}}
-        assert _extract_environments(obj) == {"staging": {"values": {}}}
+        obj.additional_properties = {"staging": env_override}
+        result = _extract_environments(obj)
+        assert result["staging"]["values"] == {"host": "db-prod"}
 
     def test_unknown_type_returns_empty(self):
         assert _extract_environments(42) == {}
         assert _extract_environments("not a dict") == {}
+
+    def test_unset_returns_empty(self):
+        class Unset:
+            pass
+        assert _extract_environments(Unset()) == {}
+
+    def test_plain_item_override_without_value_attr(self):
+        """Override items without .value attribute are used as-is."""
+
+        class PlainOverride:
+            """Simulates an override without a .value attribute."""
+            pass
+
+        vals = EnvironmentOverrideValuesType0()
+        vals.additional_properties = {"host": PlainOverride()}
+        env_override = EnvironmentOverride(values=vals)
+        obj = ConfigEnvironmentsType0()
+        obj.additional_properties = {"prod": env_override}
+        result = _extract_environments(obj)
+        assert isinstance(result["prod"]["values"]["host"], PlainOverride)
 
 
 class TestExtractDatetime:
@@ -136,11 +197,12 @@ class TestBuildRequestBody:
             name="Test",
             key="test",
             description="A test",
-            values={"a": 1},
+            items={"a": {"value": 1, "type": "NUMBER"}},
         )
         d = body.to_dict()
         assert d["data"]["attributes"]["name"] == "Test"
         assert d["data"]["attributes"]["key"] == "test"
+        assert d["data"]["attributes"]["items"]["a"]["value"] == 1
 
 
 class TestMaybeReraiseNetworkError:

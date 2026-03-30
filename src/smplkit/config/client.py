@@ -26,7 +26,7 @@ from smplkit._generated.config.models.config import Config as GenConfig
 from smplkit._generated.config.models.config_environments_type_0 import (
     ConfigEnvironmentsType0,
 )
-from smplkit._generated.config.models.config_values_type_0 import ConfigValuesType0
+from smplkit._generated.config.models.config_items_type_0 import ConfigItemsType0
 from smplkit._generated.config.models.resource_config import ResourceConfig
 from smplkit._generated.config.models.response_config import ResponseConfig
 from smplkit.config.models import AsyncConfig, Config
@@ -37,43 +37,127 @@ if TYPE_CHECKING:
 logger = logging.getLogger("smplkit")
 
 
-def _make_values(values: dict[str, Any] | None) -> ConfigValuesType0 | None:
-    """Convert a plain dict to the generated ConfigValuesType0 model."""
-    if values is None:
+def _make_items(items: dict[str, Any] | None) -> ConfigItemsType0 | None:
+    """Convert a plain items dict to the generated ConfigItemsType0 model.
+
+    Accepts items in the typed shape ``{key: {value, type, description}}``.
+    Plain ``{key: raw_value}`` dicts are auto-wrapped for convenience.
+    """
+    if items is None:
         return None
-    obj = ConfigValuesType0()
-    obj.additional_properties = dict(values)
+    from smplkit._generated.config.models.config_item_definition import (
+        ConfigItemDefinition,
+    )
+
+    obj = ConfigItemsType0()
+    wrapped: dict[str, ConfigItemDefinition] = {}
+    for k, v in items.items():
+        if isinstance(v, dict) and "value" in v:
+            wrapped[k] = ConfigItemDefinition(
+                value=v["value"],
+                type_=v.get("type"),
+                description=v.get("description"),
+            )
+        else:
+            wrapped[k] = ConfigItemDefinition(value=v)
+    obj.additional_properties = wrapped
     return obj
 
 
 def _make_environments(
     environments: dict[str, Any] | None,
 ) -> ConfigEnvironmentsType0 | None:
-    """Convert a plain dict to the generated ConfigEnvironmentsType0 model."""
+    """Convert a plain dict to the generated ConfigEnvironmentsType0 model.
+
+    Environment override values are wrapped as ``{key: {value: raw}}``.
+    """
     if environments is None:
         return None
+    from smplkit._generated.config.models.config_item_override import (
+        ConfigItemOverride,
+    )
+    from smplkit._generated.config.models.environment_override import (
+        EnvironmentOverride,
+    )
+    from smplkit._generated.config.models.environment_override_values_type_0 import (
+        EnvironmentOverrideValuesType0,
+    )
+
     obj = ConfigEnvironmentsType0()
-    obj.additional_properties = dict(environments)
+    env_props: dict[str, EnvironmentOverride] = {}
+    for env_name, env_data in environments.items():
+        if isinstance(env_data, dict):
+            raw_values = env_data.get("values") or {}
+            vals_obj = EnvironmentOverrideValuesType0()
+            wrapped_vals: dict[str, ConfigItemOverride] = {}
+            for k, v in raw_values.items():
+                if isinstance(v, dict) and "value" in v:
+                    wrapped_vals[k] = ConfigItemOverride(value=v["value"])
+                else:
+                    wrapped_vals[k] = ConfigItemOverride(value=v)
+            vals_obj.additional_properties = wrapped_vals
+            env_props[env_name] = EnvironmentOverride(values=vals_obj)
+        else:
+            env_props[env_name] = EnvironmentOverride()
+    obj.additional_properties = env_props
     return obj
 
 
-def _extract_values(values: Any) -> dict[str, Any]:
-    """Extract a plain dict from a generated values object."""
-    if values is None or isinstance(values, type(None)):
+def _extract_items(items: Any) -> dict[str, Any]:
+    """Extract a typed items dict from a generated items object.
+
+    Returns ``{key: {value, type, description}}`` (the full typed shape).
+    """
+    if items is None or isinstance(items, type(None)):
         return {}
-    if isinstance(values, ConfigValuesType0):
-        return dict(values.additional_properties)
-    if isinstance(values, dict):
-        return dict(values)
+    type_name = type(items).__name__
+    if type_name == "Unset":
+        return {}
+    if isinstance(items, ConfigItemsType0):
+        result: dict[str, Any] = {}
+        for k, item_def in items.additional_properties.items():
+            entry: dict[str, Any] = {"value": item_def.value}
+            type_val = getattr(item_def, "type_", None)
+            if type_val is not None and type(type_val).__name__ != "Unset":
+                entry["type"] = type_val.value if hasattr(type_val, "value") else str(type_val)
+            desc_val = getattr(item_def, "description", None)
+            if desc_val is not None and type(desc_val).__name__ != "Unset":
+                entry["description"] = desc_val
+            result[k] = entry
+        return result
+    if isinstance(items, dict):
+        return dict(items)
     return {}
 
 
 def _extract_environments(environments: Any) -> dict[str, Any]:
-    """Extract a plain dict from a generated environments object."""
+    """Extract a plain dict from a generated environments object.
+
+    Environment override values are unwrapped from ``{key: {value: raw}}``
+    back to ``{key: raw}`` for the SDK model layer.
+    """
     if environments is None or isinstance(environments, type(None)):
         return {}
+    type_name = type(environments).__name__
+    if type_name == "Unset":
+        return {}
     if isinstance(environments, ConfigEnvironmentsType0):
-        return dict(environments.additional_properties)
+        result: dict[str, Any] = {}
+        for env_name, env_override in environments.additional_properties.items():
+            env_entry: dict[str, Any] = {}
+            if hasattr(env_override, "values") and env_override.values is not None:
+                vals_type = type(env_override.values).__name__
+                if vals_type != "Unset":
+                    raw_vals: dict[str, Any] = {}
+                    if hasattr(env_override.values, "additional_properties"):
+                        for k, item_override in env_override.values.additional_properties.items():
+                            if hasattr(item_override, "value"):
+                                raw_vals[k] = item_override.value
+                            else:
+                                raw_vals[k] = item_override
+                    env_entry["values"] = raw_vals
+            result[env_name] = env_entry
+        return result
     if isinstance(environments, dict):
         return dict(environments)
     return {}
@@ -125,7 +209,7 @@ def _build_request_body(
     key: str | None = None,
     description: str | None = None,
     parent: str | None = None,
-    values: dict[str, Any] | None = None,
+    items: dict[str, Any] | None = None,
     environments: dict[str, Any] | None = None,
 ) -> ResponseConfig:
     """Build a JSON:API request body for create/update operations."""
@@ -134,7 +218,7 @@ def _build_request_body(
         key=key,
         description=description,
         parent=parent,
-        values=_make_values(values),
+        items=_make_items(items),
         environments=_make_environments(environments),
     )
     resource = ResourceConfig(attributes=attrs, type_="config")
@@ -217,7 +301,7 @@ class ConfigClient:
         key: str | None = None,
         description: str | None = None,
         parent: str | None = None,
-        values: dict[str, Any] | None = None,
+        items: dict[str, Any] | None = None,
     ) -> Config:
         """Create a new config.
 
@@ -227,7 +311,7 @@ class ConfigClient:
             description: Optional description.
             parent: Parent config UUID. Defaults to the account's common
                 config if omitted.
-            values: Initial base values.
+            items: Initial items in typed shape ``{key: {value, type, desc}}``.
 
         Returns:
             The created :class:`Config`.
@@ -240,7 +324,7 @@ class ConfigClient:
             key=key,
             description=description,
             parent=parent,
-            values=values,
+            items=items,
         )
         try:
             response = create_config.sync_detailed(
@@ -301,7 +385,7 @@ class ConfigClient:
         key: str | None = None,
         description: str | None = None,
         parent: str | None = None,
-        values: dict[str, Any] | None = None,
+        items: dict[str, Any] | None = None,
         environments: dict[str, Any] | None = None,
     ) -> Config:
         """Internal: PUT a full config update and return the updated model."""
@@ -310,7 +394,7 @@ class ConfigClient:
             key=key,
             description=description,
             parent=parent,
-            values=values,
+            items=items,
             environments=environments,
         )
         try:
@@ -341,7 +425,7 @@ class ConfigClient:
             name=attrs.name,
             description=_unset_to_none(attrs.description),
             parent=_unset_to_none(attrs.parent),
-            values=_extract_values(attrs.values),
+            items=_extract_items(attrs.items),
             environments=_extract_environments(attrs.environments),
             created_at=_extract_datetime(attrs.created_at),
             updated_at=_extract_datetime(attrs.updated_at),
@@ -426,7 +510,7 @@ class AsyncConfigClient:
         key: str | None = None,
         description: str | None = None,
         parent: str | None = None,
-        values: dict[str, Any] | None = None,
+        items: dict[str, Any] | None = None,
     ) -> AsyncConfig:
         """Create a new config.
 
@@ -436,7 +520,7 @@ class AsyncConfigClient:
             description: Optional description.
             parent: Parent config UUID. Defaults to the account's common
                 config if omitted.
-            values: Initial base values.
+            items: Initial items in typed shape ``{key: {value, type, desc}}``.
 
         Returns:
             The created :class:`AsyncConfig`.
@@ -449,7 +533,7 @@ class AsyncConfigClient:
             key=key,
             description=description,
             parent=parent,
-            values=values,
+            items=items,
         )
         try:
             response = await create_config.asyncio_detailed(
@@ -510,7 +594,7 @@ class AsyncConfigClient:
         key: str | None = None,
         description: str | None = None,
         parent: str | None = None,
-        values: dict[str, Any] | None = None,
+        items: dict[str, Any] | None = None,
         environments: dict[str, Any] | None = None,
     ) -> AsyncConfig:
         """Internal: PUT a full config update and return the updated model."""
@@ -519,7 +603,7 @@ class AsyncConfigClient:
             key=key,
             description=description,
             parent=parent,
-            values=values,
+            items=items,
             environments=environments,
         )
         try:
@@ -550,7 +634,7 @@ class AsyncConfigClient:
             name=attrs.name,
             description=_unset_to_none(attrs.description),
             parent=_unset_to_none(attrs.parent),
-            values=_extract_values(attrs.values),
+            items=_extract_items(attrs.items),
             environments=_extract_environments(attrs.environments),
             created_at=_extract_datetime(attrs.created_at),
             updated_at=_extract_datetime(attrs.updated_at),

@@ -302,7 +302,9 @@ class ConfigRuntime:
         # filtered for this environment. We apply to both base and env-specific
         # values so that re-resolve produces the correct result regardless of
         # where the original value came from.
-        base_values = chain_entry.get("values") or {}
+        # Support both new "items" field and legacy "values" field
+        items_key = "items" if "items" in chain_entry else "values"
+        base_items = chain_entry.get(items_key) or {}
         environments = chain_entry.get("environments") or {}
         env_data = environments.get(self._environment, {})
         env_values = (env_data.get("values") if isinstance(env_data, dict) else None) or {}
@@ -314,15 +316,19 @@ class ConfigRuntime:
 
             if new_value is None and old_value is not None:
                 # Key removed — remove from both
-                base_values.pop(key, None)
+                base_items.pop(key, None)
                 env_values.pop(key, None)
             else:
                 # Key added or changed — update in both base and env values
-                # so re-resolve picks up the new value regardless of layer
-                base_values[key] = new_value
+                # so re-resolve picks up the new value regardless of layer.
+                # Wrap in the typed shape for items, plain for env overrides.
+                if items_key == "items":
+                    base_items[key] = {"value": new_value}
+                else:
+                    base_items[key] = new_value
                 env_values[key] = new_value
 
-        chain_entry["values"] = base_values
+        chain_entry[items_key] = base_items
         if self._environment in environments:
             environments[self._environment]["values"] = env_values
         elif env_values:

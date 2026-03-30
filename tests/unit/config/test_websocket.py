@@ -25,17 +25,32 @@ def _make_runtime(
     api_key: str = "sk_test",
     base_url: str = "https://config.smplkit.com",
     fetch_chain_fn=None,
+    use_items: bool = False,
 ) -> ConfigRuntime:
     if chain is None:
-        chain = [
-            {
-                "id": config_id,
-                "values": {"retries": 5, "name": "test"},
-                "environments": {
-                    "production": {"values": {"retries": 10}},
-                },
-            }
-        ]
+        if use_items:
+            chain = [
+                {
+                    "id": config_id,
+                    "items": {
+                        "retries": {"value": 5, "type": "NUMBER"},
+                        "name": {"value": "test", "type": "STRING"},
+                    },
+                    "environments": {
+                        "production": {"values": {"retries": 10}},
+                    },
+                }
+            ]
+        else:
+            chain = [
+                {
+                    "id": config_id,
+                    "values": {"retries": 5, "name": "test"},
+                    "environments": {
+                        "production": {"values": {"retries": 10}},
+                    },
+                }
+            ]
     with patch.object(ConfigRuntime, "_start_ws_thread"):
         return ConfigRuntime(
             config_key=config_key,
@@ -278,6 +293,24 @@ class TestHandleConfigChanged:
         })
 
         assert rt.get_all() == old_cache
+
+    def test_key_changed_with_items_format(self):
+        """config_changed wraps values in {value: ...} when chain uses items key."""
+        rt = _make_runtime(use_items=True)
+        assert rt.get("retries") == 10
+
+        rt._handle_config_changed({
+            "type": "config_changed",
+            "config_id": "cfg-001",
+            "changes": [
+                {"key": "retries", "old_value": 10, "new_value": 7},
+            ],
+        })
+
+        assert rt.get("retries") == 7
+        # Verify the chain entry stores it wrapped
+        chain_entry = rt._chain[0]
+        assert chain_entry["items"]["retries"] == {"value": 7}
 
 
 # ===================================================================

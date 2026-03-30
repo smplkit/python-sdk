@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -18,7 +16,7 @@ T = TypeVar("T", bound="EnvironmentOverrideValuesType0")
 class EnvironmentOverrideValuesType0:
     """ """
 
-    additional_properties: dict[str, ConfigItemOverride] = _attrs_field(init=False, factory=dict)
+    additional_properties: dict[str, "ConfigItemOverride"] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
 
@@ -48,10 +46,10 @@ class EnvironmentOverrideValuesType0:
     def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
-    def __getitem__(self, key: str) -> ConfigItemOverride:
+    def __getitem__(self, key: str) -> "ConfigItemOverride":
         return self.additional_properties[key]
 
-    def __setitem__(self, key: str, value: ConfigItemOverride) -> None:
+    def __setitem__(self, key: str, value: "ConfigItemOverride") -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:

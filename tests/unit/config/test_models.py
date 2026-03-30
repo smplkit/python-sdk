@@ -15,7 +15,7 @@ def _make_config(**overrides) -> Config:
         "name": "Test Config",
         "description": "A test config",
         "parent": None,
-        "values": {"retries": 3},
+        "items": {"retries": {"value": 3, "type": "NUMBER"}},
         "environments": {},
     }
     defaults.update(overrides)
@@ -31,7 +31,7 @@ def _make_async_config(**overrides) -> AsyncConfig:
         "name": "Test Config",
         "description": "A test config",
         "parent": None,
-        "values": {"retries": 3},
+        "items": {"retries": {"value": 3, "type": "NUMBER"}},
         "environments": {},
     }
     defaults.update(overrides)
@@ -47,7 +47,8 @@ class TestConfig:
         assert cfg.name == "Test Config"
         assert cfg.description == "A test config"
         assert cfg.parent is None
-        assert cfg.values == {"retries": 3}
+        assert cfg.items == {"retries": 3}
+        assert cfg.items_raw == {"retries": {"value": 3, "type": "NUMBER"}}
         assert cfg.environments == {}
 
     def test_repr(self):
@@ -58,10 +59,10 @@ class TestConfig:
         assert "test_config" in r
         assert "Test Config" in r
 
-    def test_values_default_to_empty_dict(self):
+    def test_items_default_to_empty_dict(self):
         client = MagicMock()
         cfg = Config(client, id="x", key="k", name="n")
-        assert cfg.values == {}
+        assert cfg.items == {}
         assert cfg.environments == {}
 
     @patch.object(ConfigRuntime, "_start_ws_thread")
@@ -75,7 +76,7 @@ class TestConfig:
             id="abc-123",
             key="test_config",
             name="Test",
-            values={"a": 1},
+            items={"a": {"value": 1, "type": "NUMBER"}},
             environments={"prod": {"values": {"a": 2}}},
         )
         runtime = cfg.connect("prod")
@@ -93,11 +94,11 @@ class TestConfig:
             id="abc-123",
             key="test_config",
             name="Test",
-            values={"a": 1},
+            items={"a": {"value": 1}},
             environments={},
         )
         runtime = cfg.connect("production")
-        # Call the fetch_chain_fn — this exercises models.py line 223
+        # Call the fetch_chain_fn — this exercises models.py
         chain = runtime._fetch_chain_fn()
         assert isinstance(chain, list)
         assert chain[0]["id"] == "abc-123"
@@ -109,7 +110,7 @@ class TestConfig:
             key="parent",
             name="Parent",
             parent=None,
-            values={"inherited": "yes", "shared": "parent_val"},
+            items={"inherited": {"value": "yes"}, "shared": {"value": "parent_val"}},
             environments={},
         )
         mock_client = MagicMock()
@@ -123,7 +124,7 @@ class TestConfig:
             key="child",
             name="Child",
             parent="parent-1",
-            values={"shared": "child_val"},
+            items={"shared": {"value": "child_val"}},
             environments={},
         )
 
@@ -143,16 +144,16 @@ class TestConfig:
             id="abc-123",
             key="test_config",
             name="Old Name",
-            values={"a": 1},
+            items={"a": {"value": 1}},
             environments={},
         )
         cfg.update(name="Updated Name", description="new desc")
         mock_client._update_config.assert_called_once()
         assert cfg.name == "Updated Name"
 
-    def test_set_values_base(self):
+    def test_set_items_base(self):
         mock_client = MagicMock()
-        updated = _make_config(values={"x": 99})
+        updated = _make_config(items={"x": {"value": 99}})
         mock_client._update_config.return_value = updated
 
         cfg = Config(
@@ -160,14 +161,14 @@ class TestConfig:
             id="abc-123",
             key="test_config",
             name="Test",
-            values={"a": 1},
+            items={"a": {"value": 1}},
             environments={},
         )
-        cfg.set_values({"x": 99})
+        cfg.set_items({"x": {"value": 99}})
         call_kwargs = mock_client._update_config.call_args[1]
-        assert call_kwargs["values"] == {"x": 99}
+        assert call_kwargs["items"] == {"x": {"value": 99}}
 
-    def test_set_values_with_environment(self):
+    def test_set_items_with_environment(self):
         mock_client = MagicMock()
         updated = _make_config(
             environments={"production": {"values": {"x": 99}}}
@@ -179,16 +180,16 @@ class TestConfig:
             id="abc-123",
             key="test_config",
             name="Test",
-            values={"a": 1},
+            items={"a": {"value": 1}},
             environments={},
         )
-        cfg.set_values({"x": 99}, environment="production")
+        cfg.set_items({"x": 99}, environment="production")
         call_kwargs = mock_client._update_config.call_args[1]
         assert call_kwargs["environments"]["production"]["values"] == {"x": 99}
 
     def test_set_value_base(self):
         mock_client = MagicMock()
-        updated = _make_config(values={"a": 1, "b": 2})
+        updated = _make_config(items={"a": {"value": 1}, "b": {"value": 2}})
         mock_client._update_config.return_value = updated
 
         cfg = Config(
@@ -196,12 +197,12 @@ class TestConfig:
             id="abc-123",
             key="test_config",
             name="Test",
-            values={"a": 1},
+            items={"a": {"value": 1}},
             environments={},
         )
         cfg.set_value("b", 2)
         call_kwargs = mock_client._update_config.call_args[1]
-        assert call_kwargs["values"] == {"a": 1, "b": 2}
+        assert call_kwargs["items"] == {"a": {"value": 1}, "b": {"value": 2}}
 
     def test_set_value_with_environment(self):
         mock_client = MagicMock()
@@ -215,7 +216,7 @@ class TestConfig:
             id="abc-123",
             key="test_config",
             name="Test",
-            values={},
+            items={},
             environments={"prod": {"values": {"existing": 1}}},
         )
         cfg.set_value("flag", True, environment="prod")
@@ -231,6 +232,8 @@ class TestAsyncConfig:
         cfg = _make_async_config()
         assert cfg.id == "abc-123"
         assert cfg.key == "test_config"
+        assert cfg.items == {"retries": 3}
+        assert cfg.items_raw == {"retries": {"value": 3, "type": "NUMBER"}}
 
     def test_repr(self):
         cfg = _make_async_config()
@@ -248,7 +251,7 @@ class TestAsyncConfig:
             id="abc-123",
             key="test_config",
             name="Old Name",
-            values={"a": 1},
+            items={"a": {"value": 1}},
             environments={},
         )
 
@@ -256,9 +259,9 @@ class TestAsyncConfig:
         mock_client._update_config.assert_called_once()
         assert cfg.name == "Updated Name"
 
-    def test_set_values_base(self):
+    def test_set_items_base(self):
         mock_client = MagicMock()
-        updated = _make_async_config(values={"x": 99})
+        updated = _make_async_config(items={"x": {"value": 99}})
         mock_client._update_config = AsyncMock(return_value=updated)
 
         cfg = AsyncConfig(
@@ -266,14 +269,14 @@ class TestAsyncConfig:
             id="abc-123",
             key="test_config",
             name="Test",
-            values={"a": 1},
+            items={"a": {"value": 1}},
             environments={},
         )
-        asyncio.run(cfg.set_values({"x": 99}))
+        asyncio.run(cfg.set_items({"x": {"value": 99}}))
         call_kwargs = mock_client._update_config.call_args[1]
-        assert call_kwargs["values"] == {"x": 99}
+        assert call_kwargs["items"] == {"x": {"value": 99}}
 
-    def test_set_values_with_environment(self):
+    def test_set_items_with_environment(self):
         mock_client = MagicMock()
         updated = _make_async_config(
             environments={"production": {"values": {"x": 99}}}
@@ -285,16 +288,16 @@ class TestAsyncConfig:
             id="abc-123",
             key="test_config",
             name="Test",
-            values={"a": 1},
+            items={"a": {"value": 1}},
             environments={},
         )
-        asyncio.run(cfg.set_values({"x": 99}, environment="production"))
+        asyncio.run(cfg.set_items({"x": 99}, environment="production"))
         call_kwargs = mock_client._update_config.call_args[1]
         assert call_kwargs["environments"]["production"]["values"] == {"x": 99}
 
     def test_set_value_base(self):
         mock_client = MagicMock()
-        updated = _make_async_config(values={"a": 1, "b": 2})
+        updated = _make_async_config(items={"a": {"value": 1}, "b": {"value": 2}})
         mock_client._update_config = AsyncMock(return_value=updated)
 
         cfg = AsyncConfig(
@@ -302,12 +305,12 @@ class TestAsyncConfig:
             id="abc-123",
             key="test_config",
             name="Test",
-            values={"a": 1},
+            items={"a": {"value": 1}},
             environments={},
         )
         asyncio.run(cfg.set_value("b", 2))
         call_kwargs = mock_client._update_config.call_args[1]
-        assert call_kwargs["values"] == {"a": 1, "b": 2}
+        assert call_kwargs["items"] == {"a": {"value": 1}, "b": {"value": 2}}
 
     def test_set_value_with_environment(self):
         mock_client = MagicMock()
@@ -321,7 +324,7 @@ class TestAsyncConfig:
             id="abc-123",
             key="test_config",
             name="Test",
-            values={},
+            items={},
             environments={"prod": {"values": {"existing": 1}}},
         )
         asyncio.run(cfg.set_value("flag", True, environment="prod"))
@@ -338,7 +341,7 @@ class TestAsyncConfig:
             key="parent",
             name="Parent",
             parent=None,
-            values={"inherited": "yes", "shared": "parent_val"},
+            items={"inherited": {"value": "yes"}, "shared": {"value": "parent_val"}},
             environments={},
         )
         mock_client = MagicMock()
@@ -352,7 +355,7 @@ class TestAsyncConfig:
             key="child",
             name="Child",
             parent="parent-1",
-            values={"shared": "child_val"},
+            items={"shared": {"value": "child_val"}},
             environments={},
         )
 
@@ -375,7 +378,7 @@ class TestAsyncConfig:
             id="abc-123",
             key="test_config",
             name="Test",
-            values={"a": 1},
+            items={"a": {"value": 1}},
             environments={"prod": {"values": {"a": 2}}},
         )
 
@@ -397,15 +400,13 @@ class TestAsyncConfig:
             id="abc-123",
             key="test_config",
             name="Test",
-            values={"a": 1},
+            items={"a": {"value": 1}},
             environments={},
         )
 
         async def _run():
             runtime = await cfg.connect("production")
-            # Call the fetch_chain_fn — this exercises models.py line 439
             result = runtime._fetch_chain_fn()
-            # For async config, _fetch_chain returns a coroutine
             if asyncio.iscoroutine(result):
                 chain = await result
             else:
@@ -426,7 +427,7 @@ class TestAsyncConfig:
             id="abc-123",
             key="test_config",
             name="Test",
-            values={"a": 1},
+            items={"a": {"value": 1}},
             environments={},
         )
 

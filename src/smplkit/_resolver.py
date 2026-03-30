@@ -33,6 +33,21 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
     return result
 
 
+def _unwrap_items(items: dict[str, Any]) -> dict[str, Any]:
+    """Unwrap typed items ``{key: {value, type, desc}}`` to ``{key: raw}``.
+
+    Also handles plain ``{key: raw}`` for backward compatibility and
+    environment overrides ``{key: {value: raw}}``.
+    """
+    result: dict[str, Any] = {}
+    for k, v in items.items():
+        if isinstance(v, dict) and "value" in v:
+            result[k] = v["value"]
+        else:
+            result[k] = v
+    return result
+
+
 def resolve(chain: list[dict[str, Any]], environment: str) -> dict[str, Any]:
     """Resolve the full configuration for an environment given a config chain.
 
@@ -40,15 +55,15 @@ def resolve(chain: list[dict[str, Any]], environment: str) -> dict[str, Any]:
     accumulating values via deep merge so that child configs override
     parent configs.
 
-    For each config in the chain, the config's base ``values`` are first
-    merged with its environment-specific values (environment wins), then
-    that result is merged on top of the accumulated parent result (child
-    wins over parent).
+    For each config in the chain, the config's base ``items`` (or legacy
+    ``values``) are first unwrapped from the typed shape, then merged with
+    environment-specific values (environment wins), then that result is
+    merged on top of the accumulated parent result (child wins over parent).
 
     Args:
         chain: Ordered list of config data dicts from child (index 0) to
-            root ancestor (last index). Each dict has ``values`` (dict) and
-            ``environments`` (dict).
+            root ancestor (last index). Each dict has ``items`` (or ``values``)
+            and ``environments`` (dict).
         environment: The environment key to resolve for.
 
     Returns:
@@ -58,9 +73,13 @@ def resolve(chain: list[dict[str, Any]], environment: str) -> dict[str, Any]:
 
     # Walk from root to child (reverse order)
     for config_data in reversed(chain):
-        base_values = dict(config_data.get("values") or {})
+        # Support both new "items" field and legacy "values" field
+        raw_items = config_data.get("items") or config_data.get("values") or {}
+        base_values = _unwrap_items(raw_items)
+
         env_data = (config_data.get("environments") or {}).get(environment, {})
-        env_values = dict(env_data.get("values") or {}) if isinstance(env_data, dict) else {}
+        raw_env_values = dict(env_data.get("values") or {}) if isinstance(env_data, dict) else {}
+        env_values = _unwrap_items(raw_env_values)
 
         # Merge environment overrides on top of base values
         config_resolved = deep_merge(base_values, env_values)
