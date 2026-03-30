@@ -21,10 +21,11 @@ T = TypeVar("T", bound="ResourceConfig")
 class ResourceConfig:
     """
     Attributes:
-        attributes (Config):  Example: {'created_at': '2026-03-27T10:00:00Z', 'description': 'PostgreSQL connection
-            string', 'environments': {'production': {}, 'staging': {}}, 'key': 'database_url', 'name': 'Database URL',
-            'updated_at': '2026-03-27T10:00:00Z', 'values': {'production': 'postgresql://prod-db:5432/smplkit', 'staging':
-            'postgresql://staging-db:5432/smplkit_test'}}.
+        attributes (Config):  Example: {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database configuration',
+            'environments': {'prod': {'values': {'host': {'value': 'db-prod.internal'}, 'pool_size': {'value': 20}}}},
+            'items': {'host': {'description': 'Primary database hostname', 'type': 'STRING', 'value': 'db.internal'},
+            'pool_size': {'description': 'Connection pool size', 'type': 'NUMBER', 'value': 10}}, 'key': 'database', 'name':
+            'Database', 'updated_at': '2026-03-27T10:00:00Z'}.
         id (None | str | Unset):
         type_ (str | Unset):  Default: ''.
     """
