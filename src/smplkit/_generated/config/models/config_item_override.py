@@ -1,40 +1,34 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-if TYPE_CHECKING:
-    from ..models.config_resource import ConfigResource
-
-
-T = TypeVar("T", bound="ConfigListResponse")
+T = TypeVar("T", bound="ConfigItemOverride")
 
 
 @_attrs_define
-class ConfigListResponse:
-    """
+class ConfigItemOverride:
+    """Schema for an environment override — value only, no type/description.
+
     Attributes:
-        data (list[ConfigResource]):
+        value (Any):
     """
 
-    data: list[ConfigResource]
+    value: Any
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = []
-        for data_item_data in self.data:
-            data_item = data_item_data.to_dict()
-            data.append(data_item)
+        value = self.value
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "data": data,
+                "value": value,
             }
         )
 
@@ -42,22 +36,15 @@ class ConfigListResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.config_resource import ConfigResource
-
         d = dict(src_dict)
-        data = []
-        _data = d.pop("data")
-        for data_item_data in _data:
-            data_item = ConfigResource.from_dict(data_item_data)
+        value = d.pop("value")
 
-            data.append(data_item)
-
-        config_list_response = cls(
-            data=data,
+        config_item_override = cls(
+            value=value,
         )
 
-        config_list_response.additional_properties = d
-        return config_list_response
+        config_item_override.additional_properties = d
+        return config_item_override
 
     @property
     def additional_keys(self) -> list[str]:

@@ -14,7 +14,7 @@ import datetime
 
 if TYPE_CHECKING:
     from ..models.config_environments_type_0 import ConfigEnvironmentsType0
-    from ..models.config_values_type_0 import ConfigValuesType0
+    from ..models.config_items_type_0 import ConfigItemsType0
 
 
 T = TypeVar("T", bound="Config")
@@ -24,17 +24,18 @@ T = TypeVar("T", bound="Config")
 class Config:
     """
     Example:
-        {'created_at': '2026-03-27T10:00:00Z', 'description': 'PostgreSQL connection string', 'environments':
-            {'production': {}, 'staging': {}}, 'key': 'database_url', 'name': 'Database URL', 'updated_at':
-            '2026-03-27T10:00:00Z', 'values': {'production': 'postgresql://prod-db:5432/smplkit', 'staging':
-            'postgresql://staging-db:5432/smplkit_test'}}
+        {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database configuration', 'environments': {'prod':
+            {'values': {'host': {'value': 'db-prod.internal'}, 'pool_size': {'value': 20}}}}, 'items': {'host':
+            {'description': 'Primary database hostname', 'type': 'STRING', 'value': 'db.internal'}, 'pool_size':
+            {'description': 'Connection pool size', 'type': 'NUMBER', 'value': 10}}, 'key': 'database', 'name': 'Database',
+            'updated_at': '2026-03-27T10:00:00Z'}
 
     Attributes:
         name (str):
         key (None | str | Unset):
         description (None | str | Unset):
         parent (None | str | Unset):
-        values (ConfigValuesType0 | None | Unset):
+        items (ConfigItemsType0 | None | Unset):
         environments (ConfigEnvironmentsType0 | None | Unset):
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
@@ -44,7 +45,7 @@ class Config:
     key: None | str | Unset = UNSET
     description: None | str | Unset = UNSET
     parent: None | str | Unset = UNSET
-    values: ConfigValuesType0 | None | Unset = UNSET
+    items: ConfigItemsType0 | None | Unset = UNSET
     environments: ConfigEnvironmentsType0 | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
@@ -52,7 +53,7 @@ class Config:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.config_environments_type_0 import ConfigEnvironmentsType0
-        from ..models.config_values_type_0 import ConfigValuesType0
+        from ..models.config_items_type_0 import ConfigItemsType0
 
         name = self.name
 
@@ -74,13 +75,13 @@ class Config:
         else:
             parent = self.parent
 
-        values: dict[str, Any] | None | Unset
-        if isinstance(self.values, Unset):
-            values = UNSET
-        elif isinstance(self.values, ConfigValuesType0):
-            values = self.values.to_dict()
+        items: dict[str, Any] | None | Unset
+        if isinstance(self.items, Unset):
+            items = UNSET
+        elif isinstance(self.items, ConfigItemsType0):
+            items = self.items.to_dict()
         else:
-            values = self.values
+            items = self.items
 
         environments: dict[str, Any] | None | Unset
         if isinstance(self.environments, Unset):
@@ -119,8 +120,8 @@ class Config:
             field_dict["description"] = description
         if parent is not UNSET:
             field_dict["parent"] = parent
-        if values is not UNSET:
-            field_dict["values"] = values
+        if items is not UNSET:
+            field_dict["items"] = items
         if environments is not UNSET:
             field_dict["environments"] = environments
         if created_at is not UNSET:
@@ -133,7 +134,7 @@ class Config:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.config_environments_type_0 import ConfigEnvironmentsType0
-        from ..models.config_values_type_0 import ConfigValuesType0
+        from ..models.config_items_type_0 import ConfigItemsType0
 
         d = dict(src_dict)
         name = d.pop("name")
@@ -165,7 +166,7 @@ class Config:
 
         parent = _parse_parent(d.pop("parent", UNSET))
 
-        def _parse_values(data: object) -> ConfigValuesType0 | None | Unset:
+        def _parse_items(data: object) -> ConfigItemsType0 | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -173,14 +174,14 @@ class Config:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                values_type_0 = ConfigValuesType0.from_dict(data)
+                items_type_0 = ConfigItemsType0.from_dict(data)
 
-                return values_type_0
+                return items_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(ConfigValuesType0 | None | Unset, data)
+            return cast(ConfigItemsType0 | None | Unset, data)
 
-        values = _parse_values(d.pop("values", UNSET))
+        items = _parse_items(d.pop("items", UNSET))
 
         def _parse_environments(data: object) -> ConfigEnvironmentsType0 | None | Unset:
             if data is None:
@@ -238,7 +239,7 @@ class Config:
             key=key,
             description=description,
             parent=parent,
-            values=values,
+            items=items,
             environments=environments,
             created_at=created_at,
             updated_at=updated_at,
