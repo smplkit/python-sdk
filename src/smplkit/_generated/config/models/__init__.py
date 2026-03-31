@@ -15,7 +15,6 @@ from .http_validation_error import HTTPValidationError
 from .resource_config import ResourceConfig
 from .response_config import ResponseConfig
 from .validation_error import ValidationError
-from .validation_error_context import ValidationErrorContext
 
 __all__ = (
     "Config",
@@ -33,5 +32,4 @@ __all__ = (
     "ResourceConfig",
     "ResponseConfig",
     "ValidationError",
-    "ValidationErrorContext",
 )

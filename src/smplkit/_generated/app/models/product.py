@@ -6,8 +6,8 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.product_limits import ProductLimits
     from ..models.product_plans import ProductPlans
+    from ..models.product_limits import ProductLimits
 
 
 T = TypeVar("T", bound="Product")
@@ -53,8 +53,8 @@ class Product:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.product_limits import ProductLimits
         from ..models.product_plans import ProductPlans
+        from ..models.product_limits import ProductLimits
 
         d = dict(src_dict)
         display_name = d.pop("display_name")

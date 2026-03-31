@@ -12,8 +12,8 @@ from typing import Union
 import datetime
 
 if TYPE_CHECKING:
-    from ..models.api_key_scopes import ApiKeyScopes
     from ..models.api_key_data import ApiKeyData
+    from ..models.api_key_scopes import ApiKeyScopes
 
 
 T = TypeVar("T", bound="ApiKey")
@@ -131,8 +131,8 @@ class ApiKey:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.api_key_scopes import ApiKeyScopes
         from ..models.api_key_data import ApiKeyData
+        from ..models.api_key_scopes import ApiKeyScopes
 
         d = dict(src_dict)
         name = d.pop("name")
