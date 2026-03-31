@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -27,7 +25,7 @@ class PlanDefinition:
     display_name: str
     description: str
     price_monthly_cents: int
-    limits: PlanDefinitionLimits
+    limits: "PlanDefinitionLimits"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -9,6 +7,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from typing import cast
+from typing import Union
 
 if TYPE_CHECKING:
     from ..models.flag_rule_logic import FlagRuleLogic
@@ -23,12 +22,12 @@ class FlagRule:
     Attributes:
         logic (FlagRuleLogic):
         value (Any):
-        description (None | str | Unset):
+        description (Union[None, Unset, str]):
     """
 
-    logic: FlagRuleLogic
+    logic: "FlagRuleLogic"
     value: Any
-    description: None | str | Unset = UNSET
+    description: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -36,7 +35,7 @@ class FlagRule:
 
         value = self.value
 
-        description: None | str | Unset
+        description: Union[None, Unset, str]
         if isinstance(self.description, Unset):
             description = UNSET
         else:
@@ -64,12 +63,12 @@ class FlagRule:
 
         value = d.pop("value")
 
-        def _parse_description(data: object) -> None | str | Unset:
+        def _parse_description(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         description = _parse_description(d.pop("description", UNSET))
 

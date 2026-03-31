@@ -1,61 +1,33 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-if TYPE_CHECKING:
-    from ..models.product_resource import ProductResource
-
-
-T = TypeVar("T", bound="ProductListResponse")
+T = TypeVar("T", bound="ValidationErrorContext")
 
 
 @_attrs_define
-class ProductListResponse:
-    """
-    Attributes:
-        data (list['ProductResource']):
-    """
+class ValidationErrorContext:
+    """ """
 
-    data: list["ProductResource"]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = []
-        for data_item_data in self.data:
-            data_item = data_item_data.to_dict()
-            data.append(data_item)
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "data": data,
-            }
-        )
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.product_resource import ProductResource
-
         d = dict(src_dict)
-        data = []
-        _data = d.pop("data")
-        for data_item_data in _data:
-            data_item = ProductResource.from_dict(data_item_data)
+        validation_error_context = cls()
 
-            data.append(data_item)
-
-        product_list_response = cls(
-            data=data,
-        )
-
-        product_list_response.additional_properties = d
-        return product_list_response
+        validation_error_context.additional_properties = d
+        return validation_error_context
 
     @property
     def additional_keys(self) -> list[str]:

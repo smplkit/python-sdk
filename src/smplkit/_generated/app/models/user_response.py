@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -24,7 +22,7 @@ class UserResponse:
             'role': 'OWNER'}, 'id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type': 'user'}.
     """
 
-    data: UserResource
+    data: "UserResource"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

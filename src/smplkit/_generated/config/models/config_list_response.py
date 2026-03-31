@@ -6,20 +6,20 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.product_resource import ProductResource
+    from ..models.config_resource import ConfigResource
 
 
-T = TypeVar("T", bound="ProductListResponse")
+T = TypeVar("T", bound="ConfigListResponse")
 
 
 @_attrs_define
-class ProductListResponse:
+class ConfigListResponse:
     """
     Attributes:
-        data (list['ProductResource']):
+        data (list['ConfigResource']):
     """
 
-    data: list["ProductResource"]
+    data: list["ConfigResource"]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -40,22 +40,22 @@ class ProductListResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.product_resource import ProductResource
+        from ..models.config_resource import ConfigResource
 
         d = dict(src_dict)
         data = []
         _data = d.pop("data")
         for data_item_data in _data:
-            data_item = ProductResource.from_dict(data_item_data)
+            data_item = ConfigResource.from_dict(data_item_data)
 
             data.append(data_item)
 
-        product_list_response = cls(
+        config_list_response = cls(
             data=data,
         )
 
-        product_list_response.additional_properties = d
-        return product_list_response
+        config_list_response.additional_properties = d
+        return config_list_response
 
     @property
     def additional_keys(self) -> list[str]:

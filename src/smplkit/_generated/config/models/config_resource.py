@@ -8,31 +8,42 @@ from ..types import UNSET, Unset
 
 from typing import cast
 from typing import Union
+from typing import Literal
 
 if TYPE_CHECKING:
-    from ..models.logger import Logger
+    from ..models.config import Config
 
 
-T = TypeVar("T", bound="ResourceLogger")
+T = TypeVar("T", bound="ConfigResource")
 
 
 @_attrs_define
-class ResourceLogger:
+class ConfigResource:
     """
+    Example:
+        {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database configuration', 'environments':
+            {'prod': {'values': {'host': {'value': 'db-prod.internal'}}}}, 'items': {'host': {'description': 'Primary
+            database hostname', 'type': 'STRING', 'value': 'db.internal'}}, 'key': 'database', 'name': 'Database',
+            'updated_at': '2026-03-27T10:00:00Z'}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type': 'config'}
+
     Attributes:
-        attributes (Logger):  Example: {'aliases': ['sequelize'], 'created_at': '2026-03-27T10:00:00Z', 'default':
-            'DEBUG', 'description': 'Controls SQL query log verbosity.', 'environments': {'production': {'level': 'WARN'},
-            'staging': {'level': 'DEBUG'}}, 'key': 'sql', 'name': 'SQL Logger', 'updated_at': '2026-03-27T10:00:00Z'}.
+        type_ (Literal['config']):
+        attributes (Config):  Example: {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database configuration',
+            'environments': {'prod': {'values': {'host': {'value': 'db-prod.internal'}, 'pool_size': {'value': 20}}}},
+            'items': {'host': {'description': 'Primary database hostname', 'type': 'STRING', 'value': 'db.internal'},
+            'pool_size': {'description': 'Connection pool size', 'type': 'NUMBER', 'value': 10}}, 'key': 'database', 'name':
+            'Database', 'updated_at': '2026-03-27T10:00:00Z'}.
         id (Union[None, Unset, str]):
-        type_ (Union[Unset, str]):  Default: ''.
     """
 
-    attributes: "Logger"
+    type_: Literal["config"]
+    attributes: "Config"
     id: Union[None, Unset, str] = UNSET
-    type_: Union[Unset, str] = ""
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        type_ = self.type_
+
         attributes = self.attributes.to_dict()
 
         id: Union[None, Unset, str]
@@ -41,28 +52,29 @@ class ResourceLogger:
         else:
             id = self.id
 
-        type_ = self.type_
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "type": type_,
                 "attributes": attributes,
             }
         )
         if id is not UNSET:
             field_dict["id"] = id
-        if type_ is not UNSET:
-            field_dict["type"] = type_
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.logger import Logger
+        from ..models.config import Config
 
         d = dict(src_dict)
-        attributes = Logger.from_dict(d.pop("attributes"))
+        type_ = cast(Literal["config"], d.pop("type"))
+        if type_ != "config":
+            raise ValueError(f"type must match const 'config', got '{type_}'")
+
+        attributes = Config.from_dict(d.pop("attributes"))
 
         def _parse_id(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -73,16 +85,14 @@ class ResourceLogger:
 
         id = _parse_id(d.pop("id", UNSET))
 
-        type_ = d.pop("type", UNSET)
-
-        resource_logger = cls(
+        config_resource = cls(
+            type_=type_,
             attributes=attributes,
             id=id,
-            type_=type_,
         )
 
-        resource_logger.additional_properties = d
-        return resource_logger
+        config_resource.additional_properties = d
+        return config_resource
 
     @property
     def additional_keys(self) -> list[str]:

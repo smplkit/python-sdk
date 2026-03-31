@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, Optional, Union
 
 import httpx
 
@@ -14,12 +14,12 @@ from ...types import Unset
 
 def _get_kwargs(
     *,
-    filterkey: None | str | Unset = UNSET,
+    filterkey: Union[None, Unset, str] = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
-    json_filterkey: None | str | Unset
+    json_filterkey: Union[None, Unset, str]
     if isinstance(filterkey, Unset):
         json_filterkey = UNSET
     else:
@@ -38,8 +38,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse | ServiceListResponse | None:
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[ErrorResponse, ServiceListResponse]]:
     if response.status_code == 200:
         response_200 = ServiceListResponse.from_dict(response.json())
 
@@ -72,8 +72,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse | ServiceListResponse]:
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[ErrorResponse, ServiceListResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -85,19 +85,19 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    filterkey: None | str | Unset = UNSET,
-) -> Response[ErrorResponse | ServiceListResponse]:
+    filterkey: Union[None, Unset, str] = UNSET,
+) -> Response[Union[ErrorResponse, ServiceListResponse]]:
     """List Services
 
     Args:
-        filterkey (None | str | Unset):
+        filterkey (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | ServiceListResponse]
+        Response[Union[ErrorResponse, ServiceListResponse]]
     """
 
     kwargs = _get_kwargs(
@@ -114,19 +114,19 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    filterkey: None | str | Unset = UNSET,
-) -> ErrorResponse | ServiceListResponse | None:
+    filterkey: Union[None, Unset, str] = UNSET,
+) -> Optional[Union[ErrorResponse, ServiceListResponse]]:
     """List Services
 
     Args:
-        filterkey (None | str | Unset):
+        filterkey (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | ServiceListResponse
+        Union[ErrorResponse, ServiceListResponse]
     """
 
     return sync_detailed(
@@ -138,19 +138,19 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    filterkey: None | str | Unset = UNSET,
-) -> Response[ErrorResponse | ServiceListResponse]:
+    filterkey: Union[None, Unset, str] = UNSET,
+) -> Response[Union[ErrorResponse, ServiceListResponse]]:
     """List Services
 
     Args:
-        filterkey (None | str | Unset):
+        filterkey (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | ServiceListResponse]
+        Response[Union[ErrorResponse, ServiceListResponse]]
     """
 
     kwargs = _get_kwargs(
@@ -165,19 +165,19 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    filterkey: None | str | Unset = UNSET,
-) -> ErrorResponse | ServiceListResponse | None:
+    filterkey: Union[None, Unset, str] = UNSET,
+) -> Optional[Union[ErrorResponse, ServiceListResponse]]:
     """List Services
 
     Args:
-        filterkey (None | str | Unset):
+        filterkey (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | ServiceListResponse
+        Union[ErrorResponse, ServiceListResponse]
     """
 
     return (

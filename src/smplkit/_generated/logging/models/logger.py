@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -10,6 +8,7 @@ from ..types import UNSET, Unset
 
 from dateutil.parser import isoparse
 from typing import cast
+from typing import Union
 import datetime
 
 if TYPE_CHECKING:
@@ -30,22 +29,22 @@ class Logger:
     Attributes:
         name (str):
         default (str):
-        key (None | str | Unset):
-        description (None | str | Unset):
-        aliases (list[str] | None | Unset):
-        environments (LoggerEnvironmentsType0 | None | Unset):
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
+        key (Union[None, Unset, str]):
+        description (Union[None, Unset, str]):
+        aliases (Union[None, Unset, list[str]]):
+        environments (Union['LoggerEnvironmentsType0', None, Unset]):
+        created_at (Union[None, Unset, datetime.datetime]):
+        updated_at (Union[None, Unset, datetime.datetime]):
     """
 
     name: str
     default: str
-    key: None | str | Unset = UNSET
-    description: None | str | Unset = UNSET
-    aliases: list[str] | None | Unset = UNSET
-    environments: LoggerEnvironmentsType0 | None | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
+    key: Union[None, Unset, str] = UNSET
+    description: Union[None, Unset, str] = UNSET
+    aliases: Union[None, Unset, list[str]] = UNSET
+    environments: Union["LoggerEnvironmentsType0", None, Unset] = UNSET
+    created_at: Union[None, Unset, datetime.datetime] = UNSET
+    updated_at: Union[None, Unset, datetime.datetime] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -55,19 +54,19 @@ class Logger:
 
         default = self.default
 
-        key: None | str | Unset
+        key: Union[None, Unset, str]
         if isinstance(self.key, Unset):
             key = UNSET
         else:
             key = self.key
 
-        description: None | str | Unset
+        description: Union[None, Unset, str]
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        aliases: list[str] | None | Unset
+        aliases: Union[None, Unset, list[str]]
         if isinstance(self.aliases, Unset):
             aliases = UNSET
         elif isinstance(self.aliases, list):
@@ -76,7 +75,7 @@ class Logger:
         else:
             aliases = self.aliases
 
-        environments: dict[str, Any] | None | Unset
+        environments: Union[None, Unset, dict[str, Any]]
         if isinstance(self.environments, Unset):
             environments = UNSET
         elif isinstance(self.environments, LoggerEnvironmentsType0):
@@ -84,7 +83,7 @@ class Logger:
         else:
             environments = self.environments
 
-        created_at: None | str | Unset
+        created_at: Union[None, Unset, str]
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -92,7 +91,7 @@ class Logger:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: Union[None, Unset, str]
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -132,25 +131,25 @@ class Logger:
 
         default = d.pop("default")
 
-        def _parse_key(data: object) -> None | str | Unset:
+        def _parse_key(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         key = _parse_key(d.pop("key", UNSET))
 
-        def _parse_description(data: object) -> None | str | Unset:
+        def _parse_description(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         description = _parse_description(d.pop("description", UNSET))
 
-        def _parse_aliases(data: object) -> list[str] | None | Unset:
+        def _parse_aliases(data: object) -> Union[None, Unset, list[str]]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -161,13 +160,13 @@ class Logger:
                 aliases_type_0 = cast(list[str], data)
 
                 return aliases_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except:  # noqa: E722
                 pass
-            return cast(list[str] | None | Unset, data)
+            return cast(Union[None, Unset, list[str]], data)
 
         aliases = _parse_aliases(d.pop("aliases", UNSET))
 
-        def _parse_environments(data: object) -> LoggerEnvironmentsType0 | None | Unset:
+        def _parse_environments(data: object) -> Union["LoggerEnvironmentsType0", None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -178,13 +177,13 @@ class Logger:
                 environments_type_0 = LoggerEnvironmentsType0.from_dict(data)
 
                 return environments_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except:  # noqa: E722
                 pass
-            return cast(LoggerEnvironmentsType0 | None | Unset, data)
+            return cast(Union["LoggerEnvironmentsType0", None, Unset], data)
 
         environments = _parse_environments(d.pop("environments", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> Union[None, Unset, datetime.datetime]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -195,13 +194,13 @@ class Logger:
                 created_at_type_0 = isoparse(data)
 
                 return created_at_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except:  # noqa: E722
                 pass
-            return cast(datetime.datetime | None | Unset, data)
+            return cast(Union[None, Unset, datetime.datetime], data)
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> Union[None, Unset, datetime.datetime]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -212,9 +211,9 @@ class Logger:
                 updated_at_type_0 = isoparse(data)
 
                 return updated_at_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except:  # noqa: E722
                 pass
-            return cast(datetime.datetime | None | Unset, data)
+            return cast(Union[None, Unset, datetime.datetime], data)
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 

@@ -1,13 +1,16 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, TYPE_CHECKING
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..types import UNSET, Unset
 
 from typing import cast
+from typing import Union
+
+if TYPE_CHECKING:
+    from ..models.validation_error_context import ValidationErrorContext
 
 
 T = TypeVar("T", bound="ValidationError")
@@ -17,26 +20,36 @@ T = TypeVar("T", bound="ValidationError")
 class ValidationError:
     """
     Attributes:
-        loc (list[int | str]):
+        loc (list[Union[int, str]]):
         msg (str):
         type_ (str):
+        input_ (Union[Unset, Any]):
+        ctx (Union[Unset, ValidationErrorContext]):
     """
 
-    loc: list[int | str]
+    loc: list[Union[int, str]]
     msg: str
     type_: str
+    input_: Union[Unset, Any] = UNSET
+    ctx: Union[Unset, "ValidationErrorContext"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         loc = []
         for loc_item_data in self.loc:
-            loc_item: int | str
+            loc_item: Union[int, str]
             loc_item = loc_item_data
             loc.append(loc_item)
 
         msg = self.msg
 
         type_ = self.type_
+
+        input_ = self.input_
+
+        ctx: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.ctx, Unset):
+            ctx = self.ctx.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -47,18 +60,24 @@ class ValidationError:
                 "type": type_,
             }
         )
+        if input_ is not UNSET:
+            field_dict["input"] = input_
+        if ctx is not UNSET:
+            field_dict["ctx"] = ctx
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.validation_error_context import ValidationErrorContext
+
         d = dict(src_dict)
         loc = []
         _loc = d.pop("loc")
         for loc_item_data in _loc:
 
-            def _parse_loc_item(data: object) -> int | str:
-                return cast(int | str, data)
+            def _parse_loc_item(data: object) -> Union[int, str]:
+                return cast(Union[int, str], data)
 
             loc_item = _parse_loc_item(loc_item_data)
 
@@ -68,10 +87,21 @@ class ValidationError:
 
         type_ = d.pop("type")
 
+        input_ = d.pop("input", UNSET)
+
+        _ctx = d.pop("ctx", UNSET)
+        ctx: Union[Unset, ValidationErrorContext]
+        if isinstance(_ctx, Unset):
+            ctx = UNSET
+        else:
+            ctx = ValidationErrorContext.from_dict(_ctx)
+
         validation_error = cls(
             loc=loc,
             msg=msg,
             type_=type_,
+            input_=input_,
+            ctx=ctx,
         )
 
         validation_error.additional_properties = d

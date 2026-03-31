@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any, cast
-from urllib.parse import quote
+from typing import Any, Optional, Union, cast
 
 import httpx
 
@@ -19,14 +18,16 @@ def _get_kwargs(
     _kwargs: dict[str, Any] = {
         "method": "delete",
         "url": "/api/v1/services/{id}".format(
-            id=quote(str(id), safe=""),
+            id=id,
         ),
     }
 
     return _kwargs
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | ErrorResponse | None:
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[Any, ErrorResponse]]:
     if response.status_code == 204:
         response_204 = cast(Any, None)
         return response_204
@@ -57,7 +58,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | ErrorResponse]:
+def _build_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[Any, ErrorResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -70,7 +73,7 @@ def sync_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Response[Any | ErrorResponse]:
+) -> Response[Union[Any, ErrorResponse]]:
     """Delete Service
 
     Args:
@@ -81,7 +84,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse]
+        Response[Union[Any, ErrorResponse]]
     """
 
     kwargs = _get_kwargs(
@@ -99,7 +102,7 @@ def sync(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Any | ErrorResponse | None:
+) -> Optional[Union[Any, ErrorResponse]]:
     """Delete Service
 
     Args:
@@ -110,7 +113,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse
+        Union[Any, ErrorResponse]
     """
 
     return sync_detailed(
@@ -123,7 +126,7 @@ async def asyncio_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Response[Any | ErrorResponse]:
+) -> Response[Union[Any, ErrorResponse]]:
     """Delete Service
 
     Args:
@@ -134,7 +137,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse]
+        Response[Union[Any, ErrorResponse]]
     """
 
     kwargs = _get_kwargs(
@@ -150,7 +153,7 @@ async def asyncio(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Any | ErrorResponse | None:
+) -> Optional[Union[Any, ErrorResponse]]:
     """Delete Service
 
     Args:
@@ -161,7 +164,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse
+        Union[Any, ErrorResponse]
     """
 
     return (

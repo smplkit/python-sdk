@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any, cast
-from urllib.parse import quote
+from typing import Any, Optional, Union, cast
 
 import httpx
 
@@ -19,7 +18,7 @@ def _get_kwargs(
     _kwargs: dict[str, Any] = {
         "method": "delete",
         "url": "/api/v1/flags/{id}".format(
-            id=quote(str(id), safe=""),
+            id=id,
         ),
     }
 
@@ -27,8 +26,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Any | HTTPValidationError | None:
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[Any, HTTPValidationError]]:
     if response.status_code == 204:
         response_204 = cast(Any, None)
         return response_204
@@ -45,8 +44,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[Any | HTTPValidationError]:
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[Any, HTTPValidationError]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -59,7 +58,7 @@ def sync_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Response[Any | HTTPValidationError]:
+) -> Response[Union[Any, HTTPValidationError]]:
     """Delete Flag
 
     Args:
@@ -70,7 +69,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | HTTPValidationError]
+        Response[Union[Any, HTTPValidationError]]
     """
 
     kwargs = _get_kwargs(
@@ -88,7 +87,7 @@ def sync(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Any | HTTPValidationError | None:
+) -> Optional[Union[Any, HTTPValidationError]]:
     """Delete Flag
 
     Args:
@@ -99,7 +98,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | HTTPValidationError
+        Union[Any, HTTPValidationError]
     """
 
     return sync_detailed(
@@ -112,7 +111,7 @@ async def asyncio_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Response[Any | HTTPValidationError]:
+) -> Response[Union[Any, HTTPValidationError]]:
     """Delete Flag
 
     Args:
@@ -123,7 +122,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | HTTPValidationError]
+        Response[Union[Any, HTTPValidationError]]
     """
 
     kwargs = _get_kwargs(
@@ -139,7 +138,7 @@ async def asyncio(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Any | HTTPValidationError | None:
+) -> Optional[Union[Any, HTTPValidationError]]:
     """Delete Flag
 
     Args:
@@ -150,7 +149,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | HTTPValidationError
+        Union[Any, HTTPValidationError]
     """
 
     return (

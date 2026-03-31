@@ -6,27 +6,28 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.product_resource import ProductResource
+    from ..models.config_resource import ConfigResource
 
 
-T = TypeVar("T", bound="ProductListResponse")
+T = TypeVar("T", bound="ConfigResponse")
 
 
 @_attrs_define
-class ProductListResponse:
+class ConfigResponse:
     """
     Attributes:
-        data (list['ProductResource']):
+        data (ConfigResource):  Example: {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database
+            configuration', 'environments': {'prod': {'values': {'host': {'value': 'db-prod.internal'}}}}, 'items': {'host':
+            {'description': 'Primary database hostname', 'type': 'STRING', 'value': 'db.internal'}}, 'key': 'database',
+            'name': 'Database', 'updated_at': '2026-03-27T10:00:00Z'}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type':
+            'config'}.
     """
 
-    data: list["ProductResource"]
+    data: "ConfigResource"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = []
-        for data_item_data in self.data:
-            data_item = data_item_data.to_dict()
-            data.append(data_item)
+        data = self.data.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -40,22 +41,17 @@ class ProductListResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.product_resource import ProductResource
+        from ..models.config_resource import ConfigResource
 
         d = dict(src_dict)
-        data = []
-        _data = d.pop("data")
-        for data_item_data in _data:
-            data_item = ProductResource.from_dict(data_item_data)
+        data = ConfigResource.from_dict(d.pop("data"))
 
-            data.append(data_item)
-
-        product_list_response = cls(
+        config_response = cls(
             data=data,
         )
 
-        product_list_response.additional_properties = d
-        return product_list_response
+        config_response.additional_properties = d
+        return config_response
 
     @property
     def additional_keys(self) -> list[str]:
