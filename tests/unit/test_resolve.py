@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
-import sys
-from unittest import mock
-
 import pytest
 
 from smplkit import AsyncSmplClient, SmplClient, SmplError
@@ -25,7 +21,7 @@ class TestResolveApiKey:
     def test_config_file_used_when_no_explicit_no_env(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         config_file = tmp_path / ".smplkit"
-        config_file.write_text('[default]\napi_key = "sk_api_file"\n')
+        config_file.write_text("[default]\napi_key = sk_api_file\n")
         monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
         assert _resolve_api_key(None) == "sk_api_file"
 
@@ -37,14 +33,14 @@ class TestResolveApiKey:
     def test_none_when_file_has_no_api_key(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         config_file = tmp_path / ".smplkit"
-        config_file.write_text("[default]\nother_key = \"value\"\n")
+        config_file.write_text("[default]\nother_key = value\n")
         monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
         assert _resolve_api_key(None) is None
 
     def test_none_when_file_is_malformed(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         config_file = tmp_path / ".smplkit"
-        config_file.write_text("this is not valid toml {{{}}")
+        config_file.write_text("this is not valid ini {{{}}")
         monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
         assert _resolve_api_key(None) is None
 
@@ -55,38 +51,37 @@ class TestResolveApiKey:
     def test_env_takes_precedence_over_file(self, monkeypatch, tmp_path):
         monkeypatch.setenv("SMPLKIT_API_KEY", "sk_api_env")
         config_file = tmp_path / ".smplkit"
-        config_file.write_text('[default]\napi_key = "sk_api_file"\n')
+        config_file.write_text("[default]\napi_key = sk_api_file\n")
         monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
         assert _resolve_api_key(None) == "sk_api_env"
 
     def test_empty_env_var_treated_as_unset(self, monkeypatch, tmp_path):
         monkeypatch.setenv("SMPLKIT_API_KEY", "")
         config_file = tmp_path / ".smplkit"
-        config_file.write_text('[default]\napi_key = "sk_api_file"\n')
+        config_file.write_text("[default]\napi_key = sk_api_file\n")
         monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
         assert _resolve_api_key(None) == "sk_api_file"
 
-    def test_tomli_fallback_when_tomllib_missing(self, monkeypatch, tmp_path):
-        """Simulate Python < 3.11 where tomllib is absent."""
+    def test_comments_are_ignored(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         config_file = tmp_path / ".smplkit"
-        config_file.write_text('[default]\napi_key = "sk_api_tomli"\n')
+        config_file.write_text("# comment\n[default]\n# another comment\napi_key = sk_api_comment\n")
         monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
+        assert _resolve_api_key(None) == "sk_api_comment"
 
-        # Use whichever TOML library is available as the stand-in for tomli
-        try:
-            import tomllib as _toml_mod
-        except ModuleNotFoundError:
-            import tomli as _toml_mod  # type: ignore[no-redef]
+    def test_missing_default_section(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
+        config_file = tmp_path / ".smplkit"
+        config_file.write_text("[staging]\napi_key = sk_api_staging\n")
+        monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
+        assert _resolve_api_key(None) is None
 
-        with mock.patch.dict(sys.modules, {"tomllib": None, "tomli": _toml_mod}):
-            importlib.reload(sys.modules["smplkit._resolve"])
-            from smplkit._resolve import _resolve_api_key as patched_resolve
-
-            assert patched_resolve(None) == "sk_api_tomli"
-
-        # Restore the module
-        importlib.reload(sys.modules["smplkit._resolve"])
+    def test_default_section_without_api_key(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
+        config_file = tmp_path / ".smplkit"
+        config_file.write_text("[default]\nsome_other = value\n")
+        monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
+        assert _resolve_api_key(None) is None
 
 
 class TestSmplClientResolution:
@@ -104,7 +99,7 @@ class TestSmplClientResolution:
     def test_config_file(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         config_file = tmp_path / ".smplkit"
-        config_file.write_text('[default]\napi_key = "sk_api_file"\n')
+        config_file.write_text("[default]\napi_key = sk_api_file\n")
         monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
         client = SmplClient()
         assert client._api_key == "sk_api_file"

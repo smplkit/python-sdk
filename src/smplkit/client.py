@@ -13,7 +13,9 @@ _NO_API_KEY_MESSAGE = (
     "No API key provided. Set one of:\n"
     "  1. Pass api_key to the constructor\n"
     "  2. Set the SMPLKIT_API_KEY environment variable\n"
-    "  3. Add api_key to [default] in ~/.smplkit"
+    "  3. Create a ~/.smplkit file with:\n"
+    "     [default]\n"
+    "     api_key = your_key_here"
 )
 
 

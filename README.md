@@ -26,7 +26,7 @@ client = SmplClient()
 
 # Option 3: Configuration file (~/.smplkit)
 # [default]
-# api_key = "sk_api_..."
+# api_key = sk_api_...
 client = SmplClient()
 ```
 
@@ -67,11 +67,13 @@ The API key is resolved using the following priority:
 
 1. **Explicit argument:** Pass `api_key` directly to the constructor.
 2. **Environment variable:** Set `SMPLKIT_API_KEY`.
-3. **Configuration file:** Add `api_key` under `[default]` in `~/.smplkit` (TOML format):
+3. **Configuration file:** Add `api_key` under `[default]` in `~/.smplkit`:
 
-```toml
+```ini
+# ~/.smplkit
+
 [default]
-api_key = "sk_api_..."
+api_key = sk_api_your_key_here
 ```
 
 If none of these are set, the SDK raises `SmplError` with a message listing all three methods.
