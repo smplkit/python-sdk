@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -9,81 +9,81 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from typing import cast
-from typing import Literal
-
-if TYPE_CHECKING:
-    from ..models.limit import Limit
 
 
-T = TypeVar("T", bound="LimitResource")
+T = TypeVar("T", bound="LimitDefinition")
 
 
 @_attrs_define
-class LimitResource:
+class LimitDefinition:
     """
     Attributes:
-        type_ (Literal['limit']):
-        attributes (Limit):
-        id (None | str | Unset):
+        display_name (str):
+        description (str):
+        unit (str):
+        display_format (None | str | Unset):
     """
 
-    type_: Literal["limit"]
-    attributes: Limit
-    id: None | str | Unset = UNSET
+    display_name: str
+    description: str
+    unit: str
+    display_format: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        type_ = self.type_
+        display_name = self.display_name
 
-        attributes = self.attributes.to_dict()
+        description = self.description
 
-        id: None | str | Unset
-        if isinstance(self.id, Unset):
-            id = UNSET
+        unit = self.unit
+
+        display_format: None | str | Unset
+        if isinstance(self.display_format, Unset):
+            display_format = UNSET
         else:
-            id = self.id
+            display_format = self.display_format
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "type": type_,
-                "attributes": attributes,
+                "display_name": display_name,
+                "description": description,
+                "unit": unit,
             }
         )
-        if id is not UNSET:
-            field_dict["id"] = id
+        if display_format is not UNSET:
+            field_dict["display_format"] = display_format
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.limit import Limit
-
         d = dict(src_dict)
-        type_ = cast(Literal["limit"], d.pop("type"))
-        if type_ != "limit":
-            raise ValueError(f"type must match const 'limit', got '{type_}'")
+        display_name = d.pop("display_name")
 
-        attributes = Limit.from_dict(d.pop("attributes"))
+        description = d.pop("description")
 
-        def _parse_id(data: object) -> None | str | Unset:
+        unit = d.pop("unit")
+
+        def _parse_display_format(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             return cast(None | str | Unset, data)
 
-        id = _parse_id(d.pop("id", UNSET))
+        display_format = _parse_display_format(d.pop("display_format", UNSET))
 
-        limit_resource = cls(
-            type_=type_,
-            attributes=attributes,
-            id=id,
+        limit_definition = cls(
+            display_name=display_name,
+            description=description,
+            unit=unit,
+            display_format=display_format,
         )
 
-        limit_resource.additional_properties = d
-        return limit_resource
+        limit_definition.additional_properties = d
+        return limit_definition
 
     @property
     def additional_keys(self) -> list[str]:

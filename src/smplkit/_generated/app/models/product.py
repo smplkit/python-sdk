@@ -8,26 +8,27 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.plan_limits import PlanLimits
+    from ..models.product_limits import ProductLimits
+    from ..models.product_plans import ProductPlans
 
 
-T = TypeVar("T", bound="Plan")
+T = TypeVar("T", bound="Product")
 
 
 @_attrs_define
-class Plan:
+class Product:
     """
     Attributes:
         display_name (str):
         description (str):
-        price_monthly_cents (int):
-        limits (PlanLimits):
+        limits (ProductLimits):
+        plans (ProductPlans):
     """
 
     display_name: str
     description: str
-    price_monthly_cents: int
-    limits: PlanLimits
+    limits: ProductLimits
+    plans: ProductPlans
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -35,9 +36,9 @@ class Plan:
 
         description = self.description
 
-        price_monthly_cents = self.price_monthly_cents
-
         limits = self.limits.to_dict()
+
+        plans = self.plans.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -45,8 +46,8 @@ class Plan:
             {
                 "display_name": display_name,
                 "description": description,
-                "price_monthly_cents": price_monthly_cents,
                 "limits": limits,
+                "plans": plans,
             }
         )
 
@@ -54,26 +55,27 @@ class Plan:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.plan_limits import PlanLimits
+        from ..models.product_limits import ProductLimits
+        from ..models.product_plans import ProductPlans
 
         d = dict(src_dict)
         display_name = d.pop("display_name")
 
         description = d.pop("description")
 
-        price_monthly_cents = d.pop("price_monthly_cents")
+        limits = ProductLimits.from_dict(d.pop("limits"))
 
-        limits = PlanLimits.from_dict(d.pop("limits"))
+        plans = ProductPlans.from_dict(d.pop("plans"))
 
-        plan = cls(
+        product = cls(
             display_name=display_name,
             description=description,
-            price_monthly_cents=price_monthly_cents,
             limits=limits,
+            plans=plans,
         )
 
-        plan.additional_properties = d
-        return plan
+        product.additional_properties = d
+        return product
 
     @property
     def additional_keys(self) -> list[str]:

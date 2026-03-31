@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, TYPE_CHECKING
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -9,81 +9,81 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from typing import cast
+from typing import Literal
+
+if TYPE_CHECKING:
+    from ..models.product import Product
 
 
-T = TypeVar("T", bound="Limit")
+T = TypeVar("T", bound="ProductResource")
 
 
 @_attrs_define
-class Limit:
+class ProductResource:
     """
     Attributes:
-        display_name (str):
-        description (str):
-        unit (str):
-        display_format (None | str | Unset):
+        type_ (Literal['product']):
+        attributes (Product):
+        id (None | str | Unset):
     """
 
-    display_name: str
-    description: str
-    unit: str
-    display_format: None | str | Unset = UNSET
+    type_: Literal["product"]
+    attributes: Product
+    id: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        display_name = self.display_name
+        type_ = self.type_
 
-        description = self.description
+        attributes = self.attributes.to_dict()
 
-        unit = self.unit
-
-        display_format: None | str | Unset
-        if isinstance(self.display_format, Unset):
-            display_format = UNSET
+        id: None | str | Unset
+        if isinstance(self.id, Unset):
+            id = UNSET
         else:
-            display_format = self.display_format
+            id = self.id
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "display_name": display_name,
-                "description": description,
-                "unit": unit,
+                "type": type_,
+                "attributes": attributes,
             }
         )
-        if display_format is not UNSET:
-            field_dict["display_format"] = display_format
+        if id is not UNSET:
+            field_dict["id"] = id
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.product import Product
+
         d = dict(src_dict)
-        display_name = d.pop("display_name")
+        type_ = cast(Literal["product"], d.pop("type"))
+        if type_ != "product":
+            raise ValueError(f"type must match const 'product', got '{type_}'")
 
-        description = d.pop("description")
+        attributes = Product.from_dict(d.pop("attributes"))
 
-        unit = d.pop("unit")
-
-        def _parse_display_format(data: object) -> None | str | Unset:
+        def _parse_id(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             return cast(None | str | Unset, data)
 
-        display_format = _parse_display_format(d.pop("display_format", UNSET))
+        id = _parse_id(d.pop("id", UNSET))
 
-        limit = cls(
-            display_name=display_name,
-            description=description,
-            unit=unit,
-            display_format=display_format,
+        product_resource = cls(
+            type_=type_,
+            attributes=attributes,
+            id=id,
         )
 
-        limit.additional_properties = d
-        return limit
+        product_resource.additional_properties = d
+        return product_resource
 
     @property
     def additional_keys(self) -> list[str]:

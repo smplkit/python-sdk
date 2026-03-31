@@ -7,11 +7,11 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-T = TypeVar("T", bound="PlanLimits")
+T = TypeVar("T", bound="PlanDefinitionLimits")
 
 
 @_attrs_define
-class PlanLimits:
+class PlanDefinitionLimits:
     """ """
 
     additional_properties: dict[str, int] = _attrs_field(init=False, factory=dict)
@@ -26,10 +26,10 @@ class PlanLimits:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        plan_limits = cls()
+        plan_definition_limits = cls()
 
-        plan_limits.additional_properties = d
-        return plan_limits
+        plan_definition_limits.additional_properties = d
+        return plan_definition_limits
 
     @property
     def additional_keys(self) -> list[str]:
