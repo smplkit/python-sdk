@@ -1,5 +1,6 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -22,7 +23,7 @@ def _get_kwargs(
     _kwargs: dict[str, Any] = {
         "method": "put",
         "url": "/api/v1/environments/{id}".format(
-            id=id,
+            id=quote(str(id), safe=""),
         ),
     }
 
@@ -35,8 +36,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[EnvironmentResponse, ErrorResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> EnvironmentResponse | ErrorResponse | None:
     if response.status_code == 200:
         response_200 = EnvironmentResponse.from_dict(response.json())
 
@@ -69,8 +70,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[EnvironmentResponse, ErrorResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[EnvironmentResponse | ErrorResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -84,7 +85,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     body: EnvironmentResponse,
-) -> Response[Union[EnvironmentResponse, ErrorResponse]]:
+) -> Response[EnvironmentResponse | ErrorResponse]:
     """Update Environment
 
     Args:
@@ -96,7 +97,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[EnvironmentResponse, ErrorResponse]]
+        Response[EnvironmentResponse | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
@@ -116,7 +117,7 @@ def sync(
     *,
     client: AuthenticatedClient,
     body: EnvironmentResponse,
-) -> Optional[Union[EnvironmentResponse, ErrorResponse]]:
+) -> EnvironmentResponse | ErrorResponse | None:
     """Update Environment
 
     Args:
@@ -128,7 +129,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[EnvironmentResponse, ErrorResponse]
+        EnvironmentResponse | ErrorResponse
     """
 
     return sync_detailed(
@@ -143,7 +144,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     body: EnvironmentResponse,
-) -> Response[Union[EnvironmentResponse, ErrorResponse]]:
+) -> Response[EnvironmentResponse | ErrorResponse]:
     """Update Environment
 
     Args:
@@ -155,7 +156,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[EnvironmentResponse, ErrorResponse]]
+        Response[EnvironmentResponse | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
@@ -173,7 +174,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     body: EnvironmentResponse,
-) -> Optional[Union[EnvironmentResponse, ErrorResponse]]:
+) -> EnvironmentResponse | ErrorResponse | None:
     """Update Environment
 
     Args:
@@ -185,7 +186,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[EnvironmentResponse, ErrorResponse]
+        EnvironmentResponse | ErrorResponse
     """
 
     return (

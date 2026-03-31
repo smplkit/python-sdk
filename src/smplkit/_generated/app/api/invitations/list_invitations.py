@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
 
 import httpx
 
@@ -14,12 +14,12 @@ from ...types import Unset
 
 def _get_kwargs(
     *,
-    filterstatus: Union[None, Unset, str] = UNSET,
+    filterstatus: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
-    json_filterstatus: Union[None, Unset, str]
+    json_filterstatus: None | str | Unset
     if isinstance(filterstatus, Unset):
         json_filterstatus = UNSET
     else:
@@ -38,8 +38,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[ErrorResponse, InvitationListResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ErrorResponse | InvitationListResponse | None:
     if response.status_code == 200:
         response_200 = InvitationListResponse.from_dict(response.json())
 
@@ -72,8 +72,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[ErrorResponse, InvitationListResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ErrorResponse | InvitationListResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -85,19 +85,19 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    filterstatus: Union[None, Unset, str] = UNSET,
-) -> Response[Union[ErrorResponse, InvitationListResponse]]:
+    filterstatus: None | str | Unset = UNSET,
+) -> Response[ErrorResponse | InvitationListResponse]:
     """List Invitations
 
     Args:
-        filterstatus (Union[None, Unset, str]):
+        filterstatus (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ErrorResponse, InvitationListResponse]]
+        Response[ErrorResponse | InvitationListResponse]
     """
 
     kwargs = _get_kwargs(
@@ -114,19 +114,19 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    filterstatus: Union[None, Unset, str] = UNSET,
-) -> Optional[Union[ErrorResponse, InvitationListResponse]]:
+    filterstatus: None | str | Unset = UNSET,
+) -> ErrorResponse | InvitationListResponse | None:
     """List Invitations
 
     Args:
-        filterstatus (Union[None, Unset, str]):
+        filterstatus (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ErrorResponse, InvitationListResponse]
+        ErrorResponse | InvitationListResponse
     """
 
     return sync_detailed(
@@ -138,19 +138,19 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    filterstatus: Union[None, Unset, str] = UNSET,
-) -> Response[Union[ErrorResponse, InvitationListResponse]]:
+    filterstatus: None | str | Unset = UNSET,
+) -> Response[ErrorResponse | InvitationListResponse]:
     """List Invitations
 
     Args:
-        filterstatus (Union[None, Unset, str]):
+        filterstatus (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ErrorResponse, InvitationListResponse]]
+        Response[ErrorResponse | InvitationListResponse]
     """
 
     kwargs = _get_kwargs(
@@ -165,19 +165,19 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    filterstatus: Union[None, Unset, str] = UNSET,
-) -> Optional[Union[ErrorResponse, InvitationListResponse]]:
+    filterstatus: None | str | Unset = UNSET,
+) -> ErrorResponse | InvitationListResponse | None:
     """List Invitations
 
     Args:
-        filterstatus (Union[None, Unset, str]):
+        filterstatus (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ErrorResponse, InvitationListResponse]
+        ErrorResponse | InvitationListResponse
     """
 
     return (
