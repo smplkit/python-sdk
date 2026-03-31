@@ -23,15 +23,16 @@ from .invitation_create_item import InvitationCreateItem
 from .invitation_list_response import InvitationListResponse
 from .invitation_resource import InvitationResource
 from .invitation_response import InvitationResponse
-from .limit import Limit
-from .limit_list_response import LimitListResponse
-from .limit_resource import LimitResource
+from .limit_definition import LimitDefinition
 from .login_request import LoginRequest
 from .oidc_provider import OidcProvider
-from .plan import Plan
-from .plan_limits import PlanLimits
-from .plan_list_response import PlanListResponse
-from .plan_resource import PlanResource
+from .plan_definition import PlanDefinition
+from .plan_definition_limits import PlanDefinitionLimits
+from .product import Product
+from .product_limits import ProductLimits
+from .product_list_response import ProductListResponse
+from .product_plans import ProductPlans
+from .product_resource import ProductResource
 from .register_request import RegisterRequest
 from .service import Service
 from .service_list_response import ServiceListResponse
@@ -66,15 +67,16 @@ __all__ = (
     "InvitationListResponse",
     "InvitationResource",
     "InvitationResponse",
-    "Limit",
-    "LimitListResponse",
-    "LimitResource",
+    "LimitDefinition",
     "LoginRequest",
     "OidcProvider",
-    "Plan",
-    "PlanLimits",
-    "PlanListResponse",
-    "PlanResource",
+    "PlanDefinition",
+    "PlanDefinitionLimits",
+    "Product",
+    "ProductLimits",
+    "ProductListResponse",
+    "ProductPlans",
+    "ProductResource",
     "RegisterRequest",
     "Service",
     "ServiceListResponse",

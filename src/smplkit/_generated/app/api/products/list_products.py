@@ -8,14 +8,14 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
-from ...models.limit_list_response import LimitListResponse
+from ...models.product_list_response import ProductListResponse
 
 
 def _get_kwargs() -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/api/v1/limits",
+        "url": "/api/v1/products",
     }
 
     return _kwargs
@@ -23,9 +23,9 @@ def _get_kwargs() -> dict[str, Any]:
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse | LimitListResponse | None:
+) -> ErrorResponse | ProductListResponse | None:
     if response.status_code == 200:
-        response_200 = LimitListResponse.from_dict(response.json())
+        response_200 = ProductListResponse.from_dict(response.json())
 
         return response_200
 
@@ -57,7 +57,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse | LimitListResponse]:
+) -> Response[ErrorResponse | ProductListResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,17 +69,17 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
-) -> Response[ErrorResponse | LimitListResponse]:
-    """List Limits
+) -> Response[ErrorResponse | ProductListResponse]:
+    """List Products
 
-     Return all limit definitions as JSON:API resources.
+     Return all products with their plans and limits as JSON:API resources.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | LimitListResponse]
+        Response[ErrorResponse | ProductListResponse]
     """
 
     kwargs = _get_kwargs()
@@ -94,17 +94,17 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient | Client,
-) -> ErrorResponse | LimitListResponse | None:
-    """List Limits
+) -> ErrorResponse | ProductListResponse | None:
+    """List Products
 
-     Return all limit definitions as JSON:API resources.
+     Return all products with their plans and limits as JSON:API resources.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | LimitListResponse
+        ErrorResponse | ProductListResponse
     """
 
     return sync_detailed(
@@ -115,17 +115,17 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
-) -> Response[ErrorResponse | LimitListResponse]:
-    """List Limits
+) -> Response[ErrorResponse | ProductListResponse]:
+    """List Products
 
-     Return all limit definitions as JSON:API resources.
+     Return all products with their plans and limits as JSON:API resources.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | LimitListResponse]
+        Response[ErrorResponse | ProductListResponse]
     """
 
     kwargs = _get_kwargs()
@@ -138,17 +138,17 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
-) -> ErrorResponse | LimitListResponse | None:
-    """List Limits
+) -> ErrorResponse | ProductListResponse | None:
+    """List Products
 
-     Return all limit definitions as JSON:API resources.
+     Return all products with their plans and limits as JSON:API resources.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | LimitListResponse
+        ErrorResponse | ProductListResponse
     """
 
     return (

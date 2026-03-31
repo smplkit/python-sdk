@@ -8,20 +8,20 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.limit_resource import LimitResource
+    from ..models.product_resource import ProductResource
 
 
-T = TypeVar("T", bound="LimitListResponse")
+T = TypeVar("T", bound="ProductListResponse")
 
 
 @_attrs_define
-class LimitListResponse:
+class ProductListResponse:
     """
     Attributes:
-        data (list[LimitResource]):
+        data (list[ProductResource]):
     """
 
-    data: list[LimitResource]
+    data: list[ProductResource]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -42,22 +42,22 @@ class LimitListResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.limit_resource import LimitResource
+        from ..models.product_resource import ProductResource
 
         d = dict(src_dict)
         data = []
         _data = d.pop("data")
         for data_item_data in _data:
-            data_item = LimitResource.from_dict(data_item_data)
+            data_item = ProductResource.from_dict(data_item_data)
 
             data.append(data_item)
 
-        limit_list_response = cls(
+        product_list_response = cls(
             data=data,
         )
 
-        limit_list_response.additional_properties = d
-        return limit_list_response
+        product_list_response.additional_properties = d
+        return product_list_response
 
     @property
     def additional_keys(self) -> list[str]:
