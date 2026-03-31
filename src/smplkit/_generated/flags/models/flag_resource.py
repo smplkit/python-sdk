@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -7,7 +9,6 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from typing import cast
-from typing import Union
 from typing import Literal
 
 if TYPE_CHECKING:
@@ -36,12 +37,12 @@ class FlagResource:
             True}]}, 'staging': {'default': True, 'enabled': True, 'rules': []}}, 'key': 'dark_mode', 'name': 'Dark Mode',
             'type': 'BOOLEAN', 'updated_at': '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name':
             'off', 'value': False}]}.
-        id (Union[None, Unset, str]):
+        id (None | str | Unset):
     """
 
     type_: Literal["flag"]
-    attributes: "Flag"
-    id: Union[None, Unset, str] = UNSET
+    attributes: Flag
+    id: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -49,7 +50,7 @@ class FlagResource:
 
         attributes = self.attributes.to_dict()
 
-        id: Union[None, Unset, str]
+        id: None | str | Unset
         if isinstance(self.id, Unset):
             id = UNSET
         else:
@@ -79,12 +80,12 @@ class FlagResource:
 
         attributes = Flag.from_dict(d.pop("attributes"))
 
-        def _parse_id(data: object) -> Union[None, Unset, str]:
+        def _parse_id(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         id = _parse_id(d.pop("id", UNSET))
 

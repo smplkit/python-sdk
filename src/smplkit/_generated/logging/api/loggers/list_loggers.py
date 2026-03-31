@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
 
 import httpx
 
@@ -15,12 +15,12 @@ from ...types import Unset
 
 def _get_kwargs(
     *,
-    filterkey: Union[None, Unset, str] = UNSET,
+    filterkey: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
-    json_filterkey: Union[None, Unset, str]
+    json_filterkey: None | str | Unset
     if isinstance(filterkey, Unset):
         json_filterkey = UNSET
     else:
@@ -39,8 +39,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[ErrorResponse, HTTPValidationError, LoggerListResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ErrorResponse | HTTPValidationError | LoggerListResponse | None:
     if response.status_code == 200:
         response_200 = LoggerListResponse.from_dict(response.json())
 
@@ -78,8 +78,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[ErrorResponse, HTTPValidationError, LoggerListResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ErrorResponse | HTTPValidationError | LoggerListResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -91,19 +91,19 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    filterkey: Union[None, Unset, str] = UNSET,
-) -> Response[Union[ErrorResponse, HTTPValidationError, LoggerListResponse]]:
+    filterkey: None | str | Unset = UNSET,
+) -> Response[ErrorResponse | HTTPValidationError | LoggerListResponse]:
     """List Loggers
 
     Args:
-        filterkey (Union[None, Unset, str]):
+        filterkey (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ErrorResponse, HTTPValidationError, LoggerListResponse]]
+        Response[ErrorResponse | HTTPValidationError | LoggerListResponse]
     """
 
     kwargs = _get_kwargs(
@@ -120,19 +120,19 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    filterkey: Union[None, Unset, str] = UNSET,
-) -> Optional[Union[ErrorResponse, HTTPValidationError, LoggerListResponse]]:
+    filterkey: None | str | Unset = UNSET,
+) -> ErrorResponse | HTTPValidationError | LoggerListResponse | None:
     """List Loggers
 
     Args:
-        filterkey (Union[None, Unset, str]):
+        filterkey (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ErrorResponse, HTTPValidationError, LoggerListResponse]
+        ErrorResponse | HTTPValidationError | LoggerListResponse
     """
 
     return sync_detailed(
@@ -144,19 +144,19 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    filterkey: Union[None, Unset, str] = UNSET,
-) -> Response[Union[ErrorResponse, HTTPValidationError, LoggerListResponse]]:
+    filterkey: None | str | Unset = UNSET,
+) -> Response[ErrorResponse | HTTPValidationError | LoggerListResponse]:
     """List Loggers
 
     Args:
-        filterkey (Union[None, Unset, str]):
+        filterkey (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ErrorResponse, HTTPValidationError, LoggerListResponse]]
+        Response[ErrorResponse | HTTPValidationError | LoggerListResponse]
     """
 
     kwargs = _get_kwargs(
@@ -171,19 +171,19 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    filterkey: Union[None, Unset, str] = UNSET,
-) -> Optional[Union[ErrorResponse, HTTPValidationError, LoggerListResponse]]:
+    filterkey: None | str | Unset = UNSET,
+) -> ErrorResponse | HTTPValidationError | LoggerListResponse | None:
     """List Loggers
 
     Args:
-        filterkey (Union[None, Unset, str]):
+        filterkey (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ErrorResponse, HTTPValidationError, LoggerListResponse]
+        ErrorResponse | HTTPValidationError | LoggerListResponse
     """
 
     return (
