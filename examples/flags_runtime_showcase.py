@@ -382,7 +382,7 @@ async def main() -> None:
     @banner_color.on_change
     def on_banner_change(event):
         banner_changes.append(event)
-        print(f"    [BANNER] banner-color definition changed")
+        print("    [BANNER] banner-color definition changed")
 
     step("Flag-specific listener registered for banner-color")
 
@@ -391,7 +391,7 @@ async def main() -> None:
     @checkout_v2.on_change
     def on_checkout_change(event):
         checkout_changes.append(event)
-        print(f"    [CHECKOUT] checkout-v2 definition changed")
+        print("    [CHECKOUT] checkout-v2 definition changed")
 
     step("Flag-specific listener registered for checkout-v2")
 

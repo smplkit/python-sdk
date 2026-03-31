@@ -6,6 +6,7 @@ from smplkit._errors import SmplError
 from smplkit._generated.config.client import AuthenticatedClient
 from smplkit._resolve import _resolve_api_key
 from smplkit.config.client import AsyncConfigClient, ConfigClient
+from smplkit.flags.client import AsyncFlagsClient, FlagsClient
 
 _DEFAULT_BASE_URL = "https://config.smplkit.com"
 
@@ -52,6 +53,7 @@ class SmplClient:
             token=resolved,
         )
         self.config = ConfigClient(self)
+        self.flags = FlagsClient(self)
 
     def close(self) -> None:
         """Close the underlying HTTP connection pool."""
@@ -100,6 +102,7 @@ class AsyncSmplClient:
             token=resolved,
         )
         self.config = AsyncConfigClient(self)
+        self.flags = AsyncFlagsClient(self)
 
     async def close(self) -> None:
         """Close the underlying HTTP connection pool."""

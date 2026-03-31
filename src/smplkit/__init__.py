@@ -9,9 +9,13 @@ from smplkit._errors import (
     SmplTimeoutError,
     SmplValidationError,
 )
+from smplkit.flags.types import Context, FlagType, Rule
 
 __all__ = [
     "AsyncSmplClient",
+    "Context",
+    "FlagType",
+    "Rule",
     "SmplClient",
     "SmplError",
     "SmplConnectionError",
