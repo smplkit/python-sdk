@@ -13,66 +13,38 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
-    from ..models.flag_environments import FlagEnvironments
-    from ..models.flag_value import FlagValue
+    from ..models.context_attributes import ContextAttributes
 
 
-T = TypeVar("T", bound="Flag")
+T = TypeVar("T", bound="Context")
 
 
 @_attrs_define
-class Flag:
+class Context:
     """
-    Example:
-        {'created_at': '2026-03-27T10:00:00Z', 'default': False, 'description': 'Enable dark mode for the application
-            UI', 'environments': {'production': {'default': False, 'enabled': True, 'rules': [{'description': 'Beta users
-            get dark mode', 'logic': {'attribute': 'beta', 'op': 'eq', 'value': True}, 'value': True}]}, 'staging':
-            {'default': True, 'enabled': True, 'rules': []}}, 'key': 'dark_mode', 'name': 'Dark Mode', 'type': 'BOOLEAN',
-            'updated_at': '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value':
-            False}]}
-
     Attributes:
-        key (str): Unique key within account
-        name (str): Human-readable display name
-        type_ (str): Value type: STRING, BOOLEAN, NUMERIC, or JSON
-        default (Any): Default value; must reference a value in the values array
-        values (list[FlagValue]): Closed set of possible values
-        description (str | Unset):  Default: ''.
-        environments (FlagEnvironments | Unset):
+        context_type_id (str): UUID of the context type
+        key (str): Entity identifier: user-123, acme-corp
+        attributes (ContextAttributes | Unset): Observed attributes
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
     """
 
+    context_type_id: str
     key: str
-    name: str
-    type_: str
-    default: Any
-    values: list[FlagValue]
-    description: str | Unset = ""
-    environments: FlagEnvironments | Unset = UNSET
+    attributes: ContextAttributes | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        context_type_id = self.context_type_id
+
         key = self.key
 
-        name = self.name
-
-        type_ = self.type_
-
-        default = self.default
-
-        values = []
-        for values_item_data in self.values:
-            values_item = values_item_data.to_dict()
-            values.append(values_item)
-
-        description = self.description
-
-        environments: dict[str, Any] | Unset = UNSET
-        if not isinstance(self.environments, Unset):
-            environments = self.environments.to_dict()
+        attributes: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.attributes, Unset):
+            attributes = self.attributes.to_dict()
 
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
@@ -94,17 +66,12 @@ class Flag:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "context_type_id": context_type_id,
                 "key": key,
-                "name": name,
-                "type": type_,
-                "default": default,
-                "values": values,
             }
         )
-        if description is not UNSET:
-            field_dict["description"] = description
-        if environments is not UNSET:
-            field_dict["environments"] = environments
+        if attributes is not UNSET:
+            field_dict["attributes"] = attributes
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
         if updated_at is not UNSET:
@@ -114,33 +81,19 @@ class Flag:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.flag_environments import FlagEnvironments
-        from ..models.flag_value import FlagValue
+        from ..models.context_attributes import ContextAttributes
 
         d = dict(src_dict)
+        context_type_id = d.pop("context_type_id")
+
         key = d.pop("key")
 
-        name = d.pop("name")
-
-        type_ = d.pop("type")
-
-        default = d.pop("default")
-
-        values = []
-        _values = d.pop("values")
-        for values_item_data in _values:
-            values_item = FlagValue.from_dict(values_item_data)
-
-            values.append(values_item)
-
-        description = d.pop("description", UNSET)
-
-        _environments = d.pop("environments", UNSET)
-        environments: FlagEnvironments | Unset
-        if isinstance(_environments, Unset):
-            environments = UNSET
+        _attributes = d.pop("attributes", UNSET)
+        attributes: ContextAttributes | Unset
+        if isinstance(_attributes, Unset):
+            attributes = UNSET
         else:
-            environments = FlagEnvironments.from_dict(_environments)
+            attributes = ContextAttributes.from_dict(_attributes)
 
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -176,20 +129,16 @@ class Flag:
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 
-        flag = cls(
+        context = cls(
+            context_type_id=context_type_id,
             key=key,
-            name=name,
-            type_=type_,
-            default=default,
-            values=values,
-            description=description,
-            environments=environments,
+            attributes=attributes,
             created_at=created_at,
             updated_at=updated_at,
         )
 
-        flag.additional_properties = d
-        return flag
+        context.additional_properties = d
+        return context
 
     @property
     def additional_keys(self) -> list[str]:
