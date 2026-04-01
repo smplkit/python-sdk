@@ -5,10 +5,12 @@ from __future__ import annotations
 from smplkit._errors import SmplError
 from smplkit._generated.config.client import AuthenticatedClient
 from smplkit._resolve import _resolve_api_key
+from smplkit._ws import SharedWebSocket
 from smplkit.config.client import AsyncConfigClient, ConfigClient
 from smplkit.flags.client import AsyncFlagsClient, FlagsClient
 
 _DEFAULT_BASE_URL = "https://config.smplkit.com"
+_APP_BASE_URL = "https://app.smplkit.com"
 
 _NO_API_KEY_MESSAGE = (
     "No API key provided. Set one of:\n"
@@ -52,11 +54,25 @@ class SmplClient:
             base_url=_DEFAULT_BASE_URL,
             token=resolved,
         )
+        self._ws_manager: SharedWebSocket | None = None
         self.config = ConfigClient(self)
         self.flags = FlagsClient(self)
 
+    def _ensure_ws(self) -> SharedWebSocket:
+        """Lazily create and start the shared WebSocket."""
+        if self._ws_manager is None:
+            self._ws_manager = SharedWebSocket(
+                app_base_url=_APP_BASE_URL,
+                api_key=self._api_key,
+            )
+            self._ws_manager.start()
+        return self._ws_manager
+
     def close(self) -> None:
-        """Close the underlying HTTP connection pool."""
+        """Close the underlying HTTP connection pool and shared WebSocket."""
+        if self._ws_manager is not None:
+            self._ws_manager.stop()
+            self._ws_manager = None
         client = self._http_client._client
         if client is not None:
             client.close()
@@ -101,11 +117,25 @@ class AsyncSmplClient:
             base_url=_DEFAULT_BASE_URL,
             token=resolved,
         )
+        self._ws_manager: SharedWebSocket | None = None
         self.config = AsyncConfigClient(self)
         self.flags = AsyncFlagsClient(self)
 
+    def _ensure_ws(self) -> SharedWebSocket:
+        """Lazily create and start the shared WebSocket."""
+        if self._ws_manager is None:
+            self._ws_manager = SharedWebSocket(
+                app_base_url=_APP_BASE_URL,
+                api_key=self._api_key,
+            )
+            self._ws_manager.start()
+        return self._ws_manager
+
     async def close(self) -> None:
-        """Close the underlying HTTP connection pool."""
+        """Close the underlying HTTP connection pool and shared WebSocket."""
+        if self._ws_manager is not None:
+            self._ws_manager.stop()
+            self._ws_manager = None
         client = self._http_client._async_client
         if client is not None:
             await client.aclose()

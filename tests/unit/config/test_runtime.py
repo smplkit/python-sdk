@@ -1,7 +1,7 @@
 """Tests for ConfigRuntime, ConfigChangeEvent, and ConfigStats."""
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from smplkit.config.runtime import ConfigChangeEvent, ConfigRuntime, ConfigStats
 
@@ -16,10 +16,7 @@ def _make_runtime(
     base_url: str = "https://config.smplkit.com",
     fetch_chain_fn=None,
 ) -> ConfigRuntime:
-    """Helper to create a ConfigRuntime with sensible defaults.
-
-    Patches the WebSocket thread so it doesn't actually connect.
-    """
+    """Helper to create a ConfigRuntime with sensible defaults."""
     if chain is None:
         chain = [
             {
@@ -30,17 +27,15 @@ def _make_runtime(
                 },
             }
         ]
-    with patch.object(ConfigRuntime, "_start_ws_thread"):
-        rt = ConfigRuntime(
-            config_key=config_key,
-            config_id=config_id,
-            environment=environment,
-            chain=chain,
-            api_key=api_key,
-            base_url=base_url,
-            fetch_chain_fn=fetch_chain_fn,
-        )
-    return rt
+    return ConfigRuntime(
+        config_key=config_key,
+        config_id=config_id,
+        environment=environment,
+        chain=chain,
+        api_key=api_key,
+        base_url=base_url,
+        fetch_chain_fn=fetch_chain_fn,
+    )
 
 
 class TestConfigRuntime:
@@ -252,6 +247,18 @@ class TestConfigRuntime:
         assert val == 10
         assert rt._access_after_delete_warned is True
 
+    def test_refresh_coroutine_fetch_fn_skipped(self):
+        """If fetch_chain_fn returns a coroutine, _refresh_from_server should skip it."""
+
+        async def async_fetch():
+            return []
+
+        rt = _make_runtime(fetch_chain_fn=async_fetch)
+        old_chain = rt._chain[:]
+        rt._refresh_from_server()
+        # Chain should NOT have been updated (coroutine path returns early)
+        assert rt._chain == old_chain
+
     def test_close_with_no_ws(self):
         """Close should work cleanly when no WebSocket is active."""
         rt = _make_runtime()
@@ -286,18 +293,14 @@ class TestConfigRuntime:
 
 class TestConfigChangeEvent:
     def test_attributes(self):
-        event = ConfigChangeEvent(
-            key="retries", old_value=3, new_value=5, source="websocket"
-        )
+        event = ConfigChangeEvent(key="retries", old_value=3, new_value=5, source="websocket")
         assert event.key == "retries"
         assert event.old_value == 3
         assert event.new_value == 5
         assert event.source == "websocket"
 
     def test_repr(self):
-        event = ConfigChangeEvent(
-            key="retries", old_value=3, new_value=5, source="websocket"
-        )
+        event = ConfigChangeEvent(key="retries", old_value=3, new_value=5, source="websocket")
         r = repr(event)
         assert "ConfigChangeEvent" in r
         assert "retries" in r

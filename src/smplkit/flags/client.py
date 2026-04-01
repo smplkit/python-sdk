@@ -428,7 +428,7 @@ class FlagsClient:
     # Management methods
     # ------------------------------------------------------------------
 
-    def create(  # pragma: no cover
+    def create(
         self,
         key: str,
         *,
@@ -463,7 +463,7 @@ class FlagsClient:
             raise SmplValidationError("Failed to create flag")
         return self._to_model(response.parsed)
 
-    def get(self, flag_id: str) -> Flag:  # pragma: no cover
+    def get(self, flag_id: str) -> Flag:
         """Fetch a flag by UUID."""
         from uuid import UUID
 
@@ -477,7 +477,7 @@ class FlagsClient:
             raise SmplNotFoundError(f"Flag {flag_id} not found")
         return self._to_model(response.parsed)
 
-    def list(self) -> list[Flag]:  # pragma: no cover
+    def list(self) -> list[Flag]:
         """List all flags."""
         try:
             response = list_flags.sync_detailed(client=self._flags_http)
@@ -489,7 +489,7 @@ class FlagsClient:
             return []
         return [self._resource_to_model(r) for r in response.parsed.data]
 
-    def delete(self, flag_id: str) -> None:  # pragma: no cover
+    def delete(self, flag_id: str) -> None:
         """Delete a flag by UUID."""
         from uuid import UUID
 
@@ -500,7 +500,7 @@ class FlagsClient:
             raise
         _check_response_status(response.status_code, response.content)
 
-    def _update_flag(  # pragma: no cover
+    def _update_flag(
         self,
         *,
         flag: Flag,
@@ -537,7 +537,7 @@ class FlagsClient:
     # Context type management (direct HTTP — no generated client)
     # ------------------------------------------------------------------
 
-    def create_context_type(self, key: str, *, name: str) -> ContextType:  # pragma: no cover
+    def create_context_type(self, key: str, *, name: str) -> ContextType:
         """Create a context type."""
         resp = self._flags_http.get_httpx_client().post(
             "/api/v1/context_types",
@@ -547,7 +547,7 @@ class FlagsClient:
         data = resp.json().get("data", {})
         return self._parse_context_type(data)
 
-    def update_context_type(self, ct_id: str, *, attributes: dict[str, Any]) -> ContextType:  # pragma: no cover
+    def update_context_type(self, ct_id: str, *, attributes: dict[str, Any]) -> ContextType:
         """Update a context type (merge attributes)."""
         resp = self._flags_http.get_httpx_client().put(
             f"/api/v1/context_types/{ct_id}",
@@ -557,19 +557,19 @@ class FlagsClient:
         data = resp.json().get("data", {})
         return self._parse_context_type(data)
 
-    def list_context_types(self) -> list[ContextType]:  # pragma: no cover
+    def list_context_types(self) -> list[ContextType]:
         """List all context types."""
         resp = self._flags_http.get_httpx_client().get("/api/v1/context_types")
         _check_response_status(resp.status_code, resp.content)
         items = resp.json().get("data", [])
         return [self._parse_context_type(item) for item in items]
 
-    def delete_context_type(self, ct_id: str) -> None:  # pragma: no cover
+    def delete_context_type(self, ct_id: str) -> None:
         """Delete a context type."""
         resp = self._flags_http.get_httpx_client().delete(f"/api/v1/context_types/{ct_id}")
         _check_response_status(resp.status_code, resp.content)
 
-    def list_contexts(self, *, context_type_key: str) -> list[dict[str, Any]]:  # pragma: no cover
+    def list_contexts(self, *, context_type_key: str) -> list[dict[str, Any]]:
         """List context instances filtered by context_type_key."""
         params = {"filter[context_type]": context_type_key}
         resp = self._flags_http.get_httpx_client().get("/api/v1/contexts", params=params)
@@ -613,7 +613,7 @@ class FlagsClient:
     # Runtime: connect / disconnect / refresh
     # ------------------------------------------------------------------
 
-    def connect(self, environment: str, *, timeout: int = 10) -> None:  # pragma: no cover
+    def connect(self, environment: str, *, timeout: int = 10) -> None:
         """Connect to an environment: fetch flags, register on shared WebSocket."""
         self._environment = environment
         self._fetch_all_flags()
@@ -625,7 +625,7 @@ class FlagsClient:
         self._ws_manager.on("flag_changed", self._handle_flag_changed)
         self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
 
-    def disconnect(self) -> None:  # pragma: no cover
+    def disconnect(self) -> None:
         """Disconnect: unregister from WebSocket, flush contexts, clear state."""
         # Unregister from the shared WebSocket
         if self._ws_manager is not None:
@@ -639,18 +639,18 @@ class FlagsClient:
         self._connected = False
         self._environment = None
 
-    def refresh(self) -> None:  # pragma: no cover
+    def refresh(self) -> None:
         """Re-fetch all flag definitions and clear cache."""
         self._fetch_all_flags()
         self._cache.clear()
         self._fire_change_listeners_all("manual")
 
-    def connection_status(self) -> str:  # pragma: no cover
+    def connection_status(self) -> str:
         if self._ws_manager is not None:
             return self._ws_manager.connection_status
         return "disconnected"
 
-    def stats(self) -> FlagStats:  # pragma: no cover
+    def stats(self) -> FlagStats:
         return FlagStats(cache_hits=self._cache.cache_hits, cache_misses=self._cache.cache_misses)
 
     # ------------------------------------------------------------------
@@ -682,11 +682,11 @@ class FlagsClient:
         else:
             self._context_buffer.observe([context])
 
-    def flush_contexts(self) -> None:  # pragma: no cover
+    def flush_contexts(self) -> None:
         """Flush pending context registrations to the server."""
         self._flush_contexts_sync()
 
-    def _flush_contexts_sync(self) -> None:  # pragma: no cover
+    def _flush_contexts_sync(self) -> None:
         batch = self._context_buffer.drain()
         if not batch:
             return
@@ -702,7 +702,7 @@ class FlagsClient:
     # Runtime: Tier 1 evaluate
     # ------------------------------------------------------------------
 
-    def evaluate(self, key: str, *, environment: str, context: list[Context]) -> Any:  # pragma: no cover
+    def evaluate(self, key: str, *, environment: str, context: list[Context]) -> Any:
         """Tier 1 explicit evaluation — stateless, no provider or cache."""
         eval_dict = _contexts_to_eval_dict(context)
 
@@ -725,7 +725,7 @@ class FlagsClient:
     # Internal: evaluation
     # ------------------------------------------------------------------
 
-    def _evaluate_handle(self, key: str, default: Any, context: list[Context] | None) -> Any:  # pragma: no cover
+    def _evaluate_handle(self, key: str, default: Any, context: list[Context] | None) -> Any:
         """Core evaluation used by flag handles."""
         if not self._connected:
             return default
@@ -765,14 +765,14 @@ class FlagsClient:
     # Internal: event handlers (called by SharedWebSocket)
     # ------------------------------------------------------------------
 
-    def _handle_flag_changed(self, data: dict[str, Any]) -> None:  # pragma: no cover
+    def _handle_flag_changed(self, data: dict[str, Any]) -> None:
         """Handle a flag_changed event by re-fetching all flags."""
         flag_key = data.get("key")
         self._fetch_all_flags()
         self._cache.clear()
         self._fire_change_listeners(flag_key, "websocket")
 
-    def _handle_flag_deleted(self, data: dict[str, Any]) -> None:  # pragma: no cover
+    def _handle_flag_deleted(self, data: dict[str, Any]) -> None:
         """Handle a flag_deleted event by re-fetching all flags."""
         flag_key = data.get("key")
         self._fetch_all_flags()
@@ -783,12 +783,12 @@ class FlagsClient:
     # Internal: flag store
     # ------------------------------------------------------------------
 
-    def _fetch_all_flags(self) -> None:  # pragma: no cover
+    def _fetch_all_flags(self) -> None:
         """Fetch all flags and store as plain dicts keyed by flag key."""
         flags = self._fetch_flags_list()
         self._flag_store = {f["key"]: f for f in flags}
 
-    def _fetch_flags_list(self) -> list[dict[str, Any]]:  # pragma: no cover
+    def _fetch_flags_list(self) -> list[dict[str, Any]]:
         """Fetch all flags as plain dicts."""
         try:
             response = list_flags.sync_detailed(client=self._flags_http)
@@ -814,7 +814,7 @@ class FlagsClient:
             )
         return result
 
-    def _fire_change_listeners(self, flag_key: str | None, source: str) -> None:  # pragma: no cover
+    def _fire_change_listeners(self, flag_key: str | None, source: str) -> None:
         """Fire global and flag-specific listeners for a single flag."""
         if flag_key:
             event = FlagChangeEvent(key=flag_key, source=source)
@@ -831,7 +831,7 @@ class FlagsClient:
                     except Exception:
                         logger.error("Exception in flag-specific on_change listener", exc_info=True)
 
-    def _fire_change_listeners_all(self, source: str) -> None:  # pragma: no cover
+    def _fire_change_listeners_all(self, source: str) -> None:
         """Fire listeners for all known flags (used after refresh)."""
         for flag_key in self._flag_store:
             self._fire_change_listeners(flag_key, source)
@@ -840,10 +840,10 @@ class FlagsClient:
     # Model conversion
     # ------------------------------------------------------------------
 
-    def _to_model(self, parsed: Any) -> Flag:  # pragma: no cover
+    def _to_model(self, parsed: Any) -> Flag:
         return self._resource_to_model(parsed.data)
 
-    def _resource_to_model(self, resource: Any) -> Flag:  # pragma: no cover
+    def _resource_to_model(self, resource: Any) -> Flag:
         attrs = resource.attributes
         return Flag(
             self,
@@ -865,7 +865,7 @@ class FlagsClient:
 # ---------------------------------------------------------------------------
 
 
-class AsyncFlagsClient:  # pragma: no cover
+class AsyncFlagsClient:
     """Asynchronous flags namespace.  Obtained via ``AsyncSmplClient(...).flags``."""
 
     def __init__(self, parent: AsyncSmplClient) -> None:
@@ -1381,7 +1381,7 @@ class AsyncFlagsClient:  # pragma: no cover
 
 
 # Also add the method to the sync client
-FlagsClient._parse_context_type = AsyncFlagsClient._parse_context_type  # type: ignore[attr-defined]  # pragma: no cover
+FlagsClient._parse_context_type = AsyncFlagsClient._parse_context_type  # type: ignore[attr-defined]
 
 
 # ---------------------------------------------------------------------------

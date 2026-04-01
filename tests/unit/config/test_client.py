@@ -167,7 +167,6 @@ class TestConfigClient:
         # Should not raise
         client.config.delete(_TEST_UUID)
 
-
     @patch("smplkit.config.client.update_config.sync_detailed")
     def test_update_config(self, mock_update):
         mock_attrs = MagicMock()
@@ -703,9 +702,7 @@ class TestAsyncConfigClient:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test")
             with pytest.raises(SmplConnectionError):
-                await client.config._update_config(
-                    config_id=_TEST_UUID, name="T"
-                )
+                await client.config._update_config(config_id=_TEST_UUID, name="T")
 
         asyncio.run(_run())
 
@@ -720,9 +717,7 @@ class TestAsyncConfigClient:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test")
             with pytest.raises(SmplValidationError):
-                await client.config._update_config(
-                    config_id=_TEST_UUID, name="T"
-                )
+                await client.config._update_config(config_id=_TEST_UUID, name="T")
 
         asyncio.run(_run())
 
@@ -777,8 +772,6 @@ class TestAsyncConfigClient:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test")
             with pytest.raises(RuntimeError, match="unexpected"):
-                await client.config._update_config(
-                    config_id=_TEST_UUID, name="T"
-                )
+                await client.config._update_config(config_id=_TEST_UUID, name="T")
 
         asyncio.run(_run())

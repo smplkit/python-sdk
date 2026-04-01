@@ -1,10 +1,9 @@
 """Tests for Config and AsyncConfig model classes."""
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from smplkit.config.models import AsyncConfig, Config, _AsyncConnectResult
-from smplkit.config.runtime import ConfigRuntime
 
 
 def _make_config(**overrides) -> Config:
@@ -65,11 +64,11 @@ class TestConfig:
         assert cfg.items == {}
         assert cfg.environments == {}
 
-    @patch.object(ConfigRuntime, "_start_ws_thread")
-    def test_connect_builds_chain_no_parent(self, _mock_ws):
+    def test_connect_builds_chain_no_parent(self):
         mock_client = MagicMock()
         mock_client._parent._api_key = "sk_test"
         mock_client._parent._http_client._base_url = "https://config.smplkit.com"
+        mock_client._parent._ensure_ws.return_value = MagicMock()
 
         cfg = Config(
             mock_client,
@@ -82,12 +81,12 @@ class TestConfig:
         runtime = cfg.connect("prod")
         assert runtime.get("a") == 2
 
-    @patch.object(ConfigRuntime, "_start_ws_thread")
-    def test_connect_fetch_chain_fn_calls_build_chain(self, _mock_ws):
+    def test_connect_fetch_chain_fn_calls_build_chain(self):
         """The fetch_chain_fn closure passed to ConfigRuntime calls _build_chain."""
         mock_client = MagicMock()
         mock_client._parent._api_key = "sk_test"
         mock_client._parent._http_client._base_url = "https://config.smplkit.com"
+        mock_client._parent._ensure_ws.return_value = MagicMock()
 
         cfg = Config(
             mock_client,
@@ -103,8 +102,7 @@ class TestConfig:
         assert isinstance(chain, list)
         assert chain[0]["id"] == "abc-123"
 
-    @patch.object(ConfigRuntime, "_start_ws_thread")
-    def test_connect_builds_chain_with_parent(self, _mock_ws):
+    def test_connect_builds_chain_with_parent(self):
         parent_cfg = _make_config(
             id="parent-1",
             key="parent",
@@ -117,6 +115,7 @@ class TestConfig:
         mock_client.get.return_value = parent_cfg
         mock_client._parent._api_key = "sk_test"
         mock_client._parent._http_client._base_url = "https://config.smplkit.com"
+        mock_client._parent._ensure_ws.return_value = MagicMock()
 
         child = Config(
             mock_client,
@@ -132,7 +131,6 @@ class TestConfig:
         assert runtime.get("inherited") == "yes"
         assert runtime.get("shared") == "child_val"
         mock_client.get.assert_called_once_with(id="parent-1")
-
 
     def test_update_delegates_to_client(self):
         mock_client = MagicMock()
@@ -170,9 +168,7 @@ class TestConfig:
 
     def test_set_items_with_environment(self):
         mock_client = MagicMock()
-        updated = _make_config(
-            environments={"production": {"values": {"x": 99}}}
-        )
+        updated = _make_config(environments={"production": {"values": {"x": 99}}})
         mock_client._update_config.return_value = updated
 
         cfg = Config(
@@ -206,9 +202,7 @@ class TestConfig:
 
     def test_set_value_with_environment(self):
         mock_client = MagicMock()
-        updated = _make_config(
-            environments={"prod": {"values": {"flag": True}}}
-        )
+        updated = _make_config(environments={"prod": {"values": {"flag": True}}})
         mock_client._update_config.return_value = updated
 
         cfg = Config(
@@ -278,9 +272,7 @@ class TestAsyncConfig:
 
     def test_set_items_with_environment(self):
         mock_client = MagicMock()
-        updated = _make_async_config(
-            environments={"production": {"values": {"x": 99}}}
-        )
+        updated = _make_async_config(environments={"production": {"values": {"x": 99}}})
         mock_client._update_config = AsyncMock(return_value=updated)
 
         cfg = AsyncConfig(
@@ -314,9 +306,7 @@ class TestAsyncConfig:
 
     def test_set_value_with_environment(self):
         mock_client = MagicMock()
-        updated = _make_async_config(
-            environments={"prod": {"values": {"flag": True}}}
-        )
+        updated = _make_async_config(environments={"prod": {"values": {"flag": True}}})
         mock_client._update_config = AsyncMock(return_value=updated)
 
         cfg = AsyncConfig(
@@ -334,8 +324,7 @@ class TestAsyncConfig:
             "flag": True,
         }
 
-    @patch.object(ConfigRuntime, "_start_ws_thread")
-    def test_connect_builds_chain_with_parent(self, _mock_ws):
+    def test_connect_builds_chain_with_parent(self):
         parent_cfg = _make_async_config(
             id="parent-1",
             key="parent",
@@ -348,6 +337,7 @@ class TestAsyncConfig:
         mock_client.get = AsyncMock(return_value=parent_cfg)
         mock_client._parent._api_key = "sk_test"
         mock_client._parent._http_client._base_url = "https://config.smplkit.com"
+        mock_client._parent._ensure_ws.return_value = MagicMock()
 
         child = AsyncConfig(
             mock_client,
@@ -367,11 +357,11 @@ class TestAsyncConfig:
         asyncio.run(_run())
         mock_client.get.assert_called_once_with(id="parent-1")
 
-    @patch.object(ConfigRuntime, "_start_ws_thread")
-    def test_connect_no_parent(self, _mock_ws):
+    def test_connect_no_parent(self):
         mock_client = MagicMock()
         mock_client._parent._api_key = "sk_test"
         mock_client._parent._http_client._base_url = "https://config.smplkit.com"
+        mock_client._parent._ensure_ws.return_value = MagicMock()
 
         cfg = AsyncConfig(
             mock_client,
@@ -388,12 +378,12 @@ class TestAsyncConfig:
 
         asyncio.run(_run())
 
-    @patch.object(ConfigRuntime, "_start_ws_thread")
-    def test_connect_fetch_chain_fn_calls_build_chain(self, _mock_ws):
+    def test_connect_fetch_chain_fn_calls_build_chain(self):
         """The async fetch_chain_fn closure calls _build_chain (returns coroutine)."""
         mock_client = MagicMock()
         mock_client._parent._api_key = "sk_test"
         mock_client._parent._http_client._base_url = "https://config.smplkit.com"
+        mock_client._parent._ensure_ws.return_value = MagicMock()
 
         cfg = AsyncConfig(
             mock_client,
@@ -416,11 +406,11 @@ class TestAsyncConfig:
 
         asyncio.run(_run())
 
-    @patch.object(ConfigRuntime, "_start_ws_thread")
-    def test_connect_as_async_context_manager(self, _mock_ws):
+    def test_connect_as_async_context_manager(self):
         mock_client = MagicMock()
         mock_client._parent._api_key = "sk_test"
         mock_client._parent._http_client._base_url = "https://config.smplkit.com"
+        mock_client._parent._ensure_ws.return_value = MagicMock()
 
         cfg = AsyncConfig(
             mock_client,
@@ -470,6 +460,7 @@ class TestAsyncConnectResult:
 
     def test_async_with_no_runtime(self):
         """__aexit__ with no runtime (e.g. if __aenter__ wasn't called) should not raise."""
+
         async def fake_coro():
             return MagicMock()
 

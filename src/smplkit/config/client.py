@@ -449,9 +449,7 @@ class AsyncConfigClient:
     def __init__(self, parent: AsyncSmplClient) -> None:
         self._parent = parent
 
-    async def get(
-        self, *, key: str | None = None, id: str | None = None
-    ) -> AsyncConfig:
+    async def get(self, *, key: str | None = None, id: str | None = None) -> AsyncConfig:
         """Fetch a single config by key or UUID.
 
         Exactly one of *key* or *id* must be provided.

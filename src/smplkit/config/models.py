@@ -88,10 +88,7 @@ class Config:
         Extracts ``.value`` from each item definition for backward
         compatibility with runtime resolution.
         """
-        return {
-            k: v["value"] if isinstance(v, dict) and "value" in v else v
-            for k, v in self._items_raw.items()
-        }
+        return {k: v["value"] if isinstance(v, dict) and "value" in v else v for k, v in self._items_raw.items()}
 
     @property
     def items_raw(self) -> dict[str, Any]:
@@ -209,9 +206,7 @@ class Config:
             merged = {**self._items_raw, key: {"value": value}}
             self.set_items(merged)
         else:
-            existing = dict(
-                (self.environments.get(environment, {}) or {}).get("values", {}) or {}
-            )
+            existing = dict((self.environments.get(environment, {}) or {}).get("values", {}) or {})
             existing[key] = value
             self.set_items(existing, environment=environment)
 
@@ -222,7 +217,7 @@ class Config:
         values for the given environment via deep merge, and returns a
         :class:`ConfigRuntime` with a fully populated local cache.
 
-        A background WebSocket connection is started for real-time updates.
+        A shared WebSocket connection provides real-time updates.
         If the WebSocket fails to connect, the runtime operates in
         cache-only mode.
 
@@ -241,6 +236,7 @@ class Config:
         chain = self._build_chain()
         api_key = self._client._parent._api_key
         base_url = self._client._parent._http_client._base_url
+        ws_manager = self._client._parent._ensure_ws()
 
         def _fetch_chain() -> list[dict[str, Any]]:
             return self._build_chain()
@@ -253,6 +249,7 @@ class Config:
             api_key=api_key,
             base_url=base_url,
             fetch_chain_fn=_fetch_chain,
+            ws_manager=ws_manager,
         )
 
     def _build_chain(self) -> list[dict[str, Any]]:
@@ -261,11 +258,13 @@ class Config:
         current = self
         while current.parent is not None:
             parent_config = self._client.get(id=current.parent)
-            chain.append({
-                "id": parent_config.id,
-                "items": parent_config._items_raw,
-                "environments": parent_config.environments,
-            })
+            chain.append(
+                {
+                    "id": parent_config.id,
+                    "items": parent_config._items_raw,
+                    "environments": parent_config.environments,
+                }
+            )
             current = parent_config
         return chain
 
@@ -321,10 +320,7 @@ class AsyncConfig:
     @property
     def items(self) -> dict[str, Any]:
         """Return base values as a plain dict ``{key: raw_value}``."""
-        return {
-            k: v["value"] if isinstance(v, dict) and "value" in v else v
-            for k, v in self._items_raw.items()
-        }
+        return {k: v["value"] if isinstance(v, dict) and "value" in v else v for k, v in self._items_raw.items()}
 
     @property
     def items_raw(self) -> dict[str, Any]:
@@ -435,9 +431,7 @@ class AsyncConfig:
             merged = {**self._items_raw, key: {"value": value}}
             await self.set_items(merged)
         else:
-            existing = dict(
-                (self.environments.get(environment, {}) or {}).get("values", {}) or {}
-            )
+            existing = dict((self.environments.get(environment, {}) or {}).get("values", {}) or {})
             existing[key] = value
             await self.set_items(existing, environment=environment)
 
@@ -448,7 +442,7 @@ class AsyncConfig:
         values for the given environment via deep merge, and returns a
         :class:`ConfigRuntime` with a fully populated local cache.
 
-        A background WebSocket connection is started for real-time updates.
+        A shared WebSocket connection provides real-time updates.
         If the WebSocket fails to connect, the runtime operates in
         cache-only mode.
 
@@ -470,10 +464,12 @@ class AsyncConfig:
             SmplTimeoutError: If the fetch exceeds *timeout*.
             SmplConnectionError: If a network request fails.
         """
+
         async def _connect() -> ConfigRuntime:
             chain = await self._build_chain()
             api_key = self._client._parent._api_key
             base_url = self._client._parent._http_client._base_url
+            ws_manager = self._client._parent._ensure_ws()
 
             def _fetch_chain():
                 return self._build_chain()
@@ -486,6 +482,7 @@ class AsyncConfig:
                 api_key=api_key,
                 base_url=base_url,
                 fetch_chain_fn=_fetch_chain,
+                ws_manager=ws_manager,
             )
 
         return _AsyncConnectResult(_connect())
@@ -496,11 +493,13 @@ class AsyncConfig:
         current = self
         while current.parent is not None:
             parent_config = await self._client.get(id=current.parent)
-            chain.append({
-                "id": parent_config.id,
-                "items": parent_config._items_raw,
-                "environments": parent_config.environments,
-            })
+            chain.append(
+                {
+                    "id": parent_config.id,
+                    "items": parent_config._items_raw,
+                    "environments": parent_config.environments,
+                }
+            )
             current = parent_config
         return chain
 

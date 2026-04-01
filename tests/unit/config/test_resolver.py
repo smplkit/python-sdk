@@ -157,22 +157,12 @@ class TestResolve:
                 }
             },
             "environments": {
-                "production": {
-                    "values": {
-                        "credentials": {"secret": "prod_secret", "scopes": ["read", "write"]}
-                    }
-                }
+                "production": {"values": {"credentials": {"secret": "prod_secret", "scopes": ["read", "write"]}}}
             },
         }
         child = {
             "values": {},
-            "environments": {
-                "production": {
-                    "values": {
-                        "credentials": {"secret": "child_prod_secret"}
-                    }
-                }
-            },
+            "environments": {"production": {"values": {"credentials": {"secret": "child_prod_secret"}}}},
         }
         chain = [child, parent]
         result = resolve(chain, "production")

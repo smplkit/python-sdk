@@ -99,6 +99,7 @@ class TestExtractItems:
     def test_unset_returns_empty(self):
         class Unset:
             pass
+
         assert _extract_items(Unset()) == {}
 
 
@@ -125,6 +126,7 @@ class TestExtractEnvironments:
     def test_unset_returns_empty(self):
         class Unset:
             pass
+
         assert _extract_environments(Unset()) == {}
 
     def test_plain_item_override_without_value_attr(self):
@@ -132,6 +134,7 @@ class TestExtractEnvironments:
 
         class PlainOverride:
             """Simulates an override without a .value attribute."""
+
             pass
 
         vals = EnvironmentOverrideValuesType0()
@@ -156,6 +159,7 @@ class TestExtractDatetime:
     def test_unset_returns_none(self):
         class Unset:
             pass
+
         assert _extract_datetime(Unset()) is None
 
 
@@ -169,6 +173,7 @@ class TestUnsetToNone:
     def test_unset_returns_none(self):
         class Unset:
             pass
+
         assert _unset_to_none(Unset()) is None
 
 
@@ -183,9 +188,7 @@ class TestCheckResponseStatus:
 
     def test_422_raises_validation(self):
         with pytest.raises(SmplValidationError):
-            _check_response_status(
-                HTTPStatus.UNPROCESSABLE_ENTITY, b"Validation Error"
-            )
+            _check_response_status(HTTPStatus.UNPROCESSABLE_ENTITY, b"Validation Error")
 
     def test_200_does_not_raise(self):
         _check_response_status(HTTPStatus.OK, b"")  # Should not raise
@@ -212,9 +215,7 @@ class TestMaybeReraiseNetworkError:
 
     def test_connection_error(self):
         with pytest.raises(SmplConnectionError):
-            _maybe_reraise_network_error(
-                httpx.ConnectError("connection refused")
-            )
+            _maybe_reraise_network_error(httpx.ConnectError("connection refused"))
 
     def test_sdk_errors_reraise(self):
         with pytest.raises(SmplNotFoundError):
