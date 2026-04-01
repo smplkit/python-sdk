@@ -1,42 +1,43 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-if TYPE_CHECKING:
-    from ..models.plan_definition_limits import PlanDefinitionLimits
-
-
-T = TypeVar("T", bound="PlanDefinition")
+T = TypeVar("T", bound="Plan")
 
 
 @_attrs_define
-class PlanDefinition:
+class Plan:
     """
     Attributes:
-        price_monthly_cents (int):
-        limits (PlanDefinitionLimits):
+        display_name (str):
+        description (str):
+        sort_order (int):
     """
 
-    price_monthly_cents: int
-    limits: PlanDefinitionLimits
+    display_name: str
+    description: str
+    sort_order: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        price_monthly_cents = self.price_monthly_cents
+        display_name = self.display_name
 
-        limits = self.limits.to_dict()
+        description = self.description
+
+        sort_order = self.sort_order
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "price_monthly_cents": price_monthly_cents,
-                "limits": limits,
+                "display_name": display_name,
+                "description": description,
+                "sort_order": sort_order,
             }
         )
 
@@ -44,20 +45,21 @@ class PlanDefinition:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.plan_definition_limits import PlanDefinitionLimits
-
         d = dict(src_dict)
-        price_monthly_cents = d.pop("price_monthly_cents")
+        display_name = d.pop("display_name")
 
-        limits = PlanDefinitionLimits.from_dict(d.pop("limits"))
+        description = d.pop("description")
 
-        plan_definition = cls(
-            price_monthly_cents=price_monthly_cents,
-            limits=limits,
+        sort_order = d.pop("sort_order")
+
+        plan = cls(
+            display_name=display_name,
+            description=description,
+            sort_order=sort_order,
         )
 
-        plan_definition.additional_properties = d
-        return plan_definition
+        plan.additional_properties = d
+        return plan
 
     @property
     def additional_keys(self) -> list[str]:
