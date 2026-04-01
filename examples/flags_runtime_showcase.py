@@ -6,6 +6,7 @@ Demonstrates the smplkit Python SDK's runtime evaluation for Smpl Flags:
 
 - Typed flag declarations with code-level defaults
 - Context providers and typed context entities
+- Explicit context registration (middleware pattern)
 - Connecting to an environment for local evaluation
 - Evaluating flags — local JSON Logic, no network per call
 - Resolution caching and cache stats
@@ -172,12 +173,18 @@ async def main() -> None:
     @client.flags.context_provider
     def resolve_context():
         return [
-            Context("user", _current_user["id"],
+            Context(
+                "user",
+                _current_user["id"],
+                name=_current_user["first_name"],
                 first_name=_current_user["first_name"],
                 plan=_current_user["plan"],
                 beta_tester=_current_user["beta_tester"],
             ),
-            Context("account", _current_account["id"],
+            Context(
+                "account",
+                _current_account["id"],
+                name=_current_account["industry"],
                 industry=_current_account["industry"],
                 region=_current_account["region"],
                 employee_count=_current_account["employee_count"],
@@ -189,10 +196,65 @@ async def main() -> None:
     step("  JSON Logic sees: {'user': {'key': 'user-001', 'plan': '...'}, 'account': {...}}")
 
     # ======================================================================
-    # 3. CONNECT — Fetch definitions, open WebSocket, go local
+    # 3. EXPLICIT CONTEXT REGISTRATION (Middleware Pattern)
+    # ======================================================================
+    #
+    # In a real application, your middleware registers context on every
+    # request — regardless of whether any flags are evaluated. This
+    # ensures the Console rule builder always has fresh context data
+    # to offer as autocomplete suggestions.
+    #
+    # register() accepts a single Context or a list. It queues contexts
+    # for background batch registration — it never blocks the request.
     # ======================================================================
 
-    section("3. Connect to Staging Environment")
+    section("3. Explicit Context Registration")
+
+    # Single context — common in simple middleware
+    client.flags.register(
+        Context(
+            "user",
+            _current_user["id"],
+            name=_current_user["first_name"],
+            first_name=_current_user["first_name"],
+            plan=_current_user["plan"],
+            beta_tester=_current_user["beta_tester"],
+        )
+    )
+    step("Registered single user context")
+
+    # Multiple contexts at once — typical middleware pattern
+    client.flags.register(
+        [
+            Context(
+                "user",
+                _current_user["id"],
+                first_name=_current_user["first_name"],
+                plan=_current_user["plan"],
+                beta_tester=_current_user["beta_tester"],
+            ),
+            Context(
+                "account",
+                _current_account["id"],
+                industry=_current_account["industry"],
+                region=_current_account["region"],
+                employee_count=_current_account["employee_count"],
+            ),
+        ]
+    )
+    step("Registered user + account contexts")
+
+    # register() works before connect() — contexts are queued locally
+    # and flushed when the connection is established or flush_contexts()
+    # is called. This means your middleware can start registering
+    # contexts at app startup, even before the flags environment is known.
+    step("Note: register() works before connect() — contexts are queued locally")
+
+    # ======================================================================
+    # 4. CONNECT — Fetch definitions, open WebSocket, go local
+    # ======================================================================
+
+    section("4. Connect to Staging Environment")
 
     # connect() does three things:
     #   1. Fetches all flag definitions via GET /api/v1/flags
@@ -206,13 +268,13 @@ async def main() -> None:
     step("Connected to staging — flags loaded, WebSocket open")
 
     # ======================================================================
-    # 4. EVALUATE FLAGS — Local, typed, instant
+    # 5. EVALUATE FLAGS — Local, typed, instant
     # ======================================================================
 
     # ------------------------------------------------------------------
-    # 4a. Evaluate with current context (Alice, enterprise, US, tech, 500)
+    # 5a. Evaluate with current context (Alice, enterprise, US, tech, 500)
     # ------------------------------------------------------------------
-    section("4a. Evaluate Flags (Alice — enterprise, US, tech company)")
+    section("5a. Evaluate Flags (Alice — enterprise, US, tech company)")
 
     checkout_result = checkout_v2.get()
     step(f"checkout-v2 = {checkout_result}")
@@ -239,9 +301,9 @@ async def main() -> None:
     step("All assertions passed ✓")
 
     # ------------------------------------------------------------------
-    # 4b. Switch context — simulate a different user/request
+    # 5b. Switch context — simulate a different user/request
     # ------------------------------------------------------------------
-    section("4b. Evaluate Flags (Bob — free, EU, retail, 10 employees)")
+    section("5b. Evaluate Flags (Bob — free, EU, retail, 10 employees)")
 
     set_simulated_context(
         user={
@@ -282,34 +344,38 @@ async def main() -> None:
     )
 
     # ------------------------------------------------------------------
-    # 4c. Explicit context override — bypass the provider
+    # 5c. Explicit context override — bypass the provider
     # ------------------------------------------------------------------
-    section("4c. Explicit Context Override")
+    section("5c. Explicit Context Override")
 
     # For edge cases (background jobs, tests), pass context directly.
     # This bypasses the registered provider for this one call.
 
-    explicit_result = checkout_v2.get(context=[
-        Context("user", "test-user", plan="free", beta_tester=False),
-        Context("account", "test-account", region="jp"),
-    ])
+    explicit_result = checkout_v2.get(
+        context=[
+            Context("user", "test-user", plan="free", beta_tester=False),
+            Context("account", "test-account", region="jp"),
+        ]
+    )
     step(f"checkout-v2 (free, JP) = {explicit_result}")
     assert explicit_result is False
 
-    explicit_result_2 = checkout_v2.get(context=[
-        Context("user", "test-user", plan="enterprise", beta_tester=False),
-        Context("account", "test-account", region="us"),
-    ])
+    explicit_result_2 = checkout_v2.get(
+        context=[
+            Context("user", "test-user", plan="enterprise", beta_tester=False),
+            Context("account", "test-account", region="us"),
+        ]
+    )
     step(f"checkout-v2 (enterprise, US) = {explicit_result_2}")
     assert explicit_result_2 is True
 
     step("Explicit context override works ✓")
 
     # ======================================================================
-    # 5. RESOLUTION CACHING
+    # 6. RESOLUTION CACHING
     # ======================================================================
 
-    section("5. Resolution Caching")
+    section("6. Resolution Caching")
 
     # The SDK caches resolved values by (flag_key, context_hash).
     # Repeated evaluations with identical context skip JSON Logic
@@ -328,7 +394,7 @@ async def main() -> None:
     step("PASSED — repeated evaluations served from cache ✓")
 
     # ======================================================================
-    # 6. CONTEXT REGISTRATION
+    # 7. CONTEXT REGISTRATION
     # ======================================================================
     #
     # As a side effect of calling the context provider, the SDK batches
@@ -336,10 +402,13 @@ async def main() -> None:
     # the background. This populates the Console rule builder's
     # autocomplete with real context types, attributes, and values.
     #
+    # Contexts may have been registered both explicitly via register()
+    # (§3) and automatically via the context provider during get() calls.
+    #
     # Registration is fire-and-forget — it never blocks flag evaluation.
     # ======================================================================
 
-    section("6. Context Registration")
+    section("7. Context Registration")
 
     await client.flags.flush_contexts()
     step("Flushed pending context registrations")
@@ -354,16 +423,17 @@ async def main() -> None:
     # Expected: user has first_name, plan, beta_tester
     # Expected: account has industry, region, employee_count
 
+    step("Contexts registered via both register() and automatic get() side-effect")
     step("Context registration verified — Console rule builder has real data ✓")
 
     # ======================================================================
-    # 7. REAL-TIME UPDATES — WebSocket-driven cache invalidation
+    # 8. REAL-TIME UPDATES — WebSocket-driven cache invalidation
     # ======================================================================
 
-    section("7. Real-Time Updates via WebSocket")
+    section("8. Real-Time Updates via WebSocket")
 
     # ------------------------------------------------------------------
-    # 7a. Register change listeners
+    # 8a. Register change listeners
     # ------------------------------------------------------------------
 
     # Global listener — fires when ANY flag definition changes.
@@ -396,7 +466,7 @@ async def main() -> None:
     step("Flag-specific listener registered for checkout-v2")
 
     # ------------------------------------------------------------------
-    # 7b. Simulate a change via the management API
+    # 8b. Simulate a change via the management API
     # ------------------------------------------------------------------
     step("Adding a rule to banner-color staging via management API...")
 
@@ -405,10 +475,10 @@ async def main() -> None:
     current_banner = await client.flags.get(demo_flags[1].id)
     await current_banner.addRule(
         Rule("Red for small companies")
-            .environment("staging")
-            .when("account.employee_count", "<", 50)
-            .serve("red")
-            .build()
+        .environment("staging")
+        .when("account.employee_count", "<", 50)
+        .serve("red")
+        .build()
     )
 
     # Give the WebSocket a moment to deliver the update.
@@ -420,7 +490,7 @@ async def main() -> None:
     # Expected: global=1, banner=1, checkout=0 (only banner was changed)
 
     # ------------------------------------------------------------------
-    # 7c. Connection lifecycle
+    # 8c. Connection lifecycle
     # ------------------------------------------------------------------
     ws_status = client.flags.connection_status()
     step(f"WebSocket status: {ws_status}")
@@ -431,10 +501,10 @@ async def main() -> None:
     step("Manual refresh completed")
 
     # ======================================================================
-    # 8. ENVIRONMENT COMPARISON
+    # 9. ENVIRONMENT COMPARISON
     # ======================================================================
 
-    section("8. Environment Comparison")
+    section("9. Environment Comparison")
 
     await client.flags.disconnect()
 
@@ -450,16 +520,17 @@ async def main() -> None:
     await client.flags.connect("staging")
 
     # ======================================================================
-    # 9. TIER 1 — Explicit evaluation (pass everything)
+    # 10. TIER 1 — Explicit evaluation (pass everything)
     # ======================================================================
 
-    section("9. Tier 1 — Explicit Evaluation (No Provider)")
+    section("10. Tier 1 — Explicit Evaluation (No Provider)")
 
     # The Tier 1 API is always available alongside the prescriptive tier.
     # Useful for scripts, one-off jobs, and infrastructure code.
     # Flag key is the lone positional arg.
 
-    explicit_value = await client.flags.evaluate("banner-color",
+    explicit_value = await client.flags.evaluate(
+        "banner-color",
         environment="staging",
         context=[
             Context("user", "user-999", plan="enterprise"),
@@ -470,9 +541,9 @@ async def main() -> None:
     # Expected: "blue" (enterprise plan matches first rule)
 
     # ======================================================================
-    # 10. SYNC CLIENT
+    # 11. SYNC CLIENT
     # ======================================================================
-    section("10. Sync Client (same API, no await)")
+    section("11. Sync Client (same API, no await)")
 
     # For sync applications (Django, Flask, CLI tools), SmplClient
     # provides an identical API surface without async/await:
@@ -490,6 +561,13 @@ async def main() -> None:
     #     checkout = client.flags.boolFlag("checkout-v2", False)
     #     client.flags.connect("production")
     #
+    #     # In middleware — every request
+    #     client.flags.register([
+    #         Context("user", request.user.id, plan=request.user.plan),
+    #         Context("account", request.account.id, region=request.account.region),
+    #     ])
+    #
+    #     # In handler — evaluate flags (context provider also auto-registers)
     #     if checkout.get():       # synchronous — no await
     #         render_new_checkout()
     #
@@ -499,9 +577,9 @@ async def main() -> None:
     step("(See code comments for sync usage examples)")
 
     # ======================================================================
-    # 11. CLEANUP
+    # 12. CLEANUP
     # ======================================================================
-    section("11. Cleanup")
+    section("12. Cleanup")
 
     await client.flags.disconnect()
     step("Disconnected from flags environment")

@@ -34,14 +34,17 @@ class Context:
         type: str,
         key: str,
         attributes: dict[str, Any] | None = None,
+        *,
+        name: str | None = None,
         **kwargs: Any,
     ) -> None:
         self.type = type
         self.key = key
+        self.name = name
         self.attributes = {**(attributes or {}), **kwargs}
 
     def __repr__(self) -> str:
-        return f"Context(type={self.type!r}, key={self.key!r}, attributes={self.attributes!r})"
+        return f"Context(type={self.type!r}, key={self.key!r}, name={self.name!r}, attributes={self.attributes!r})"
 
 
 class Rule:

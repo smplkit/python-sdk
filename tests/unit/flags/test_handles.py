@@ -96,14 +96,16 @@ class TestJsonFlagHandle:
 class TestContextRegistrationBuffer:
     def test_observe_and_drain(self):
         buf = _ContextRegistrationBuffer()
-        buf.observe([
-            Context("user", "u-1", plan="enterprise"),
-            Context("account", "a-1", region="us"),
-        ])
+        buf.observe(
+            [
+                Context("user", "u-1", plan="enterprise"),
+                Context("account", "a-1", region="us"),
+            ]
+        )
         batch = buf.drain()
         assert len(batch) == 2
-        assert batch[0]["type"] == "user"
-        assert batch[0]["key"] == "u-1"
+        assert batch[0]["id"] == "user:u-1"
+        assert batch[0]["name"] == "u-1"
         assert batch[0]["attributes"]["plan"] == "enterprise"
 
     def test_deduplication(self):

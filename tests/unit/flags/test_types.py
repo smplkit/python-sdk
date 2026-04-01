@@ -40,6 +40,15 @@ class TestContext:
         ctx = Context("device", "d-1", None)
         assert ctx.attributes == {}
 
+    def test_name_keyword_only(self):
+        ctx = Context("user", "u-1", name="Alice Smith", plan="enterprise")
+        assert ctx.name == "Alice Smith"
+        assert ctx.attributes == {"plan": "enterprise"}
+
+    def test_name_defaults_to_none(self):
+        ctx = Context("user", "u-1")
+        assert ctx.name is None
+
 
 class TestRule:
     def test_single_when(self):
@@ -66,13 +75,7 @@ class TestRule:
         }
 
     def test_environment(self):
-        result = (
-            Rule("env rule")
-            .environment("staging")
-            .when("x", "==", 1)
-            .serve("yes")
-            .build()
-        )
+        result = Rule("env rule").environment("staging").when("x", "==", 1).serve("yes").build()
         assert result["environment"] == "staging"
         assert result["description"] == "env rule"
         assert result["value"] == "yes"

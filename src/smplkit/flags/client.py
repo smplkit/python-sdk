@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import logging
@@ -10,9 +9,6 @@ import threading
 from collections import OrderedDict
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
-
-import websockets
-import websockets.asyncio.client
 
 from smplkit._errors import (
     SmplConnectionError,
@@ -39,6 +35,7 @@ from smplkit._generated.flags.models.response_flag import ResponseFlag
 from smplkit.flags.models import AsyncFlag, ContextType, Flag
 
 if TYPE_CHECKING:
+    from smplkit._ws import SharedWebSocket
     from smplkit.client import AsyncSmplClient, SmplClient
     from smplkit.flags.types import Context, FlagType
 
@@ -46,7 +43,6 @@ logger = logging.getLogger("smplkit")
 ws_logger = logging.getLogger("smplkit.flags.ws")
 
 _DEFAULT_FLAGS_BASE_URL = "https://flags.smplkit.com"
-_BACKOFF_SCHEDULE = [1, 2, 4, 8, 16, 32, 60]
 _CACHE_MAX_SIZE = 10_000
 _CONTEXT_REGISTRATION_LRU_SIZE = 10_000
 _CONTEXT_BATCH_FLUSH_SIZE = 100
@@ -380,11 +376,12 @@ class _ContextRegistrationBuffer:
                     if len(self._seen) >= _CONTEXT_REGISTRATION_LRU_SIZE:
                         self._seen.popitem(last=False)
                     self._seen[cache_key] = ctx.attributes
-                    self._pending.append({
-                        "type": ctx.type,
-                        "key": ctx.key,
+                    item: dict[str, Any] = {
+                        "id": f"{ctx.type}:{ctx.key}",
+                        "name": ctx.name or ctx.key,
                         "attributes": dict(ctx.attributes),
-                    })
+                    }
+                    self._pending.append(item)
 
     def drain(self) -> list[dict[str, Any]]:
         """Return and clear the pending batch."""
@@ -424,12 +421,8 @@ class FlagsClient:
         self._handles: dict[str, _FlagHandle] = {}
         self._global_listeners: list[Callable[[FlagChangeEvent], None]] = []
 
-        # WebSocket
-        self._ws_thread: threading.Thread | None = None
-        self._ws_loop: asyncio.AbstractEventLoop | None = None
-        self._ws: Any = None
-        self._ws_closed = False
-        self._connection_status_val = "disconnected"
+        # Shared WebSocket (set during connect)
+        self._ws_manager: SharedWebSocket | None = None
 
     # ------------------------------------------------------------------
     # Management methods
@@ -531,9 +524,7 @@ class FlagsClient:
         )
         body = _build_request_body(gen_flag)
         try:
-            response = update_flag.sync_detailed(
-                UUID(flag.id), client=self._flags_http, body=body
-            )
+            response = update_flag.sync_detailed(UUID(flag.id), client=self._flags_http, body=body)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
@@ -549,7 +540,7 @@ class FlagsClient:
     def create_context_type(self, key: str, *, name: str) -> ContextType:
         """Create a context type."""
         resp = self._flags_http.get_httpx_client().post(
-            "/api/v1/context-types",
+            "/api/v1/context_types",
             json={"data": {"type": "context_type", "attributes": {"key": key, "name": name}}},
         )
         _check_response_status(resp.status_code, resp.content)
@@ -559,7 +550,7 @@ class FlagsClient:
     def update_context_type(self, ct_id: str, *, attributes: dict[str, Any]) -> ContextType:
         """Update a context type (merge attributes)."""
         resp = self._flags_http.get_httpx_client().put(
-            f"/api/v1/context-types/{ct_id}",
+            f"/api/v1/context_types/{ct_id}",
             json={"data": {"type": "context_type", "attributes": {"attributes": attributes}}},
         )
         _check_response_status(resp.status_code, resp.content)
@@ -568,29 +559,19 @@ class FlagsClient:
 
     def list_context_types(self) -> list[ContextType]:
         """List all context types."""
-        resp = self._flags_http.get_httpx_client().get("/api/v1/context-types")
+        resp = self._flags_http.get_httpx_client().get("/api/v1/context_types")
         _check_response_status(resp.status_code, resp.content)
         items = resp.json().get("data", [])
         return [self._parse_context_type(item) for item in items]
 
     def delete_context_type(self, ct_id: str) -> None:
         """Delete a context type."""
-        resp = self._flags_http.get_httpx_client().delete(f"/api/v1/context-types/{ct_id}")
+        resp = self._flags_http.get_httpx_client().delete(f"/api/v1/context_types/{ct_id}")
         _check_response_status(resp.status_code, resp.content)
 
-    def list_contexts(self, *, context_type_key: str | None = None) -> list[dict[str, Any]]:
-        """List context instances, optionally filtered by context_type_key."""
-        params: dict[str, str] = {}
-        if context_type_key is not None:
-            # Resolve key to ID
-            cts = self.list_context_types()
-            ct_id = None
-            for ct in cts:
-                if ct.key == context_type_key:
-                    ct_id = ct.id
-                    break
-            if ct_id:
-                params["filter[context_type_id]"] = ct_id
+    def list_contexts(self, *, context_type_key: str) -> list[dict[str, Any]]:
+        """List context instances filtered by context_type_key."""
+        params = {"filter[context_type]": context_type_key}
         resp = self._flags_http.get_httpx_client().get("/api/v1/contexts", params=params)
         _check_response_status(resp.status_code, resp.content)
         return resp.json().get("data", [])
@@ -633,28 +614,24 @@ class FlagsClient:
     # ------------------------------------------------------------------
 
     def connect(self, environment: str, *, timeout: int = 10) -> None:
-        """Connect to an environment: fetch flags, open WebSocket."""
+        """Connect to an environment: fetch flags, register on shared WebSocket."""
         self._environment = environment
         self._fetch_all_flags()
         self._connected = True
         self._cache.clear()
-        self._ws_closed = False
-        self._start_ws_thread()
+
+        # Register on the shared WebSocket
+        self._ws_manager = self._parent._ensure_ws()
+        self._ws_manager.on("flag_changed", self._handle_flag_changed)
+        self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
 
     def disconnect(self) -> None:
-        """Disconnect: close WebSocket, flush contexts, clear state."""
-        self._ws_closed = True
-        self._connection_status_val = "disconnected"
-
-        if self._ws is not None and self._ws_loop is not None:
-            try:
-                future = asyncio.run_coroutine_threadsafe(self._ws.close(), self._ws_loop)
-                future.result(timeout=2.0)
-            except Exception:
-                pass
-
-        if self._ws_thread is not None and self._ws_thread.is_alive():
-            self._ws_thread.join(timeout=2.0)
+        """Disconnect: unregister from WebSocket, flush contexts, clear state."""
+        # Unregister from the shared WebSocket
+        if self._ws_manager is not None:
+            self._ws_manager.off("flag_changed", self._handle_flag_changed)
+            self._ws_manager.off("flag_deleted", self._handle_flag_deleted)
+            self._ws_manager = None
 
         self._flush_contexts_sync()
         self._flag_store.clear()
@@ -669,7 +646,9 @@ class FlagsClient:
         self._fire_change_listeners_all("manual")
 
     def connection_status(self) -> str:
-        return self._connection_status_val
+        if self._ws_manager is not None:
+            return self._ws_manager.connection_status
+        return "disconnected"
 
     def stats(self) -> FlagStats:
         return FlagStats(cache_hits=self._cache.cache_hits, cache_misses=self._cache.cache_misses)
@@ -687,6 +666,22 @@ class FlagsClient:
     # Runtime: context registration
     # ------------------------------------------------------------------
 
+    def register(self, context: Context | list[Context]) -> None:
+        """Explicitly register context(s) for background batch registration.
+
+        Accepts a single :class:`Context` or a list.  Queues into the same
+        batch buffer used by the automatic context provider side-effect.
+        Fire-and-forget — never blocks, never raises on registration failure.
+
+        Works before ``connect()`` is called; contexts are queued locally
+        and flushed when the connection is established or
+        ``flush_contexts()`` is called.
+        """
+        if isinstance(context, list):
+            self._context_buffer.observe(context)
+        else:
+            self._context_buffer.observe([context])
+
     def flush_contexts(self) -> None:
         """Flush pending context registrations to the server."""
         self._flush_contexts_sync()
@@ -696,8 +691,8 @@ class FlagsClient:
         if not batch:
             return
         try:
-            self._flags_http.get_httpx_client().post(
-                "/api/v1/contexts/register",
+            self._flags_http.get_httpx_client().put(
+                "/api/v1/contexts/bulk",
                 json={"contexts": batch},
             )
         except Exception:
@@ -767,6 +762,24 @@ class FlagsClient:
         return value
 
     # ------------------------------------------------------------------
+    # Internal: event handlers (called by SharedWebSocket)
+    # ------------------------------------------------------------------
+
+    def _handle_flag_changed(self, data: dict[str, Any]) -> None:
+        """Handle a flag_changed event by re-fetching all flags."""
+        flag_key = data.get("key")
+        self._fetch_all_flags()
+        self._cache.clear()
+        self._fire_change_listeners(flag_key, "websocket")
+
+    def _handle_flag_deleted(self, data: dict[str, Any]) -> None:
+        """Handle a flag_deleted event by re-fetching all flags."""
+        flag_key = data.get("key")
+        self._fetch_all_flags()
+        self._cache.clear()
+        self._fire_change_listeners(flag_key, "websocket")
+
+    # ------------------------------------------------------------------
     # Internal: flag store
     # ------------------------------------------------------------------
 
@@ -788,119 +801,18 @@ class FlagsClient:
         result = []
         for r in response.parsed.data:
             attrs = r.attributes
-            result.append({
-                "key": attrs.key,
-                "name": attrs.name,
-                "type": attrs.type_,
-                "default": attrs.default,
-                "values": _extract_values(attrs.values),
-                "description": _unset_to_none(attrs.description),
-                "environments": _extract_environments(attrs.environments),
-            })
+            result.append(
+                {
+                    "key": attrs.key,
+                    "name": attrs.name,
+                    "type": attrs.type_,
+                    "default": attrs.default,
+                    "values": _extract_values(attrs.values),
+                    "description": _unset_to_none(attrs.description),
+                    "environments": _extract_environments(attrs.environments),
+                }
+            )
         return result
-
-    # ------------------------------------------------------------------
-    # Internal: WebSocket
-    # ------------------------------------------------------------------
-
-    def _start_ws_thread(self) -> None:
-        thread = threading.Thread(
-            target=self._ws_thread_entry,
-            name="smplkit-flags-ws",
-            daemon=True,
-        )
-        self._ws_thread = thread
-        thread.start()
-
-    def _ws_thread_entry(self) -> None:
-        loop = asyncio.new_event_loop()
-        self._ws_loop = loop
-        try:
-            loop.run_until_complete(self._ws_main())
-        except Exception:
-            ws_logger.error("Flags WebSocket thread exited unexpectedly", exc_info=True)
-        finally:
-            pending = asyncio.all_tasks(loop)
-            for task in pending:
-                task.cancel()
-            if pending:
-                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-            loop.close()
-
-    async def _ws_main(self) -> None:
-        try:
-            await self._ws_connect_and_subscribe()
-        except Exception:
-            ws_logger.warning("Flags WebSocket connection failed on startup", exc_info=True)
-            await self._ws_reconnect()
-
-    def _build_ws_url(self) -> str:
-        url = _DEFAULT_FLAGS_BASE_URL
-        if url.startswith("https://"):
-            ws_url = "wss://" + url[len("https://"):]
-        elif url.startswith("http://"):
-            ws_url = "ws://" + url[len("http://"):]
-        else:
-            ws_url = "wss://" + url
-        ws_url = ws_url.rstrip("/")
-        return f"{ws_url}/api/ws/v1/flags?api_key={self._parent._api_key}"
-
-    async def _ws_connect_and_subscribe(self) -> None:
-        url = self._build_ws_url()
-        self._connection_status_val = "connecting"
-        self._ws = await websockets.asyncio.client.connect(url)
-
-        subscribe_msg = json.dumps({
-            "type": "subscribe",
-            "environment": self._environment,
-        })
-        await self._ws.send(subscribe_msg)
-
-        raw = await self._ws.recv()
-        data = json.loads(raw)
-        if data.get("type") == "error":
-            raise RuntimeError(f"Subscription error: {data.get('message')}")
-
-        self._connection_status_val = "connected"
-        await self._ws_receive_loop()
-
-    async def _ws_receive_loop(self) -> None:
-        while not self._ws_closed:
-            try:
-                raw = await self._ws.recv()
-                data = json.loads(raw)
-                msg_type = data.get("type") or data.get("event")
-
-                if msg_type == "flag_changed":
-                    flag_key = data.get("key")
-                    self._fetch_all_flags()
-                    self._cache.clear()
-                    self._fire_change_listeners(flag_key, "websocket")
-            except websockets.ConnectionClosed:
-                if self._ws_closed:
-                    break
-                self._connection_status_val = "reconnecting"
-                await self._ws_reconnect()
-                break
-            except Exception:
-                if self._ws_closed:
-                    break
-                self._connection_status_val = "reconnecting"
-                await self._ws_reconnect()
-                break
-
-    async def _ws_reconnect(self) -> None:
-        attempt = 0
-        while not self._ws_closed:
-            delay = _BACKOFF_SCHEDULE[min(attempt, len(_BACKOFF_SCHEDULE) - 1)]
-            await asyncio.sleep(delay)
-            if self._ws_closed:
-                return
-            try:
-                await self._ws_connect_and_subscribe()
-                return
-            except Exception:
-                attempt += 1
 
     def _fire_change_listeners(self, flag_key: str | None, source: str) -> None:
         """Fire global and flag-specific listeners for a single flag."""
@@ -973,12 +885,8 @@ class AsyncFlagsClient:
         self._handles: dict[str, _FlagHandle] = {}
         self._global_listeners: list[Callable[[FlagChangeEvent], None]] = []
 
-        # WebSocket
-        self._ws_thread: threading.Thread | None = None
-        self._ws_loop: asyncio.AbstractEventLoop | None = None
-        self._ws: Any = None
-        self._ws_closed = False
-        self._connection_status_val = "disconnected"
+        # Shared WebSocket (set during connect)
+        self._ws_manager: SharedWebSocket | None = None
 
     # ------------------------------------------------------------------
     # Management methods (async)
@@ -1080,9 +988,7 @@ class AsyncFlagsClient:
         )
         body = _build_request_body(gen_flag)
         try:
-            response = await update_flag.asyncio_detailed(
-                UUID(flag.id), client=self._flags_http, body=body
-            )
+            response = await update_flag.asyncio_detailed(UUID(flag.id), client=self._flags_http, body=body)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
@@ -1098,7 +1004,7 @@ class AsyncFlagsClient:
     async def create_context_type(self, key: str, *, name: str) -> ContextType:
         """Create a context type."""
         resp = await self._flags_http.get_async_httpx_client().post(
-            "/api/v1/context-types",
+            "/api/v1/context_types",
             json={"data": {"type": "context_type", "attributes": {"key": key, "name": name}}},
         )
         _check_response_status(resp.status_code, resp.content)
@@ -1108,7 +1014,7 @@ class AsyncFlagsClient:
     async def update_context_type(self, ct_id: str, *, attributes: dict[str, Any]) -> ContextType:
         """Update a context type (merge attributes)."""
         resp = await self._flags_http.get_async_httpx_client().put(
-            f"/api/v1/context-types/{ct_id}",
+            f"/api/v1/context_types/{ct_id}",
             json={"data": {"type": "context_type", "attributes": {"attributes": attributes}}},
         )
         _check_response_status(resp.status_code, resp.content)
@@ -1117,28 +1023,19 @@ class AsyncFlagsClient:
 
     async def list_context_types(self) -> list[ContextType]:
         """List all context types."""
-        resp = await self._flags_http.get_async_httpx_client().get("/api/v1/context-types")
+        resp = await self._flags_http.get_async_httpx_client().get("/api/v1/context_types")
         _check_response_status(resp.status_code, resp.content)
         items = resp.json().get("data", [])
         return [self._parse_context_type(item) for item in items]
 
     async def delete_context_type(self, ct_id: str) -> None:
         """Delete a context type."""
-        resp = await self._flags_http.get_async_httpx_client().delete(f"/api/v1/context-types/{ct_id}")
+        resp = await self._flags_http.get_async_httpx_client().delete(f"/api/v1/context_types/{ct_id}")
         _check_response_status(resp.status_code, resp.content)
 
-    async def list_contexts(self, *, context_type_key: str | None = None) -> list[dict[str, Any]]:
-        """List context instances, optionally filtered by context_type_key."""
-        params: dict[str, str] = {}
-        if context_type_key is not None:
-            cts = await self.list_context_types()
-            ct_id = None
-            for ct in cts:
-                if ct.key == context_type_key:
-                    ct_id = ct.id
-                    break
-            if ct_id:
-                params["filter[context_type_id]"] = ct_id
+    async def list_contexts(self, *, context_type_key: str) -> list[dict[str, Any]]:
+        """List context instances filtered by context_type_key."""
+        params = {"filter[context_type]": context_type_key}
         resp = await self._flags_http.get_async_httpx_client().get("/api/v1/contexts", params=params)
         _check_response_status(resp.status_code, resp.content)
         return resp.json().get("data", [])
@@ -1181,28 +1078,24 @@ class AsyncFlagsClient:
     # ------------------------------------------------------------------
 
     async def connect(self, environment: str, *, timeout: int = 10) -> None:
-        """Connect to an environment: fetch flags, open WebSocket."""
+        """Connect to an environment: fetch flags, register on shared WebSocket."""
         self._environment = environment
         await self._fetch_all_flags()
         self._connected = True
         self._cache.clear()
-        self._ws_closed = False
-        self._start_ws_thread()
+
+        # Register on the shared WebSocket
+        self._ws_manager = self._parent._ensure_ws()
+        self._ws_manager.on("flag_changed", self._handle_flag_changed)
+        self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
 
     async def disconnect(self) -> None:
-        """Disconnect: close WebSocket, flush contexts, clear state."""
-        self._ws_closed = True
-        self._connection_status_val = "disconnected"
-
-        if self._ws is not None and self._ws_loop is not None:
-            try:
-                future = asyncio.run_coroutine_threadsafe(self._ws.close(), self._ws_loop)
-                future.result(timeout=2.0)
-            except Exception:
-                pass
-
-        if self._ws_thread is not None and self._ws_thread.is_alive():
-            self._ws_thread.join(timeout=2.0)
+        """Disconnect: unregister from WebSocket, flush contexts, clear state."""
+        # Unregister from the shared WebSocket
+        if self._ws_manager is not None:
+            self._ws_manager.off("flag_changed", self._handle_flag_changed)
+            self._ws_manager.off("flag_deleted", self._handle_flag_deleted)
+            self._ws_manager = None
 
         await self._flush_contexts_async()
         self._flag_store.clear()
@@ -1217,7 +1110,9 @@ class AsyncFlagsClient:
         self._fire_change_listeners_all("manual")
 
     def connection_status(self) -> str:
-        return self._connection_status_val
+        if self._ws_manager is not None:
+            return self._ws_manager.connection_status
+        return "disconnected"
 
     def stats(self) -> FlagStats:
         return FlagStats(cache_hits=self._cache.cache_hits, cache_misses=self._cache.cache_misses)
@@ -1235,6 +1130,22 @@ class AsyncFlagsClient:
     # Runtime: context registration
     # ------------------------------------------------------------------
 
+    def register(self, context: Context | list[Context]) -> None:
+        """Explicitly register context(s) for background batch registration.
+
+        Accepts a single :class:`Context` or a list.  Queues into the same
+        batch buffer used by the automatic context provider side-effect.
+        Fire-and-forget — never blocks, never raises on registration failure.
+
+        Works before ``connect()`` is called; contexts are queued locally
+        and flushed when the connection is established or
+        ``flush_contexts()`` is called.
+        """
+        if isinstance(context, list):
+            self._context_buffer.observe(context)
+        else:
+            self._context_buffer.observe([context])
+
     async def flush_contexts(self) -> None:
         """Flush pending context registrations to the server."""
         await self._flush_contexts_async()
@@ -1244,8 +1155,8 @@ class AsyncFlagsClient:
         if not batch:
             return
         try:
-            await self._flags_http.get_async_httpx_client().post(
-                "/api/v1/contexts/register",
+            await self._flags_http.get_async_httpx_client().put(
+                "/api/v1/contexts/bulk",
                 json={"contexts": batch},
             )
         except Exception:
@@ -1346,137 +1257,71 @@ class AsyncFlagsClient:
         result = []
         for r in response.parsed.data:
             attrs = r.attributes
-            result.append({
-                "key": attrs.key,
-                "name": attrs.name,
-                "type": attrs.type_,
-                "default": attrs.default,
-                "values": _extract_values(attrs.values),
-                "description": _unset_to_none(attrs.description),
-                "environments": _extract_environments(attrs.environments),
-            })
+            result.append(
+                {
+                    "key": attrs.key,
+                    "name": attrs.name,
+                    "type": attrs.type_,
+                    "default": attrs.default,
+                    "values": _extract_values(attrs.values),
+                    "description": _unset_to_none(attrs.description),
+                    "environments": _extract_environments(attrs.environments),
+                }
+            )
         return result
 
     # ------------------------------------------------------------------
-    # Internal: WebSocket
+    # Internal: event handlers (called by SharedWebSocket)
     # ------------------------------------------------------------------
 
-    def _start_ws_thread(self) -> None:
-        thread = threading.Thread(
-            target=self._ws_thread_entry,
-            name="smplkit-flags-ws",
-            daemon=True,
-        )
-        self._ws_thread = thread
-        thread.start()
-
-    def _ws_thread_entry(self) -> None:
-        loop = asyncio.new_event_loop()
-        self._ws_loop = loop
+    def _handle_flag_changed(self, data: dict[str, Any]) -> None:
+        """Handle a flag_changed event by re-fetching all flags."""
+        flag_key = data.get("key")
+        # Re-fetch using sync httpx (called from WS background thread)
         try:
-            loop.run_until_complete(self._ws_main())
+            response = list_flags.sync_detailed(client=self._flags_http)
+            if response.parsed and hasattr(response.parsed, "data"):
+                new_store: dict[str, dict[str, Any]] = {}
+                for r in response.parsed.data:
+                    attrs = r.attributes
+                    new_store[attrs.key] = {
+                        "key": attrs.key,
+                        "name": attrs.name,
+                        "type": attrs.type_,
+                        "default": attrs.default,
+                        "values": _extract_values(attrs.values),
+                        "description": _unset_to_none(attrs.description),
+                        "environments": _extract_environments(attrs.environments),
+                    }
+                self._flag_store = new_store
         except Exception:
-            ws_logger.error("Flags WebSocket thread exited unexpectedly", exc_info=True)
-        finally:
-            pending = asyncio.all_tasks(loop)
-            for task in pending:
-                task.cancel()
-            if pending:
-                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-            loop.close()
+            ws_logger.error("Failed to refresh flags after WS event", exc_info=True)
+        self._cache.clear()
+        self._fire_change_listeners(flag_key, "websocket")
 
-    async def _ws_main(self) -> None:
+    def _handle_flag_deleted(self, data: dict[str, Any]) -> None:
+        """Handle a flag_deleted event by re-fetching all flags."""
+        flag_key = data.get("key")
         try:
-            await self._ws_connect_and_subscribe()
+            response = list_flags.sync_detailed(client=self._flags_http)
+            if response.parsed and hasattr(response.parsed, "data"):
+                new_store: dict[str, dict[str, Any]] = {}
+                for r in response.parsed.data:
+                    attrs = r.attributes
+                    new_store[attrs.key] = {
+                        "key": attrs.key,
+                        "name": attrs.name,
+                        "type": attrs.type_,
+                        "default": attrs.default,
+                        "values": _extract_values(attrs.values),
+                        "description": _unset_to_none(attrs.description),
+                        "environments": _extract_environments(attrs.environments),
+                    }
+                self._flag_store = new_store
         except Exception:
-            ws_logger.warning("Flags WebSocket connection failed on startup", exc_info=True)
-            await self._ws_reconnect()
-
-    def _build_ws_url(self) -> str:
-        url = _DEFAULT_FLAGS_BASE_URL
-        if url.startswith("https://"):
-            ws_url = "wss://" + url[len("https://"):]
-        elif url.startswith("http://"):
-            ws_url = "ws://" + url[len("http://"):]
-        else:
-            ws_url = "wss://" + url
-        ws_url = ws_url.rstrip("/")
-        return f"{ws_url}/api/ws/v1/flags?api_key={self._parent._api_key}"
-
-    async def _ws_connect_and_subscribe(self) -> None:
-        url = self._build_ws_url()
-        self._connection_status_val = "connecting"
-        self._ws = await websockets.asyncio.client.connect(url)
-
-        subscribe_msg = json.dumps({
-            "type": "subscribe",
-            "environment": self._environment,
-        })
-        await self._ws.send(subscribe_msg)
-
-        raw = await self._ws.recv()
-        data = json.loads(raw)
-        if data.get("type") == "error":
-            raise RuntimeError(f"Subscription error: {data.get('message')}")
-
-        self._connection_status_val = "connected"
-        await self._ws_receive_loop()
-
-    async def _ws_receive_loop(self) -> None:
-        while not self._ws_closed:
-            try:
-                raw = await self._ws.recv()
-                data = json.loads(raw)
-                msg_type = data.get("type") or data.get("event")
-
-                if msg_type == "flag_changed":
-                    flag_key = data.get("key")
-                    # Re-fetch using sync httpx from the WS thread
-                    try:
-                        response = list_flags.sync_detailed(client=self._flags_http)
-                        if response.parsed and hasattr(response.parsed, "data"):
-                            new_store: dict[str, dict[str, Any]] = {}
-                            for r in response.parsed.data:
-                                attrs = r.attributes
-                                new_store[attrs.key] = {
-                                    "key": attrs.key,
-                                    "name": attrs.name,
-                                    "type": attrs.type_,
-                                    "default": attrs.default,
-                                    "values": _extract_values(attrs.values),
-                                    "description": _unset_to_none(attrs.description),
-                                    "environments": _extract_environments(attrs.environments),
-                                }
-                            self._flag_store = new_store
-                    except Exception:
-                        ws_logger.error("Failed to refresh flags after WS event", exc_info=True)
-                    self._cache.clear()
-                    self._fire_change_listeners(flag_key, "websocket")
-            except websockets.ConnectionClosed:
-                if self._ws_closed:
-                    break
-                self._connection_status_val = "reconnecting"
-                await self._ws_reconnect()
-                break
-            except Exception:
-                if self._ws_closed:
-                    break
-                self._connection_status_val = "reconnecting"
-                await self._ws_reconnect()
-                break
-
-    async def _ws_reconnect(self) -> None:
-        attempt = 0
-        while not self._ws_closed:
-            delay = _BACKOFF_SCHEDULE[min(attempt, len(_BACKOFF_SCHEDULE) - 1)]
-            await asyncio.sleep(delay)
-            if self._ws_closed:
-                return
-            try:
-                await self._ws_connect_and_subscribe()
-                return
-            except Exception:
-                attempt += 1
+            ws_logger.error("Failed to refresh flags after WS event", exc_info=True)
+        self._cache.clear()
+        self._fire_change_listeners(flag_key, "websocket")
 
     def _fire_change_listeners(self, flag_key: str | None, source: str) -> None:
         if flag_key:

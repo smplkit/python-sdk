@@ -363,3 +363,141 @@ class TestFlagsRuntime:
         ns._cache.clear()
         hit, _ = ns._cache.get("k")
         assert hit is False
+
+
+class TestRegister:
+    """Tests for explicit context registration via register()."""
+
+    def test_register_single_context(self):
+        from smplkit.flags.types import Context
+
+        client = SmplClient(api_key="sk_test")
+        ns = client.flags
+
+        ns.register(Context("user", "u-1", plan="enterprise"))
+
+        batch = ns._context_buffer.drain()
+        assert len(batch) == 1
+        assert batch[0]["id"] == "user:u-1"
+        assert batch[0]["name"] == "u-1"
+        assert batch[0]["attributes"]["plan"] == "enterprise"
+
+    def test_register_single_context_with_name(self):
+        from smplkit.flags.types import Context
+
+        client = SmplClient(api_key="sk_test")
+        ns = client.flags
+
+        ns.register(Context("user", "u-1", name="Alice Smith", plan="enterprise"))
+
+        batch = ns._context_buffer.drain()
+        assert len(batch) == 1
+        assert batch[0]["id"] == "user:u-1"
+        assert batch[0]["name"] == "Alice Smith"
+        assert batch[0]["attributes"]["plan"] == "enterprise"
+
+    def test_register_list_of_contexts(self):
+        from smplkit.flags.types import Context
+
+        client = SmplClient(api_key="sk_test")
+        ns = client.flags
+
+        ns.register(
+            [
+                Context("user", "u-1", plan="enterprise"),
+                Context("account", "acme-corp", region="us"),
+            ]
+        )
+
+        batch = ns._context_buffer.drain()
+        assert len(batch) == 2
+        assert batch[0]["id"] == "user:u-1"
+        assert batch[1]["id"] == "account:acme-corp"
+
+    def test_register_before_connect(self):
+        """Contexts registered before connect() are queued, not lost."""
+        from smplkit.flags.types import Context
+
+        client = SmplClient(api_key="sk_test")
+        ns = client.flags
+
+        assert not ns._connected
+
+        ns.register(Context("user", "u-1", plan="free"))
+        ns.register(Context("account", "small-biz", region="eu"))
+
+        batch = ns._context_buffer.drain()
+        assert len(batch) == 2
+
+    def test_register_deduplication(self):
+        """Same (type, key) pair should not be queued twice."""
+        from smplkit.flags.types import Context
+
+        client = SmplClient(api_key="sk_test")
+        ns = client.flags
+
+        ns.register(Context("user", "u-1", plan="enterprise"))
+        ns.register(Context("user", "u-1", plan="free"))  # same type+key
+
+        batch = ns._context_buffer.drain()
+        assert len(batch) == 1
+        # First registration wins
+        assert batch[0]["attributes"]["plan"] == "enterprise"
+
+    def test_register_different_keys_not_deduplicated(self):
+        """Different keys for the same type should both be queued."""
+        from smplkit.flags.types import Context
+
+        client = SmplClient(api_key="sk_test")
+        ns = client.flags
+
+        ns.register(Context("user", "u-1", plan="enterprise"))
+        ns.register(Context("user", "u-2", plan="free"))
+
+        batch = ns._context_buffer.drain()
+        assert len(batch) == 2
+
+    def test_register_integrates_with_flush(self):
+        """Explicitly registered contexts appear in flushed batch."""
+        from smplkit.flags.types import Context
+
+        client = SmplClient(api_key="sk_test")
+        ns = client.flags
+
+        ns.register(Context("user", "u-1", plan="enterprise"))
+
+        # Also add via observe (simulating context provider side-effect)
+        ns._context_buffer.observe([Context("account", "acme-corp", region="us")])
+
+        batch = ns._context_buffer.drain()
+        assert len(batch) == 2
+        ids = {b["id"] for b in batch}
+        assert ids == {"user:u-1", "account:acme-corp"}
+
+    def test_async_register_single_context(self):
+        from smplkit.flags.types import Context
+
+        client = AsyncSmplClient(api_key="sk_test")
+        ns = client.flags
+
+        ns.register(Context("user", "u-1", plan="enterprise"))
+
+        batch = ns._context_buffer.drain()
+        assert len(batch) == 1
+        assert batch[0]["id"] == "user:u-1"
+
+    def test_async_register_list(self):
+        from smplkit.flags.types import Context
+
+        client = AsyncSmplClient(api_key="sk_test")
+        ns = client.flags
+
+        ns.register(
+            [
+                Context("user", "u-1"),
+                Context("account", "acme-corp"),
+            ]
+        )
+
+        batch = ns._context_buffer.drain()
+        assert len(batch) == 2
