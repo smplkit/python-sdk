@@ -43,6 +43,7 @@ logger = logging.getLogger("smplkit")
 ws_logger = logging.getLogger("smplkit.flags.ws")
 
 _DEFAULT_FLAGS_BASE_URL = "https://flags.smplkit.com"
+_DEFAULT_APP_BASE_URL = "https://app.smplkit.com"
 _CACHE_MAX_SIZE = 10_000
 _CONTEXT_REGISTRATION_LRU_SIZE = 10_000
 _CONTEXT_BATCH_FLUSH_SIZE = 100
@@ -410,6 +411,10 @@ class FlagsClient:
             base_url=_DEFAULT_FLAGS_BASE_URL,
             token=parent._api_key,
         )
+        self._app_http = AuthenticatedClient(
+            base_url=_DEFAULT_APP_BASE_URL,
+            token=parent._api_key,
+        )
 
         # Runtime state
         self._environment: str | None = None
@@ -539,7 +544,7 @@ class FlagsClient:
 
     def create_context_type(self, key: str, *, name: str) -> ContextType:
         """Create a context type."""
-        resp = self._flags_http.get_httpx_client().post(
+        resp = self._app_http.get_httpx_client().post(
             "/api/v1/context_types",
             json={"data": {"type": "context_type", "attributes": {"key": key, "name": name}}},
         )
@@ -549,7 +554,7 @@ class FlagsClient:
 
     def update_context_type(self, ct_id: str, *, attributes: dict[str, Any]) -> ContextType:
         """Update a context type (merge attributes)."""
-        resp = self._flags_http.get_httpx_client().put(
+        resp = self._app_http.get_httpx_client().put(
             f"/api/v1/context_types/{ct_id}",
             json={"data": {"type": "context_type", "attributes": {"attributes": attributes}}},
         )
@@ -559,20 +564,20 @@ class FlagsClient:
 
     def list_context_types(self) -> list[ContextType]:
         """List all context types."""
-        resp = self._flags_http.get_httpx_client().get("/api/v1/context_types")
+        resp = self._app_http.get_httpx_client().get("/api/v1/context_types")
         _check_response_status(resp.status_code, resp.content)
         items = resp.json().get("data", [])
         return [self._parse_context_type(item) for item in items]
 
     def delete_context_type(self, ct_id: str) -> None:
         """Delete a context type."""
-        resp = self._flags_http.get_httpx_client().delete(f"/api/v1/context_types/{ct_id}")
+        resp = self._app_http.get_httpx_client().delete(f"/api/v1/context_types/{ct_id}")
         _check_response_status(resp.status_code, resp.content)
 
     def list_contexts(self, *, context_type_key: str) -> list[dict[str, Any]]:
         """List context instances filtered by context_type_key."""
         params = {"filter[context_type]": context_type_key}
-        resp = self._flags_http.get_httpx_client().get("/api/v1/contexts", params=params)
+        resp = self._app_http.get_httpx_client().get("/api/v1/contexts", params=params)
         _check_response_status(resp.status_code, resp.content)
         return resp.json().get("data", [])
 
@@ -691,7 +696,7 @@ class FlagsClient:
         if not batch:
             return
         try:
-            self._flags_http.get_httpx_client().put(
+            self._app_http.get_httpx_client().put(
                 "/api/v1/contexts/bulk",
                 json={"contexts": batch},
             )
@@ -874,6 +879,10 @@ class AsyncFlagsClient:
             base_url=_DEFAULT_FLAGS_BASE_URL,
             token=parent._api_key,
         )
+        self._app_http = AuthenticatedClient(
+            base_url=_DEFAULT_APP_BASE_URL,
+            token=parent._api_key,
+        )
 
         # Runtime state
         self._environment: str | None = None
@@ -1003,7 +1012,7 @@ class AsyncFlagsClient:
 
     async def create_context_type(self, key: str, *, name: str) -> ContextType:
         """Create a context type."""
-        resp = await self._flags_http.get_async_httpx_client().post(
+        resp = await self._app_http.get_async_httpx_client().post(
             "/api/v1/context_types",
             json={"data": {"type": "context_type", "attributes": {"key": key, "name": name}}},
         )
@@ -1013,7 +1022,7 @@ class AsyncFlagsClient:
 
     async def update_context_type(self, ct_id: str, *, attributes: dict[str, Any]) -> ContextType:
         """Update a context type (merge attributes)."""
-        resp = await self._flags_http.get_async_httpx_client().put(
+        resp = await self._app_http.get_async_httpx_client().put(
             f"/api/v1/context_types/{ct_id}",
             json={"data": {"type": "context_type", "attributes": {"attributes": attributes}}},
         )
@@ -1023,20 +1032,20 @@ class AsyncFlagsClient:
 
     async def list_context_types(self) -> list[ContextType]:
         """List all context types."""
-        resp = await self._flags_http.get_async_httpx_client().get("/api/v1/context_types")
+        resp = await self._app_http.get_async_httpx_client().get("/api/v1/context_types")
         _check_response_status(resp.status_code, resp.content)
         items = resp.json().get("data", [])
         return [self._parse_context_type(item) for item in items]
 
     async def delete_context_type(self, ct_id: str) -> None:
         """Delete a context type."""
-        resp = await self._flags_http.get_async_httpx_client().delete(f"/api/v1/context_types/{ct_id}")
+        resp = await self._app_http.get_async_httpx_client().delete(f"/api/v1/context_types/{ct_id}")
         _check_response_status(resp.status_code, resp.content)
 
     async def list_contexts(self, *, context_type_key: str) -> list[dict[str, Any]]:
         """List context instances filtered by context_type_key."""
         params = {"filter[context_type]": context_type_key}
-        resp = await self._flags_http.get_async_httpx_client().get("/api/v1/contexts", params=params)
+        resp = await self._app_http.get_async_httpx_client().get("/api/v1/contexts", params=params)
         _check_response_status(resp.status_code, resp.content)
         return resp.json().get("data", [])
 
@@ -1155,7 +1164,7 @@ class AsyncFlagsClient:
         if not batch:
             return
         try:
-            await self._flags_http.get_async_httpx_client().put(
+            await self._app_http.get_async_httpx_client().put(
                 "/api/v1/contexts/bulk",
                 json={"contexts": batch},
             )
