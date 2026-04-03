@@ -176,9 +176,7 @@ class TestBuildLoggerBody:
         assert body.data.attributes.key == "sql"
 
     def test_with_environments(self):
-        body = _build_logger_body(
-            name="Test", key="t", environments={"prod": {"level": "ERROR"}}
-        )
+        body = _build_logger_body(name="Test", key="t", environments={"prod": {"level": "ERROR"}})
         assert body.data.attributes.environments is not None
 
 

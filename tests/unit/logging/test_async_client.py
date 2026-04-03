@@ -163,9 +163,7 @@ class TestAsyncConnectFlow:
     @patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed")
     @patch("smplkit.logging.client.install_discovery_patch")
     @patch("smplkit.logging.client.discover_existing_loggers")
-    def test_connect_full_flow(
-        self, mock_discover, mock_patch, mock_bulk, mock_loggers, mock_groups
-    ):
+    def test_connect_full_flow(self, mock_discover, mock_patch, mock_bulk, mock_loggers, mock_groups):
         mock_discover.return_value = [("root", 30), ("myapp.db", 10)]
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -185,9 +183,7 @@ class TestAsyncConnectFlow:
     @patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed")
     @patch("smplkit.logging.client.install_discovery_patch")
     @patch("smplkit.logging.client.discover_existing_loggers")
-    def test_connect_with_service(
-        self, mock_discover, mock_patch, mock_bulk, mock_loggers, mock_groups
-    ):
+    def test_connect_with_service(self, mock_discover, mock_patch, mock_bulk, mock_loggers, mock_groups):
         mock_discover.return_value = [("root", 30)]
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -204,9 +200,7 @@ class TestAsyncConnectFlow:
     @patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed")
     @patch("smplkit.logging.client.install_discovery_patch")
     @patch("smplkit.logging.client.discover_existing_loggers")
-    def test_connect_fetch_failure_is_resilient(
-        self, mock_discover, mock_patch, mock_bulk, mock_loggers, mock_groups
-    ):
+    def test_connect_fetch_failure_is_resilient(self, mock_discover, mock_patch, mock_bulk, mock_loggers, mock_groups):
         mock_discover.return_value = []
         mock_bulk.return_value = _ok_response()
         mock_loggers.side_effect = Exception("network error")
