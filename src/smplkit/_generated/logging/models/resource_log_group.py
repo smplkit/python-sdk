@@ -11,25 +11,24 @@ from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
-    from ..models.logger import Logger
+    from ..models.log_group import LogGroup
 
 
-T = TypeVar("T", bound="ResourceLogger")
+T = TypeVar("T", bound="ResourceLogGroup")
 
 
 @_attrs_define
-class ResourceLogger:
+class ResourceLogGroup:
     """
     Attributes:
-        attributes (Logger):  Example: {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level':
-            'WARN'}, 'staging': {'level': 'DEBUG'}}, 'group': '550e8400-e29b-41d4-a716-446655440000', 'key':
-            'com.example.sql', 'level': 'DEBUG', 'managed': True, 'name': 'SQL Logger', 'sources': [{'first_observed':
-            '2026-04-01T10:00:00Z', 'service': 'api-gateway'}], 'updated_at': '2026-04-01T10:00:00Z'}.
+        attributes (LogGroup):  Example: {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level':
+            'ERROR'}}, 'key': 'database-loggers', 'level': 'WARN', 'name': 'Database Loggers', 'updated_at':
+            '2026-04-01T10:00:00Z'}.
         id (None | str | Unset):
         type_ (str | Unset):  Default: ''.
     """
 
-    attributes: Logger
+    attributes: LogGroup
     id: None | str | Unset = UNSET
     type_: str | Unset = ""
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -61,10 +60,10 @@ class ResourceLogger:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.logger import Logger
+        from ..models.log_group import LogGroup
 
         d = dict(src_dict)
-        attributes = Logger.from_dict(d.pop("attributes"))
+        attributes = LogGroup.from_dict(d.pop("attributes"))
 
         def _parse_id(data: object) -> None | str | Unset:
             if data is None:
@@ -77,14 +76,14 @@ class ResourceLogger:
 
         type_ = d.pop("type", UNSET)
 
-        resource_logger = cls(
+        resource_log_group = cls(
             attributes=attributes,
             id=id,
             type_=type_,
         )
 
-        resource_logger.additional_properties = d
-        return resource_logger
+        resource_log_group.additional_properties = d
+        return resource_log_group
 
     @property
     def additional_keys(self) -> list[str]:

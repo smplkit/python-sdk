@@ -9,32 +9,39 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from typing import cast
+from typing import Literal
 
 if TYPE_CHECKING:
-    from ..models.logger import Logger
+    from ..models.log_group import LogGroup
 
 
-T = TypeVar("T", bound="ResourceLogger")
+T = TypeVar("T", bound="LogGroupResource")
 
 
 @_attrs_define
-class ResourceLogger:
+class LogGroupResource:
     """
+    Example:
+        {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'ERROR'}}, 'key':
+            'database-loggers', 'level': 'WARN', 'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}, 'id':
+            '550e8400-e29b-41d4-a716-446655440000', 'type': 'log_group'}
+
     Attributes:
-        attributes (Logger):  Example: {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level':
-            'WARN'}, 'staging': {'level': 'DEBUG'}}, 'group': '550e8400-e29b-41d4-a716-446655440000', 'key':
-            'com.example.sql', 'level': 'DEBUG', 'managed': True, 'name': 'SQL Logger', 'sources': [{'first_observed':
-            '2026-04-01T10:00:00Z', 'service': 'api-gateway'}], 'updated_at': '2026-04-01T10:00:00Z'}.
+        type_ (Literal['log_group']):
+        attributes (LogGroup):  Example: {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level':
+            'ERROR'}}, 'key': 'database-loggers', 'level': 'WARN', 'name': 'Database Loggers', 'updated_at':
+            '2026-04-01T10:00:00Z'}.
         id (None | str | Unset):
-        type_ (str | Unset):  Default: ''.
     """
 
-    attributes: Logger
+    type_: Literal["log_group"]
+    attributes: LogGroup
     id: None | str | Unset = UNSET
-    type_: str | Unset = ""
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        type_ = self.type_
+
         attributes = self.attributes.to_dict()
 
         id: None | str | Unset
@@ -43,28 +50,29 @@ class ResourceLogger:
         else:
             id = self.id
 
-        type_ = self.type_
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "type": type_,
                 "attributes": attributes,
             }
         )
         if id is not UNSET:
             field_dict["id"] = id
-        if type_ is not UNSET:
-            field_dict["type"] = type_
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.logger import Logger
+        from ..models.log_group import LogGroup
 
         d = dict(src_dict)
-        attributes = Logger.from_dict(d.pop("attributes"))
+        type_ = cast(Literal["log_group"], d.pop("type"))
+        if type_ != "log_group":
+            raise ValueError(f"type must match const 'log_group', got '{type_}'")
+
+        attributes = LogGroup.from_dict(d.pop("attributes"))
 
         def _parse_id(data: object) -> None | str | Unset:
             if data is None:
@@ -75,16 +83,14 @@ class ResourceLogger:
 
         id = _parse_id(d.pop("id", UNSET))
 
-        type_ = d.pop("type", UNSET)
-
-        resource_logger = cls(
+        log_group_resource = cls(
+            type_=type_,
             attributes=attributes,
             id=id,
-            type_=type_,
         )
 
-        resource_logger.additional_properties = d
-        return resource_logger
+        log_group_resource.additional_properties = d
+        return log_group_resource
 
     @property
     def additional_keys(self) -> list[str]:

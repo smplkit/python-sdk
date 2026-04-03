@@ -4,53 +4,39 @@ from typing import Any
 import httpx
 
 from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
+from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
-from ...models.logger_list_response import LoggerListResponse
-from ...types import Unset
+from ...models.logger_bulk_request import LoggerBulkRequest
+from ...models.logger_bulk_response import LoggerBulkResponse
 
 
 def _get_kwargs(
     *,
-    filterkey: None | str | Unset = UNSET,
-    filtermanaged: bool | None | Unset = UNSET,
+    body: LoggerBulkRequest,
 ) -> dict[str, Any]:
-
-    params: dict[str, Any] = {}
-
-    json_filterkey: None | str | Unset
-    if isinstance(filterkey, Unset):
-        json_filterkey = UNSET
-    else:
-        json_filterkey = filterkey
-    params["filter[key]"] = json_filterkey
-
-    json_filtermanaged: bool | None | Unset
-    if isinstance(filtermanaged, Unset):
-        json_filtermanaged = UNSET
-    else:
-        json_filtermanaged = filtermanaged
-    params["filter[managed]"] = json_filtermanaged
-
-    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
+    headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
-        "method": "get",
-        "url": "/api/v1/loggers",
-        "params": params,
+        "method": "post",
+        "url": "/api/v1/loggers/bulk",
     }
 
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/json"
+
+    _kwargs["headers"] = headers
     return _kwargs
 
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse | HTTPValidationError | LoggerListResponse | None:
+) -> ErrorResponse | HTTPValidationError | LoggerBulkResponse | None:
     if response.status_code == 200:
-        response_200 = LoggerListResponse.from_dict(response.json())
+        response_200 = LoggerBulkResponse.from_dict(response.json())
 
         return response_200
 
@@ -87,7 +73,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse | HTTPValidationError | LoggerListResponse]:
+) -> Response[ErrorResponse | HTTPValidationError | LoggerBulkResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -99,26 +85,23 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    filterkey: None | str | Unset = UNSET,
-    filtermanaged: bool | None | Unset = UNSET,
-) -> Response[ErrorResponse | HTTPValidationError | LoggerListResponse]:
-    """List Loggers
+    body: LoggerBulkRequest,
+) -> Response[ErrorResponse | HTTPValidationError | LoggerBulkResponse]:
+    """Bulk Register Loggers
 
     Args:
-        filterkey (None | str | Unset):
-        filtermanaged (bool | None | Unset):
+        body (LoggerBulkRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | LoggerListResponse]
+        Response[ErrorResponse | HTTPValidationError | LoggerBulkResponse]
     """
 
     kwargs = _get_kwargs(
-        filterkey=filterkey,
-        filtermanaged=filtermanaged,
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -131,53 +114,47 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    filterkey: None | str | Unset = UNSET,
-    filtermanaged: bool | None | Unset = UNSET,
-) -> ErrorResponse | HTTPValidationError | LoggerListResponse | None:
-    """List Loggers
+    body: LoggerBulkRequest,
+) -> ErrorResponse | HTTPValidationError | LoggerBulkResponse | None:
+    """Bulk Register Loggers
 
     Args:
-        filterkey (None | str | Unset):
-        filtermanaged (bool | None | Unset):
+        body (LoggerBulkRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | LoggerListResponse
+        ErrorResponse | HTTPValidationError | LoggerBulkResponse
     """
 
     return sync_detailed(
         client=client,
-        filterkey=filterkey,
-        filtermanaged=filtermanaged,
+        body=body,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    filterkey: None | str | Unset = UNSET,
-    filtermanaged: bool | None | Unset = UNSET,
-) -> Response[ErrorResponse | HTTPValidationError | LoggerListResponse]:
-    """List Loggers
+    body: LoggerBulkRequest,
+) -> Response[ErrorResponse | HTTPValidationError | LoggerBulkResponse]:
+    """Bulk Register Loggers
 
     Args:
-        filterkey (None | str | Unset):
-        filtermanaged (bool | None | Unset):
+        body (LoggerBulkRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | LoggerListResponse]
+        Response[ErrorResponse | HTTPValidationError | LoggerBulkResponse]
     """
 
     kwargs = _get_kwargs(
-        filterkey=filterkey,
-        filtermanaged=filtermanaged,
+        body=body,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -188,27 +165,24 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    filterkey: None | str | Unset = UNSET,
-    filtermanaged: bool | None | Unset = UNSET,
-) -> ErrorResponse | HTTPValidationError | LoggerListResponse | None:
-    """List Loggers
+    body: LoggerBulkRequest,
+) -> ErrorResponse | HTTPValidationError | LoggerBulkResponse | None:
+    """Bulk Register Loggers
 
     Args:
-        filterkey (None | str | Unset):
-        filtermanaged (bool | None | Unset):
+        body (LoggerBulkRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | LoggerListResponse
+        ErrorResponse | HTTPValidationError | LoggerBulkResponse
     """
 
     return (
         await asyncio_detailed(
             client=client,
-            filterkey=filterkey,
-            filtermanaged=filtermanaged,
+            body=body,
         )
     ).parsed
