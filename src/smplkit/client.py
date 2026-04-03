@@ -118,7 +118,7 @@ class SmplClient:
     def _register_service_context(self) -> None:
         """Register the service as a context instance on the app service."""
         try:
-            self._app_http.get_httpx_client().put(
+            self._app_http.get_httpx_client().post(
                 "/api/v1/contexts/bulk",
                 json={
                     "contexts": [
@@ -243,7 +243,7 @@ class AsyncSmplClient:
     async def _register_service_context(self) -> None:
         """Register the service as a context instance on the app service."""
         try:
-            await self._app_http.get_async_httpx_client().put(
+            await self._app_http.get_async_httpx_client().post(
                 "/api/v1/contexts/bulk",
                 json={
                     "contexts": [

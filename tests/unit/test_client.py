@@ -170,8 +170,8 @@ def test_connect_registers_service():
         client.connect()
 
     mock_httpx = mock_app_http.get_httpx_client.return_value
-    mock_httpx.put.assert_called_once()
-    call_args = mock_httpx.put.call_args
+    mock_httpx.post.assert_called_once()
+    call_args = mock_httpx.post.call_args
     assert call_args[0][0] == "/api/v1/contexts/bulk"
     payload = call_args[1]["json"]
     assert payload["contexts"][0]["type"] == "service"
@@ -196,7 +196,7 @@ def test_connect_service_registration_failure_is_swallowed():
 
     client = SmplClient(api_key="sk_api_test", environment="test", service="my-svc")
     mock_app_http = MagicMock()
-    mock_app_http.get_httpx_client.return_value.put.side_effect = Exception("network error")
+    mock_app_http.get_httpx_client.return_value.post.side_effect = Exception("network error")
     client._app_http = mock_app_http
 
     with patch.object(client.flags, "_connect_internal"), patch.object(client.config, "_connect_internal"):
@@ -245,8 +245,8 @@ def test_async_connect_registers_service():
 
         client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
         mock_app_http = MagicMock()
-        mock_put = AsyncMock(return_value=None)
-        mock_app_http.get_async_httpx_client.return_value.put = mock_put
+        mock_post = AsyncMock(return_value=None)
+        mock_app_http.get_async_httpx_client.return_value.post = mock_post
         client._app_http = mock_app_http
 
         with (
@@ -255,8 +255,8 @@ def test_async_connect_registers_service():
         ):
             await client.connect()
 
-        mock_put.assert_called_once()
-        call_args = mock_put.call_args
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
         assert call_args[0][0] == "/api/v1/contexts/bulk"
         payload = call_args[1]["json"]
         assert payload["contexts"][0]["type"] == "service"
@@ -271,7 +271,7 @@ def test_async_connect_service_failure_swallowed():
 
         client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
         mock_app_http = MagicMock()
-        mock_app_http.get_async_httpx_client.return_value.put = AsyncMock(side_effect=Exception("network error"))
+        mock_app_http.get_async_httpx_client.return_value.post = AsyncMock(side_effect=Exception("network error"))
         client._app_http = mock_app_http
 
         with (
