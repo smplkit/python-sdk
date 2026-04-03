@@ -104,8 +104,8 @@ class TestContextRegistrationBuffer:
         )
         batch = buf.drain()
         assert len(batch) == 2
-        assert batch[0]["type"] == "user"
-        assert batch[0]["key"] == "u-1"
+        assert batch[0]["id"] == "user:u-1"
+        assert batch[0]["name"] == "u-1"
         assert batch[0]["attributes"]["plan"] == "enterprise"
 
     def test_deduplication(self):

@@ -547,8 +547,8 @@ class TestFlagsClientLifecycle:
         client._connect_internal()
 
         # Mock httpx for flush
-        mock_put = _setup_httpx_mock(client, "put")
-        mock_put.return_value = _mock_httpx_response()
+        mock_post = _setup_httpx_mock(client, "post")
+        mock_post.return_value = _mock_httpx_response()
         client.disconnect()
 
         assert client._connected is False
@@ -561,7 +561,7 @@ class TestFlagsClientLifecycle:
         client = _make_flags_client()
         client._ws_manager = None
         # Mock httpx for flush
-        _setup_httpx_mock(client, "put")
+        _setup_httpx_mock(client, "post")
         client.disconnect()
         assert client._connected is False
 
@@ -608,30 +608,30 @@ class TestFlagsClientFlush:
     def test_flush_with_pending(self):
         client = _make_flags_client()
         client.register(Context("user", "u-1", plan="enterprise"))
-        mock_put = _setup_httpx_mock(client, "put")
-        mock_put.return_value = _mock_httpx_response()
+        mock_post = _setup_httpx_mock(client, "post")
+        mock_post.return_value = _mock_httpx_response()
 
         client.flush_contexts()
 
-        mock_put.assert_called_once()
-        call_args = mock_put.call_args
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
         assert call_args[0][0] == "/api/v1/contexts/bulk"
-        assert call_args[1]["json"]["contexts"][0]["type"] == "user"
-        assert call_args[1]["json"]["contexts"][0]["key"] == "u-1"
+        assert call_args[1]["json"]["contexts"][0]["id"] == "user:u-1"
+        assert call_args[1]["json"]["contexts"][0]["name"] == "u-1"
 
     def test_flush_empty_batch(self):
         client = _make_flags_client()
-        mock_put = _setup_httpx_mock(client, "put")
+        mock_post = _setup_httpx_mock(client, "post")
 
         client.flush_contexts()
 
-        mock_put.assert_not_called()
+        mock_post.assert_not_called()
 
     def test_flush_exception_swallowed(self):
         client = _make_flags_client()
         client.register(Context("user", "u-1"))
-        mock_put = _setup_httpx_mock(client, "put")
-        mock_put.side_effect = httpx.ConnectError("fail")
+        mock_post = _setup_httpx_mock(client, "post")
+        mock_post.side_effect = httpx.ConnectError("fail")
 
         # Should not raise
         client.flush_contexts()
@@ -1069,8 +1069,8 @@ class TestRegister:
         ns.register(Context("user", "u-1", plan="enterprise"))
         batch = ns._context_buffer.drain()
         assert len(batch) == 1
-        assert batch[0]["type"] == "user"
-        assert batch[0]["key"] == "u-1"
+        assert batch[0]["id"] == "user:u-1"
+        assert batch[0]["name"] == "u-1"
         assert batch[0]["attributes"]["plan"] == "enterprise"
 
     def test_register_single_context_with_name(self):
@@ -1079,8 +1079,8 @@ class TestRegister:
         ns.register(Context("user", "u-1", name="Alice Smith", plan="enterprise"))
         batch = ns._context_buffer.drain()
         assert len(batch) == 1
-        assert batch[0]["type"] == "user"
-        assert batch[0]["key"] == "u-1"
+        assert batch[0]["id"] == "user:u-1"
+        assert batch[0]["name"] == "Alice Smith"
         assert batch[0]["attributes"]["plan"] == "enterprise"
 
     def test_register_list_of_contexts(self):
@@ -1089,10 +1089,10 @@ class TestRegister:
         ns.register([Context("user", "u-1", plan="enterprise"), Context("account", "acme-corp", region="us")])
         batch = ns._context_buffer.drain()
         assert len(batch) == 2
-        assert batch[0]["type"] == "user"
-        assert batch[0]["key"] == "u-1"
-        assert batch[1]["type"] == "account"
-        assert batch[1]["key"] == "acme-corp"
+        assert batch[0]["id"] == "user:u-1"
+        assert batch[0]["name"] == "u-1"
+        assert batch[1]["id"] == "account:acme-corp"
+        assert batch[1]["name"] == "acme-corp"
 
     def test_register_before_connect(self):
         client = SmplClient(api_key="sk_test", environment="test")
@@ -1127,8 +1127,8 @@ class TestRegister:
         ns._context_buffer.observe([Context("account", "acme-corp", region="us")])
         batch = ns._context_buffer.drain()
         assert len(batch) == 2
-        keys = {(b["type"], b["key"]) for b in batch}
-        assert keys == {("user", "u-1"), ("account", "acme-corp")}
+        ids = {b["id"] for b in batch}
+        assert ids == {"user:u-1", "account:acme-corp"}
 
 
 # ===========================================================================
@@ -1463,8 +1463,8 @@ class TestAsyncFlagsClientLifecycle:
             client._parent._ensure_ws.return_value = mock_ws
             await client._connect_internal()
 
-            mock_put = _setup_async_httpx_mock(client, "put")
-            mock_put.return_value = _mock_httpx_response()
+            mock_post = _setup_async_httpx_mock(client, "post")
+            mock_post.return_value = _mock_httpx_response()
             await client.disconnect()
 
             assert client._connected is False
@@ -1476,7 +1476,7 @@ class TestAsyncFlagsClientLifecycle:
     def test_disconnect_without_ws(self):
         async def _run():
             client = _make_async_flags_client()
-            _setup_async_httpx_mock(client, "put")
+            _setup_async_httpx_mock(client, "post")
             await client.disconnect()
             assert client._connected is False
 
@@ -1525,19 +1525,19 @@ class TestAsyncFlagsClientFlush:
         async def _run():
             client = _make_async_flags_client()
             client.register(Context("user", "u-1", plan="enterprise"))
-            mock_put = _setup_async_httpx_mock(client, "put")
-            mock_put.return_value = _mock_httpx_response()
+            mock_post = _setup_async_httpx_mock(client, "post")
+            mock_post.return_value = _mock_httpx_response()
             await client.flush_contexts()
-            mock_put.assert_called_once()
+            mock_post.assert_called_once()
 
         asyncio.run(_run())
 
     def test_flush_empty_batch(self):
         async def _run():
             client = _make_async_flags_client()
-            mock_put = _setup_async_httpx_mock(client, "put")
+            mock_post = _setup_async_httpx_mock(client, "post")
             await client.flush_contexts()
-            mock_put.assert_not_called()
+            mock_post.assert_not_called()
 
         asyncio.run(_run())
 
@@ -1545,32 +1545,32 @@ class TestAsyncFlagsClientFlush:
         async def _run():
             client = _make_async_flags_client()
             client.register(Context("user", "u-1"))
-            mock_put = _setup_async_httpx_mock(client, "put")
-            mock_put.side_effect = httpx.ConnectError("fail")
+            mock_post = _setup_async_httpx_mock(client, "post")
+            mock_post.side_effect = httpx.ConnectError("fail")
             await client.flush_contexts()  # Should not raise
 
         asyncio.run(_run())
 
     def test_flush_contexts_bg(self):
-        """_flush_contexts_bg does a sync PUT from background thread."""
+        """_flush_contexts_bg does a sync POST from background thread."""
         client = _make_async_flags_client()
         client.register(Context("user", "u-1"))
-        mock_put = _setup_httpx_mock(client, "put")  # sync httpx
-        mock_put.return_value = _mock_httpx_response()
+        mock_post = _setup_httpx_mock(client, "post")  # sync httpx
+        mock_post.return_value = _mock_httpx_response()
         client._flush_contexts_bg()
-        mock_put.assert_called_once()
+        mock_post.assert_called_once()
 
     def test_flush_contexts_bg_empty(self):
         client = _make_async_flags_client()
-        mock_put = _setup_httpx_mock(client, "put")
+        mock_post = _setup_httpx_mock(client, "post")
         client._flush_contexts_bg()
-        mock_put.assert_not_called()
+        mock_post.assert_not_called()
 
     def test_flush_contexts_bg_exception_swallowed(self):
         client = _make_async_flags_client()
         client.register(Context("user", "u-1"))
-        mock_put = _setup_httpx_mock(client, "put")
-        mock_put.side_effect = httpx.ConnectError("fail")
+        mock_post = _setup_httpx_mock(client, "post")
+        mock_post.side_effect = httpx.ConnectError("fail")
         client._flush_contexts_bg()  # Should not raise
 
 
@@ -1937,8 +1937,8 @@ class TestAsyncFlagsClientRuntime:
         client.register(Context("user", "u-1", plan="enterprise"))
         batch = client._context_buffer.drain()
         assert len(batch) == 1
-        assert batch[0]["type"] == "user"
-        assert batch[0]["key"] == "u-1"
+        assert batch[0]["id"] == "user:u-1"
+        assert batch[0]["name"] == "u-1"
 
     def test_register_list(self):
         client = _make_async_flags_client()

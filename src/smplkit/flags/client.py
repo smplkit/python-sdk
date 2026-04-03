@@ -379,8 +379,8 @@ class _ContextRegistrationBuffer:
                         self._seen.popitem(last=False)
                     self._seen[cache_key] = ctx.attributes
                     item: dict[str, Any] = {
-                        "type": ctx.type,
-                        "key": ctx.key,
+                        "id": f"{ctx.type}:{ctx.key}",
+                        "name": ctx.name or ctx.key,
                         "attributes": dict(ctx.attributes),
                     }
                     self._pending.append(item)
@@ -701,7 +701,7 @@ class FlagsClient:
         if not batch:
             return
         try:
-            self._app_http.get_httpx_client().put(
+            self._app_http.get_httpx_client().post(
                 "/api/v1/contexts/bulk",
                 json={"contexts": batch},
             )
@@ -1181,7 +1181,7 @@ class AsyncFlagsClient:
         if not batch:
             return
         try:
-            await self._app_http.get_async_httpx_client().put(
+            await self._app_http.get_async_httpx_client().post(
                 "/api/v1/contexts/bulk",
                 json={"contexts": batch},
             )
@@ -1264,7 +1264,7 @@ class AsyncFlagsClient:
         if not batch:
             return
         try:
-            self._flags_http.get_httpx_client().put(
+            self._app_http.get_httpx_client().post(
                 "/api/v1/contexts/bulk",
                 json={"contexts": batch},
             )
