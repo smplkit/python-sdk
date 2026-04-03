@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from smplkit._errors import SmplNotFoundError, SmplValidationError
-from smplkit.logging.client import LoggingClient, SmplLogGroup, SmplLogger
+from smplkit.logging.client import LoggingClient
 
 
 _TEST_UUID = "550e8400-e29b-41d4-a716-446655440000"

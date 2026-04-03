@@ -93,8 +93,8 @@ class TestDiscoveryPatch:
         calls_1 = []
         calls_2 = []
 
-        install_discovery_patch(lambda n, l: calls_1.append(n))
-        install_discovery_patch(lambda n, l: calls_2.append(n))
+        install_discovery_patch(lambda n, _lv: calls_1.append(n))
+        install_discovery_patch(lambda n, _lv: calls_2.append(n))
 
         test_name = "test.patch.double_install_004"
         stdlib_logging.getLogger(test_name)

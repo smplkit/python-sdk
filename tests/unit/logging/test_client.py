@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging as stdlib_logging
-import threading
 from http import HTTPStatus
 from unittest.mock import MagicMock, patch
 
