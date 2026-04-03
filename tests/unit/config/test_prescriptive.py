@@ -14,6 +14,7 @@ from smplkit.config.client import ConfigChangeEvent
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_connected_client(cache: dict | None = None):
     """Create a SmplClient with a pre-populated config cache."""
     client = SmplClient(api_key="sk_test", environment="production")
@@ -203,9 +204,10 @@ class TestRefreshSync:
         mock_list.return_value = mock_response
 
         # The Config._build_chain is called during refresh
-        with patch("smplkit.config.models.Config._build_chain", return_value=[
-            {"id": "cfg-1", "items": {}, "values": {"host": "new-host"}, "environments": {}}
-        ]):
+        with patch(
+            "smplkit.config.models.Config._build_chain",
+            return_value=[{"id": "cfg-1", "items": {}, "values": {"host": "new-host"}, "environments": {}}],
+        ):
             client.config.refresh()
 
         assert client.config.get("db", "host") == "new-host"
@@ -240,9 +242,10 @@ class TestRefreshSync:
         mock_response.parsed = mock_parsed
         mock_list.return_value = mock_response
 
-        with patch("smplkit.config.models.Config._build_chain", return_value=[
-            {"id": "cfg-1", "values": {"host": "new-host"}, "environments": {}}
-        ]):
+        with patch(
+            "smplkit.config.models.Config._build_chain",
+            return_value=[{"id": "cfg-1", "values": {"host": "new-host"}, "environments": {}}],
+        ):
             client.config.refresh()
 
         assert len(events) == 1
@@ -404,9 +407,10 @@ class TestAsyncRefresh:
         mock_list.side_effect = fake_list
 
         async def run():
-            with patch("smplkit.config.models.AsyncConfig._build_chain", return_value=[
-                {"id": "cfg-1", "values": {"host": "new-host"}, "environments": {}}
-            ]):
+            with patch(
+                "smplkit.config.models.AsyncConfig._build_chain",
+                return_value=[{"id": "cfg-1", "values": {"host": "new-host"}, "environments": {}}],
+            ):
                 await client.config.refresh()
 
         asyncio.run(run())
@@ -447,9 +451,10 @@ class TestAsyncRefresh:
         mock_list.side_effect = fake_list
 
         async def run():
-            with patch("smplkit.config.models.AsyncConfig._build_chain", return_value=[
-                {"id": "cfg-1", "values": {"host": "new-host"}, "environments": {}}
-            ]):
+            with patch(
+                "smplkit.config.models.AsyncConfig._build_chain",
+                return_value=[{"id": "cfg-1", "values": {"host": "new-host"}, "environments": {}}],
+            ):
                 await client.config.refresh()
 
         asyncio.run(run())
