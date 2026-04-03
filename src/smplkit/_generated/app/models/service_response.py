@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -23,7 +21,7 @@ class ServiceResponse:
             'e5f6a7b8-c9d0-1234-efab-345678901234', 'type': 'service'}.
     """
 
-    data: ServiceResource
+    data: "ServiceResource"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

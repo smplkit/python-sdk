@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any
-from urllib.parse import quote
+from typing import Any, Optional, Union
 
 import httpx
 
@@ -20,7 +19,7 @@ def _get_kwargs(
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/api/v1/flags/{id}".format(
-            id=quote(str(id), safe=""),
+            id=id,
         ),
     }
 
@@ -28,8 +27,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> FlagResponse | HTTPValidationError | None:
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[FlagResponse, HTTPValidationError]]:
     if response.status_code == 200:
         response_200 = FlagResponse.from_dict(response.json())
 
@@ -47,8 +46,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[FlagResponse | HTTPValidationError]:
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[FlagResponse, HTTPValidationError]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -61,7 +60,7 @@ def sync_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Response[FlagResponse | HTTPValidationError]:
+) -> Response[Union[FlagResponse, HTTPValidationError]]:
     """Get Flag
 
     Args:
@@ -72,7 +71,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[FlagResponse | HTTPValidationError]
+        Response[Union[FlagResponse, HTTPValidationError]]
     """
 
     kwargs = _get_kwargs(
@@ -90,7 +89,7 @@ def sync(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> FlagResponse | HTTPValidationError | None:
+) -> Optional[Union[FlagResponse, HTTPValidationError]]:
     """Get Flag
 
     Args:
@@ -101,7 +100,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        FlagResponse | HTTPValidationError
+        Union[FlagResponse, HTTPValidationError]
     """
 
     return sync_detailed(
@@ -114,7 +113,7 @@ async def asyncio_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Response[FlagResponse | HTTPValidationError]:
+) -> Response[Union[FlagResponse, HTTPValidationError]]:
     """Get Flag
 
     Args:
@@ -125,7 +124,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[FlagResponse | HTTPValidationError]
+        Response[Union[FlagResponse, HTTPValidationError]]
     """
 
     kwargs = _get_kwargs(
@@ -141,7 +140,7 @@ async def asyncio(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> FlagResponse | HTTPValidationError | None:
+) -> Optional[Union[FlagResponse, HTTPValidationError]]:
     """Get Flag
 
     Args:
@@ -152,7 +151,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        FlagResponse | HTTPValidationError
+        Union[FlagResponse, HTTPValidationError]
     """
 
     return (

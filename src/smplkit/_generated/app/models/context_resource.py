@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -9,6 +7,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from typing import cast
+from typing import Union
 from typing import Literal
 
 if TYPE_CHECKING:
@@ -26,12 +25,12 @@ class ContextResource:
         attributes (Context):  Example: {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'}, 'context_type':
             'user', 'created_at': '2026-03-31T10:00:00Z', 'key': '123', 'name': 'Alice Smith', 'updated_at':
             '2026-03-31T10:00:00Z'}.
-        id (None | str | Unset):
+        id (Union[None, Unset, str]):
     """
 
     type_: Literal["context"]
-    attributes: Context
-    id: None | str | Unset = UNSET
+    attributes: "Context"
+    id: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -39,7 +38,7 @@ class ContextResource:
 
         attributes = self.attributes.to_dict()
 
-        id: None | str | Unset
+        id: Union[None, Unset, str]
         if isinstance(self.id, Unset):
             id = UNSET
         else:
@@ -69,12 +68,12 @@ class ContextResource:
 
         attributes = Context.from_dict(d.pop("attributes"))
 
-        def _parse_id(data: object) -> None | str | Unset:
+        def _parse_id(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         id = _parse_id(d.pop("id", UNSET))
 

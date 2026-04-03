@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, Optional, Union
 
 import httpx
 
@@ -14,12 +14,12 @@ from ...types import Unset
 
 def _get_kwargs(
     *,
-    filterstatus: None | str | Unset = UNSET,
+    filterstatus: Union[None, Unset, str] = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
-    json_filterstatus: None | str | Unset
+    json_filterstatus: Union[None, Unset, str]
     if isinstance(filterstatus, Unset):
         json_filterstatus = UNSET
     else:
@@ -38,8 +38,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ApiKeyListResponse | ErrorResponse | None:
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[ApiKeyListResponse, ErrorResponse]]:
     if response.status_code == 200:
         response_200 = ApiKeyListResponse.from_dict(response.json())
 
@@ -72,8 +72,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ApiKeyListResponse | ErrorResponse]:
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[ApiKeyListResponse, ErrorResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -85,19 +85,19 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    filterstatus: None | str | Unset = UNSET,
-) -> Response[ApiKeyListResponse | ErrorResponse]:
+    filterstatus: Union[None, Unset, str] = UNSET,
+) -> Response[Union[ApiKeyListResponse, ErrorResponse]]:
     """List API Keys
 
     Args:
-        filterstatus (None | str | Unset):
+        filterstatus (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ApiKeyListResponse | ErrorResponse]
+        Response[Union[ApiKeyListResponse, ErrorResponse]]
     """
 
     kwargs = _get_kwargs(
@@ -114,19 +114,19 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    filterstatus: None | str | Unset = UNSET,
-) -> ApiKeyListResponse | ErrorResponse | None:
+    filterstatus: Union[None, Unset, str] = UNSET,
+) -> Optional[Union[ApiKeyListResponse, ErrorResponse]]:
     """List API Keys
 
     Args:
-        filterstatus (None | str | Unset):
+        filterstatus (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ApiKeyListResponse | ErrorResponse
+        Union[ApiKeyListResponse, ErrorResponse]
     """
 
     return sync_detailed(
@@ -138,19 +138,19 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    filterstatus: None | str | Unset = UNSET,
-) -> Response[ApiKeyListResponse | ErrorResponse]:
+    filterstatus: Union[None, Unset, str] = UNSET,
+) -> Response[Union[ApiKeyListResponse, ErrorResponse]]:
     """List API Keys
 
     Args:
-        filterstatus (None | str | Unset):
+        filterstatus (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ApiKeyListResponse | ErrorResponse]
+        Response[Union[ApiKeyListResponse, ErrorResponse]]
     """
 
     kwargs = _get_kwargs(
@@ -165,19 +165,19 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    filterstatus: None | str | Unset = UNSET,
-) -> ApiKeyListResponse | ErrorResponse | None:
+    filterstatus: Union[None, Unset, str] = UNSET,
+) -> Optional[Union[ApiKeyListResponse, ErrorResponse]]:
     """List API Keys
 
     Args:
-        filterstatus (None | str | Unset):
+        filterstatus (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ApiKeyListResponse | ErrorResponse
+        Union[ApiKeyListResponse, ErrorResponse]
     """
 
     return (

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -10,6 +8,7 @@ from ..types import UNSET, Unset
 
 from dateutil.parser import isoparse
 from typing import cast
+from typing import Union
 import datetime
 
 if TYPE_CHECKING:
@@ -29,18 +28,18 @@ class Context:
     Attributes:
         key (str): Entity identifier: user-123, acme-corp
         context_type (str): Context type key (e.g., 'user', 'account')
-        name (str | Unset): Human-readable display name Default: ''.
-        attributes (ContextAttributes | Unset): Observed attributes
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
+        name (Union[Unset, str]): Human-readable display name Default: ''.
+        attributes (Union[Unset, ContextAttributes]): Observed attributes
+        created_at (Union[None, Unset, datetime.datetime]):
+        updated_at (Union[None, Unset, datetime.datetime]):
     """
 
     key: str
     context_type: str
-    name: str | Unset = ""
-    attributes: ContextAttributes | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
+    name: Union[Unset, str] = ""
+    attributes: Union[Unset, "ContextAttributes"] = UNSET
+    created_at: Union[None, Unset, datetime.datetime] = UNSET
+    updated_at: Union[None, Unset, datetime.datetime] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -50,11 +49,11 @@ class Context:
 
         name = self.name
 
-        attributes: dict[str, Any] | Unset = UNSET
+        attributes: Union[Unset, dict[str, Any]] = UNSET
         if not isinstance(self.attributes, Unset):
             attributes = self.attributes.to_dict()
 
-        created_at: None | str | Unset
+        created_at: Union[None, Unset, str]
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -62,7 +61,7 @@ class Context:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: Union[None, Unset, str]
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -101,13 +100,13 @@ class Context:
         name = d.pop("name", UNSET)
 
         _attributes = d.pop("attributes", UNSET)
-        attributes: ContextAttributes | Unset
+        attributes: Union[Unset, ContextAttributes]
         if isinstance(_attributes, Unset):
             attributes = UNSET
         else:
             attributes = ContextAttributes.from_dict(_attributes)
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> Union[None, Unset, datetime.datetime]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -118,13 +117,13 @@ class Context:
                 created_at_type_0 = isoparse(data)
 
                 return created_at_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except:  # noqa: E722
                 pass
-            return cast(datetime.datetime | None | Unset, data)
+            return cast(Union[None, Unset, datetime.datetime], data)
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> Union[None, Unset, datetime.datetime]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -135,9 +134,9 @@ class Context:
                 updated_at_type_0 = isoparse(data)
 
                 return updated_at_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except:  # noqa: E722
                 pass
-            return cast(datetime.datetime | None | Unset, data)
+            return cast(Union[None, Unset, datetime.datetime], data)
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 

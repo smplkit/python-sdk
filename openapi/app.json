@@ -3859,22 +3859,15 @@
       },
       "ContextBulkItem": {
         "properties": {
-          "id": {
+          "type": {
             "type": "string",
-            "title": "Id",
-            "description": "Composite logical ID: type:key (e.g., 'user:123')"
+            "title": "Type",
+            "description": "Context type key: 'user', 'account', 'device'"
           },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name",
-            "description": "Human-readable display name; defaults to key"
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "Entity identifier: 'user-123', 'acme-corp'"
           },
           "attributes": {
             "additionalProperties": true,
@@ -3884,7 +3877,8 @@
         },
         "type": "object",
         "required": [
-          "id"
+          "type",
+          "key"
         ],
         "title": "ContextBulkItem"
       },

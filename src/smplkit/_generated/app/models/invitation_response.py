@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -24,7 +22,7 @@ class InvitationResponse:
             '2026-03-20T11:02:16.616Z'}, 'id': 'd4e5f6a7-b8c9-0123-defa-234567890123', 'type': 'invitation'}.
     """
 
-    data: InvitationResource
+    data: "InvitationResource"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

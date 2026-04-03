@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -9,6 +7,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from typing import cast
+from typing import Union
 from typing import Literal
 
 if TYPE_CHECKING:
@@ -34,12 +33,12 @@ class LoggerResource:
             'WARN'}, 'staging': {'level': 'DEBUG'}}, 'group': '550e8400-e29b-41d4-a716-446655440000', 'key':
             'com.example.sql', 'level': 'DEBUG', 'managed': True, 'name': 'SQL Logger', 'sources': [{'first_observed':
             '2026-04-01T10:00:00Z', 'service': 'api-gateway'}], 'updated_at': '2026-04-01T10:00:00Z'}.
-        id (None | str | Unset):
+        id (Union[None, Unset, str]):
     """
 
     type_: Literal["logger"]
-    attributes: Logger
-    id: None | str | Unset = UNSET
+    attributes: "Logger"
+    id: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -47,7 +46,7 @@ class LoggerResource:
 
         attributes = self.attributes.to_dict()
 
-        id: None | str | Unset
+        id: Union[None, Unset, str]
         if isinstance(self.id, Unset):
             id = UNSET
         else:
@@ -77,12 +76,12 @@ class LoggerResource:
 
         attributes = Logger.from_dict(d.pop("attributes"))
 
-        def _parse_id(data: object) -> None | str | Unset:
+        def _parse_id(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         id = _parse_id(d.pop("id", UNSET))
 
