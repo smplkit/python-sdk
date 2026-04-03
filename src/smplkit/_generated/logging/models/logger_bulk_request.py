@@ -8,34 +8,33 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.logger_resource import LoggerResource
+    from ..models.logger_bulk_item import LoggerBulkItem
 
 
-T = TypeVar("T", bound="LoggerResponse")
+T = TypeVar("T", bound="LoggerBulkRequest")
 
 
 @_attrs_define
-class LoggerResponse:
+class LoggerBulkRequest:
     """
     Attributes:
-        data (LoggerResource):  Example: {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments':
-            {'production': {'level': 'WARN'}, 'staging': {'level': 'DEBUG'}}, 'group':
-            '660e8400-e29b-41d4-a716-446655440000', 'key': 'com.example.sql', 'level': 'DEBUG', 'managed': True, 'name':
-            'SQL Logger', 'sources': [{'first_observed': '2026-04-01T10:00:00Z', 'service': 'api-gateway'}], 'updated_at':
-            '2026-04-01T10:00:00Z'}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type': 'logger'}.
+        loggers (list[LoggerBulkItem]):
     """
 
-    data: LoggerResource
+    loggers: list[LoggerBulkItem]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = self.data.to_dict()
+        loggers = []
+        for loggers_item_data in self.loggers:
+            loggers_item = loggers_item_data.to_dict()
+            loggers.append(loggers_item)
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "data": data,
+                "loggers": loggers,
             }
         )
 
@@ -43,17 +42,22 @@ class LoggerResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.logger_resource import LoggerResource
+        from ..models.logger_bulk_item import LoggerBulkItem
 
         d = dict(src_dict)
-        data = LoggerResource.from_dict(d.pop("data"))
+        loggers = []
+        _loggers = d.pop("loggers")
+        for loggers_item_data in _loggers:
+            loggers_item = LoggerBulkItem.from_dict(loggers_item_data)
 
-        logger_response = cls(
-            data=data,
+            loggers.append(loggers_item)
+
+        logger_bulk_request = cls(
+            loggers=loggers,
         )
 
-        logger_response.additional_properties = d
-        return logger_response
+        logger_bulk_request.additional_properties = d
+        return logger_bulk_request
 
     @property
     def additional_keys(self) -> list[str]:

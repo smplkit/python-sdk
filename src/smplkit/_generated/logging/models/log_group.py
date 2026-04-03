@@ -13,30 +13,25 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
-    from ..models.logger_environments_type_0 import LoggerEnvironmentsType0
-    from ..models.logger_sources_type_0_item import LoggerSourcesType0Item
+    from ..models.log_group_environments_type_0 import LogGroupEnvironmentsType0
 
 
-T = TypeVar("T", bound="Logger")
+T = TypeVar("T", bound="LogGroup")
 
 
 @_attrs_define
-class Logger:
+class LogGroup:
     """
     Example:
-        {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'WARN'}, 'staging': {'level':
-            'DEBUG'}}, 'group': '550e8400-e29b-41d4-a716-446655440000', 'key': 'com.example.sql', 'level': 'DEBUG',
-            'managed': True, 'name': 'SQL Logger', 'sources': [{'first_observed': '2026-04-01T10:00:00Z', 'service': 'api-
-            gateway'}], 'updated_at': '2026-04-01T10:00:00Z'}
+        {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'ERROR'}}, 'key': 'database-
+            loggers', 'level': 'WARN', 'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}
 
     Attributes:
         name (str):
         key (None | str | Unset):
         level (None | str | Unset):
         group (None | str | Unset):
-        managed (bool | None | Unset):
-        sources (list[LoggerSourcesType0Item] | None | Unset):
-        environments (LoggerEnvironmentsType0 | None | Unset):
+        environments (LogGroupEnvironmentsType0 | None | Unset):
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
     """
@@ -45,15 +40,13 @@ class Logger:
     key: None | str | Unset = UNSET
     level: None | str | Unset = UNSET
     group: None | str | Unset = UNSET
-    managed: bool | None | Unset = UNSET
-    sources: list[LoggerSourcesType0Item] | None | Unset = UNSET
-    environments: LoggerEnvironmentsType0 | None | Unset = UNSET
+    environments: LogGroupEnvironmentsType0 | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.logger_environments_type_0 import LoggerEnvironmentsType0
+        from ..models.log_group_environments_type_0 import LogGroupEnvironmentsType0
 
         name = self.name
 
@@ -75,28 +68,10 @@ class Logger:
         else:
             group = self.group
 
-        managed: bool | None | Unset
-        if isinstance(self.managed, Unset):
-            managed = UNSET
-        else:
-            managed = self.managed
-
-        sources: list[dict[str, Any]] | None | Unset
-        if isinstance(self.sources, Unset):
-            sources = UNSET
-        elif isinstance(self.sources, list):
-            sources = []
-            for sources_type_0_item_data in self.sources:
-                sources_type_0_item = sources_type_0_item_data.to_dict()
-                sources.append(sources_type_0_item)
-
-        else:
-            sources = self.sources
-
         environments: dict[str, Any] | None | Unset
         if isinstance(self.environments, Unset):
             environments = UNSET
-        elif isinstance(self.environments, LoggerEnvironmentsType0):
+        elif isinstance(self.environments, LogGroupEnvironmentsType0):
             environments = self.environments.to_dict()
         else:
             environments = self.environments
@@ -130,10 +105,6 @@ class Logger:
             field_dict["level"] = level
         if group is not UNSET:
             field_dict["group"] = group
-        if managed is not UNSET:
-            field_dict["managed"] = managed
-        if sources is not UNSET:
-            field_dict["sources"] = sources
         if environments is not UNSET:
             field_dict["environments"] = environments
         if created_at is not UNSET:
@@ -145,8 +116,7 @@ class Logger:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.logger_environments_type_0 import LoggerEnvironmentsType0
-        from ..models.logger_sources_type_0_item import LoggerSourcesType0Item
+        from ..models.log_group_environments_type_0 import LogGroupEnvironmentsType0
 
         d = dict(src_dict)
         name = d.pop("name")
@@ -178,38 +148,7 @@ class Logger:
 
         group = _parse_group(d.pop("group", UNSET))
 
-        def _parse_managed(data: object) -> bool | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(bool | None | Unset, data)
-
-        managed = _parse_managed(d.pop("managed", UNSET))
-
-        def _parse_sources(data: object) -> list[LoggerSourcesType0Item] | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError()
-                sources_type_0 = []
-                _sources_type_0 = data
-                for sources_type_0_item_data in _sources_type_0:
-                    sources_type_0_item = LoggerSourcesType0Item.from_dict(sources_type_0_item_data)
-
-                    sources_type_0.append(sources_type_0_item)
-
-                return sources_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(list[LoggerSourcesType0Item] | None | Unset, data)
-
-        sources = _parse_sources(d.pop("sources", UNSET))
-
-        def _parse_environments(data: object) -> LoggerEnvironmentsType0 | None | Unset:
+        def _parse_environments(data: object) -> LogGroupEnvironmentsType0 | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -217,12 +156,12 @@ class Logger:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                environments_type_0 = LoggerEnvironmentsType0.from_dict(data)
+                environments_type_0 = LogGroupEnvironmentsType0.from_dict(data)
 
                 return environments_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(LoggerEnvironmentsType0 | None | Unset, data)
+            return cast(LogGroupEnvironmentsType0 | None | Unset, data)
 
         environments = _parse_environments(d.pop("environments", UNSET))
 
@@ -260,20 +199,18 @@ class Logger:
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 
-        logger = cls(
+        log_group = cls(
             name=name,
             key=key,
             level=level,
             group=group,
-            managed=managed,
-            sources=sources,
             environments=environments,
             created_at=created_at,
             updated_at=updated_at,
         )
 
-        logger.additional_properties = d
-        return logger
+        log_group.additional_properties = d
+        return log_group
 
     @property
     def additional_keys(self) -> list[str]:

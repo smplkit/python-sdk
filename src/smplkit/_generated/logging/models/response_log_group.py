@@ -8,24 +8,20 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.logger_resource import LoggerResource
+    from ..models.resource_log_group import ResourceLogGroup
 
 
-T = TypeVar("T", bound="LoggerResponse")
+T = TypeVar("T", bound="ResponseLogGroup")
 
 
 @_attrs_define
-class LoggerResponse:
+class ResponseLogGroup:
     """
     Attributes:
-        data (LoggerResource):  Example: {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments':
-            {'production': {'level': 'WARN'}, 'staging': {'level': 'DEBUG'}}, 'group':
-            '660e8400-e29b-41d4-a716-446655440000', 'key': 'com.example.sql', 'level': 'DEBUG', 'managed': True, 'name':
-            'SQL Logger', 'sources': [{'first_observed': '2026-04-01T10:00:00Z', 'service': 'api-gateway'}], 'updated_at':
-            '2026-04-01T10:00:00Z'}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type': 'logger'}.
+        data (ResourceLogGroup):
     """
 
-    data: LoggerResource
+    data: ResourceLogGroup
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -43,17 +39,17 @@ class LoggerResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.logger_resource import LoggerResource
+        from ..models.resource_log_group import ResourceLogGroup
 
         d = dict(src_dict)
-        data = LoggerResource.from_dict(d.pop("data"))
+        data = ResourceLogGroup.from_dict(d.pop("data"))
 
-        logger_response = cls(
+        response_log_group = cls(
             data=data,
         )
 
-        logger_response.additional_properties = d
-        return logger_response
+        response_log_group.additional_properties = d
+        return response_log_group
 
     @property
     def additional_keys(self) -> list[str]:
