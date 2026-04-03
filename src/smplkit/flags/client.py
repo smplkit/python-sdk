@@ -379,8 +379,8 @@ class _ContextRegistrationBuffer:
                         self._seen.popitem(last=False)
                     self._seen[cache_key] = ctx.attributes
                     item: dict[str, Any] = {
-                        "id": f"{ctx.type}:{ctx.key}",
-                        "name": ctx.name or ctx.key,
+                        "type": ctx.type,
+                        "key": ctx.key,
                         "attributes": dict(ctx.attributes),
                     }
                     self._pending.append(item)

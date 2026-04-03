@@ -616,7 +616,8 @@ class TestFlagsClientFlush:
         mock_put.assert_called_once()
         call_args = mock_put.call_args
         assert call_args[0][0] == "/api/v1/contexts/bulk"
-        assert call_args[1]["json"]["contexts"][0]["id"] == "user:u-1"
+        assert call_args[1]["json"]["contexts"][0]["type"] == "user"
+        assert call_args[1]["json"]["contexts"][0]["key"] == "u-1"
 
     def test_flush_empty_batch(self):
         client = _make_flags_client()
@@ -1068,8 +1069,8 @@ class TestRegister:
         ns.register(Context("user", "u-1", plan="enterprise"))
         batch = ns._context_buffer.drain()
         assert len(batch) == 1
-        assert batch[0]["id"] == "user:u-1"
-        assert batch[0]["name"] == "u-1"
+        assert batch[0]["type"] == "user"
+        assert batch[0]["key"] == "u-1"
         assert batch[0]["attributes"]["plan"] == "enterprise"
 
     def test_register_single_context_with_name(self):
@@ -1078,8 +1079,8 @@ class TestRegister:
         ns.register(Context("user", "u-1", name="Alice Smith", plan="enterprise"))
         batch = ns._context_buffer.drain()
         assert len(batch) == 1
-        assert batch[0]["id"] == "user:u-1"
-        assert batch[0]["name"] == "Alice Smith"
+        assert batch[0]["type"] == "user"
+        assert batch[0]["key"] == "u-1"
         assert batch[0]["attributes"]["plan"] == "enterprise"
 
     def test_register_list_of_contexts(self):
@@ -1088,8 +1089,10 @@ class TestRegister:
         ns.register([Context("user", "u-1", plan="enterprise"), Context("account", "acme-corp", region="us")])
         batch = ns._context_buffer.drain()
         assert len(batch) == 2
-        assert batch[0]["id"] == "user:u-1"
-        assert batch[1]["id"] == "account:acme-corp"
+        assert batch[0]["type"] == "user"
+        assert batch[0]["key"] == "u-1"
+        assert batch[1]["type"] == "account"
+        assert batch[1]["key"] == "acme-corp"
 
     def test_register_before_connect(self):
         client = SmplClient(api_key="sk_test", environment="test")
@@ -1124,8 +1127,8 @@ class TestRegister:
         ns._context_buffer.observe([Context("account", "acme-corp", region="us")])
         batch = ns._context_buffer.drain()
         assert len(batch) == 2
-        ids = {b["id"] for b in batch}
-        assert ids == {"user:u-1", "account:acme-corp"}
+        keys = {(b["type"], b["key"]) for b in batch}
+        assert keys == {("user", "u-1"), ("account", "acme-corp")}
 
 
 # ===========================================================================
@@ -1934,7 +1937,8 @@ class TestAsyncFlagsClientRuntime:
         client.register(Context("user", "u-1", plan="enterprise"))
         batch = client._context_buffer.drain()
         assert len(batch) == 1
-        assert batch[0]["id"] == "user:u-1"
+        assert batch[0]["type"] == "user"
+        assert batch[0]["key"] == "u-1"
 
     def test_register_list(self):
         client = _make_async_flags_client()
