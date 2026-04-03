@@ -1,9 +1,11 @@
-"""ConfigClient and AsyncConfigClient — management-plane operations for configs."""
+"""ConfigClient and AsyncConfigClient — management and prescriptive operations for configs."""
 
 from __future__ import annotations
 
 
 import logging
+import threading
+from collections.abc import Callable
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
@@ -227,14 +229,45 @@ def _build_request_body(
     return ResponseConfig(data=resource)
 
 
+class ConfigChangeEvent:
+    """Describes a single config value change.
+
+    Attributes:
+        config_key: The config key that changed.
+        item_key: The item key within the config that changed.
+        old_value: The previous value.
+        new_value: The updated value.
+        source: How the change was delivered (``"websocket"`` or ``"manual"``).
+    """
+
+    def __init__(
+        self,
+        *,
+        config_key: str,
+        item_key: str,
+        old_value: Any,
+        new_value: Any,
+        source: str,
+    ) -> None:
+        self.config_key = config_key
+        self.item_key = item_key
+        self.old_value = old_value
+        self.new_value = new_value
+        self.source = source
+
+    def __repr__(self) -> str:
+        return (
+            f"ConfigChangeEvent(config_key={self.config_key!r}, item_key={self.item_key!r}, "
+            f"old_value={self.old_value!r}, new_value={self.new_value!r}, source={self.source!r})"
+        )
+
+
 class ConfigClient:
-    """Synchronous management-plane client for Smpl Config.
+    """Synchronous management and prescriptive client for Smpl Config.
 
-    Provides CRUD operations on config resources.  Obtained via
+    Provides CRUD operations on config resources and prescriptive
+    value access after ``client.connect()``.  Obtained via
     ``SmplClient(...).config``.
-
-    All methods communicate with the server synchronously and raise
-    structured exceptions on failure.
 
     Raises:
         SmplConnectionError: If a network request fails.
@@ -245,6 +278,8 @@ class ConfigClient:
         self._parent = parent
         self._config_cache: dict[str, dict[str, Any]] = {}
         self._connected = False
+        self._cache_lock = threading.Lock()
+        self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
 
     def _connect_internal(self) -> None:
         """Fetch all configs, resolve values for the environment, and cache.
@@ -257,7 +292,8 @@ class ConfigClient:
         for cfg in configs:
             chain = cfg._build_chain()
             cache[cfg.key] = resolve(chain, environment)
-        self._config_cache = cache
+        with self._cache_lock:
+            self._config_cache = cache
         self._connected = True
 
     def get(self, *args: str, key: str | None = None, id: str | None = None, default: Any = None) -> Any:
@@ -318,6 +354,124 @@ class ConfigClient:
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
+
+    def get_str(self, config_key: str, item_key: str, *, default: str | None = None) -> str | None:
+        """Return a config value if it is a string, else *default*.
+
+        Requires :meth:`SmplClient.connect`.
+        """
+        value = self.get(config_key, item_key)
+        return value if isinstance(value, str) else default
+
+    def get_int(self, config_key: str, item_key: str, *, default: int | None = None) -> int | None:
+        """Return a config value if it is an int, else *default*.
+
+        Bools are excluded (``isinstance(True, int)`` is ``True`` in Python).
+        Requires :meth:`SmplClient.connect`.
+        """
+        value = self.get(config_key, item_key)
+        return value if isinstance(value, int) and not isinstance(value, bool) else default
+
+    def get_bool(self, config_key: str, item_key: str, *, default: bool | None = None) -> bool | None:
+        """Return a config value if it is a bool, else *default*.
+
+        Requires :meth:`SmplClient.connect`.
+        """
+        value = self.get(config_key, item_key)
+        return value if isinstance(value, bool) else default
+
+    def get_float(self, config_key: str, item_key: str, *, default: float | None = None) -> float | None:
+        """Return a config value if it is a float or int, else *default*.
+
+        Bools are excluded. Ints are promoted to float.
+        Requires :meth:`SmplClient.connect`.
+        """
+        value = self.get(config_key, item_key)
+        if isinstance(value, bool):
+            return default
+        if isinstance(value, (int, float)):
+            return float(value)
+        return default
+
+    def refresh(self) -> None:
+        """Re-fetch all configs, re-resolve for the environment, and update the cache.
+
+        Fires change listeners for any values that differ from the previous cache.
+
+        Requires :meth:`SmplClient.connect` to have been called at least once.
+
+        Raises:
+            SmplNotConnectedError: If called before connect.
+            SmplConnectionError: If the HTTP fetch fails.
+        """
+        if not self._connected:
+            raise SmplNotConnectedError("SmplClient is not connected. Call client.connect() first.")
+        configs = self.list()
+        environment = self._parent._environment
+        new_cache: dict[str, dict[str, Any]] = {}
+        for cfg in configs:
+            chain = cfg._build_chain()
+            new_cache[cfg.key] = resolve(chain, environment)
+        with self._cache_lock:
+            old_cache = self._config_cache
+            self._config_cache = new_cache
+        self._fire_change_listeners(old_cache, new_cache, source="manual")
+
+    def on_change(
+        self,
+        callback: Callable[[ConfigChangeEvent], None],
+        *,
+        config_key: str | None = None,
+        item_key: str | None = None,
+    ) -> None:
+        """Register a listener that fires when a config value changes.
+
+        Args:
+            callback: Called with a :class:`ConfigChangeEvent` on change.
+            config_key: If provided, only fire for changes to this config.
+            item_key: If provided, only fire for changes to this item key.
+        """
+        self._listeners.append((callback, config_key, item_key))
+
+    def _fire_change_listeners(
+        self,
+        old_cache: dict[str, dict[str, Any]],
+        new_cache: dict[str, dict[str, Any]],
+        *,
+        source: str,
+    ) -> None:
+        """Diff two caches and fire listeners for any changed values."""
+        all_config_keys = set(old_cache.keys()) | set(new_cache.keys())
+        for cfg_key in all_config_keys:
+            old_items = old_cache.get(cfg_key, {})
+            new_items = new_cache.get(cfg_key, {})
+            all_item_keys = set(old_items.keys()) | set(new_items.keys())
+            for i_key in all_item_keys:
+                old_val = old_items.get(i_key)
+                new_val = new_items.get(i_key)
+                if old_val == new_val:
+                    continue
+                event = ConfigChangeEvent(
+                    config_key=cfg_key,
+                    item_key=i_key,
+                    old_value=old_val,
+                    new_value=new_val,
+                    source=source,
+                )
+                for callback, ck_filter, ik_filter in self._listeners:
+                    if ck_filter is not None and ck_filter != cfg_key:
+                        continue
+                    if ik_filter is not None and ik_filter != i_key:
+                        continue
+                    try:
+                        callback(event)
+                    except Exception:
+                        logger.error(
+                            "Exception in on_change listener for %s.%s",
+                            cfg_key,
+                            i_key,
+                            exc_info=True,
+                        )
 
     def _get_by_id(self, config_id: str) -> Config:
         """Fetch a config by UUID."""
@@ -483,13 +637,11 @@ class ConfigClient:
 
 
 class AsyncConfigClient:
-    """Asynchronous management-plane client for Smpl Config.
+    """Asynchronous management and prescriptive client for Smpl Config.
 
-    Provides CRUD operations on config resources.  Obtained via
+    Provides CRUD operations on config resources and prescriptive
+    value access after ``client.connect()``.  Obtained via
     ``AsyncSmplClient(...).config``.
-
-    All methods communicate with the server asynchronously and raise
-    structured exceptions on failure.
 
     Raises:
         SmplConnectionError: If a network request fails.
@@ -500,6 +652,8 @@ class AsyncConfigClient:
         self._parent = parent
         self._config_cache: dict[str, dict[str, Any]] = {}
         self._connected = False
+        self._cache_lock = threading.Lock()
+        self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
 
     async def _connect_internal(self) -> None:
         """Fetch all configs, resolve values for the environment, and cache.
@@ -512,7 +666,8 @@ class AsyncConfigClient:
         for cfg in configs:
             chain = await cfg._build_chain()
             cache[cfg.key] = resolve(chain, environment)
-        self._config_cache = cache
+        with self._cache_lock:
+            self._config_cache = cache
         self._connected = True
 
     async def get(self, *args: str, key: str | None = None, id: str | None = None, default: Any = None) -> Any:
@@ -554,6 +709,123 @@ class AsyncConfigClient:
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
+
+    async def get_str(self, config_key: str, item_key: str, *, default: str | None = None) -> str | None:
+        """Return a config value if it is a string, else *default*.
+
+        Requires :meth:`AsyncSmplClient.connect`.
+        """
+        value = await self.get(config_key, item_key)
+        return value if isinstance(value, str) else default
+
+    async def get_int(self, config_key: str, item_key: str, *, default: int | None = None) -> int | None:
+        """Return a config value if it is an int, else *default*.
+
+        Bools are excluded. Requires :meth:`AsyncSmplClient.connect`.
+        """
+        value = await self.get(config_key, item_key)
+        return value if isinstance(value, int) and not isinstance(value, bool) else default
+
+    async def get_bool(self, config_key: str, item_key: str, *, default: bool | None = None) -> bool | None:
+        """Return a config value if it is a bool, else *default*.
+
+        Requires :meth:`AsyncSmplClient.connect`.
+        """
+        value = await self.get(config_key, item_key)
+        return value if isinstance(value, bool) else default
+
+    async def get_float(self, config_key: str, item_key: str, *, default: float | None = None) -> float | None:
+        """Return a config value if it is a float or int, else *default*.
+
+        Bools are excluded. Ints are promoted to float.
+        Requires :meth:`AsyncSmplClient.connect`.
+        """
+        value = await self.get(config_key, item_key)
+        if isinstance(value, bool):
+            return default
+        if isinstance(value, (int, float)):
+            return float(value)
+        return default
+
+    async def refresh(self) -> None:
+        """Re-fetch all configs, re-resolve for the environment, and update the cache.
+
+        Fires change listeners for any values that differ from the previous cache.
+
+        Requires :meth:`AsyncSmplClient.connect`.
+
+        Raises:
+            SmplNotConnectedError: If called before connect.
+            SmplConnectionError: If the HTTP fetch fails.
+        """
+        if not self._connected:
+            raise SmplNotConnectedError("SmplClient is not connected. Call client.connect() first.")
+        configs = await self.list()
+        environment = self._parent._environment
+        new_cache: dict[str, dict[str, Any]] = {}
+        for cfg in configs:
+            chain = await cfg._build_chain()
+            new_cache[cfg.key] = resolve(chain, environment)
+        with self._cache_lock:
+            old_cache = self._config_cache
+            self._config_cache = new_cache
+        self._fire_change_listeners(old_cache, new_cache, source="manual")
+
+    def on_change(
+        self,
+        callback: Callable[[ConfigChangeEvent], None],
+        *,
+        config_key: str | None = None,
+        item_key: str | None = None,
+    ) -> None:
+        """Register a listener that fires when a config value changes.
+
+        Args:
+            callback: Called with a :class:`ConfigChangeEvent` on change.
+            config_key: If provided, only fire for changes to this config.
+            item_key: If provided, only fire for changes to this item key.
+        """
+        self._listeners.append((callback, config_key, item_key))
+
+    def _fire_change_listeners(
+        self,
+        old_cache: dict[str, dict[str, Any]],
+        new_cache: dict[str, dict[str, Any]],
+        *,
+        source: str,
+    ) -> None:
+        """Diff two caches and fire listeners for any changed values."""
+        all_config_keys = set(old_cache.keys()) | set(new_cache.keys())
+        for cfg_key in all_config_keys:
+            old_items = old_cache.get(cfg_key, {})
+            new_items = new_cache.get(cfg_key, {})
+            all_item_keys = set(old_items.keys()) | set(new_items.keys())
+            for i_key in all_item_keys:
+                old_val = old_items.get(i_key)
+                new_val = new_items.get(i_key)
+                if old_val == new_val:
+                    continue
+                event = ConfigChangeEvent(
+                    config_key=cfg_key,
+                    item_key=i_key,
+                    old_value=old_val,
+                    new_value=new_val,
+                    source=source,
+                )
+                for callback, ck_filter, ik_filter in self._listeners:
+                    if ck_filter is not None and ck_filter != cfg_key:
+                        continue
+                    if ik_filter is not None and ik_filter != i_key:
+                        continue
+                    try:
+                        callback(event)
+                    except Exception:
+                        logger.error(
+                            "Exception in on_change listener for %s.%s",
+                            cfg_key,
+                            i_key,
+                            exc_info=True,
+                        )
 
     async def _get_by_id(self, config_id: str) -> AsyncConfig:
         """Fetch a config by UUID."""

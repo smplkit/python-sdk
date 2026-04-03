@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
+from smplkit.config.client import ConfigChangeEvent
 from smplkit.config.models import AsyncConfig, Config
-from smplkit.config.runtime import ConfigChangeEvent, ConfigRuntime, ConfigStats
 
 __all__ = [
     "AsyncConfig",
     "Config",
     "ConfigChangeEvent",
-    "ConfigRuntime",
-    "ConfigStats",
 ]
