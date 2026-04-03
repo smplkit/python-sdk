@@ -12,6 +12,10 @@ class TestSingletonAccessorsSync:
         client = SmplClient(api_key="sk_test", environment="test")
         assert client.flags is client.flags
 
+    def test_logging_is_same_instance(self):
+        client = SmplClient(api_key="sk_test", environment="test")
+        assert client.logging is client.logging
+
 
 class TestSingletonAccessorsAsync:
     def test_config_is_same_instance(self):
@@ -21,3 +25,7 @@ class TestSingletonAccessorsAsync:
     def test_flags_is_same_instance(self):
         client = AsyncSmplClient(api_key="sk_test", environment="test")
         assert client.flags is client.flags
+
+    def test_logging_is_same_instance(self):
+        client = AsyncSmplClient(api_key="sk_test", environment="test")
+        assert client.logging is client.logging

@@ -11,6 +11,7 @@ from smplkit._resolve import _resolve_api_key
 from smplkit._ws import SharedWebSocket
 from smplkit.config.client import AsyncConfigClient, ConfigClient
 from smplkit.flags.client import AsyncFlagsClient, FlagsClient
+from smplkit.logging.client import AsyncLoggingClient, LoggingClient
 
 logger = logging.getLogger("smplkit")
 
@@ -91,6 +92,7 @@ class SmplClient:
         self._connected = False
         self.config = ConfigClient(self)
         self.flags = FlagsClient(self)
+        self.logging = LoggingClient(self)
 
     def connect(self) -> None:
         """Connect to the smplkit platform.
@@ -112,6 +114,9 @@ class SmplClient:
 
         # Connect config (fetch all, resolve, cache)
         self.config._connect_internal()
+
+        # Connect logging (discover, register, fetch, resolve, apply)
+        self.logging._connect_internal()
 
         self._connected = True
 
@@ -145,6 +150,7 @@ class SmplClient:
 
     def close(self) -> None:
         """Close the underlying HTTP connection pool and shared WebSocket."""
+        self.logging._close()
         if self._ws_manager is not None:
             self._ws_manager.stop()
             self._ws_manager = None
@@ -216,6 +222,7 @@ class AsyncSmplClient:
         self._connected = False
         self.config = AsyncConfigClient(self)
         self.flags = AsyncFlagsClient(self)
+        self.logging = AsyncLoggingClient(self)
 
     async def connect(self) -> None:
         """Connect to the smplkit platform.
@@ -237,6 +244,9 @@ class AsyncSmplClient:
 
         # Connect config (fetch all, resolve, cache)
         await self.config._connect_internal()
+
+        # Connect logging (discover, register, fetch, resolve, apply)
+        await self.logging._connect_internal()
 
         self._connected = True
 
@@ -270,6 +280,7 @@ class AsyncSmplClient:
 
     async def close(self) -> None:
         """Close the underlying HTTP connection pool and shared WebSocket."""
+        self.logging._close()
         if self._ws_manager is not None:
             self._ws_manager.stop()
             self._ws_manager = None
