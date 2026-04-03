@@ -3,7 +3,7 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-from smplkit.config.models import AsyncConfig, Config, _AsyncConnectResult
+from smplkit.config.models import AsyncConfig, Config
 
 
 def _make_config(**overrides) -> Config:
@@ -64,45 +64,13 @@ class TestConfig:
         assert cfg.items == {}
         assert cfg.environments == {}
 
-    def test_connect_builds_chain_no_parent(self):
-        mock_client = MagicMock()
-        mock_client._parent._api_key = "sk_test"
-        mock_client._parent._http_client._base_url = "https://config.smplkit.com"
-        mock_client._parent._ensure_ws.return_value = MagicMock()
-
-        cfg = Config(
-            mock_client,
-            id="abc-123",
-            key="test_config",
-            name="Test",
-            items={"a": {"value": 1, "type": "NUMBER"}},
-            environments={"prod": {"values": {"a": 2}}},
-        )
-        runtime = cfg.connect("prod")
-        assert runtime.get("a") == 2
-
-    def test_connect_fetch_chain_fn_calls_build_chain(self):
-        """The fetch_chain_fn closure passed to ConfigRuntime calls _build_chain."""
-        mock_client = MagicMock()
-        mock_client._parent._api_key = "sk_test"
-        mock_client._parent._http_client._base_url = "https://config.smplkit.com"
-        mock_client._parent._ensure_ws.return_value = MagicMock()
-
-        cfg = Config(
-            mock_client,
-            id="abc-123",
-            key="test_config",
-            name="Test",
-            items={"a": {"value": 1}},
-            environments={},
-        )
-        runtime = cfg.connect("production")
-        # Call the fetch_chain_fn — this exercises models.py
-        chain = runtime._fetch_chain_fn()
-        assert isinstance(chain, list)
+    def test_build_chain_no_parent(self):
+        cfg = _make_config()
+        chain = cfg._build_chain()
+        assert len(chain) == 1
         assert chain[0]["id"] == "abc-123"
 
-    def test_connect_builds_chain_with_parent(self):
+    def test_build_chain_with_parent(self):
         parent_cfg = _make_config(
             id="parent-1",
             key="parent",
@@ -113,9 +81,6 @@ class TestConfig:
         )
         mock_client = MagicMock()
         mock_client.get.return_value = parent_cfg
-        mock_client._parent._api_key = "sk_test"
-        mock_client._parent._http_client._base_url = "https://config.smplkit.com"
-        mock_client._parent._ensure_ws.return_value = MagicMock()
 
         child = Config(
             mock_client,
@@ -127,9 +92,10 @@ class TestConfig:
             environments={},
         )
 
-        runtime = child.connect("production")
-        assert runtime.get("inherited") == "yes"
-        assert runtime.get("shared") == "child_val"
+        chain = child._build_chain()
+        assert len(chain) == 2
+        assert chain[0]["id"] == "child-1"
+        assert chain[1]["id"] == "parent-1"
         mock_client.get.assert_called_once_with(id="parent-1")
 
     def test_update_delegates_to_client(self):
@@ -324,20 +290,17 @@ class TestAsyncConfig:
             "flag": True,
         }
 
-    def test_connect_builds_chain_with_parent(self):
+    def test_build_chain_with_parent(self):
         parent_cfg = _make_async_config(
             id="parent-1",
             key="parent",
             name="Parent",
             parent=None,
-            items={"inherited": {"value": "yes"}, "shared": {"value": "parent_val"}},
+            items={"inherited": {"value": "yes"}},
             environments={},
         )
         mock_client = MagicMock()
         mock_client.get = AsyncMock(return_value=parent_cfg)
-        mock_client._parent._api_key = "sk_test"
-        mock_client._parent._http_client._base_url = "https://config.smplkit.com"
-        mock_client._parent._ensure_ws.return_value = MagicMock()
 
         child = AsyncConfig(
             mock_client,
@@ -350,124 +313,20 @@ class TestAsyncConfig:
         )
 
         async def _run():
-            runtime = await child.connect("production")
-            assert runtime.get("inherited") == "yes"
-            assert runtime.get("shared") == "child_val"
+            chain = await child._build_chain()
+            assert len(chain) == 2
+            assert chain[0]["id"] == "child-1"
+            assert chain[1]["id"] == "parent-1"
 
         asyncio.run(_run())
         mock_client.get.assert_called_once_with(id="parent-1")
 
-    def test_connect_no_parent(self):
-        mock_client = MagicMock()
-        mock_client._parent._api_key = "sk_test"
-        mock_client._parent._http_client._base_url = "https://config.smplkit.com"
-        mock_client._parent._ensure_ws.return_value = MagicMock()
-
-        cfg = AsyncConfig(
-            mock_client,
-            id="abc-123",
-            key="test_config",
-            name="Test",
-            items={"a": {"value": 1}},
-            environments={"prod": {"values": {"a": 2}}},
-        )
+    def test_build_chain_no_parent(self):
+        cfg = _make_async_config()
 
         async def _run():
-            runtime = await cfg.connect("prod")
-            assert runtime.get("a") == 2
-
-        asyncio.run(_run())
-
-    def test_connect_fetch_chain_fn_calls_build_chain(self):
-        """The async fetch_chain_fn closure calls _build_chain (returns coroutine)."""
-        mock_client = MagicMock()
-        mock_client._parent._api_key = "sk_test"
-        mock_client._parent._http_client._base_url = "https://config.smplkit.com"
-        mock_client._parent._ensure_ws.return_value = MagicMock()
-
-        cfg = AsyncConfig(
-            mock_client,
-            id="abc-123",
-            key="test_config",
-            name="Test",
-            items={"a": {"value": 1}},
-            environments={},
-        )
-
-        async def _run():
-            runtime = await cfg.connect("production")
-            result = runtime._fetch_chain_fn()
-            if asyncio.iscoroutine(result):
-                chain = await result
-            else:
-                chain = result
-            assert isinstance(chain, list)
+            chain = await cfg._build_chain()
+            assert len(chain) == 1
             assert chain[0]["id"] == "abc-123"
-
-        asyncio.run(_run())
-
-    def test_connect_as_async_context_manager(self):
-        mock_client = MagicMock()
-        mock_client._parent._api_key = "sk_test"
-        mock_client._parent._http_client._base_url = "https://config.smplkit.com"
-        mock_client._parent._ensure_ws.return_value = MagicMock()
-
-        cfg = AsyncConfig(
-            mock_client,
-            id="abc-123",
-            key="test_config",
-            name="Test",
-            items={"a": {"value": 1}},
-            environments={},
-        )
-
-        async def _run():
-            async with cfg.connect("production") as runtime:
-                assert runtime.get("a") == 1
-            assert runtime._closed is True
-
-        asyncio.run(_run())
-
-
-class TestAsyncConnectResult:
-    def test_await_returns_runtime(self):
-        async def fake_coro():
-            return "runtime_obj"
-
-        result = _AsyncConnectResult(fake_coro())
-
-        async def _run():
-            val = await result
-            assert val == "runtime_obj"
-
-        asyncio.run(_run())
-
-    def test_async_with_returns_runtime_and_closes(self):
-        mock_runtime = MagicMock()
-        mock_runtime.close = AsyncMock()
-
-        async def fake_coro():
-            return mock_runtime
-
-        result = _AsyncConnectResult(fake_coro())
-
-        async def _run():
-            async with result as rt:
-                assert rt is mock_runtime
-            mock_runtime.close.assert_called_once()
-
-        asyncio.run(_run())
-
-    def test_async_with_no_runtime(self):
-        """__aexit__ with no runtime (e.g. if __aenter__ wasn't called) should not raise."""
-
-        async def fake_coro():
-            return MagicMock()
-
-        result = _AsyncConnectResult(fake_coro())
-
-        async def _run():
-            # Call __aexit__ directly without __aenter__
-            await result.__aexit__(None, None, None)
 
         asyncio.run(_run())

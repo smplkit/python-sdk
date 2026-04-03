@@ -11,10 +11,12 @@ from uuid import UUID
 from smplkit._errors import (
     SmplConflictError,
     SmplConnectionError,
+    SmplNotConnectedError,
     SmplNotFoundError,
     SmplTimeoutError,
     SmplValidationError,
 )
+from smplkit._resolver import resolve
 from smplkit._generated.config.api.configs import (
     create_config,
     delete_config,
@@ -241,23 +243,71 @@ class ConfigClient:
 
     def __init__(self, parent: SmplClient) -> None:
         self._parent = parent
+        self._config_cache: dict[str, dict[str, Any]] = {}
+        self._connected = False
 
-    def get(self, *, key: str | None = None, id: str | None = None) -> Config:
-        """Fetch a single config by key or UUID.
+    def _connect_internal(self) -> None:
+        """Fetch all configs, resolve values for the environment, and cache.
 
-        Exactly one of *key* or *id* must be provided.
+        Called by :meth:`SmplClient.connect`.
+        """
+        configs = self.list()
+        environment = self._parent._environment
+        cache: dict[str, dict[str, Any]] = {}
+        for cfg in configs:
+            chain = cfg._build_chain()
+            cache[cfg.key] = resolve(chain, environment)
+        self._config_cache = cache
+        self._connected = True
+
+    def get(self, *args: str, key: str | None = None, id: str | None = None, default: Any = None) -> Any:
+        """Fetch a config by key/UUID (management) or read a resolved value (prescriptive).
+
+        **Prescriptive mode** (positional args)::
+
+            value = client.config.get("db_connection", "host")
+            all_values = client.config.get("db_connection")
+
+        Requires :meth:`SmplClient.connect` to have been called.
+
+        **Management mode** (keyword args)::
+
+            cfg = client.config.get(key="db_connection")
+            cfg = client.config.get(id="some-uuid")
+
+        Works without ``connect()``.
 
         Args:
-            key: The human-readable config key (e.g. ``"user_service"``).
-            id: The config UUID.
+            *args: Positional args for prescriptive access:
+                ``(config_key,)`` or ``(config_key, item_key)``.
+            key: The human-readable config key for management access.
+            id: The config UUID for management access.
+            default: Default value for prescriptive access when key is missing.
 
         Returns:
-            The matching :class:`Config`.
+            In prescriptive mode: the resolved value, a dict of all values,
+            or *default*.
+            In management mode: the matching :class:`Config`.
 
         Raises:
-            ValueError: If neither or both of *key* and *id* are provided.
-            SmplNotFoundError: If no matching config exists.
+            SmplNotConnectedError: If prescriptive mode is used before connect.
+            ValueError: If management args are ambiguous.
+            SmplNotFoundError: If no matching config exists (management mode).
         """
+        if args:
+            # Prescriptive mode: get("db_connection", "host")
+            if not self._connected:
+                raise SmplNotConnectedError("SmplClient is not connected. Call client.connect() first.")
+            config_key = args[0]
+            item_key = args[1] if len(args) > 1 else None
+            resolved = self._config_cache.get(config_key)
+            if resolved is None:
+                return default
+            if item_key is None:
+                return dict(resolved)
+            return resolved.get(item_key, default)
+
+        # Management mode
         if (key is None) == (id is None):
             raise ValueError("Exactly one of 'key' or 'id' must be provided.")
 
@@ -448,23 +498,52 @@ class AsyncConfigClient:
 
     def __init__(self, parent: AsyncSmplClient) -> None:
         self._parent = parent
+        self._config_cache: dict[str, dict[str, Any]] = {}
+        self._connected = False
 
-    async def get(self, *, key: str | None = None, id: str | None = None) -> AsyncConfig:
-        """Fetch a single config by key or UUID.
+    async def _connect_internal(self) -> None:
+        """Fetch all configs, resolve values for the environment, and cache.
 
-        Exactly one of *key* or *id* must be provided.
-
-        Args:
-            key: The human-readable config key (e.g. ``"user_service"``).
-            id: The config UUID.
-
-        Returns:
-            The matching :class:`AsyncConfig`.
-
-        Raises:
-            ValueError: If neither or both of *key* and *id* are provided.
-            SmplNotFoundError: If no matching config exists.
+        Called by :meth:`AsyncSmplClient.connect`.
         """
+        configs = await self.list()
+        environment = self._parent._environment
+        cache: dict[str, dict[str, Any]] = {}
+        for cfg in configs:
+            chain = await cfg._build_chain()
+            cache[cfg.key] = resolve(chain, environment)
+        self._config_cache = cache
+        self._connected = True
+
+    async def get(self, *args: str, key: str | None = None, id: str | None = None, default: Any = None) -> Any:
+        """Fetch a config by key/UUID (management) or read a resolved value (prescriptive).
+
+        **Prescriptive mode** (positional args)::
+
+            value = await client.config.get("db_connection", "host")
+
+        Requires :meth:`AsyncSmplClient.connect` to have been called.
+
+        **Management mode** (keyword args)::
+
+            cfg = await client.config.get(key="db_connection")
+
+        Works without ``connect()``.
+        """
+        if args:
+            # Prescriptive mode: get("db_connection", "host")
+            if not self._connected:
+                raise SmplNotConnectedError("SmplClient is not connected. Call client.connect() first.")
+            config_key = args[0]
+            item_key = args[1] if len(args) > 1 else None
+            resolved = self._config_cache.get(config_key)
+            if resolved is None:
+                return default
+            if item_key is None:
+                return dict(resolved)
+            return resolved.get(item_key, default)
+
+        # Management mode
         if (key is None) == (id is None):
             raise ValueError("Exactly one of 'key' or 'id' must be provided.")
 

@@ -8,22 +8,22 @@ from smplkit._ws import SharedWebSocket
 
 
 def test_smpl_client_init():
-    client = SmplClient(api_key="sk_api_test")
+    client = SmplClient(api_key="sk_api_test", environment="test")
     assert client._api_key == "sk_api_test"
 
 
 def test_smpl_client_has_config():
-    client = SmplClient(api_key="sk_api_test")
+    client = SmplClient(api_key="sk_api_test", environment="test")
     assert hasattr(client, "config")
 
 
 def test_async_smpl_client_init():
-    client = AsyncSmplClient(api_key="sk_api_test")
+    client = AsyncSmplClient(api_key="sk_api_test", environment="test")
     assert client._api_key == "sk_api_test"
 
 
 def test_async_smpl_client_has_config():
-    client = AsyncSmplClient(api_key="sk_api_test")
+    client = AsyncSmplClient(api_key="sk_api_test", environment="test")
     assert hasattr(client, "config")
 
 
@@ -42,18 +42,18 @@ def test_async_smpl_client_default_import():
 
 
 def test_smpl_client_context_manager():
-    with SmplClient(api_key="sk_api_test") as client:
+    with SmplClient(api_key="sk_api_test", environment="test") as client:
         assert client._api_key == "sk_api_test"
 
 
 def test_smpl_client_close():
-    client = SmplClient(api_key="sk_api_test")
+    client = SmplClient(api_key="sk_api_test", environment="test")
     client.close()  # Should not raise
 
 
 def test_async_smpl_client_context_manager():
     async def _run():
-        async with AsyncSmplClient(api_key="sk_api_test") as client:
+        async with AsyncSmplClient(api_key="sk_api_test", environment="test") as client:
             assert client._api_key == "sk_api_test"
 
     asyncio.run(_run())
@@ -61,7 +61,7 @@ def test_async_smpl_client_context_manager():
 
 def test_async_smpl_client_close():
     async def _run():
-        client = AsyncSmplClient(api_key="sk_api_test")
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
         await client.close()
 
     asyncio.run(_run())
@@ -69,7 +69,7 @@ def test_async_smpl_client_close():
 
 def test_smpl_client_close_with_existing_client():
     """Exercise close() when an httpx.Client has been created."""
-    client = SmplClient(api_key="sk_api_test")
+    client = SmplClient(api_key="sk_api_test", environment="test")
     # Force the lazy client to be created by accessing it
     http_client = client._http_client.get_httpx_client()
     assert http_client is not None
@@ -79,7 +79,7 @@ def test_smpl_client_close_with_existing_client():
 
 def test_smpl_client_close_idempotent():
     """Closing twice should not raise."""
-    client = SmplClient(api_key="sk_api_test")
+    client = SmplClient(api_key="sk_api_test", environment="test")
     client.close()
     client.close()
 
@@ -88,7 +88,7 @@ def test_async_smpl_client_close_with_existing_client():
     """Exercise async close() when an httpx.AsyncClient has been created."""
 
     async def _run():
-        client = AsyncSmplClient(api_key="sk_api_test")
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
         # Force the lazy async client to be created
         http_client = client._http_client.get_async_httpx_client()
         assert http_client is not None
@@ -99,7 +99,7 @@ def test_async_smpl_client_close_with_existing_client():
 
 
 def test_async_ensure_ws_creates_and_starts():
-    client = AsyncSmplClient(api_key="sk_api_test")
+    client = AsyncSmplClient(api_key="sk_api_test", environment="test")
     with patch.object(SharedWebSocket, "start"):
         ws = client._ensure_ws()
         assert ws is not None
@@ -108,7 +108,7 @@ def test_async_ensure_ws_creates_and_starts():
 
 
 def test_async_ensure_ws_reuses_existing():
-    client = AsyncSmplClient(api_key="sk_api_test")
+    client = AsyncSmplClient(api_key="sk_api_test", environment="test")
     with patch.object(SharedWebSocket, "start"):
         ws1 = client._ensure_ws()
         ws2 = client._ensure_ws()
@@ -117,12 +117,169 @@ def test_async_ensure_ws_reuses_existing():
 
 def test_async_close_stops_ws_manager():
     async def _run():
-        client = AsyncSmplClient(api_key="sk_api_test")
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
         with patch.object(SharedWebSocket, "start"):
             ws = client._ensure_ws()
         with patch.object(ws, "stop"):
             await client.close()
             ws.stop.assert_called_once()
         assert client._ws_manager is None
+
+    asyncio.run(_run())
+
+
+# ---------------------------------------------------------------------------
+# Sync connect()
+# ---------------------------------------------------------------------------
+
+
+def test_connect_calls_flags_and_config():
+    """connect() calls flags._connect_internal() and config._connect_internal()."""
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    with (
+        patch.object(client.flags, "_connect_internal") as mock_flags,
+        patch.object(client.config, "_connect_internal") as mock_config,
+    ):
+        client.connect()
+    mock_flags.assert_called_once()
+    mock_config.assert_called_once()
+    assert client._connected is True
+
+
+def test_connect_idempotent():
+    """Calling connect() twice should only connect once."""
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    with (
+        patch.object(client.flags, "_connect_internal") as mock_flags,
+        patch.object(client.config, "_connect_internal"),
+    ):
+        client.connect()
+        client.connect()
+    mock_flags.assert_called_once()
+
+
+def test_connect_registers_service():
+    """connect() registers service context when service is set."""
+    from unittest.mock import MagicMock
+
+    client = SmplClient(api_key="sk_api_test", environment="test", service="my-svc")
+    mock_app_http = MagicMock()
+    client._app_http = mock_app_http
+
+    with patch.object(client.flags, "_connect_internal"), patch.object(client.config, "_connect_internal"):
+        client.connect()
+
+    mock_httpx = mock_app_http.get_httpx_client.return_value
+    mock_httpx.put.assert_called_once()
+    call_args = mock_httpx.put.call_args
+    assert call_args[0][0] == "/api/v1/contexts/bulk"
+    payload = call_args[1]["json"]
+    assert payload["contexts"][0]["type"] == "service"
+    assert payload["contexts"][0]["key"] == "my-svc"
+
+
+def test_connect_no_service_skips_registration():
+    """connect() does not register service when service is None."""
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    with (
+        patch.object(client.flags, "_connect_internal"),
+        patch.object(client.config, "_connect_internal"),
+        patch.object(client, "_register_service_context") as mock_reg,
+    ):
+        client.connect()
+    mock_reg.assert_not_called()
+
+
+def test_connect_service_registration_failure_is_swallowed():
+    """connect() succeeds even if service registration fails."""
+    from unittest.mock import MagicMock
+
+    client = SmplClient(api_key="sk_api_test", environment="test", service="my-svc")
+    mock_app_http = MagicMock()
+    mock_app_http.get_httpx_client.return_value.put.side_effect = Exception("network error")
+    client._app_http = mock_app_http
+
+    with patch.object(client.flags, "_connect_internal"), patch.object(client.config, "_connect_internal"):
+        client.connect()  # Should not raise
+
+    assert client._connected is True
+
+
+# ---------------------------------------------------------------------------
+# Async connect()
+# ---------------------------------------------------------------------------
+
+
+def test_async_connect_calls_flags_and_config():
+    async def _run():
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+        with (
+            patch.object(client.flags, "_connect_internal") as mock_flags,
+            patch.object(client.config, "_connect_internal") as mock_config,
+        ):
+            await client.connect()
+        mock_flags.assert_called_once()
+        mock_config.assert_called_once()
+        assert client._connected is True
+
+    asyncio.run(_run())
+
+
+def test_async_connect_idempotent():
+    async def _run():
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+        with (
+            patch.object(client.flags, "_connect_internal") as mock_flags,
+            patch.object(client.config, "_connect_internal"),
+        ):
+            await client.connect()
+            await client.connect()
+        mock_flags.assert_called_once()
+
+    asyncio.run(_run())
+
+
+def test_async_connect_registers_service():
+    async def _run():
+        from unittest.mock import AsyncMock, MagicMock
+
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
+        mock_app_http = MagicMock()
+        mock_put = AsyncMock(return_value=None)
+        mock_app_http.get_async_httpx_client.return_value.put = mock_put
+        client._app_http = mock_app_http
+
+        with (
+            patch.object(client.flags, "_connect_internal", new_callable=AsyncMock),
+            patch.object(client.config, "_connect_internal", new_callable=AsyncMock),
+        ):
+            await client.connect()
+
+        mock_put.assert_called_once()
+        call_args = mock_put.call_args
+        assert call_args[0][0] == "/api/v1/contexts/bulk"
+        payload = call_args[1]["json"]
+        assert payload["contexts"][0]["type"] == "service"
+        assert payload["contexts"][0]["key"] == "my-svc"
+
+    asyncio.run(_run())
+
+
+def test_async_connect_service_failure_swallowed():
+    async def _run():
+        from unittest.mock import AsyncMock, MagicMock
+
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
+        mock_app_http = MagicMock()
+        mock_app_http.get_async_httpx_client.return_value.put = AsyncMock(side_effect=Exception("network error"))
+        client._app_http = mock_app_http
+
+        with (
+            patch.object(client.flags, "_connect_internal", new_callable=AsyncMock),
+            patch.object(client.config, "_connect_internal", new_callable=AsyncMock),
+        ):
+            await client.connect()  # Should not raise
+
+        assert client._connected is True
 
     asyncio.run(_run())

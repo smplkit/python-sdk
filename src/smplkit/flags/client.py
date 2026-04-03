@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from smplkit._errors import (
     SmplConnectionError,
+    SmplNotConnectedError,
     SmplNotFoundError,
     SmplTimeoutError,
     SmplValidationError,
@@ -618,9 +619,13 @@ class FlagsClient:
     # Runtime: connect / disconnect / refresh
     # ------------------------------------------------------------------
 
-    def connect(self, environment: str, *, timeout: int = 10) -> None:
-        """Connect to an environment: fetch flags, register on shared WebSocket."""
-        self._environment = environment
+    def _connect_internal(self) -> None:
+        """Connect to the environment: fetch flags, register on shared WebSocket.
+
+        Called by :meth:`SmplClient.connect`. Uses the environment set on the
+        parent client.
+        """
+        self._environment = self._parent._environment
         self._fetch_all_flags()
         self._connected = True
         self._cache.clear()
@@ -711,6 +716,10 @@ class FlagsClient:
         """Tier 1 explicit evaluation — stateless, no provider or cache."""
         eval_dict = _contexts_to_eval_dict(context)
 
+        # Auto-inject service context if set and not already provided
+        if self._parent._service and "service" not in eval_dict:
+            eval_dict["service"] = {"key": self._parent._service}
+
         # Use local store if connected, otherwise fetch
         if self._connected and key in self._flag_store:
             flag_def = self._flag_store[key]
@@ -733,7 +742,7 @@ class FlagsClient:
     def _evaluate_handle(self, key: str, default: Any, context: list[Context] | None) -> Any:
         """Core evaluation used by flag handles."""
         if not self._connected:
-            return default
+            raise SmplNotConnectedError("SmplClient is not connected. Call client.connect() first.")
 
         if context is not None:
             eval_dict = _contexts_to_eval_dict(context)
@@ -746,6 +755,10 @@ class FlagsClient:
                     threading.Thread(target=self._flush_contexts_sync, daemon=True).start()
             else:
                 eval_dict = {}
+
+        # Auto-inject service context if set and not already provided
+        if self._parent._service and "service" not in eval_dict:
+            eval_dict["service"] = {"key": self._parent._service}
 
         ctx_hash = _hash_context(eval_dict)
         cache_key = f"{key}:{ctx_hash}"
@@ -1086,9 +1099,13 @@ class AsyncFlagsClient:
     # Runtime: connect / disconnect / refresh
     # ------------------------------------------------------------------
 
-    async def connect(self, environment: str, *, timeout: int = 10) -> None:
-        """Connect to an environment: fetch flags, register on shared WebSocket."""
-        self._environment = environment
+    async def _connect_internal(self) -> None:
+        """Connect to the environment: fetch flags, register on shared WebSocket.
+
+        Called by :meth:`AsyncSmplClient.connect`. Uses the environment set on
+        the parent client.
+        """
+        self._environment = self._parent._environment
         await self._fetch_all_flags()
         self._connected = True
         self._cache.clear()
@@ -1179,6 +1196,10 @@ class AsyncFlagsClient:
         """Tier 1 explicit evaluation — stateless, no provider or cache."""
         eval_dict = _contexts_to_eval_dict(context)
 
+        # Auto-inject service context if set and not already provided
+        if self._parent._service and "service" not in eval_dict:
+            eval_dict["service"] = {"key": self._parent._service}
+
         if self._connected and key in self._flag_store:
             flag_def = self._flag_store[key]
         else:
@@ -1200,7 +1221,7 @@ class AsyncFlagsClient:
     def _evaluate_handle(self, key: str, default: Any, context: list[Context] | None) -> Any:
         """Core evaluation used by flag handles."""
         if not self._connected:
-            return default
+            raise SmplNotConnectedError("SmplClient is not connected. Call client.connect() first.")
 
         if context is not None:
             eval_dict = _contexts_to_eval_dict(context)
@@ -1213,6 +1234,10 @@ class AsyncFlagsClient:
                     threading.Thread(target=self._flush_contexts_bg, daemon=True).start()
             else:
                 eval_dict = {}
+
+        # Auto-inject service context if set and not already provided
+        if self._parent._service and "service" not in eval_dict:
+            eval_dict["service"] = {"key": self._parent._service}
 
         ctx_hash = _hash_context(eval_dict)
         cache_key = f"{key}:{ctx_hash}"

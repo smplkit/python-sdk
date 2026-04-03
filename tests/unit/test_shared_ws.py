@@ -544,13 +544,13 @@ class TestLazyInit:
     def test_ws_manager_none_until_ensure_ws(self):
         from smplkit.client import SmplClient
 
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         assert client._ws_manager is None
 
     def test_ensure_ws_creates_and_starts(self):
         from smplkit.client import SmplClient
 
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         with patch.object(SharedWebSocket, "start"):
             ws = client._ensure_ws()
             assert ws is not None
@@ -560,7 +560,7 @@ class TestLazyInit:
     def test_ensure_ws_reuses_existing(self):
         from smplkit.client import SmplClient
 
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         with patch.object(SharedWebSocket, "start"):
             ws1 = client._ensure_ws()
             ws2 = client._ensure_ws()
@@ -569,7 +569,7 @@ class TestLazyInit:
     def test_close_stops_ws_manager(self):
         from smplkit.client import SmplClient
 
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         with patch.object(SharedWebSocket, "start"):
             ws = client._ensure_ws()
         with patch.object(ws, "stop"):
@@ -580,7 +580,7 @@ class TestLazyInit:
     def test_close_without_ws_is_fine(self):
         from smplkit.client import SmplClient
 
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         client.close()  # Should not raise
 
 

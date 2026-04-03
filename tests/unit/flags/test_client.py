@@ -301,13 +301,13 @@ class TestEvaluateFlag:
 
 class TestFlagsClient:
     def test_init(self):
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         assert isinstance(client.flags, FlagsClient)
 
     @patch("smplkit.flags.client.create_flag.sync_detailed")
     def test_create(self, mock_create):
         mock_create.return_value = _ok_response(parsed=_mock_flag_response(), status=HTTPStatus.CREATED)
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         flag = client.flags.create("test-flag", name="Test Flag", type=FlagType.BOOLEAN, default=False)
         assert flag.key == "test-flag"
         assert flag.id == _TEST_UUID
@@ -315,7 +315,7 @@ class TestFlagsClient:
     @patch("smplkit.flags.client.create_flag.sync_detailed")
     def test_create_auto_boolean_values(self, mock_create):
         mock_create.return_value = _ok_response(parsed=_mock_flag_response(), status=HTTPStatus.CREATED)
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         client.flags.create("test-flag", name="Test", type=FlagType.BOOLEAN, default=False)
         call_kwargs = mock_create.call_args
         body = call_kwargs.kwargs["body"]
@@ -325,35 +325,35 @@ class TestFlagsClient:
     @patch("smplkit.flags.client.create_flag.sync_detailed")
     def test_create_parsed_none_raises(self, mock_create):
         mock_create.return_value = _ok_response(parsed=None, status=HTTPStatus.CREATED)
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(SmplValidationError):
             client.flags.create("test-flag", name="Test", type=FlagType.BOOLEAN, default=False)
 
     @patch("smplkit.flags.client.get_flag.sync_detailed")
     def test_get(self, mock_get):
         mock_get.return_value = _ok_response(parsed=_mock_flag_response())
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         flag = client.flags.get(_TEST_UUID)
         assert flag.key == "test-flag"
 
     @patch("smplkit.flags.client.get_flag.sync_detailed")
     def test_get_404(self, mock_get):
         mock_get.return_value = _ok_response(parsed=None, status=HTTPStatus.NOT_FOUND)
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(SmplNotFoundError):
             client.flags.get(_TEST_UUID)
 
     @patch("smplkit.flags.client.get_flag.sync_detailed")
     def test_get_parsed_none(self, mock_get):
         mock_get.return_value = _ok_response(parsed=None)
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(SmplNotFoundError):
             client.flags.get(_TEST_UUID)
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_list(self, mock_list):
         mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         flags = client.flags.list()
         assert len(flags) == 1
         assert flags[0].key == "test-flag"
@@ -361,55 +361,55 @@ class TestFlagsClient:
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_list_empty(self, mock_list):
         mock_list.return_value = _ok_response(parsed=None)
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         flags = client.flags.list()
         assert flags == []
 
     @patch("smplkit.flags.client.delete_flag.sync_detailed")
     def test_delete(self, mock_delete):
         mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         client.flags.delete(_TEST_UUID)
 
     @patch("smplkit.flags.client.create_flag.sync_detailed")
     def test_create_network_error(self, mock_create):
         mock_create.side_effect = httpx.ConnectError("connection refused")
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(SmplConnectionError):
             client.flags.create("test", name="Test", type=FlagType.BOOLEAN, default=False)
 
     @patch("smplkit.flags.client.get_flag.sync_detailed")
     def test_get_timeout(self, mock_get):
         mock_get.side_effect = httpx.ReadTimeout("timed out")
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(SmplTimeoutError):
             client.flags.get(_TEST_UUID)
 
     @patch("smplkit.flags.client.create_flag.sync_detailed")
     def test_create_generic_exception(self, mock_create):
         mock_create.side_effect = RuntimeError("unexpected")
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(RuntimeError):
             client.flags.create("test", name="Test", type=FlagType.BOOLEAN, default=False)
 
     @patch("smplkit.flags.client.get_flag.sync_detailed")
     def test_get_generic_exception(self, mock_get):
         mock_get.side_effect = RuntimeError("unexpected")
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(RuntimeError):
             client.flags.get(_TEST_UUID)
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_list_generic_exception(self, mock_list):
         mock_list.side_effect = RuntimeError("unexpected")
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(RuntimeError):
             client.flags.list()
 
     @patch("smplkit.flags.client.delete_flag.sync_detailed")
     def test_delete_generic_exception(self, mock_delete):
         mock_delete.side_effect = RuntimeError("unexpected")
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(RuntimeError):
             client.flags.delete(_TEST_UUID)
 
@@ -522,13 +522,14 @@ class TestFlagsClientContextTypes:
 
 class TestFlagsClientLifecycle:
     @patch("smplkit.flags.client.list_flags.sync_detailed")
-    def test_connect(self, mock_list):
+    def test_connect_internal(self, mock_list):
         mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
         client = _make_flags_client()
+        client._parent._environment = "staging"
         mock_ws = MagicMock()
         client._parent._ensure_ws.return_value = mock_ws
 
-        client.connect("staging")
+        client._connect_internal()
 
         assert client._connected is True
         assert client._environment == "staging"
@@ -540,9 +541,10 @@ class TestFlagsClientLifecycle:
     def test_disconnect_with_ws(self, mock_list):
         mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
         client = _make_flags_client()
+        client._parent._environment = "staging"
         mock_ws = MagicMock()
         client._parent._ensure_ws.return_value = mock_ws
-        client.connect("staging")
+        client._connect_internal()
 
         # Mock httpx for flush
         mock_put = _setup_httpx_mock(client, "put")
@@ -674,11 +676,13 @@ class TestFlagsClientEvaluate:
 
 
 class TestFlagsClientEvaluateHandle:
-    def test_not_connected_returns_default(self):
+    def test_not_connected_raises(self):
+        from smplkit._errors import SmplNotConnectedError
+
         client = _make_flags_client()
         client._connected = False
-        result = client._evaluate_handle("key", "default_val", None)
-        assert result == "default_val"
+        with pytest.raises(SmplNotConnectedError, match="not connected"):
+            client._evaluate_handle("key", "default_val", None)
 
     def test_with_explicit_context(self):
         client = _make_flags_client()
@@ -955,23 +959,26 @@ class TestFlagsClientFetchInternals:
 class TestFlagsRuntime:
     """Test runtime behavior with mocked flag store."""
 
-    def test_flag_handles_return_code_default_before_connect(self):
-        client = SmplClient(api_key="sk_test")
+    def test_flag_handles_raise_before_connect(self):
+        from smplkit._errors import SmplNotConnectedError
+
+        client = SmplClient(api_key="sk_test", environment="test")
         handle = client.flags.boolFlag("test", False)
-        assert handle.get() is False
+        with pytest.raises(SmplNotConnectedError, match="not connected"):
+            handle.get()
 
     def test_stats_initial(self):
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         stats = client.flags.stats()
         assert stats.cache_hits == 0
         assert stats.cache_misses == 0
 
     def test_connection_status_initial(self):
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         assert client.flags.connection_status() == "disconnected"
 
     def test_context_provider_decorator(self):
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
 
         @client.flags.context_provider
         def provider():
@@ -980,7 +987,7 @@ class TestFlagsRuntime:
         assert client.flags._context_provider is provider
 
     def test_on_change_decorator(self):
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
 
         @client.flags.on_change
         def listener(event):
@@ -990,7 +997,7 @@ class TestFlagsRuntime:
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_evaluate_handle_with_connected_store(self, mock_list):
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         ns = client.flags
         ns._connected = True
         ns._environment = "staging"
@@ -1019,7 +1026,7 @@ class TestFlagsRuntime:
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_cache_hits_on_repeated_evaluation(self, mock_list):
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         ns = client.flags
         ns._connected = True
         ns._environment = "staging"
@@ -1041,7 +1048,7 @@ class TestFlagsRuntime:
         assert stats.cache_hits == 2
 
     def test_cache_cleared_on_change(self):
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         ns = client.flags
         ns._cache.put("k", "v")
         ns._cache.clear()
@@ -1056,7 +1063,7 @@ class TestFlagsRuntime:
 
 class TestRegister:
     def test_register_single_context(self):
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         ns = client.flags
         ns.register(Context("user", "u-1", plan="enterprise"))
         batch = ns._context_buffer.drain()
@@ -1066,7 +1073,7 @@ class TestRegister:
         assert batch[0]["attributes"]["plan"] == "enterprise"
 
     def test_register_single_context_with_name(self):
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         ns = client.flags
         ns.register(Context("user", "u-1", name="Alice Smith", plan="enterprise"))
         batch = ns._context_buffer.drain()
@@ -1076,7 +1083,7 @@ class TestRegister:
         assert batch[0]["attributes"]["plan"] == "enterprise"
 
     def test_register_list_of_contexts(self):
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         ns = client.flags
         ns.register([Context("user", "u-1", plan="enterprise"), Context("account", "acme-corp", region="us")])
         batch = ns._context_buffer.drain()
@@ -1085,7 +1092,7 @@ class TestRegister:
         assert batch[1]["id"] == "account:acme-corp"
 
     def test_register_before_connect(self):
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         ns = client.flags
         assert not ns._connected
         ns.register(Context("user", "u-1", plan="free"))
@@ -1094,7 +1101,7 @@ class TestRegister:
         assert len(batch) == 2
 
     def test_register_deduplication(self):
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         ns = client.flags
         ns.register(Context("user", "u-1", plan="enterprise"))
         ns.register(Context("user", "u-1", plan="free"))
@@ -1103,7 +1110,7 @@ class TestRegister:
         assert batch[0]["attributes"]["plan"] == "enterprise"
 
     def test_register_different_keys_not_deduplicated(self):
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         ns = client.flags
         ns.register(Context("user", "u-1", plan="enterprise"))
         ns.register(Context("user", "u-2", plan="free"))
@@ -1111,7 +1118,7 @@ class TestRegister:
         assert len(batch) == 2
 
     def test_register_integrates_with_flush(self):
-        client = SmplClient(api_key="sk_test")
+        client = SmplClient(api_key="sk_test", environment="test")
         ns = client.flags
         ns.register(Context("user", "u-1", plan="enterprise"))
         ns._context_buffer.observe([Context("account", "acme-corp", region="us")])
@@ -1128,7 +1135,7 @@ class TestRegister:
 
 class TestAsyncFlagsClient:
     def test_init(self):
-        client = AsyncSmplClient(api_key="sk_test")
+        client = AsyncSmplClient(api_key="sk_test", environment="test")
         assert isinstance(client.flags, AsyncFlagsClient)
 
     @patch("smplkit.flags.client.create_flag.asyncio_detailed")
@@ -1136,7 +1143,7 @@ class TestAsyncFlagsClient:
         mock_create.return_value = _ok_response(parsed=_mock_flag_response(), status=HTTPStatus.CREATED)
 
         async def _run():
-            client = AsyncSmplClient(api_key="sk_test")
+            client = AsyncSmplClient(api_key="sk_test", environment="test")
             flag = await client.flags.create("test-flag", name="Test Flag", type=FlagType.BOOLEAN, default=False)
             assert flag.key == "test-flag"
 
@@ -1147,7 +1154,7 @@ class TestAsyncFlagsClient:
         mock_create.return_value = _ok_response(parsed=_mock_flag_response(), status=HTTPStatus.CREATED)
 
         async def _run():
-            client = AsyncSmplClient(api_key="sk_test")
+            client = AsyncSmplClient(api_key="sk_test", environment="test")
             await client.flags.create("test-flag", name="Test", type=FlagType.BOOLEAN, default=False)
             body = mock_create.call_args.kwargs["body"]
             assert len(body.data.attributes.values) == 2
@@ -1159,7 +1166,7 @@ class TestAsyncFlagsClient:
         mock_create.return_value = _ok_response(parsed=None, status=HTTPStatus.CREATED)
 
         async def _run():
-            client = AsyncSmplClient(api_key="sk_test")
+            client = AsyncSmplClient(api_key="sk_test", environment="test")
             with pytest.raises(SmplValidationError):
                 await client.flags.create("test", name="Test", type=FlagType.BOOLEAN, default=False)
 
@@ -1170,7 +1177,7 @@ class TestAsyncFlagsClient:
         mock_get.return_value = _ok_response(parsed=_mock_flag_response())
 
         async def _run():
-            client = AsyncSmplClient(api_key="sk_test")
+            client = AsyncSmplClient(api_key="sk_test", environment="test")
             flag = await client.flags.get(_TEST_UUID)
             assert flag.key == "test-flag"
 
@@ -1181,7 +1188,7 @@ class TestAsyncFlagsClient:
         mock_get.return_value = _ok_response(parsed=None, status=HTTPStatus.NOT_FOUND)
 
         async def _run():
-            client = AsyncSmplClient(api_key="sk_test")
+            client = AsyncSmplClient(api_key="sk_test", environment="test")
             with pytest.raises(SmplNotFoundError):
                 await client.flags.get(_TEST_UUID)
 
@@ -1192,7 +1199,7 @@ class TestAsyncFlagsClient:
         mock_get.return_value = _ok_response(parsed=None)
 
         async def _run():
-            client = AsyncSmplClient(api_key="sk_test")
+            client = AsyncSmplClient(api_key="sk_test", environment="test")
             with pytest.raises(SmplNotFoundError):
                 await client.flags.get(_TEST_UUID)
 
@@ -1203,7 +1210,7 @@ class TestAsyncFlagsClient:
         mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
 
         async def _run():
-            client = AsyncSmplClient(api_key="sk_test")
+            client = AsyncSmplClient(api_key="sk_test", environment="test")
             flags = await client.flags.list()
             assert len(flags) == 1
 
@@ -1214,7 +1221,7 @@ class TestAsyncFlagsClient:
         mock_list.return_value = _ok_response(parsed=None)
 
         async def _run():
-            client = AsyncSmplClient(api_key="sk_test")
+            client = AsyncSmplClient(api_key="sk_test", environment="test")
             flags = await client.flags.list()
             assert flags == []
 
@@ -1225,7 +1232,7 @@ class TestAsyncFlagsClient:
         mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
 
         async def _run():
-            client = AsyncSmplClient(api_key="sk_test")
+            client = AsyncSmplClient(api_key="sk_test", environment="test")
             await client.flags.delete(_TEST_UUID)
 
         asyncio.run(_run())
@@ -1235,7 +1242,7 @@ class TestAsyncFlagsClient:
         mock_create.side_effect = httpx.ConnectError("refused")
 
         async def _run():
-            client = AsyncSmplClient(api_key="sk_test")
+            client = AsyncSmplClient(api_key="sk_test", environment="test")
             with pytest.raises(SmplConnectionError):
                 await client.flags.create("test", name="Test", type=FlagType.BOOLEAN, default=False)
 
@@ -1246,7 +1253,7 @@ class TestAsyncFlagsClient:
         mock_create.side_effect = RuntimeError("unexpected")
 
         async def _run():
-            client = AsyncSmplClient(api_key="sk_test")
+            client = AsyncSmplClient(api_key="sk_test", environment="test")
             with pytest.raises(RuntimeError):
                 await client.flags.create("test", name="Test", type=FlagType.BOOLEAN, default=False)
 
@@ -1257,7 +1264,7 @@ class TestAsyncFlagsClient:
         mock_get.side_effect = RuntimeError("unexpected")
 
         async def _run():
-            client = AsyncSmplClient(api_key="sk_test")
+            client = AsyncSmplClient(api_key="sk_test", environment="test")
             with pytest.raises(RuntimeError):
                 await client.flags.get(_TEST_UUID)
 
@@ -1268,7 +1275,7 @@ class TestAsyncFlagsClient:
         mock_list.side_effect = RuntimeError("unexpected")
 
         async def _run():
-            client = AsyncSmplClient(api_key="sk_test")
+            client = AsyncSmplClient(api_key="sk_test", environment="test")
             with pytest.raises(RuntimeError):
                 await client.flags.list()
 
@@ -1279,7 +1286,7 @@ class TestAsyncFlagsClient:
         mock_delete.side_effect = RuntimeError("unexpected")
 
         async def _run():
-            client = AsyncSmplClient(api_key="sk_test")
+            client = AsyncSmplClient(api_key="sk_test", environment="test")
             with pytest.raises(RuntimeError):
                 await client.flags.delete(_TEST_UUID)
 
@@ -1426,14 +1433,15 @@ class TestAsyncFlagsClientContextTypes:
 
 class TestAsyncFlagsClientLifecycle:
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
-    def test_connect(self, mock_list):
+    def test_connect_internal(self, mock_list):
         mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
 
         async def _run():
             client = _make_async_flags_client()
+            client._parent._environment = "staging"
             mock_ws = MagicMock()
             client._parent._ensure_ws.return_value = mock_ws
-            await client.connect("staging")
+            await client._connect_internal()
             assert client._connected is True
             assert client._environment == "staging"
             assert client._ws_manager is mock_ws
@@ -1447,9 +1455,10 @@ class TestAsyncFlagsClientLifecycle:
 
         async def _run():
             client = _make_async_flags_client()
+            client._parent._environment = "staging"
             mock_ws = MagicMock()
             client._parent._ensure_ws.return_value = mock_ws
-            await client.connect("staging")
+            await client._connect_internal()
 
             mock_put = _setup_async_httpx_mock(client, "put")
             mock_put.return_value = _mock_httpx_response()
@@ -1611,10 +1620,12 @@ class TestAsyncFlagsClientEvaluate:
 
 
 class TestAsyncFlagsClientEvaluateHandle:
-    def test_not_connected_returns_default(self):
+    def test_not_connected_raises(self):
+        from smplkit._errors import SmplNotConnectedError
+
         client = _make_async_flags_client()
-        result = client._evaluate_handle("key", "default_val", None)
-        assert result == "default_val"
+        with pytest.raises(SmplNotConnectedError, match="not connected"):
+            client._evaluate_handle("key", "default_val", None)
 
     def test_with_explicit_context(self):
         client = _make_async_flags_client()

@@ -88,12 +88,12 @@ class TestSmplClientResolution:
     """Integration tests: SmplClient constructor uses resolution chain."""
 
     def test_explicit_key(self):
-        client = SmplClient(api_key="sk_api_test")
+        client = SmplClient(api_key="sk_api_test", environment="test")
         assert client._api_key == "sk_api_test"
 
     def test_env_var(self, monkeypatch):
         monkeypatch.setenv("SMPLKIT_API_KEY", "sk_api_env")
-        client = SmplClient()
+        client = SmplClient(environment="test")
         assert client._api_key == "sk_api_env"
 
     def test_config_file(self, monkeypatch, tmp_path):
@@ -101,40 +101,81 @@ class TestSmplClientResolution:
         config_file = tmp_path / ".smplkit"
         config_file.write_text("[default]\napi_key = sk_api_file\n")
         monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
-        client = SmplClient()
+        client = SmplClient(environment="test")
         assert client._api_key == "sk_api_file"
 
     def test_error_when_no_key(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
         with pytest.raises(SmplError, match="No API key provided"):
-            SmplClient()
+            SmplClient(environment="test")
 
     def test_error_message_lists_all_methods(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
         with pytest.raises(SmplError, match="Pass api_key to the constructor"):
-            SmplClient()
+            SmplClient(environment="test")
         with pytest.raises(SmplError, match="SMPLKIT_API_KEY"):
-            SmplClient()
+            SmplClient(environment="test")
         with pytest.raises(SmplError, match=r"~/.smplkit"):
-            SmplClient()
+            SmplClient(environment="test")
+
+    def test_error_when_no_environment(self):
+        with pytest.raises(SmplError, match="No environment provided"):
+            SmplClient(api_key="sk_api_test")
+
+    def test_environment_from_env_var(self, monkeypatch):
+        monkeypatch.setenv("SMPLKIT_ENVIRONMENT", "staging")
+        client = SmplClient(api_key="sk_api_test")
+        assert client._environment == "staging"
+
+    def test_environment_explicit_takes_precedence(self, monkeypatch):
+        monkeypatch.setenv("SMPLKIT_ENVIRONMENT", "staging")
+        client = SmplClient(api_key="sk_api_test", environment="production")
+        assert client._environment == "production"
+
+    def test_service_from_env_var(self, monkeypatch):
+        monkeypatch.setenv("SMPLKIT_SERVICE", "user-service")
+        client = SmplClient(api_key="sk_api_test", environment="test")
+        assert client._service == "user-service"
+
+    def test_service_explicit_takes_precedence(self, monkeypatch):
+        monkeypatch.setenv("SMPLKIT_SERVICE", "env-service")
+        client = SmplClient(api_key="sk_api_test", environment="test", service="explicit-service")
+        assert client._service == "explicit-service"
+
+    def test_service_optional(self):
+        client = SmplClient(api_key="sk_api_test", environment="test")
+        assert client._service is None
 
 
 class TestAsyncSmplClientResolution:
     """Integration tests: AsyncSmplClient constructor uses resolution chain."""
 
     def test_explicit_key(self):
-        client = AsyncSmplClient(api_key="sk_api_test")
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
         assert client._api_key == "sk_api_test"
 
     def test_env_var(self, monkeypatch):
         monkeypatch.setenv("SMPLKIT_API_KEY", "sk_api_env")
-        client = AsyncSmplClient()
+        client = AsyncSmplClient(environment="test")
         assert client._api_key == "sk_api_env"
 
     def test_error_when_no_key(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
         with pytest.raises(SmplError, match="No API key provided"):
-            AsyncSmplClient()
+            AsyncSmplClient(environment="test")
+
+    def test_error_when_no_environment(self):
+        with pytest.raises(SmplError, match="No environment provided"):
+            AsyncSmplClient(api_key="sk_api_test")
+
+    def test_environment_from_env_var(self, monkeypatch):
+        monkeypatch.setenv("SMPLKIT_ENVIRONMENT", "staging")
+        client = AsyncSmplClient(api_key="sk_api_test")
+        assert client._environment == "staging"
+
+    def test_service_optional(self):
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+        assert client._service is None

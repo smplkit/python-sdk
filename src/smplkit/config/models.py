@@ -4,36 +4,12 @@ from __future__ import annotations
 
 import datetime
 import logging
-from collections.abc import Coroutine
 from typing import TYPE_CHECKING, Any
-
-from smplkit.config.runtime import ConfigRuntime
 
 if TYPE_CHECKING:
     from smplkit.config.client import AsyncConfigClient, ConfigClient
 
 logger = logging.getLogger("smplkit")
-
-
-class _AsyncConnectResult:
-    """Wrapper that makes ``AsyncConfig.connect()`` usable as both
-    ``await config.connect(...)`` and ``async with config.connect(...) as rt:``.
-    """
-
-    def __init__(self, coro: Coroutine[Any, Any, ConfigRuntime]) -> None:
-        self._coro = coro
-        self._runtime: ConfigRuntime | None = None
-
-    def __await__(self):
-        return self._coro.__await__()
-
-    async def __aenter__(self) -> ConfigRuntime:
-        self._runtime = await self._coro
-        return self._runtime
-
-    async def __aexit__(self, *args: Any) -> None:
-        if self._runtime is not None:
-            await self._runtime.close()
 
 
 class Config:
@@ -210,48 +186,6 @@ class Config:
             existing[key] = value
             self.set_items(existing, environment=environment)
 
-    def connect(self, environment: str, *, timeout: float = 30) -> ConfigRuntime:
-        """Connect to this config for runtime value resolution.
-
-        Eagerly fetches this config and its full parent chain, resolves
-        values for the given environment via deep merge, and returns a
-        :class:`ConfigRuntime` with a fully populated local cache.
-
-        A shared WebSocket connection provides real-time updates.
-        If the WebSocket fails to connect, the runtime operates in
-        cache-only mode.
-
-        Args:
-            environment: The environment to resolve for (e.g.
-                ``"production"``).
-            timeout: Maximum seconds to wait for the initial fetch.
-
-        Returns:
-            A :class:`ConfigRuntime` ready for synchronous value reads.
-
-        Raises:
-            SmplTimeoutError: If the fetch exceeds *timeout*.
-            SmplConnectionError: If a network request fails.
-        """
-        chain = self._build_chain()
-        api_key = self._client._parent._api_key
-        base_url = self._client._parent._http_client._base_url
-        ws_manager = self._client._parent._ensure_ws()
-
-        def _fetch_chain() -> list[dict[str, Any]]:
-            return self._build_chain()
-
-        return ConfigRuntime(
-            config_key=self.key,
-            config_id=self.id,
-            environment=environment,
-            chain=chain,
-            api_key=api_key,
-            base_url=base_url,
-            fetch_chain_fn=_fetch_chain,
-            ws_manager=ws_manager,
-        )
-
     def _build_chain(self) -> list[dict[str, Any]]:
         """Walk the parent chain and return config data dicts child-to-root."""
         chain = [{"id": self.id, "items": self._items_raw, "environments": self.environments}]
@@ -275,9 +209,7 @@ class Config:
 class AsyncConfig:
     """Async variant of :class:`Config`.
 
-    All management-plane methods are ``async``. The :meth:`connect` method
-    returns a :class:`ConfigRuntime` whose value-access methods are always
-    synchronous.
+    All management-plane methods are ``async``.
 
     Attributes:
         id: Unique identifier (UUID).
@@ -434,58 +366,6 @@ class AsyncConfig:
             existing = dict((self.environments.get(environment, {}) or {}).get("values", {}) or {})
             existing[key] = value
             await self.set_items(existing, environment=environment)
-
-    def connect(self, environment: str, *, timeout: float = 30) -> _AsyncConnectResult:
-        """Connect to this config for runtime value resolution.
-
-        Eagerly fetches this config and its full parent chain, resolves
-        values for the given environment via deep merge, and returns a
-        :class:`ConfigRuntime` with a fully populated local cache.
-
-        A shared WebSocket connection provides real-time updates.
-        If the WebSocket fails to connect, the runtime operates in
-        cache-only mode.
-
-        Supports both ``await`` and ``async with``::
-
-            runtime = await config.connect("production")
-            async with config.connect("production") as runtime:
-                ...
-
-        Args:
-            environment: The environment to resolve for (e.g.
-                ``"production"``).
-            timeout: Maximum seconds to wait for the initial fetch.
-
-        Returns:
-            A :class:`ConfigRuntime` ready for synchronous value reads.
-
-        Raises:
-            SmplTimeoutError: If the fetch exceeds *timeout*.
-            SmplConnectionError: If a network request fails.
-        """
-
-        async def _connect() -> ConfigRuntime:
-            chain = await self._build_chain()
-            api_key = self._client._parent._api_key
-            base_url = self._client._parent._http_client._base_url
-            ws_manager = self._client._parent._ensure_ws()
-
-            def _fetch_chain():
-                return self._build_chain()
-
-            return ConfigRuntime(
-                config_key=self.key,
-                config_id=self.id,
-                environment=environment,
-                chain=chain,
-                api_key=api_key,
-                base_url=base_url,
-                fetch_chain_fn=_fetch_chain,
-                ws_manager=ws_manager,
-            )
-
-        return _AsyncConnectResult(_connect())
 
     async def _build_chain(self) -> list[dict[str, Any]]:
         """Walk the parent chain and return config data dicts child-to-root."""
