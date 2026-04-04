@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -7,7 +9,6 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from typing import cast
-from typing import Union
 
 if TYPE_CHECKING:
     from ..models.log_group import LogGroup
@@ -23,19 +24,19 @@ class ResourceLogGroup:
         attributes (LogGroup):  Example: {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level':
             'ERROR'}}, 'key': 'database-loggers', 'level': 'WARN', 'name': 'Database Loggers', 'updated_at':
             '2026-04-01T10:00:00Z'}.
-        id (Union[None, Unset, str]):
-        type_ (Union[Unset, str]):  Default: ''.
+        id (None | str | Unset):
+        type_ (str | Unset):  Default: ''.
     """
 
-    attributes: "LogGroup"
-    id: Union[None, Unset, str] = UNSET
-    type_: Union[Unset, str] = ""
+    attributes: LogGroup
+    id: None | str | Unset = UNSET
+    type_: str | Unset = ""
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         attributes = self.attributes.to_dict()
 
-        id: Union[None, Unset, str]
+        id: None | str | Unset
         if isinstance(self.id, Unset):
             id = UNSET
         else:
@@ -64,12 +65,12 @@ class ResourceLogGroup:
         d = dict(src_dict)
         attributes = LogGroup.from_dict(d.pop("attributes"))
 
-        def _parse_id(data: object) -> Union[None, Unset, str]:
+        def _parse_id(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         id = _parse_id(d.pop("id", UNSET))
 
