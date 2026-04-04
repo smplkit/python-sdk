@@ -116,6 +116,46 @@ def _ct_list_json(*items):
     }
 
 
+def _parsed_ct_response(*, id="ct-1", key="user", name="User", attributes=None):
+    """Build a mock parsed ContextTypeResponse from the generated app client."""
+    from smplkit._generated.app.models.context_type import ContextType as GenContextType
+    from smplkit._generated.app.models.context_type_attributes import ContextTypeAttributes
+    from smplkit._generated.app.models.context_type_resource import ContextTypeResource
+    from smplkit._generated.app.models.context_type_response import ContextTypeResponse
+
+    ct_attrs = ContextTypeAttributes()
+    ct_attrs.additional_properties = dict(attributes or {})
+    gen_ct = GenContextType(key=key, name=name, attributes=ct_attrs)
+    resource = ContextTypeResource(type_="context_type", attributes=gen_ct, id=id)
+    return ContextTypeResponse(data=resource)
+
+
+def _parsed_ct_list_response(*items):
+    """Build a mock parsed ContextTypeListResponse."""
+    from smplkit._generated.app.models.context_type import ContextType as GenContextType
+    from smplkit._generated.app.models.context_type_attributes import ContextTypeAttributes
+    from smplkit._generated.app.models.context_type_list_response import ContextTypeListResponse
+    from smplkit._generated.app.models.context_type_resource import ContextTypeResource
+
+    resources = []
+    for i, (key, name) in enumerate(items):
+        ct_attrs = ContextTypeAttributes()
+        gen_ct = GenContextType(key=key, name=name, attributes=ct_attrs)
+        resources.append(ContextTypeResource(type_="context_type", attributes=gen_ct, id=f"ct-{i}"))
+    return ContextTypeListResponse(data=resources)
+
+
+def _parsed_context_list_response():
+    """Build a mock parsed ContextListResponse with one item."""
+    from smplkit._generated.app.models.context import Context as GenContext
+    from smplkit._generated.app.models.context_list_response import ContextListResponse
+    from smplkit._generated.app.models.context_resource import ContextResource
+
+    ctx = GenContext(key="u-1", context_type="user")
+    resource = ContextResource(type_="context", attributes=ctx, id="user:u-1")
+    return ContextListResponse(data=[resource])
+
+
 def _make_flags_client():
     """Create a FlagsClient with a mocked parent."""
     parent = MagicMock()
@@ -474,45 +514,151 @@ class TestFlagsClientUpdateFlag:
 
 
 class TestFlagsClientContextTypes:
-    def test_create_context_type(self):
+    @patch("smplkit.flags.client.gen_create_context_type.sync_detailed")
+    def test_create_context_type(self, mock_create):
+        mock_create.return_value = _ok_response(parsed=_parsed_ct_response())
         client = _make_flags_client()
-        mock_post = _setup_httpx_mock(client, "post")
-        mock_post.return_value = _mock_httpx_response(json_data=_ct_json())
         ct = client.create_context_type("user", name="User")
         assert ct.key == "user"
         assert ct.name == "User"
-        mock_post.assert_called_once()
+        mock_create.assert_called_once()
 
-    def test_update_context_type(self):
+    @patch("smplkit.flags.client.gen_update_context_type.sync_detailed")
+    def test_update_context_type(self, mock_update):
+        mock_update.return_value = _ok_response(parsed=_parsed_ct_response(attributes={"plan": {}}))
         client = _make_flags_client()
-        mock_put = _setup_httpx_mock(client, "put")
-        mock_put.return_value = _mock_httpx_response(json_data=_ct_json(attributes={"plan": {}}))
-        ct = client.update_context_type("ct-1", attributes={"plan": {}})
+        ct = client.update_context_type(_TEST_UUID, attributes={"plan": {}})
         assert ct.key == "user"
 
-    def test_list_context_types(self):
+    @patch("smplkit.flags.client.gen_list_context_types.sync_detailed")
+    def test_list_context_types(self, mock_list):
+        mock_list.return_value = _ok_response(parsed=_parsed_ct_list_response(("user", "User"), ("device", "Device")))
         client = _make_flags_client()
-        mock_get = _setup_httpx_mock(client, "get")
-        mock_get.return_value = _mock_httpx_response(json_data=_ct_list_json(("user", "User"), ("device", "Device")))
         result = client.list_context_types()
         assert len(result) == 2
         assert result[0].key == "user"
 
-    def test_delete_context_type(self):
+    @patch("smplkit.flags.client.gen_delete_context_type.sync_detailed")
+    def test_delete_context_type(self, mock_delete):
+        mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
         client = _make_flags_client()
-        mock_delete = _setup_httpx_mock(client, "delete")
-        mock_delete.return_value = _mock_httpx_response(status_code=204)
-        client.delete_context_type("ct-1")
+        client.delete_context_type(_TEST_UUID)
         mock_delete.assert_called_once()
 
-    def test_list_contexts(self):
+    @patch("smplkit.flags.client.gen_list_contexts.sync_detailed")
+    def test_list_contexts(self, mock_list):
+        mock_list.return_value = _ok_response(parsed=_parsed_context_list_response())
         client = _make_flags_client()
-        mock_get = _setup_httpx_mock(client, "get")
-        mock_get.return_value = _mock_httpx_response(json_data={"data": [{"id": "user:u-1"}]})
         result = client.list_contexts(context_type_key="user")
         assert len(result) == 1
-        # Verify the filter param was passed
-        mock_get.assert_called_once_with("/api/v1/contexts", params={"filter[context_type]": "user"})
+        mock_list.assert_called_once()
+        # Verify the filter param was passed via the generated function
+        _, kwargs = mock_list.call_args
+        assert kwargs["filtercontext_type_id"] == "user"
+
+    # Error paths for coverage
+
+    @patch("smplkit.flags.client.gen_create_context_type.sync_detailed")
+    def test_create_context_type_network_error(self, mock_create):
+        mock_create.side_effect = httpx.TimeoutException("timeout")
+        client = _make_flags_client()
+        with pytest.raises(SmplTimeoutError):
+            client.create_context_type("user", name="User")
+
+    @patch("smplkit.flags.client.gen_update_context_type.sync_detailed")
+    def test_update_context_type_network_error(self, mock_update):
+        mock_update.side_effect = httpx.TimeoutException("timeout")
+        client = _make_flags_client()
+        with pytest.raises(SmplTimeoutError):
+            client.update_context_type(_TEST_UUID, attributes={})
+
+    @patch("smplkit.flags.client.gen_list_context_types.sync_detailed")
+    def test_list_context_types_network_error(self, mock_list):
+        mock_list.side_effect = httpx.TimeoutException("timeout")
+        client = _make_flags_client()
+        with pytest.raises(SmplTimeoutError):
+            client.list_context_types()
+
+    @patch("smplkit.flags.client.gen_delete_context_type.sync_detailed")
+    def test_delete_context_type_network_error(self, mock_delete):
+        mock_delete.side_effect = httpx.TimeoutException("timeout")
+        client = _make_flags_client()
+        with pytest.raises(SmplTimeoutError):
+            client.delete_context_type(_TEST_UUID)
+
+    @patch("smplkit.flags.client.gen_list_contexts.sync_detailed")
+    def test_list_contexts_network_error(self, mock_list):
+        mock_list.side_effect = httpx.TimeoutException("timeout")
+        client = _make_flags_client()
+        with pytest.raises(SmplTimeoutError):
+            client.list_contexts(context_type_key="user")
+
+    # Non-network errors propagate as-is (bare raise path)
+
+    @patch("smplkit.flags.client.gen_create_context_type.sync_detailed")
+    def test_create_context_type_other_error(self, mock_create):
+        mock_create.side_effect = RuntimeError("boom")
+        client = _make_flags_client()
+        with pytest.raises(RuntimeError, match="boom"):
+            client.create_context_type("user", name="User")
+
+    @patch("smplkit.flags.client.gen_update_context_type.sync_detailed")
+    def test_update_context_type_other_error(self, mock_update):
+        mock_update.side_effect = RuntimeError("boom")
+        client = _make_flags_client()
+        with pytest.raises(RuntimeError, match="boom"):
+            client.update_context_type(_TEST_UUID, attributes={})
+
+    @patch("smplkit.flags.client.gen_list_context_types.sync_detailed")
+    def test_list_context_types_other_error(self, mock_list):
+        mock_list.side_effect = RuntimeError("boom")
+        client = _make_flags_client()
+        with pytest.raises(RuntimeError, match="boom"):
+            client.list_context_types()
+
+    @patch("smplkit.flags.client.gen_delete_context_type.sync_detailed")
+    def test_delete_context_type_other_error(self, mock_delete):
+        mock_delete.side_effect = RuntimeError("boom")
+        client = _make_flags_client()
+        with pytest.raises(RuntimeError, match="boom"):
+            client.delete_context_type(_TEST_UUID)
+
+    @patch("smplkit.flags.client.gen_list_contexts.sync_detailed")
+    def test_list_contexts_other_error(self, mock_list):
+        mock_list.side_effect = RuntimeError("boom")
+        client = _make_flags_client()
+        with pytest.raises(RuntimeError, match="boom"):
+            client.list_contexts(context_type_key="user")
+
+    # parsed=None paths
+
+    @patch("smplkit.flags.client.gen_create_context_type.sync_detailed")
+    def test_create_context_type_parsed_none(self, mock_create):
+        mock_create.return_value = _ok_response(parsed=None)
+        client = _make_flags_client()
+        with pytest.raises(SmplValidationError):
+            client.create_context_type("user", name="User")
+
+    @patch("smplkit.flags.client.gen_update_context_type.sync_detailed")
+    def test_update_context_type_parsed_none(self, mock_update):
+        mock_update.return_value = _ok_response(parsed=None)
+        client = _make_flags_client()
+        with pytest.raises(SmplValidationError):
+            client.update_context_type(_TEST_UUID, attributes={})
+
+    @patch("smplkit.flags.client.gen_list_context_types.sync_detailed")
+    def test_list_context_types_parsed_none(self, mock_list):
+        mock_list.return_value = _ok_response(parsed=None)
+        client = _make_flags_client()
+        with pytest.raises(SmplValidationError):
+            client.list_context_types()
+
+    @patch("smplkit.flags.client.gen_list_contexts.sync_detailed")
+    def test_list_contexts_parsed_none(self, mock_list):
+        mock_list.return_value = _ok_response(parsed=None)
+        client = _make_flags_client()
+        result = client.list_contexts(context_type_key="user")
+        assert result == []
 
 
 # ---------------------------------------------------------------------------
@@ -537,18 +683,17 @@ class TestFlagsClientLifecycle:
         assert mock_ws.on.call_count == 2
         assert "test-flag" in client._flag_store
 
+    @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
-    def test_disconnect_with_ws(self, mock_list):
+    def test_disconnect_with_ws(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_bulk.return_value = _ok_response()
         client = _make_flags_client()
         client._parent._environment = "staging"
         mock_ws = MagicMock()
         client._parent._ensure_ws.return_value = mock_ws
         client._connect_internal()
 
-        # Mock httpx for flush
-        mock_post = _setup_httpx_mock(client, "post")
-        mock_post.return_value = _mock_httpx_response()
         client.disconnect()
 
         assert client._connected is False
@@ -557,11 +702,11 @@ class TestFlagsClientLifecycle:
         assert mock_ws.off.call_count == 2
         assert client._flag_store == {}
 
-    def test_disconnect_without_ws(self):
+    @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
+    def test_disconnect_without_ws(self, mock_bulk):
+        mock_bulk.return_value = _ok_response()
         client = _make_flags_client()
         client._ws_manager = None
-        # Mock httpx for flush
-        _setup_httpx_mock(client, "post")
         client.disconnect()
         assert client._connected is False
 
@@ -605,33 +750,33 @@ class TestFlagsClientLifecycle:
 
 
 class TestFlagsClientFlush:
-    def test_flush_with_pending(self):
+    @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
+    def test_flush_with_pending(self, mock_bulk):
+        mock_bulk.return_value = _ok_response()
         client = _make_flags_client()
         client.register(Context("user", "u-1", plan="enterprise"))
-        mock_post = _setup_httpx_mock(client, "post")
-        mock_post.return_value = _mock_httpx_response()
 
         client.flush_contexts()
 
-        mock_post.assert_called_once()
-        call_args = mock_post.call_args
-        assert call_args[0][0] == "/api/v1/contexts/bulk"
-        assert call_args[1]["json"]["contexts"][0]["type"] == "user"
-        assert call_args[1]["json"]["contexts"][0]["key"] == "u-1"
+        mock_bulk.assert_called_once()
+        _, kwargs = mock_bulk.call_args
+        body = kwargs["body"]
+        assert body.contexts[0].type_ == "user"
+        assert body.contexts[0].key == "u-1"
 
-    def test_flush_empty_batch(self):
+    @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
+    def test_flush_empty_batch(self, mock_bulk):
         client = _make_flags_client()
-        mock_post = _setup_httpx_mock(client, "post")
 
         client.flush_contexts()
 
-        mock_post.assert_not_called()
+        mock_bulk.assert_not_called()
 
-    def test_flush_exception_swallowed(self):
+    @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
+    def test_flush_exception_swallowed(self, mock_bulk):
+        mock_bulk.side_effect = httpx.ConnectError("fail")
         client = _make_flags_client()
         client.register(Context("user", "u-1"))
-        mock_post = _setup_httpx_mock(client, "post")
-        mock_post.side_effect = httpx.ConnectError("fail")
 
         # Should not raise
         client.flush_contexts()
@@ -899,11 +1044,12 @@ class TestFlagsClientModelConversion:
         assert result.key == "test-flag"
         assert result.name == "Test Flag"
 
-    def test_parse_context_type_on_sync_client(self):
-        """The monkey-patched _parse_context_type works on FlagsClient instances."""
-        client = _make_flags_client()
-        data = {"id": "ct-1", "attributes": {"key": "user", "name": "User", "attributes": {"plan": {}}}}
-        ct = client._parse_context_type(data)
+    def test_parse_gen_context_type_response(self):
+        """The module-level _parse_gen_context_type_response works correctly."""
+        from smplkit.flags.client import _parse_gen_context_type_response
+
+        parsed = _parsed_ct_response(id="ct-1", key="user", name="User", attributes={"plan": {}})
+        ct = _parse_gen_context_type_response(parsed)
         assert ct.key == "user"
         assert ct.name == "User"
         assert ct.attributes == {"plan": {}}
@@ -1376,55 +1522,218 @@ class TestAsyncFlagsClientUpdateFlag:
 
 
 class TestAsyncFlagsClientContextTypes:
-    def test_create_context_type(self):
+    @patch("smplkit.flags.client.gen_create_context_type.asyncio_detailed")
+    def test_create_context_type(self, mock_create):
+        mock_create.return_value = _ok_response(parsed=_parsed_ct_response())
+
         async def _run():
             client = _make_async_flags_client()
-            mock_post = _setup_async_httpx_mock(client, "post")
-            mock_post.return_value = _mock_httpx_response(json_data=_ct_json())
             ct = await client.create_context_type("user", name="User")
             assert ct.key == "user"
 
         asyncio.run(_run())
 
-    def test_update_context_type(self):
+    @patch("smplkit.flags.client.gen_update_context_type.asyncio_detailed")
+    def test_update_context_type(self, mock_update):
+        mock_update.return_value = _ok_response(parsed=_parsed_ct_response(attributes={"plan": {}}))
+
         async def _run():
             client = _make_async_flags_client()
-            mock_put = _setup_async_httpx_mock(client, "put")
-            mock_put.return_value = _mock_httpx_response(json_data=_ct_json(attributes={"plan": {}}))
-            ct = await client.update_context_type("ct-1", attributes={"plan": {}})
+            ct = await client.update_context_type(_TEST_UUID, attributes={"plan": {}})
             assert ct.key == "user"
 
         asyncio.run(_run())
 
-    def test_list_context_types(self):
+    @patch("smplkit.flags.client.gen_list_context_types.asyncio_detailed")
+    def test_list_context_types(self, mock_list):
+        mock_list.return_value = _ok_response(parsed=_parsed_ct_list_response(("user", "User"), ("device", "Device")))
+
         async def _run():
             client = _make_async_flags_client()
-            mock_get = _setup_async_httpx_mock(client, "get")
-            mock_get.return_value = _mock_httpx_response(
-                json_data=_ct_list_json(("user", "User"), ("device", "Device"))
-            )
             result = await client.list_context_types()
             assert len(result) == 2
 
         asyncio.run(_run())
 
-    def test_delete_context_type(self):
+    @patch("smplkit.flags.client.gen_delete_context_type.asyncio_detailed")
+    def test_delete_context_type(self, mock_delete):
+        mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
+
         async def _run():
             client = _make_async_flags_client()
-            mock_delete = _setup_async_httpx_mock(client, "delete")
-            mock_delete.return_value = _mock_httpx_response(status_code=204)
-            await client.delete_context_type("ct-1")
+            await client.delete_context_type(_TEST_UUID)
             mock_delete.assert_called_once()
 
         asyncio.run(_run())
 
-    def test_list_contexts(self):
+    @patch("smplkit.flags.client.gen_list_contexts.asyncio_detailed")
+    def test_list_contexts(self, mock_list):
+        mock_list.return_value = _ok_response(parsed=_parsed_context_list_response())
+
         async def _run():
             client = _make_async_flags_client()
-            mock_get = _setup_async_httpx_mock(client, "get")
-            mock_get.return_value = _mock_httpx_response(json_data={"data": [{"id": "user:u-1"}]})
             result = await client.list_contexts(context_type_key="user")
             assert len(result) == 1
+
+        asyncio.run(_run())
+
+    # Error paths for coverage
+
+    @patch("smplkit.flags.client.gen_create_context_type.asyncio_detailed")
+    def test_create_context_type_network_error(self, mock_create):
+        mock_create.side_effect = httpx.TimeoutException("timeout")
+
+        async def _run():
+            client = _make_async_flags_client()
+            with pytest.raises(SmplTimeoutError):
+                await client.create_context_type("user", name="User")
+
+        asyncio.run(_run())
+
+    @patch("smplkit.flags.client.gen_update_context_type.asyncio_detailed")
+    def test_update_context_type_network_error(self, mock_update):
+        mock_update.side_effect = httpx.TimeoutException("timeout")
+
+        async def _run():
+            client = _make_async_flags_client()
+            with pytest.raises(SmplTimeoutError):
+                await client.update_context_type(_TEST_UUID, attributes={})
+
+        asyncio.run(_run())
+
+    @patch("smplkit.flags.client.gen_list_context_types.asyncio_detailed")
+    def test_list_context_types_network_error(self, mock_list):
+        mock_list.side_effect = httpx.TimeoutException("timeout")
+
+        async def _run():
+            client = _make_async_flags_client()
+            with pytest.raises(SmplTimeoutError):
+                await client.list_context_types()
+
+        asyncio.run(_run())
+
+    @patch("smplkit.flags.client.gen_delete_context_type.asyncio_detailed")
+    def test_delete_context_type_network_error(self, mock_delete):
+        mock_delete.side_effect = httpx.TimeoutException("timeout")
+
+        async def _run():
+            client = _make_async_flags_client()
+            with pytest.raises(SmplTimeoutError):
+                await client.delete_context_type(_TEST_UUID)
+
+        asyncio.run(_run())
+
+    @patch("smplkit.flags.client.gen_list_contexts.asyncio_detailed")
+    def test_list_contexts_network_error(self, mock_list):
+        mock_list.side_effect = httpx.TimeoutException("timeout")
+
+        async def _run():
+            client = _make_async_flags_client()
+            with pytest.raises(SmplTimeoutError):
+                await client.list_contexts(context_type_key="user")
+
+        asyncio.run(_run())
+
+    # Non-network errors propagate as-is (bare raise path)
+
+    @patch("smplkit.flags.client.gen_create_context_type.asyncio_detailed")
+    def test_create_context_type_other_error(self, mock_create):
+        mock_create.side_effect = RuntimeError("boom")
+
+        async def _run():
+            client = _make_async_flags_client()
+            with pytest.raises(RuntimeError, match="boom"):
+                await client.create_context_type("user", name="User")
+
+        asyncio.run(_run())
+
+    @patch("smplkit.flags.client.gen_update_context_type.asyncio_detailed")
+    def test_update_context_type_other_error(self, mock_update):
+        mock_update.side_effect = RuntimeError("boom")
+
+        async def _run():
+            client = _make_async_flags_client()
+            with pytest.raises(RuntimeError, match="boom"):
+                await client.update_context_type(_TEST_UUID, attributes={})
+
+        asyncio.run(_run())
+
+    @patch("smplkit.flags.client.gen_list_context_types.asyncio_detailed")
+    def test_list_context_types_other_error(self, mock_list):
+        mock_list.side_effect = RuntimeError("boom")
+
+        async def _run():
+            client = _make_async_flags_client()
+            with pytest.raises(RuntimeError, match="boom"):
+                await client.list_context_types()
+
+        asyncio.run(_run())
+
+    @patch("smplkit.flags.client.gen_delete_context_type.asyncio_detailed")
+    def test_delete_context_type_other_error(self, mock_delete):
+        mock_delete.side_effect = RuntimeError("boom")
+
+        async def _run():
+            client = _make_async_flags_client()
+            with pytest.raises(RuntimeError, match="boom"):
+                await client.delete_context_type(_TEST_UUID)
+
+        asyncio.run(_run())
+
+    @patch("smplkit.flags.client.gen_list_contexts.asyncio_detailed")
+    def test_list_contexts_other_error(self, mock_list):
+        mock_list.side_effect = RuntimeError("boom")
+
+        async def _run():
+            client = _make_async_flags_client()
+            with pytest.raises(RuntimeError, match="boom"):
+                await client.list_contexts(context_type_key="user")
+
+        asyncio.run(_run())
+
+    # parsed=None paths
+
+    @patch("smplkit.flags.client.gen_create_context_type.asyncio_detailed")
+    def test_create_context_type_parsed_none(self, mock_create):
+        mock_create.return_value = _ok_response(parsed=None)
+
+        async def _run():
+            client = _make_async_flags_client()
+            with pytest.raises(SmplValidationError):
+                await client.create_context_type("user", name="User")
+
+        asyncio.run(_run())
+
+    @patch("smplkit.flags.client.gen_update_context_type.asyncio_detailed")
+    def test_update_context_type_parsed_none(self, mock_update):
+        mock_update.return_value = _ok_response(parsed=None)
+
+        async def _run():
+            client = _make_async_flags_client()
+            with pytest.raises(SmplValidationError):
+                await client.update_context_type(_TEST_UUID, attributes={})
+
+        asyncio.run(_run())
+
+    @patch("smplkit.flags.client.gen_list_context_types.asyncio_detailed")
+    def test_list_context_types_parsed_none(self, mock_list):
+        mock_list.return_value = _ok_response(parsed=None)
+
+        async def _run():
+            client = _make_async_flags_client()
+            with pytest.raises(SmplValidationError):
+                await client.list_context_types()
+
+        asyncio.run(_run())
+
+    @patch("smplkit.flags.client.gen_list_contexts.asyncio_detailed")
+    def test_list_contexts_parsed_none(self, mock_list):
+        mock_list.return_value = _ok_response(parsed=None)
+
+        async def _run():
+            client = _make_async_flags_client()
+            result = await client.list_contexts(context_type_key="user")
+            assert result == []
 
         asyncio.run(_run())
 
@@ -1452,9 +1761,11 @@ class TestAsyncFlagsClientLifecycle:
 
         asyncio.run(_run())
 
+    @patch("smplkit.flags.client.gen_bulk_register_contexts.asyncio_detailed")
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
-    def test_disconnect_with_ws(self, mock_list):
+    def test_disconnect_with_ws(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_bulk.return_value = _ok_response()
 
         async def _run():
             client = _make_async_flags_client()
@@ -1463,8 +1774,6 @@ class TestAsyncFlagsClientLifecycle:
             client._parent._ensure_ws.return_value = mock_ws
             await client._connect_internal()
 
-            mock_post = _setup_async_httpx_mock(client, "post")
-            mock_post.return_value = _mock_httpx_response()
             await client.disconnect()
 
             assert client._connected is False
@@ -1473,10 +1782,12 @@ class TestAsyncFlagsClientLifecycle:
 
         asyncio.run(_run())
 
-    def test_disconnect_without_ws(self):
+    @patch("smplkit.flags.client.gen_bulk_register_contexts.asyncio_detailed")
+    def test_disconnect_without_ws(self, mock_bulk):
+        mock_bulk.return_value = _ok_response()
+
         async def _run():
             client = _make_async_flags_client()
-            _setup_async_httpx_mock(client, "post")
             await client.disconnect()
             assert client._connected is False
 
@@ -1521,56 +1832,58 @@ class TestAsyncFlagsClientLifecycle:
 
 
 class TestAsyncFlagsClientFlush:
-    def test_flush_with_pending(self):
+    @patch("smplkit.flags.client.gen_bulk_register_contexts.asyncio_detailed")
+    def test_flush_with_pending(self, mock_bulk):
+        mock_bulk.return_value = _ok_response()
+
         async def _run():
             client = _make_async_flags_client()
             client.register(Context("user", "u-1", plan="enterprise"))
-            mock_post = _setup_async_httpx_mock(client, "post")
-            mock_post.return_value = _mock_httpx_response()
             await client.flush_contexts()
-            mock_post.assert_called_once()
+            mock_bulk.assert_called_once()
 
         asyncio.run(_run())
 
-    def test_flush_empty_batch(self):
+    @patch("smplkit.flags.client.gen_bulk_register_contexts.asyncio_detailed")
+    def test_flush_empty_batch(self, mock_bulk):
         async def _run():
             client = _make_async_flags_client()
-            mock_post = _setup_async_httpx_mock(client, "post")
             await client.flush_contexts()
-            mock_post.assert_not_called()
+            mock_bulk.assert_not_called()
 
         asyncio.run(_run())
 
-    def test_flush_exception_swallowed(self):
+    @patch("smplkit.flags.client.gen_bulk_register_contexts.asyncio_detailed")
+    def test_flush_exception_swallowed(self, mock_bulk):
+        mock_bulk.side_effect = httpx.ConnectError("fail")
+
         async def _run():
             client = _make_async_flags_client()
             client.register(Context("user", "u-1"))
-            mock_post = _setup_async_httpx_mock(client, "post")
-            mock_post.side_effect = httpx.ConnectError("fail")
             await client.flush_contexts()  # Should not raise
 
         asyncio.run(_run())
 
-    def test_flush_contexts_bg(self):
+    @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
+    def test_flush_contexts_bg(self, mock_bulk):
         """_flush_contexts_bg does a sync POST from background thread."""
+        mock_bulk.return_value = _ok_response()
         client = _make_async_flags_client()
         client.register(Context("user", "u-1"))
-        mock_post = _setup_httpx_mock(client, "post")  # sync httpx
-        mock_post.return_value = _mock_httpx_response()
         client._flush_contexts_bg()
-        mock_post.assert_called_once()
+        mock_bulk.assert_called_once()
 
-    def test_flush_contexts_bg_empty(self):
+    @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
+    def test_flush_contexts_bg_empty(self, mock_bulk):
         client = _make_async_flags_client()
-        mock_post = _setup_httpx_mock(client, "post")
         client._flush_contexts_bg()
-        mock_post.assert_not_called()
+        mock_bulk.assert_not_called()
 
-    def test_flush_contexts_bg_exception_swallowed(self):
+    @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
+    def test_flush_contexts_bg_exception_swallowed(self, mock_bulk):
+        mock_bulk.side_effect = httpx.ConnectError("fail")
         client = _make_async_flags_client()
         client.register(Context("user", "u-1"))
-        mock_post = _setup_httpx_mock(client, "post")
-        mock_post.side_effect = httpx.ConnectError("fail")
         client._flush_contexts_bg()  # Should not raise
 
 
@@ -1825,10 +2138,11 @@ class TestAsyncFlagsClientInternals:
         assert isinstance(result, AsyncFlag)
         assert result.id == _TEST_UUID
 
-    def test_parse_context_type(self):
-        client = _make_async_flags_client()
-        data = {"id": "ct-1", "attributes": {"key": "user", "name": "User", "attributes": {"plan": {}}}}
-        ct = client._parse_context_type(data)
+    def test_parse_gen_context_type_response(self):
+        from smplkit.flags.client import _parse_gen_context_type_response
+
+        parsed = _parsed_ct_response(id="ct-1", key="user", name="User")
+        ct = _parse_gen_context_type_response(parsed)
         assert ct.key == "user"
 
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")

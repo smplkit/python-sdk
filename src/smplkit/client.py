@@ -6,6 +6,10 @@ import logging
 import os
 
 from smplkit._errors import SmplError
+from smplkit._generated.app.api.contexts import bulk_register_contexts as gen_bulk_register_contexts
+from smplkit._generated.app.models.context_bulk_item import ContextBulkItem
+from smplkit._generated.app.models.context_bulk_item_attributes import ContextBulkItemAttributes
+from smplkit._generated.app.models.context_bulk_register import ContextBulkRegister
 from smplkit._generated.config.client import AuthenticatedClient
 from smplkit._resolve import _resolve_api_key
 from smplkit._ws import SharedWebSocket
@@ -123,18 +127,11 @@ class SmplClient:
     def _register_service_context(self) -> None:
         """Register the service as a context instance on the app service."""
         try:
-            self._app_http.get_httpx_client().post(
-                "/api/v1/contexts/bulk",
-                json={
-                    "contexts": [
-                        {
-                            "type": "service",
-                            "key": self._service,
-                            "attributes": {"name": self._service},
-                        }
-                    ]
-                },
-            )
+            attrs = ContextBulkItemAttributes()
+            attrs.additional_properties = {"name": self._service}
+            item = ContextBulkItem(type_="service", key=self._service, attributes=attrs)
+            body = ContextBulkRegister(contexts=[item])
+            gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         except Exception:
             logger.warning("Failed to register service context", exc_info=True)
 
@@ -253,18 +250,11 @@ class AsyncSmplClient:
     async def _register_service_context(self) -> None:
         """Register the service as a context instance on the app service."""
         try:
-            await self._app_http.get_async_httpx_client().post(
-                "/api/v1/contexts/bulk",
-                json={
-                    "contexts": [
-                        {
-                            "type": "service",
-                            "key": self._service,
-                            "attributes": {"name": self._service},
-                        }
-                    ]
-                },
-            )
+            attrs = ContextBulkItemAttributes()
+            attrs.additional_properties = {"name": self._service}
+            item = ContextBulkItem(type_="service", key=self._service, attributes=attrs)
+            body = ContextBulkRegister(contexts=[item])
+            await gen_bulk_register_contexts.asyncio_detailed(client=self._app_http, body=body)
         except Exception:
             logger.warning("Failed to register service context", exc_info=True)
 

@@ -17,6 +17,23 @@ from smplkit._errors import (
     SmplTimeoutError,
     SmplValidationError,
 )
+from smplkit._generated.app.api.context_types import (
+    create_context_type as gen_create_context_type,
+    delete_context_type as gen_delete_context_type,
+    list_context_types as gen_list_context_types,
+    update_context_type as gen_update_context_type,
+)
+from smplkit._generated.app.api.contexts import (
+    bulk_register_contexts as gen_bulk_register_contexts,
+    list_contexts as gen_list_contexts,
+)
+from smplkit._generated.app.models.context_bulk_item import ContextBulkItem
+from smplkit._generated.app.models.context_bulk_item_attributes import ContextBulkItemAttributes
+from smplkit._generated.app.models.context_bulk_register import ContextBulkRegister
+from smplkit._generated.app.models.context_type import ContextType as GenContextType
+from smplkit._generated.app.models.context_type_attributes import ContextTypeAttributes
+from smplkit._generated.app.models.context_type_resource import ContextTypeResource
+from smplkit._generated.app.models.context_type_response import ContextTypeResponse as GenContextTypeResponse
 from smplkit._generated.flags.api.flags import (
     create_flag,
     delete_flag,
@@ -540,47 +557,74 @@ class FlagsClient:
         return self._to_model(response.parsed)
 
     # ------------------------------------------------------------------
-    # Context type management (direct HTTP — no generated client)
+    # Context type management (via generated app client)
     # ------------------------------------------------------------------
 
     def create_context_type(self, key: str, *, name: str) -> ContextType:
         """Create a context type."""
-        resp = self._app_http.get_httpx_client().post(
-            "/api/v1/context_types",
-            json={"data": {"type": "context_type", "attributes": {"key": key, "name": name}}},
-        )
-        _check_response_status(resp.status_code, resp.content)
-        data = resp.json().get("data", {})
-        return self._parse_context_type(data)
+        body = _build_context_type_body(key=key, name=name)
+        try:
+            response = gen_create_context_type.sync_detailed(client=self._app_http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise SmplValidationError("Failed to create context type")
+        return _parse_gen_context_type_response(response.parsed)
 
     def update_context_type(self, ct_id: str, *, attributes: dict[str, Any]) -> ContextType:
         """Update a context type (merge attributes)."""
-        resp = self._app_http.get_httpx_client().put(
-            f"/api/v1/context_types/{ct_id}",
-            json={"data": {"type": "context_type", "attributes": {"attributes": attributes}}},
-        )
-        _check_response_status(resp.status_code, resp.content)
-        data = resp.json().get("data", {})
-        return self._parse_context_type(data)
+        from uuid import UUID
+
+        body = _build_context_type_update_body(attributes=attributes)
+        try:
+            response = gen_update_context_type.sync_detailed(UUID(ct_id), client=self._app_http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise SmplValidationError("Failed to update context type")
+        return _parse_gen_context_type_response(response.parsed)
 
     def list_context_types(self) -> list[ContextType]:
         """List all context types."""
-        resp = self._app_http.get_httpx_client().get("/api/v1/context_types")
-        _check_response_status(resp.status_code, resp.content)
-        items = resp.json().get("data", [])
-        return [self._parse_context_type(item) for item in items]
+        try:
+            response = gen_list_context_types.sync_detailed(client=self._app_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise SmplValidationError("Failed to list context types")
+        return [_parse_gen_context_type_resource(r) for r in response.parsed.data]
 
     def delete_context_type(self, ct_id: str) -> None:
         """Delete a context type."""
-        resp = self._app_http.get_httpx_client().delete(f"/api/v1/context_types/{ct_id}")
-        _check_response_status(resp.status_code, resp.content)
+        from uuid import UUID
+
+        try:
+            response = gen_delete_context_type.sync_detailed(UUID(ct_id), client=self._app_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
 
     def list_contexts(self, *, context_type_key: str) -> list[dict[str, Any]]:
         """List context instances filtered by context_type_key."""
-        params = {"filter[context_type]": context_type_key}
-        resp = self._app_http.get_httpx_client().get("/api/v1/contexts", params=params)
-        _check_response_status(resp.status_code, resp.content)
-        return resp.json().get("data", [])
+        try:
+            response = gen_list_contexts.sync_detailed(
+                client=self._app_http,
+                filtercontext_type_id=context_type_key,
+            )
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            return []
+        return [r.to_dict() for r in response.parsed.data]
 
     # ------------------------------------------------------------------
     # Runtime: typed flag handles
@@ -701,10 +745,8 @@ class FlagsClient:
         if not batch:
             return
         try:
-            self._app_http.get_httpx_client().post(
-                "/api/v1/contexts/bulk",
-                json={"contexts": batch},
-            )
+            body = _build_bulk_register_body(batch)
+            gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         except Exception:
             logger.debug("Context registration flush failed", exc_info=True)
 
@@ -1020,47 +1062,74 @@ class AsyncFlagsClient:
         return self._to_model(response.parsed)
 
     # ------------------------------------------------------------------
-    # Context type management (async, direct HTTP)
+    # Context type management (async, via generated app client)
     # ------------------------------------------------------------------
 
     async def create_context_type(self, key: str, *, name: str) -> ContextType:
         """Create a context type."""
-        resp = await self._app_http.get_async_httpx_client().post(
-            "/api/v1/context_types",
-            json={"data": {"type": "context_type", "attributes": {"key": key, "name": name}}},
-        )
-        _check_response_status(resp.status_code, resp.content)
-        data = resp.json().get("data", {})
-        return self._parse_context_type(data)
+        body = _build_context_type_body(key=key, name=name)
+        try:
+            response = await gen_create_context_type.asyncio_detailed(client=self._app_http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise SmplValidationError("Failed to create context type")
+        return _parse_gen_context_type_response(response.parsed)
 
     async def update_context_type(self, ct_id: str, *, attributes: dict[str, Any]) -> ContextType:
         """Update a context type (merge attributes)."""
-        resp = await self._app_http.get_async_httpx_client().put(
-            f"/api/v1/context_types/{ct_id}",
-            json={"data": {"type": "context_type", "attributes": {"attributes": attributes}}},
-        )
-        _check_response_status(resp.status_code, resp.content)
-        data = resp.json().get("data", {})
-        return self._parse_context_type(data)
+        from uuid import UUID
+
+        body = _build_context_type_update_body(attributes=attributes)
+        try:
+            response = await gen_update_context_type.asyncio_detailed(UUID(ct_id), client=self._app_http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise SmplValidationError("Failed to update context type")
+        return _parse_gen_context_type_response(response.parsed)
 
     async def list_context_types(self) -> list[ContextType]:
         """List all context types."""
-        resp = await self._app_http.get_async_httpx_client().get("/api/v1/context_types")
-        _check_response_status(resp.status_code, resp.content)
-        items = resp.json().get("data", [])
-        return [self._parse_context_type(item) for item in items]
+        try:
+            response = await gen_list_context_types.asyncio_detailed(client=self._app_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise SmplValidationError("Failed to list context types")
+        return [_parse_gen_context_type_resource(r) for r in response.parsed.data]
 
     async def delete_context_type(self, ct_id: str) -> None:
         """Delete a context type."""
-        resp = await self._app_http.get_async_httpx_client().delete(f"/api/v1/context_types/{ct_id}")
-        _check_response_status(resp.status_code, resp.content)
+        from uuid import UUID
+
+        try:
+            response = await gen_delete_context_type.asyncio_detailed(UUID(ct_id), client=self._app_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
 
     async def list_contexts(self, *, context_type_key: str) -> list[dict[str, Any]]:
         """List context instances filtered by context_type_key."""
-        params = {"filter[context_type]": context_type_key}
-        resp = await self._app_http.get_async_httpx_client().get("/api/v1/contexts", params=params)
-        _check_response_status(resp.status_code, resp.content)
-        return resp.json().get("data", [])
+        try:
+            response = await gen_list_contexts.asyncio_detailed(
+                client=self._app_http,
+                filtercontext_type_id=context_type_key,
+            )
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            return []
+        return [r.to_dict() for r in response.parsed.data]
 
     # ------------------------------------------------------------------
     # Runtime: typed flag handles
@@ -1181,10 +1250,8 @@ class AsyncFlagsClient:
         if not batch:
             return
         try:
-            await self._app_http.get_async_httpx_client().post(
-                "/api/v1/contexts/bulk",
-                json={"contexts": batch},
-            )
+            body = _build_bulk_register_body(batch)
+            await gen_bulk_register_contexts.asyncio_detailed(client=self._app_http, body=body)
         except Exception:
             logger.debug("Context registration flush failed", exc_info=True)
 
@@ -1264,10 +1331,8 @@ class AsyncFlagsClient:
         if not batch:
             return
         try:
-            self._app_http.get_httpx_client().post(
-                "/api/v1/contexts/bulk",
-                json={"contexts": batch},
-            )
+            body = _build_bulk_register_body(batch)
+            gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         except Exception:
             logger.debug("Context registration flush failed", exc_info=True)
 
@@ -1400,22 +1465,64 @@ class AsyncFlagsClient:
             updated_at=_unset_to_none(getattr(attrs, "updated_at", None)),
         )
 
-    # ------------------------------------------------------------------
-    # Shared helper for context type parsing
-    # ------------------------------------------------------------------
-
-    def _parse_context_type(self, data: dict[str, Any]) -> ContextType:
-        attrs = data.get("attributes", {})
-        return ContextType(
-            id=data.get("id", ""),
-            key=attrs.get("key", ""),
-            name=attrs.get("name", ""),
-            attributes=attrs.get("attributes") or {},
-        )
+    pass  # end of AsyncFlagsClient
 
 
-# Also add the method to the sync client
-FlagsClient._parse_context_type = AsyncFlagsClient._parse_context_type  # type: ignore[attr-defined]
+# ---------------------------------------------------------------------------
+# Helpers: generated app client body builders / response parsers
+# ---------------------------------------------------------------------------
+
+
+def _build_context_type_body(*, key: str, name: str) -> GenContextTypeResponse:
+    """Build a ContextTypeResponse body for create."""
+    attrs = GenContextType(key=key, name=name)
+    resource = ContextTypeResource(type_="context_type", attributes=attrs)
+    return GenContextTypeResponse(data=resource)
+
+
+def _build_context_type_update_body(*, attributes: dict[str, Any]) -> GenContextTypeResponse:
+    """Build a ContextTypeResponse body for update (merge attributes)."""
+    ct_attrs = ContextTypeAttributes()
+    ct_attrs.additional_properties = dict(attributes)
+    # Use a dummy key/name; the server ignores them on PATCH/PUT updates.
+    attrs = GenContextType(key="", name="", attributes=ct_attrs)
+    resource = ContextTypeResource(type_="context_type", attributes=attrs)
+    return GenContextTypeResponse(data=resource)
+
+
+def _parse_gen_context_type_response(parsed: Any) -> ContextType:
+    """Convert a generated ContextTypeResponse to the SDK ContextType model."""
+    return _parse_gen_context_type_resource(parsed.data)
+
+
+def _parse_gen_context_type_resource(resource: Any) -> ContextType:
+    """Convert a generated ContextTypeResource to the SDK ContextType model."""
+    from smplkit._generated.app.types import Unset
+
+    attrs = resource.attributes
+    ct_attributes: dict[str, Any] = {}
+    if hasattr(attrs, "attributes") and not isinstance(attrs.attributes, Unset):
+        ct_attributes = attrs.attributes.to_dict() if hasattr(attrs.attributes, "to_dict") else dict(attrs.attributes)
+    return ContextType(
+        id=resource.id if not isinstance(resource.id, Unset) else "",
+        key=attrs.key,
+        name=attrs.name,
+        attributes=ct_attributes,
+    )
+
+
+def _build_bulk_register_body(batch: list[dict[str, Any]]) -> ContextBulkRegister:
+    """Convert a list of context dicts to a ContextBulkRegister model."""
+    items: list[ContextBulkItem] = []
+    for ctx in batch:
+        item_attrs_dict = ctx.get("attributes")
+        if item_attrs_dict:
+            item_attrs = ContextBulkItemAttributes()
+            item_attrs.additional_properties = dict(item_attrs_dict)
+            items.append(ContextBulkItem(type_=ctx["type"], key=ctx["key"], attributes=item_attrs))
+        else:
+            items.append(ContextBulkItem(type_=ctx["type"], key=ctx["key"]))
+    return ContextBulkRegister(contexts=items)
 
 
 # ---------------------------------------------------------------------------

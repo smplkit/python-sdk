@@ -1,7 +1,7 @@
 """Basic tests for SDK client initialization."""
 
 import asyncio
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from smplkit import AsyncSmplClient, SmplClient
 from smplkit._ws import SharedWebSocket
@@ -158,24 +158,21 @@ def test_connect_idempotent():
     mock_flags.assert_called_once()
 
 
-def test_connect_registers_service():
+@patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
+def test_connect_registers_service(mock_bulk):
     """connect() registers service context when service is set."""
-    from unittest.mock import MagicMock
+    mock_bulk.return_value = MagicMock()
 
     client = SmplClient(api_key="sk_api_test", environment="test", service="my-svc")
-    mock_app_http = MagicMock()
-    client._app_http = mock_app_http
 
     with patch.object(client.flags, "_connect_internal"), patch.object(client.config, "_connect_internal"):
         client.connect()
 
-    mock_httpx = mock_app_http.get_httpx_client.return_value
-    mock_httpx.post.assert_called_once()
-    call_args = mock_httpx.post.call_args
-    assert call_args[0][0] == "/api/v1/contexts/bulk"
-    payload = call_args[1]["json"]
-    assert payload["contexts"][0]["type"] == "service"
-    assert payload["contexts"][0]["key"] == "my-svc"
+    mock_bulk.assert_called_once()
+    _, kwargs = mock_bulk.call_args
+    body = kwargs["body"]
+    assert body.contexts[0].type_ == "service"
+    assert body.contexts[0].key == "my-svc"
 
 
 def test_connect_no_service_skips_registration():
@@ -190,14 +187,12 @@ def test_connect_no_service_skips_registration():
     mock_reg.assert_not_called()
 
 
-def test_connect_service_registration_failure_is_swallowed():
+@patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
+def test_connect_service_registration_failure_is_swallowed(mock_bulk):
     """connect() succeeds even if service registration fails."""
-    from unittest.mock import MagicMock
+    mock_bulk.side_effect = Exception("network error")
 
     client = SmplClient(api_key="sk_api_test", environment="test", service="my-svc")
-    mock_app_http = MagicMock()
-    mock_app_http.get_httpx_client.return_value.post.side_effect = Exception("network error")
-    client._app_http = mock_app_http
 
     with patch.object(client.flags, "_connect_internal"), patch.object(client.config, "_connect_internal"):
         client.connect()  # Should not raise
@@ -239,15 +234,14 @@ def test_async_connect_idempotent():
     asyncio.run(_run())
 
 
-def test_async_connect_registers_service():
+@patch("smplkit.client.gen_bulk_register_contexts.asyncio_detailed")
+def test_async_connect_registers_service(mock_bulk):
+    mock_bulk.return_value = MagicMock()
+
     async def _run():
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import AsyncMock
 
         client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
-        mock_app_http = MagicMock()
-        mock_post = AsyncMock(return_value=None)
-        mock_app_http.get_async_httpx_client.return_value.post = mock_post
-        client._app_http = mock_app_http
 
         with (
             patch.object(client.flags, "_connect_internal", new_callable=AsyncMock),
@@ -255,24 +249,23 @@ def test_async_connect_registers_service():
         ):
             await client.connect()
 
-        mock_post.assert_called_once()
-        call_args = mock_post.call_args
-        assert call_args[0][0] == "/api/v1/contexts/bulk"
-        payload = call_args[1]["json"]
-        assert payload["contexts"][0]["type"] == "service"
-        assert payload["contexts"][0]["key"] == "my-svc"
+        mock_bulk.assert_called_once()
+        _, kwargs = mock_bulk.call_args
+        body = kwargs["body"]
+        assert body.contexts[0].type_ == "service"
+        assert body.contexts[0].key == "my-svc"
 
     asyncio.run(_run())
 
 
-def test_async_connect_service_failure_swallowed():
+@patch("smplkit.client.gen_bulk_register_contexts.asyncio_detailed")
+def test_async_connect_service_failure_swallowed(mock_bulk):
+    mock_bulk.side_effect = Exception("network error")
+
     async def _run():
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import AsyncMock
 
         client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
-        mock_app_http = MagicMock()
-        mock_app_http.get_async_httpx_client.return_value.post = AsyncMock(side_effect=Exception("network error"))
-        client._app_http = mock_app_http
 
         with (
             patch.object(client.flags, "_connect_internal", new_callable=AsyncMock),
