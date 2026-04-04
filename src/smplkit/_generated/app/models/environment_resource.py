@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -6,9 +8,9 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.environment_resource_type import check_environment_resource_type
+from ..models.environment_resource_type import EnvironmentResourceType
 from typing import cast
-from typing import Union
-from typing import Literal
 
 if TYPE_CHECKING:
     from ..models.environment import Environment
@@ -26,23 +28,23 @@ class EnvironmentResource:
             'environment'}
 
     Attributes:
-        type_ (Literal['environment']):
+        type_ (EnvironmentResourceType):
         attributes (Environment):  Example: {'color': '#2ecc71', 'created_at': '2026-03-20T11:02:16.616Z', 'key':
             'production', 'name': 'Production', 'updated_at': '2026-03-20T11:02:16.616Z'}.
-        id (Union[None, Unset, str]):
+        id (None | str | Unset):
     """
 
-    type_: Literal["environment"]
-    attributes: "Environment"
-    id: Union[None, Unset, str] = UNSET
+    type_: EnvironmentResourceType
+    attributes: Environment
+    id: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        type_ = self.type_
+        type_: str = self.type_
 
         attributes = self.attributes.to_dict()
 
-        id: Union[None, Unset, str]
+        id: None | str | Unset
         if isinstance(self.id, Unset):
             id = UNSET
         else:
@@ -66,18 +68,16 @@ class EnvironmentResource:
         from ..models.environment import Environment
 
         d = dict(src_dict)
-        type_ = cast(Literal["environment"], d.pop("type"))
-        if type_ != "environment":
-            raise ValueError(f"type must match const 'environment', got '{type_}'")
+        type_ = check_environment_resource_type(d.pop("type"))
 
         attributes = Environment.from_dict(d.pop("attributes"))
 
-        def _parse_id(data: object) -> Union[None, Unset, str]:
+        def _parse_id(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         id = _parse_id(d.pop("id", UNSET))
 

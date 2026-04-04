@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -16,7 +18,7 @@ T = TypeVar("T", bound="ProductPlans")
 class ProductPlans:
     """ """
 
-    additional_properties: dict[str, "PlanDefinition"] = _attrs_field(init=False, factory=dict)
+    additional_properties: dict[str, PlanDefinition] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
 
@@ -46,10 +48,10 @@ class ProductPlans:
     def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
-    def __getitem__(self, key: str) -> "PlanDefinition":
+    def __getitem__(self, key: str) -> PlanDefinition:
         return self.additional_properties[key]
 
-    def __setitem__(self, key: str, value: "PlanDefinition") -> None:
+    def __setitem__(self, key: str, value: PlanDefinition) -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:
