@@ -202,6 +202,10 @@ async def main() -> None:
     # runtime reflects the change instantly. In production, WebSocket
     # events trigger this automatically — no manual refresh() needed.
     #
+    # The management API uses GET-mutate-save: fetch the object (or
+    # use one you already have), set properties, call save() to PUT
+    # the full object.
+    #
     # ======================================================================
 
     # ------------------------------------------------------------------
@@ -212,10 +216,8 @@ async def main() -> None:
     db_group = demo["groups"][0]
     step(f"sqlalchemy.engine before: {python_level_name('sqlalchemy.engine')}")
 
-    await client.logging.update_group(
-        db_group.id,
-        environments={ENVIRONMENT: {"level": "DEBUG"}},
-    )
+    db_group.environments = {ENVIRONMENT: {"level": "DEBUG"}}
+    await db_group.save()
     step(f"Changed databases group {ENVIRONMENT} override: WARN → DEBUG")
 
     await client.logging.refresh()
@@ -232,10 +234,8 @@ async def main() -> None:
     app_lg = demo["loggers"][0]
     step(f"app.payments before: {python_level_name('app.payments')}")
 
-    await client.logging.update(
-        app_lg.id,
-        environments={ENVIRONMENT: {"level": "TRACE"}},
-    )
+    app_lg.environments = {ENVIRONMENT: {"level": "TRACE"}}
+    await app_lg.save()
     step(f"Changed app {ENVIRONMENT} override: ERROR → TRACE")
 
     await client.logging.refresh()
@@ -252,7 +252,8 @@ async def main() -> None:
 
     step(f"app before: {python_level_name('app')}")
 
-    await client.logging.update(app_lg.id, environments={})
+    app_lg.environments = {}
+    await app_lg.save()
     step("Cleared all env overrides on app")
 
     await client.logging.refresh()

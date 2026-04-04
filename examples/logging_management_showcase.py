@@ -174,14 +174,21 @@ async def main() -> None:
     # ======================================================================
     # 4. DIRECT LEVEL CONTROL
     # ======================================================================
+    #
+    # Smplkit uses complete-replace semantics for all PUT operations.
+    # The SDK model is GET-mutate-save: fetch the current state (or
+    # use the object you already have), set properties, then call
+    # save() to PUT the full object.
+    #
+    # ======================================================================
 
     # ------------------------------------------------------------------
     # 4a. Set a base level
     # ------------------------------------------------------------------
     section("4a. Set Base Level")
 
-    await client.logging.update(sqla_lg.id, level="ERROR")
-    sqla_lg = await client.logging.get(sqla_lg.id)
+    sqla_lg.level = "ERROR"
+    await sqla_lg.save()
     step(f"Set sqlalchemy.engine base level → {sqla_lg.level}")
 
     # ------------------------------------------------------------------
@@ -189,14 +196,11 @@ async def main() -> None:
     # ------------------------------------------------------------------
     section("4b. Set Environment Overrides")
 
-    await client.logging.update(
-        app_lg.id,
-        environments={
-            "production": {"level": "ERROR"},
-            "staging": {"level": "DEBUG"},
-        },
-    )
-    app_lg = await client.logging.get(app_lg.id)
+    app_lg.environments = {
+        "production": {"level": "ERROR"},
+        "staging": {"level": "DEBUG"},
+    }
+    await app_lg.save()
     step(f"Set app environment overrides: {app_lg.environments}")
     step("  production → ERROR, staging → DEBUG, other envs → base (WARN)")
 
@@ -205,20 +209,17 @@ async def main() -> None:
     # ------------------------------------------------------------------
     section("4c. Clear Level — Restore Inheritance")
 
-    # Passing level=None explicitly clears the logger's base level
-    # back to NULL. This is distinct from omitting the parameter
-    # entirely (which preserves the existing value).
-    #
-    # With level=NULL, the logger inherits from its group,
-    # dot-notation ancestor, or the system default (INFO).
-    await client.logging.update(sqla_lg.id, level=None)
-    sqla_lg = await client.logging.get(sqla_lg.id)
+    # Setting level to None sends null in the PUT, which the server
+    # stores as NULL. With no explicit level, the logger inherits from
+    # its group, dot-notation ancestor, or the system default (INFO).
+    sqla_lg.level = None
+    await sqla_lg.save()
     step(f"Cleared sqlalchemy.engine level → {sqla_lg.level or '(null)'}")
     step("  Now inherits from group, dot-notation ancestor, or system default")
 
-    # Clear env overrides by sending an empty dict.
-    await client.logging.update(app_lg.id, environments={})
-    app_lg = await client.logging.get(app_lg.id)
+    # Clear env overrides by setting to an empty dict.
+    app_lg.environments = {}
+    await app_lg.save()
     step(f"Cleared app env overrides → {app_lg.environments}")
 
     # ======================================================================
@@ -272,11 +273,9 @@ async def main() -> None:
     # ------------------------------------------------------------------
     section("5d. Update a Log Group")
 
-    http_group = await client.logging.update_group(
-        http_group.id,
-        level="DEBUG",
-        environments={"production": {"level": "WARN"}},
-    )
+    http_group.level = "DEBUG"
+    http_group.environments = {"production": {"level": "WARN"}}
+    await http_group.save()
     step(f"Updated {http_group.key}: level={http_group.level}, "
          f"envs={http_group.environments}")
 
@@ -285,21 +284,22 @@ async def main() -> None:
     # ======================================================================
     section("6. Group Assignment")
 
-    # Assign a logger to a group via update.
-    await client.logging.update(sqla_lg.id, group=db_group.id)
-    sqla_lg = await client.logging.get(sqla_lg.id)
+    # Assign a logger to a group.
+    sqla_lg.group = db_group.id
+    await sqla_lg.save()
     step(f"Assigned sqlalchemy.engine → group '{db_group.key}'")
     step(f"  group={sqla_lg.group}")
     step("  Managed state unchanged — group assignment does not affect managed status")
 
-    # Unassign by clearing group to null.
-    await client.logging.update(sqla_lg.id, group=None)
-    sqla_lg = await client.logging.get(sqla_lg.id)
+    # Unassign by setting group to None.
+    sqla_lg.group = None
+    await sqla_lg.save()
     step(f"\nUnassigned sqlalchemy.engine from group")
     step(f"  group={sqla_lg.group or '(null)'}")
 
     # Re-assign for the remaining demo.
-    await client.logging.update(sqla_lg.id, group=db_group.id)
+    sqla_lg.group = db_group.id
+    await sqla_lg.save()
     step(f"Re-assigned sqlalchemy.engine → group '{db_group.key}'")
 
     # ======================================================================
@@ -317,8 +317,11 @@ async def main() -> None:
     step(f"Before: key={sqla_lg.key}, managed={sqla_lg.managed}, "
          f"level={sqla_lg.level or '(null)'}, group={sqla_lg.group}")
 
-    await client.logging.update(sqla_lg.id, managed=False)
-    sqla_lg = await client.logging.get(sqla_lg.id)
+    sqla_lg.managed = False
+    await sqla_lg.save()
+    # The server clears level, environments, and group on release.
+    # save() updates this object in place from the server response,
+    # so sqla_lg now reflects the cleared state.
     step("Released sqlalchemy.engine → unmanaged")
     step(f"After: managed={sqla_lg.managed}, level={sqla_lg.level or '(null)'}, "
          f"group={sqla_lg.group or '(null)'}, environments={sqla_lg.environments}")
@@ -326,8 +329,8 @@ async def main() -> None:
 
     section("7b. Re-Promote a Logger")
 
-    await client.logging.update(sqla_lg.id, managed=True)
-    sqla_lg = await client.logging.get(sqla_lg.id)
+    sqla_lg.managed = True
+    await sqla_lg.save()
     step(f"Re-promoted: managed={sqla_lg.managed}")
     step("  Starts fresh with level=NULL — admin configures from here")
 
@@ -348,14 +351,20 @@ async def main() -> None:
     #
     #     # Management API (no connect() needed)
     #     loggers = client.logging.list()
-    #     client.logging.update(logger_id, managed=True)
+    #     logger = client.logging.get(logger_id)
+    #     logger.managed = True
+    #     logger.save()
+    #
     #     group = client.logging.create_group(
     #         "sql", name="SQL Loggers", level="WARN",
     #     )
-    #     client.logging.update(logger_id, group=group.id)
-    #     client.logging.update(logger_id, managed=False)  # release
-    #     client.logging.delete_group(group.id)
+    #     logger.group = group.id
+    #     logger.save()
     #
+    #     logger.managed = False  # release
+    #     logger.save()
+    #
+    #     client.logging.delete_group(group.id)
     #     client.close()
 
     step("(See code comments for sync usage examples)")
