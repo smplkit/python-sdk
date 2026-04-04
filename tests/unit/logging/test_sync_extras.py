@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from smplkit._errors import SmplNotFoundError, SmplValidationError
-from smplkit.logging.client import LoggingClient
+from smplkit.logging.client import LoggingClient, SmplLogGroup, SmplLogger
 
 
 _TEST_UUID = "550e8400-e29b-41d4-a716-446655440000"
@@ -213,30 +213,20 @@ class TestSyncErrorPaths:
             client.get_group(_TEST_UUID)
 
     @patch("smplkit.logging.client.update_logger.sync_detailed")
-    @patch("smplkit.logging.client.get_logger.sync_detailed")
-    def test_update_null_parsed(self, mock_get, mock_update):
-        attrs = _make_logger_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_get.return_value = _ok_response(parsed)
+    def test_save_logger_null_parsed(self, mock_update):
         mock_update.return_value = _ok_response(None)
-
         client = _make_logging_client()
+        lg = SmplLogger(client, id=_TEST_UUID, key="sql", name="SQL Logger")
         with pytest.raises(SmplValidationError):
-            client.update(_TEST_UUID, level="ERROR")
+            client._save_logger(lg)
 
     @patch("smplkit.logging.client.update_log_group.sync_detailed")
-    @patch("smplkit.logging.client.get_log_group.sync_detailed")
-    def test_update_group_null_parsed(self, mock_get, mock_update):
-        attrs = _make_group_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_get.return_value = _ok_response(parsed)
+    def test_save_group_null_parsed(self, mock_update):
         mock_update.return_value = _ok_response(None)
-
         client = _make_logging_client()
+        grp = SmplLogGroup(client, id=_TEST_UUID, key="db-loggers", name="DB Loggers")
         with pytest.raises(SmplValidationError):
-            client.update_group(_TEST_UUID, level="ERROR")
+            client._save_group(grp)
 
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     def test_list_empty_parsed(self, mock_list):

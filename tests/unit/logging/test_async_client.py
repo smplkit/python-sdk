@@ -12,8 +12,8 @@ import pytest
 from smplkit._errors import SmplNotFoundError, SmplValidationError
 from smplkit.logging.client import (
     AsyncLoggingClient,
-    SmplLogGroup,
-    SmplLogger,
+    AsyncSmplLogGroup,
+    AsyncSmplLogger,
 )
 
 
@@ -90,23 +90,28 @@ def _make_async_logging_client(**kwargs):
 # --- Logger CRUD ---
 
 
-class TestAsyncLoggerUpdate:
+class TestAsyncLoggerSave:
     @patch("smplkit.logging.client.update_logger.asyncio_detailed")
-    @patch("smplkit.logging.client.get_logger.asyncio_detailed")
-    def test_update(self, mock_get, mock_update):
-        attrs = _make_logger_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_get.return_value = _ok_response(parsed)
-
+    def test_save(self, mock_update):
         updated_attrs = _make_logger_attrs(level="ERROR")
         updated_resource = _make_resource(updated_attrs)
         updated_parsed = _make_parsed(updated_resource)
         mock_update.return_value = _ok_response(updated_parsed)
 
         client = _make_async_logging_client()
-        result = asyncio.run(client.update(_TEST_UUID, level="ERROR"))
-        assert isinstance(result, SmplLogger)
+        logger = AsyncSmplLogger(
+            client,
+            id=_TEST_UUID,
+            key="sql",
+            name="SQL Logger",
+            level="DEBUG",
+            managed=True,
+        )
+        logger.level = "ERROR"
+        asyncio.run(logger.save())
+
+        mock_update.assert_called_once()
+        assert logger.level == "ERROR"
 
 
 # --- Log Group CRUD ---
@@ -122,26 +127,30 @@ class TestAsyncLogGroupGet:
 
         client = _make_async_logging_client()
         result = asyncio.run(client.get_group(_TEST_UUID))
-        assert isinstance(result, SmplLogGroup)
+        assert isinstance(result, AsyncSmplLogGroup)
 
 
-class TestAsyncLogGroupUpdate:
+class TestAsyncLogGroupSave:
     @patch("smplkit.logging.client.update_log_group.asyncio_detailed")
-    @patch("smplkit.logging.client.get_log_group.asyncio_detailed")
-    def test_update_group(self, mock_get, mock_update):
-        attrs = _make_group_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_get.return_value = _ok_response(parsed)
-
+    def test_save_group(self, mock_update):
         updated_attrs = _make_group_attrs(level="ERROR")
         updated_resource = _make_resource(updated_attrs)
         updated_parsed = _make_parsed(updated_resource)
         mock_update.return_value = _ok_response(updated_parsed)
 
         client = _make_async_logging_client()
-        result = asyncio.run(client.update_group(_TEST_UUID, level="ERROR"))
-        assert isinstance(result, SmplLogGroup)
+        group = AsyncSmplLogGroup(
+            client,
+            id=_TEST_UUID,
+            key="db-loggers",
+            name="DB Loggers",
+            level="WARN",
+        )
+        group.level = "ERROR"
+        asyncio.run(group.save())
+
+        mock_update.assert_called_once()
+        assert group.level == "ERROR"
 
 
 class TestAsyncLogGroupDelete:
@@ -450,30 +459,35 @@ class TestAsyncErrorPaths:
             asyncio.run(client.get_group(_TEST_UUID))
 
     @patch("smplkit.logging.client.update_logger.asyncio_detailed")
-    @patch("smplkit.logging.client.get_logger.asyncio_detailed")
-    def test_update_validation_error(self, mock_get, mock_update):
-        attrs = _make_logger_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_get.return_value = _ok_response(parsed)
+    def test_save_logger_validation_error(self, mock_update):
         mock_update.return_value = _ok_response(None)
 
         client = _make_async_logging_client()
+        logger = AsyncSmplLogger(
+            client,
+            id=_TEST_UUID,
+            key="sql",
+            name="SQL Logger",
+            level="ERROR",
+            managed=True,
+        )
         with pytest.raises(SmplValidationError):
-            asyncio.run(client.update(_TEST_UUID, level="ERROR"))
+            asyncio.run(logger.save())
 
     @patch("smplkit.logging.client.update_log_group.asyncio_detailed")
-    @patch("smplkit.logging.client.get_log_group.asyncio_detailed")
-    def test_update_group_validation_error(self, mock_get, mock_update):
-        attrs = _make_group_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_get.return_value = _ok_response(parsed)
+    def test_save_group_validation_error(self, mock_update):
         mock_update.return_value = _ok_response(None)
 
         client = _make_async_logging_client()
+        group = AsyncSmplLogGroup(
+            client,
+            id=_TEST_UUID,
+            key="db-loggers",
+            name="DB Loggers",
+            level="ERROR",
+        )
         with pytest.raises(SmplValidationError):
-            asyncio.run(client.update_group(_TEST_UUID, level="ERROR"))
+            asyncio.run(group.save())
 
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
     def test_list_empty_parsed(self, mock_list):

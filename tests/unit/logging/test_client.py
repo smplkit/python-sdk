@@ -12,6 +12,8 @@ import pytest
 from smplkit._errors import SmplNotConnectedError, SmplNotFoundError, SmplValidationError
 from smplkit.logging.client import (
     AsyncLoggingClient,
+    AsyncSmplLogGroup,
+    AsyncSmplLogger,
     LoggingClient,
     SmplLogGroup,
     SmplLogger,
@@ -147,21 +149,34 @@ class TestLoggerCRUD:
         assert result.id == _TEST_UUID
 
     @patch("smplkit.logging.client.update_logger.sync_detailed")
-    @patch("smplkit.logging.client.get_logger.sync_detailed")
-    def test_update(self, mock_get, mock_update):
-        attrs = _make_logger_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_get.return_value = _ok_response(parsed)
-
+    def test_save(self, mock_update):
         updated_attrs = _make_logger_attrs(level="ERROR")
         updated_resource = _make_resource(updated_attrs)
         updated_parsed = _make_parsed(updated_resource)
         mock_update.return_value = _ok_response(updated_parsed)
 
         client = _make_logging_client()
-        result = client.update(_TEST_UUID, level="ERROR")
-        assert isinstance(result, SmplLogger)
+        lg = SmplLogger(
+            client,
+            id=_TEST_UUID,
+            key="sql",
+            name="SQL Logger",
+            level="DEBUG",
+            managed=True,
+            group=None,
+            environments={},
+        )
+        lg.level = "ERROR"
+        lg.save()
+
+        mock_update.assert_called_once()
+        body = mock_update.call_args.kwargs["body"]
+        body_attrs = body.data.attributes
+        assert body_attrs.name == "SQL Logger"
+        assert body_attrs.key == "sql"
+        assert body_attrs.level == "ERROR"
+        assert body_attrs.managed is True
+        assert body_attrs.group is None
 
     @patch("smplkit.logging.client.delete_logger.sync_detailed")
     def test_delete(self, mock_delete):
@@ -213,21 +228,32 @@ class TestLogGroupCRUD:
         assert isinstance(result, SmplLogGroup)
 
     @patch("smplkit.logging.client.update_log_group.sync_detailed")
-    @patch("smplkit.logging.client.get_log_group.sync_detailed")
-    def test_update_group(self, mock_get, mock_update):
-        attrs = _make_group_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_get.return_value = _ok_response(parsed)
-
+    def test_save_group(self, mock_update):
         updated_attrs = _make_group_attrs(level="ERROR")
         updated_resource = _make_resource(updated_attrs)
         updated_parsed = _make_parsed(updated_resource)
         mock_update.return_value = _ok_response(updated_parsed)
 
         client = _make_logging_client()
-        result = client.update_group(_TEST_UUID, level="ERROR")
-        assert isinstance(result, SmplLogGroup)
+        grp = SmplLogGroup(
+            client,
+            id=_TEST_UUID,
+            key="db-loggers",
+            name="DB Loggers",
+            level="WARN",
+            group=None,
+            environments={},
+        )
+        grp.level = "ERROR"
+        grp.save()
+
+        mock_update.assert_called_once()
+        body = mock_update.call_args.kwargs["body"]
+        body_attrs = body.data.attributes
+        assert body_attrs.name == "DB Loggers"
+        assert body_attrs.key == "db-loggers"
+        assert body_attrs.level == "ERROR"
+        assert body_attrs.group is None
 
     @patch("smplkit.logging.client.delete_log_group.sync_detailed")
     def test_delete_group(self, mock_delete):
@@ -236,6 +262,292 @@ class TestLogGroupCRUD:
         client = _make_logging_client()
         client.delete_group(_TEST_UUID)
         mock_delete.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Logger save() edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestLoggerSave:
+    @patch("smplkit.logging.client.update_logger.sync_detailed")
+    def test_save_sends_all_fields(self, mock_update):
+        """save() sends a full-replace PUT with every field present."""
+        attrs = _make_logger_attrs(key="sql", name="SQL Logger", level="DEBUG", managed=True)
+        resource = _make_resource(attrs)
+        parsed = _make_parsed(resource)
+        mock_update.return_value = _ok_response(parsed)
+
+        client = _make_logging_client()
+        lg = SmplLogger(
+            client,
+            id=_TEST_UUID,
+            key="sql",
+            name="SQL Logger",
+            level="DEBUG",
+            managed=True,
+            group=None,
+            environments={"prod": {"level": "WARN"}},
+        )
+        lg.save()
+
+        body = mock_update.call_args.kwargs["body"]
+        body_attrs = body.data.attributes
+        assert body_attrs.name == "SQL Logger"
+        assert body_attrs.key == "sql"
+        assert body_attrs.level == "DEBUG"
+        assert body_attrs.managed is True
+        assert body_attrs.group is None
+
+    @patch("smplkit.logging.client.update_logger.sync_detailed")
+    def test_save_with_level_none(self, mock_update):
+        """save() with level=None sends null in the PUT body."""
+        attrs = _make_logger_attrs(level=None)
+        resource = _make_resource(attrs)
+        parsed = _make_parsed(resource)
+        mock_update.return_value = _ok_response(parsed)
+
+        client = _make_logging_client()
+        lg = SmplLogger(
+            client,
+            id=_TEST_UUID,
+            key="sql",
+            name="SQL Logger",
+            level=None,
+            managed=True,
+            group=None,
+            environments={},
+        )
+        lg.save()
+
+        body = mock_update.call_args.kwargs["body"]
+        assert body.data.attributes.level is None
+
+    @patch("smplkit.logging.client.update_logger.sync_detailed")
+    def test_save_with_group_none(self, mock_update):
+        """save() with group=None sends null in the PUT body."""
+        attrs = _make_logger_attrs(group=None)
+        resource = _make_resource(attrs)
+        parsed = _make_parsed(resource)
+        mock_update.return_value = _ok_response(parsed)
+
+        client = _make_logging_client()
+        lg = SmplLogger(
+            client,
+            id=_TEST_UUID,
+            key="sql",
+            name="SQL Logger",
+            level="DEBUG",
+            managed=True,
+            group=None,
+            environments={},
+        )
+        lg.save()
+
+        body = mock_update.call_args.kwargs["body"]
+        assert body.data.attributes.group is None
+
+    @patch("smplkit.logging.client.update_logger.sync_detailed")
+    def test_save_with_managed_false(self, mock_update):
+        """save() with managed=False sends false in the PUT body."""
+        attrs = _make_logger_attrs(managed=False)
+        resource = _make_resource(attrs)
+        parsed = _make_parsed(resource)
+        mock_update.return_value = _ok_response(parsed)
+
+        client = _make_logging_client()
+        lg = SmplLogger(
+            client,
+            id=_TEST_UUID,
+            key="sql",
+            name="SQL Logger",
+            level="DEBUG",
+            managed=False,
+            group=None,
+            environments={},
+        )
+        lg.save()
+
+        body = mock_update.call_args.kwargs["body"]
+        assert body.data.attributes.managed is False
+
+    @patch("smplkit.logging.client.update_logger.sync_detailed")
+    def test_save_updates_self_in_place(self, mock_update):
+        """After save(), properties on the model reflect the server response."""
+        response_attrs = _make_logger_attrs(key="sql", name="SQL Logger v2", level="ERROR", managed=True)
+        response_resource = _make_resource(response_attrs)
+        response_parsed = _make_parsed(response_resource)
+        mock_update.return_value = _ok_response(response_parsed)
+
+        client = _make_logging_client()
+        lg = SmplLogger(
+            client,
+            id=_TEST_UUID,
+            key="sql",
+            name="SQL Logger",
+            level="DEBUG",
+            managed=True,
+            group=None,
+            environments={},
+        )
+        lg.level = "ERROR"
+        lg.save()
+
+        assert lg.name == "SQL Logger v2"
+        assert lg.level == "ERROR"
+        assert lg.id == _TEST_UUID
+
+
+# ---------------------------------------------------------------------------
+# Logger create() managed parameter
+# ---------------------------------------------------------------------------
+
+
+class TestLoggerCreateManaged:
+    @patch("smplkit.logging.client.create_logger.sync_detailed")
+    def test_create_with_managed_true(self, mock_create):
+        attrs = _make_logger_attrs(managed=True)
+        resource = _make_resource(attrs)
+        parsed = _make_parsed(resource)
+        mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
+
+        client = _make_logging_client()
+        client.create("sql", name="SQL Logger", managed=True)
+
+        body = mock_create.call_args.kwargs["body"]
+        assert body.data.attributes.managed is True
+
+    @patch("smplkit.logging.client.create_logger.sync_detailed")
+    def test_create_with_managed_false(self, mock_create):
+        attrs = _make_logger_attrs(managed=False)
+        resource = _make_resource(attrs)
+        parsed = _make_parsed(resource)
+        mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
+
+        client = _make_logging_client()
+        client.create("sql", name="SQL Logger", managed=False)
+
+        body = mock_create.call_args.kwargs["body"]
+        assert body.data.attributes.managed is False
+
+    @patch("smplkit.logging.client.create_logger.sync_detailed")
+    def test_create_default_managed(self, mock_create):
+        """When managed is not specified, it defaults to False."""
+        attrs = _make_logger_attrs(managed=False)
+        resource = _make_resource(attrs)
+        parsed = _make_parsed(resource)
+        mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
+
+        client = _make_logging_client()
+        client.create("sql", name="SQL Logger")
+
+        body = mock_create.call_args.kwargs["body"]
+        assert body.data.attributes.managed is False
+
+
+# ---------------------------------------------------------------------------
+# Group save() edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestGroupSave:
+    @patch("smplkit.logging.client.update_log_group.sync_detailed")
+    def test_save_sends_all_fields(self, mock_update):
+        """save() sends a full-replace PUT with every field present."""
+        attrs = _make_group_attrs(key="db-loggers", name="DB Loggers", level="WARN")
+        resource = _make_resource(attrs)
+        parsed = _make_parsed(resource)
+        mock_update.return_value = _ok_response(parsed)
+
+        client = _make_logging_client()
+        grp = SmplLogGroup(
+            client,
+            id=_TEST_UUID,
+            key="db-loggers",
+            name="DB Loggers",
+            level="WARN",
+            group=None,
+            environments={"prod": {"level": "ERROR"}},
+        )
+        grp.save()
+
+        body = mock_update.call_args.kwargs["body"]
+        body_attrs = body.data.attributes
+        assert body_attrs.name == "DB Loggers"
+        assert body_attrs.key == "db-loggers"
+        assert body_attrs.level == "WARN"
+        assert body_attrs.group is None
+
+    @patch("smplkit.logging.client.update_log_group.sync_detailed")
+    def test_save_with_level_none(self, mock_update):
+        """save() with level=None sends null in the PUT body."""
+        attrs = _make_group_attrs(level=None)
+        resource = _make_resource(attrs)
+        parsed = _make_parsed(resource)
+        mock_update.return_value = _ok_response(parsed)
+
+        client = _make_logging_client()
+        grp = SmplLogGroup(
+            client,
+            id=_TEST_UUID,
+            key="db-loggers",
+            name="DB Loggers",
+            level=None,
+            group=None,
+            environments={},
+        )
+        grp.save()
+
+        body = mock_update.call_args.kwargs["body"]
+        assert body.data.attributes.level is None
+
+    @patch("smplkit.logging.client.update_log_group.sync_detailed")
+    def test_save_with_group_none(self, mock_update):
+        """save() with group=None sends null in the PUT body."""
+        attrs = _make_group_attrs(group=None)
+        resource = _make_resource(attrs)
+        parsed = _make_parsed(resource)
+        mock_update.return_value = _ok_response(parsed)
+
+        client = _make_logging_client()
+        grp = SmplLogGroup(
+            client,
+            id=_TEST_UUID,
+            key="db-loggers",
+            name="DB Loggers",
+            level="WARN",
+            group=None,
+            environments={},
+        )
+        grp.save()
+
+        body = mock_update.call_args.kwargs["body"]
+        assert body.data.attributes.group is None
+
+    @patch("smplkit.logging.client.update_log_group.sync_detailed")
+    def test_save_updates_self_in_place(self, mock_update):
+        """After save(), properties on the model reflect the server response."""
+        response_attrs = _make_group_attrs(key="db-loggers", name="DB Loggers v2", level="ERROR")
+        response_resource = _make_resource(response_attrs)
+        response_parsed = _make_parsed(response_resource)
+        mock_update.return_value = _ok_response(response_parsed)
+
+        client = _make_logging_client()
+        grp = SmplLogGroup(
+            client,
+            id=_TEST_UUID,
+            key="db-loggers",
+            name="DB Loggers",
+            level="WARN",
+            group=None,
+            environments={},
+        )
+        grp.level = "ERROR"
+        grp.save()
+
+        assert grp.name == "DB Loggers v2"
+        assert grp.level == "ERROR"
+        assert grp.id == _TEST_UUID
 
 
 # ---------------------------------------------------------------------------
@@ -525,7 +837,7 @@ class TestAsyncLoggerCRUD:
 
         client = _make_async_logging_client()
         result = asyncio.run(client.create("sql", name="SQL Logger"))
-        assert isinstance(result, SmplLogger)
+        assert isinstance(result, AsyncSmplLogger)
 
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
     def test_list(self, mock_list):
@@ -546,7 +858,7 @@ class TestAsyncLoggerCRUD:
 
         client = _make_async_logging_client()
         result = asyncio.run(client.get(_TEST_UUID))
-        assert isinstance(result, SmplLogger)
+        assert isinstance(result, AsyncSmplLogger)
 
     @patch("smplkit.logging.client.delete_logger.asyncio_detailed")
     def test_delete(self, mock_delete):
@@ -567,7 +879,7 @@ class TestAsyncLogGroupCRUD:
 
         client = _make_async_logging_client()
         result = asyncio.run(client.create_group("db-loggers", name="DB Loggers"))
-        assert isinstance(result, SmplLogGroup)
+        assert isinstance(result, AsyncSmplLogGroup)
 
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     def test_list_groups(self, mock_list):

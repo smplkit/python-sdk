@@ -10,7 +10,14 @@ import httpx
 import pytest
 
 from smplkit._errors import SmplConnectionError
-from smplkit.logging.client import AsyncLoggingClient, LoggingClient
+from smplkit.logging.client import (
+    AsyncLoggingClient,
+    AsyncSmplLogGroup,
+    AsyncSmplLogger,
+    LoggingClient,
+    SmplLogGroup,
+    SmplLogger,
+)
 
 
 _TEST_UUID = "550e8400-e29b-41d4-a716-446655440000"
@@ -114,24 +121,13 @@ class TestSyncBareRaise:
         with pytest.raises(RuntimeError, match="boom"):
             client.get(_TEST_UUID)
 
-    @patch("smplkit.logging.client.get_logger.sync_detailed")
-    def test_update_get_unknown_error(self, mock):
-        mock.side_effect = RuntimeError("boom")
-        client = _make_sync_client()
-        with pytest.raises(RuntimeError, match="boom"):
-            client.update(_TEST_UUID, level="ERROR")
-
     @patch("smplkit.logging.client.update_logger.sync_detailed")
-    @patch("smplkit.logging.client.get_logger.sync_detailed")
-    def test_update_put_unknown_error(self, mock_get, mock_update):
-        attrs = _make_logger_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_get.return_value = _ok_response(parsed)
+    def test_save_logger_unknown_error(self, mock_update):
         mock_update.side_effect = RuntimeError("boom")
         client = _make_sync_client()
+        lg = SmplLogger(client, id=_TEST_UUID, key="sql", name="SQL Logger")
         with pytest.raises(RuntimeError, match="boom"):
-            client.update(_TEST_UUID, level="ERROR")
+            client._save_logger(lg)
 
     @patch("smplkit.logging.client.delete_logger.sync_detailed")
     def test_delete_unknown_error(self, mock):
@@ -161,24 +157,13 @@ class TestSyncBareRaise:
         with pytest.raises(RuntimeError, match="boom"):
             client.get_group(_TEST_UUID)
 
-    @patch("smplkit.logging.client.get_log_group.sync_detailed")
-    def test_update_group_get_unknown_error(self, mock):
-        mock.side_effect = RuntimeError("boom")
-        client = _make_sync_client()
-        with pytest.raises(RuntimeError, match="boom"):
-            client.update_group(_TEST_UUID, level="ERROR")
-
     @patch("smplkit.logging.client.update_log_group.sync_detailed")
-    @patch("smplkit.logging.client.get_log_group.sync_detailed")
-    def test_update_group_put_unknown_error(self, mock_get, mock_update):
-        attrs = _make_group_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_get.return_value = _ok_response(parsed)
+    def test_save_group_unknown_error(self, mock_update):
         mock_update.side_effect = RuntimeError("boom")
         client = _make_sync_client()
+        grp = SmplLogGroup(client, id=_TEST_UUID, key="db", name="DB")
         with pytest.raises(RuntimeError, match="boom"):
-            client.update_group(_TEST_UUID, level="ERROR")
+            client._save_group(grp)
 
     @patch("smplkit.logging.client.delete_log_group.sync_detailed")
     def test_delete_group_unknown_error(self, mock):
@@ -247,43 +232,21 @@ class TestAsyncBareRaise:
         with pytest.raises(RuntimeError, match="boom"):
             asyncio.run(client.delete_group(_TEST_UUID))
 
-    @patch("smplkit.logging.client.get_logger.asyncio_detailed")
-    def test_update_get_unknown_error(self, mock):
-        mock.side_effect = RuntimeError("boom")
-        client = _make_async_client()
-        with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(client.update(_TEST_UUID, level="ERROR"))
-
     @patch("smplkit.logging.client.update_logger.asyncio_detailed")
-    @patch("smplkit.logging.client.get_logger.asyncio_detailed")
-    def test_update_put_unknown_error(self, mock_get, mock_update):
-        attrs = _make_logger_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_get.return_value = _ok_response(parsed)
+    def test_save_logger_unknown_error(self, mock_update):
         mock_update.side_effect = RuntimeError("boom")
         client = _make_async_client()
+        lg = AsyncSmplLogger(client, id=_TEST_UUID, key="sql", name="SQL Logger")
         with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(client.update(_TEST_UUID, level="ERROR"))
-
-    @patch("smplkit.logging.client.get_log_group.asyncio_detailed")
-    def test_update_group_get_unknown_error(self, mock):
-        mock.side_effect = RuntimeError("boom")
-        client = _make_async_client()
-        with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(client.update_group(_TEST_UUID, level="ERROR"))
+            asyncio.run(client._save_logger(lg))
 
     @patch("smplkit.logging.client.update_log_group.asyncio_detailed")
-    @patch("smplkit.logging.client.get_log_group.asyncio_detailed")
-    def test_update_group_put_unknown_error(self, mock_get, mock_update):
-        attrs = _make_group_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_get.return_value = _ok_response(parsed)
+    def test_save_group_unknown_error(self, mock_update):
         mock_update.side_effect = RuntimeError("boom")
         client = _make_async_client()
+        grp = AsyncSmplLogGroup(client, id=_TEST_UUID, key="db", name="DB")
         with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(client.update_group(_TEST_UUID, level="ERROR"))
+            asyncio.run(client._save_group(grp))
 
 
 # ---------------------------------------------------------------------------

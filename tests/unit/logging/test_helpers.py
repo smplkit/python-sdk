@@ -189,11 +189,11 @@ class TestBuildGroupBody:
 
 class TestSmplLoggerRepr:
     def test_repr(self):
-        lg = SmplLogger(id="1", key="sql", name="SQL Logger")
+        lg = SmplLogger(None, id="1", key="sql", name="SQL Logger")
         assert "sql" in repr(lg)
 
 
 class TestSmplLogGroupRepr:
     def test_repr(self):
-        grp = SmplLogGroup(id="1", key="db", name="DB Loggers")
+        grp = SmplLogGroup(None, id="1", key="db", name="DB Loggers")
         assert "db" in repr(grp)

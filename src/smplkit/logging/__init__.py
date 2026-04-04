@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from smplkit.logging.client import (
     AsyncLoggingClient,
+    AsyncSmplLogGroup,
+    AsyncSmplLogger,
     LoggingClient,
     SmplLogGroup,
     SmplLogger,
@@ -11,6 +13,8 @@ from smplkit.logging.client import (
 
 __all__ = [
     "AsyncLoggingClient",
+    "AsyncSmplLogGroup",
+    "AsyncSmplLogger",
     "LoggingClient",
     "SmplLogGroup",
     "SmplLogger",
