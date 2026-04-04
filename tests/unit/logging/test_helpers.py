@@ -18,6 +18,8 @@ from smplkit.logging.client import (
     _build_logger_body,
     _build_group_body,
     _maybe_reraise_network_error,
+    AsyncSmplLogGroup,
+    AsyncSmplLogger,
     SmplLogger,
     SmplLogGroup,
 )
@@ -196,4 +198,16 @@ class TestSmplLoggerRepr:
 class TestSmplLogGroupRepr:
     def test_repr(self):
         grp = SmplLogGroup(None, id="1", key="db", name="DB Loggers")
+        assert "db" in repr(grp)
+
+
+class TestAsyncSmplLoggerRepr:
+    def test_repr(self):
+        lg = AsyncSmplLogger(None, id="1", key="sql", name="SQL Logger")
+        assert "sql" in repr(lg)
+
+
+class TestAsyncSmplLogGroupRepr:
+    def test_repr(self):
+        grp = AsyncSmplLogGroup(None, id="1", key="db", name="DB Loggers")
         assert "db" in repr(grp)
