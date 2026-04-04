@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar
 
@@ -5,11 +7,11 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-T = TypeVar("T", bound="ErrorSourceType0")
+T = TypeVar("T", bound="ErrorSource")
 
 
 @_attrs_define
-class ErrorSourceType0:
+class ErrorSource:
     """ """
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -24,10 +26,10 @@ class ErrorSourceType0:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        error_source_type_0 = cls()
+        error_source = cls()
 
-        error_source_type_0.additional_properties = d
-        return error_source_type_0
+        error_source.additional_properties = d
+        return error_source
 
     @property
     def additional_keys(self) -> list[str]:
