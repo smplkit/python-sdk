@@ -488,8 +488,12 @@ class LoggingClient:
     ) -> SmplLogger:
         """Create a logger."""
         body = _build_logger_body(
-            name=name, key=key, level=level, group=group,
-            managed=managed, environments=environments,
+            name=name,
+            key=key,
+            level=level,
+            group=group,
+            managed=managed,
+            environments=environments,
         )
         try:
             response = create_logger.sync_detailed(client=self._logging_http, body=body)
@@ -850,8 +854,12 @@ class AsyncLoggingClient:
     ) -> AsyncSmplLogger:
         """Create a logger."""
         body = _build_logger_body(
-            name=name, key=key, level=level, group=group,
-            managed=managed, environments=environments,
+            name=name,
+            key=key,
+            level=level,
+            group=group,
+            managed=managed,
+            environments=environments,
         )
         try:
             response = await create_logger.asyncio_detailed(client=self._logging_http, body=body)
