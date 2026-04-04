@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -6,9 +8,9 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.plan_resource_type import check_plan_resource_type
+from ..models.plan_resource_type import PlanResourceType
 from typing import cast
-from typing import Union
-from typing import Literal
 
 if TYPE_CHECKING:
     from ..models.plan import Plan
@@ -21,22 +23,22 @@ T = TypeVar("T", bound="PlanResource")
 class PlanResource:
     """
     Attributes:
-        type_ (Literal['plan']):
+        type_ (PlanResourceType):
         attributes (Plan):
-        id (Union[None, Unset, str]):
+        id (None | str | Unset):
     """
 
-    type_: Literal["plan"]
-    attributes: "Plan"
-    id: Union[None, Unset, str] = UNSET
+    type_: PlanResourceType
+    attributes: Plan
+    id: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        type_ = self.type_
+        type_: str = self.type_
 
         attributes = self.attributes.to_dict()
 
-        id: Union[None, Unset, str]
+        id: None | str | Unset
         if isinstance(self.id, Unset):
             id = UNSET
         else:
@@ -60,18 +62,16 @@ class PlanResource:
         from ..models.plan import Plan
 
         d = dict(src_dict)
-        type_ = cast(Literal["plan"], d.pop("type"))
-        if type_ != "plan":
-            raise ValueError(f"type must match const 'plan', got '{type_}'")
+        type_ = check_plan_resource_type(d.pop("type"))
 
         attributes = Plan.from_dict(d.pop("attributes"))
 
-        def _parse_id(data: object) -> Union[None, Unset, str]:
+        def _parse_id(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         id = _parse_id(d.pop("id", UNSET))
 
