@@ -20,21 +20,18 @@ reacting to changes.
 
 Prerequisites:
     - ``pip install smplkit-sdk``
-    - A valid smplkit API key (set via ``SMPLKIT_API_KEY`` env var)
+    - A valid smplkit API key, provided via one of:
+        - ``SMPLKIT_API_KEY`` environment variable
+        - ``~/.smplkit`` configuration file (see SDK docs)
     - The smplkit Logging service running and reachable
 
 Usage::
 
-    export SMPLKIT_API_KEY="sk_api_..."
-    export SMPLKIT_ENVIRONMENT="production"
-    export SMPLKIT_SERVICE="showcase-service"
     python examples/logging_runtime_showcase.py
 """
 
 import asyncio
 import logging as stdlib_logging
-import os
-import sys
 
 from smplkit import AsyncSmplClient
 
@@ -42,19 +39,6 @@ from smplkit import AsyncSmplClient
 # showcase can run standalone. In a real app, loggers are auto-discovered
 # and promoted to managed via the Console UI.
 from logging_runtime_setup import setup_demo_loggers, teardown_demo_loggers
-
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
-API_KEY = os.environ.get("SMPLKIT_API_KEY", "")
-ENVIRONMENT = os.environ.get("SMPLKIT_ENVIRONMENT", "production")
-SERVICE = os.environ.get("SMPLKIT_SERVICE", "showcase-service")
-
-if not API_KEY:
-    print("ERROR: Set the SMPLKIT_API_KEY environment variable before running.")
-    print("  export SMPLKIT_API_KEY='sk_api_...'")
-    sys.exit(1)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -103,12 +87,31 @@ async def main() -> None:
     # ======================================================================
     section("1. SDK Initialization")
 
+    # The SmplClient constructor resolves three required parameters:
+    #
+    #   api_key     — not passed here; resolved automatically from the
+    #                 SMPLKIT_API_KEY environment variable or the
+    #                 ~/.smplkit configuration file.
+    #
+    #   environment — the target environment. Can also be resolved from
+    #                 SMPLKIT_ENVIRONMENT if not passed.
+    #
+    #   service     — identifies this SDK instance. Can also be resolved
+    #                 from SMPLKIT_SERVICE if not passed.
+    #
+    # To pass the API key explicitly:
+    #
+    #   client = AsyncSmplClient(
+    #       "sk_api_...",
+    #       environment="production",
+    #       service="showcase-service",
+    #   )
+    #
     client = AsyncSmplClient(
-        API_KEY,
-        environment=ENVIRONMENT,
-        service=SERVICE,
+        environment="production",
+        service="showcase-service",
     )
-    step(f"AsyncSmplClient initialized (environment={ENVIRONMENT}, service={SERVICE})")
+    step("AsyncSmplClient initialized (environment=production, service=showcase-service)")
 
     # Create server-side state (normally done via Console UI).
     print("  Setting up demo loggers and groups...")

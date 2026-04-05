@@ -19,33 +19,19 @@ accessors, change listeners), see ``config_runtime_showcase.py``.
 
 Prerequisites:
     - ``pip install smplkit-sdk``
-    - A valid smplkit API key (set via ``SMPLKIT_API_KEY`` env var)
+    - A valid smplkit API key, provided via one of:
+        - ``SMPLKIT_API_KEY`` environment variable
+        - ``~/.smplkit`` configuration file (see SDK docs)
     - The smplkit Config service running and reachable
 
 Usage::
 
-    export SMPLKIT_API_KEY="sk_api_..."
-    export SMPLKIT_ENVIRONMENT="production"
     python examples/config_management_showcase.py
 """
 
 import asyncio
-import os
-import sys
 
 from smplkit import AsyncSmplClient
-
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
-API_KEY = os.environ.get("SMPLKIT_API_KEY", "")
-ENVIRONMENT = os.environ.get("SMPLKIT_ENVIRONMENT", "production")
-
-if not API_KEY:
-    print("ERROR: Set the SMPLKIT_API_KEY environment variable before running.")
-    print("  export SMPLKIT_API_KEY='sk_api_...'")
-    sys.exit(1)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -71,10 +57,33 @@ async def main() -> None:
     # ======================================================================
     section("1. SDK Initialization")
 
+    # The SmplClient constructor resolves three required parameters:
+    #
+    #   api_key     — not passed here; resolved automatically from the
+    #                 SMPLKIT_API_KEY environment variable or the
+    #                 ~/.smplkit configuration file.
+    #
+    #   environment — the target environment. Can also be resolved from
+    #                 SMPLKIT_ENVIRONMENT if not passed.
+    #
+    #   service     — identifies this SDK instance. Can also be resolved
+    #                 from SMPLKIT_SERVICE if not passed.
+    #
+    # To pass the API key explicitly:
+    #
+    #   client = AsyncSmplClient(
+    #       "sk_api_...",
+    #       environment="production",
+    #       service="showcase-service",
+    #   )
+    #
     # Management operations do not require connect() — they are
     # stateless API calls.
-    client = AsyncSmplClient(API_KEY, environment=ENVIRONMENT)
-    step(f"AsyncSmplClient initialized (environment={ENVIRONMENT})")
+    client = AsyncSmplClient(
+        environment="production",
+        service="showcase-service",
+    )
+    step("AsyncSmplClient initialized (environment=production)")
 
     # ======================================================================
     # 2. UPDATE THE BUILT-IN COMMON CONFIG
@@ -224,7 +233,7 @@ async def main() -> None:
     #
     #     from smplkit import SmplClient
     #
-    #     client = SmplClient("sk_api_...", environment="production")
+    #     client = SmplClient(environment="production", service="my-service")
     #
     #     # Management API (no connect() needed)
     #     common = client.config.get(key="common")

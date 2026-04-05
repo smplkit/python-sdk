@@ -12,7 +12,9 @@ Runnable examples demonstrating the [smplkit Python SDK](https://github.com/smpl
    pip install smplkit-sdk
    ```
 
-2. A valid smplkit API key (create one in the [smplkit console](https://app.smplkit.com)).
+2. A valid smplkit API key, provided via one of:
+   - `SMPLKIT_API_KEY` environment variable
+   - `~/.smplkit` configuration file (see SDK docs)
 3. At least one config created in your smplkit account (every account comes with a `common` config by default).
 
 ## Config Showcase
@@ -33,7 +35,6 @@ An end-to-end walkthrough of the Smpl Config SDK covering:
 ### Running
 
 ```bash
-export SMPLKIT_API_KEY="sk_api_..."
 python examples/config_showcase.py
 ```
 

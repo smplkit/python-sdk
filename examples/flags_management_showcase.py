@@ -25,32 +25,20 @@ evaluating them, context providers, caching, live updates), see
 
 Prerequisites:
     - ``pip install smplkit-sdk``
-    - A valid smplkit API key (set via ``SMPLKIT_API_KEY`` env var)
+    - A valid smplkit API key, provided via one of:
+        - ``SMPLKIT_API_KEY`` environment variable
+        - ``~/.smplkit`` configuration file (see SDK docs)
     - The smplkit Flags service running and reachable
     - At least two environments configured (e.g., ``staging``, ``production``)
 
 Usage::
 
-    export SMPLKIT_API_KEY="sk_api_..."
     python examples/flags_management_showcase.py
 """
 
 import asyncio
-import os
-import sys
 
 from smplkit import AsyncSmplClient, FlagType, Rule
-
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
-API_KEY = os.environ.get("SMPLKIT_API_KEY", "")
-
-if not API_KEY:
-    print("ERROR: Set the SMPLKIT_API_KEY environment variable before running.")
-    print("  export SMPLKIT_API_KEY='sk_api_...'")
-    sys.exit(1)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -76,7 +64,30 @@ async def main() -> None:
     # ======================================================================
     section("1. SDK Initialization")
 
-    client = AsyncSmplClient(API_KEY)
+    # The SmplClient constructor resolves three required parameters:
+    #
+    #   api_key     — not passed here; resolved automatically from the
+    #                 SMPLKIT_API_KEY environment variable or the
+    #                 ~/.smplkit configuration file.
+    #
+    #   environment — the target environment. Can also be resolved from
+    #                 SMPLKIT_ENVIRONMENT if not passed.
+    #
+    #   service     — identifies this SDK instance. Can also be resolved
+    #                 from SMPLKIT_SERVICE if not passed.
+    #
+    # To pass the API key explicitly:
+    #
+    #   client = AsyncSmplClient(
+    #       "sk_api_...",
+    #       environment="staging",
+    #       service="showcase-service",
+    #   )
+    #
+    client = AsyncSmplClient(
+        environment="staging",
+        service="showcase-service",
+    )
     step("AsyncSmplClient initialized")
 
     # ======================================================================

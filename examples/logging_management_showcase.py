@@ -25,35 +25,19 @@ entitlements: ≤ 5 managed loggers, ≤ 3 log groups, nesting depth = 1
 
 Prerequisites:
     - ``pip install smplkit-sdk``
-    - A valid smplkit API key (set via ``SMPLKIT_API_KEY`` env var)
+    - A valid smplkit API key, provided via one of:
+        - ``SMPLKIT_API_KEY`` environment variable
+        - ``~/.smplkit`` configuration file (see SDK docs)
     - The smplkit Logging service running and reachable
 
 Usage::
 
-    export SMPLKIT_API_KEY="sk_api_..."
-    export SMPLKIT_ENVIRONMENT="production"
-    export SMPLKIT_SERVICE="showcase-service"
     python examples/logging_management_showcase.py
 """
 
 import asyncio
-import os
-import sys
 
 from smplkit import AsyncSmplClient
-
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
-API_KEY = os.environ.get("SMPLKIT_API_KEY", "")
-ENVIRONMENT = os.environ.get("SMPLKIT_ENVIRONMENT", "production")
-SERVICE = os.environ.get("SMPLKIT_SERVICE", "showcase-service")
-
-if not API_KEY:
-    print("ERROR: Set the SMPLKIT_API_KEY environment variable before running.")
-    print("  export SMPLKIT_API_KEY='sk_api_...'")
-    sys.exit(1)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -79,15 +63,33 @@ async def main() -> None:
     # ======================================================================
     section("1. SDK Initialization")
 
+    # The SmplClient constructor resolves three required parameters:
+    #
+    #   api_key     — not passed here; resolved automatically from the
+    #                 SMPLKIT_API_KEY environment variable or the
+    #                 ~/.smplkit configuration file.
+    #
+    #   environment — the target environment. Can also be resolved from
+    #                 SMPLKIT_ENVIRONMENT if not passed.
+    #
+    #   service     — identifies this SDK instance. Can also be resolved
+    #                 from SMPLKIT_SERVICE if not passed.
+    #
+    # To pass the API key explicitly:
+    #
+    #   client = AsyncSmplClient(
+    #       "sk_api_...",
+    #       environment="production",
+    #       service="showcase-service",
+    #   )
+    #
     # Management operations do not require connect() — they are
-    # stateless API calls. But the constructor still requires all
-    # three parameters (api_key, environment, service).
+    # stateless API calls.
     client = AsyncSmplClient(
-        API_KEY,
-        environment=ENVIRONMENT,
-        service=SERVICE,
+        environment="production",
+        service="showcase-service",
     )
-    step(f"AsyncSmplClient initialized (environment={ENVIRONMENT}, service={SERVICE})")
+    step("AsyncSmplClient initialized (environment=production, service=showcase-service)")
 
     # ======================================================================
     # 2. MANUAL LOGGER CREATION
