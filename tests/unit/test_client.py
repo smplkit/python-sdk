@@ -175,16 +175,17 @@ def test_connect_registers_service(mock_bulk):
     assert body.contexts[0].key == "my-svc"
 
 
-def test_connect_no_service_skips_registration():
-    """connect() does not register service when service is None."""
+@patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
+def test_connect_always_registers_service(mock_bulk):
+    """connect() always registers service since service is now required."""
+    mock_bulk.return_value = MagicMock()
+
     client = SmplClient(api_key="sk_api_test", environment="test")
-    with (
-        patch.object(client.flags, "_connect_internal"),
-        patch.object(client.config, "_connect_internal"),
-        patch.object(client, "_register_service_context") as mock_reg,
-    ):
+
+    with patch.object(client.flags, "_connect_internal"), patch.object(client.config, "_connect_internal"):
         client.connect()
-    mock_reg.assert_not_called()
+
+    mock_bulk.assert_called_once()
 
 
 @patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")

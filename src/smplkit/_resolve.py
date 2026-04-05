@@ -7,8 +7,12 @@ import os
 from pathlib import Path
 
 
-def _resolve_api_key(explicit: str | None) -> str | None:
-    """Resolve API key from explicit value, env var, or config file."""
+def _resolve_api_key(explicit: str | None, environment: str) -> str | None:
+    """Resolve API key from explicit value, env var, or config file.
+
+    The config file (``~/.smplkit``) is tried with the *environment*-scoped
+    section first (e.g. ``[production]``), then ``[default]``.
+    """
     if explicit:
         return explicit
 
@@ -21,6 +25,12 @@ def _resolve_api_key(explicit: str | None) -> str | None:
         try:
             config = configparser.ConfigParser()
             config.read(config_path)
+            # Try environment-scoped section first
+            try:
+                return config.get(environment, "api_key")
+            except (configparser.NoSectionError, configparser.NoOptionError):
+                pass
+            # Fall back to [default]
             return config.get("default", "api_key")
         except (configparser.NoSectionError, configparser.NoOptionError):
             return None
