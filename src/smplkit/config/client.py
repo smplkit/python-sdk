@@ -17,6 +17,7 @@ from smplkit._errors import (
     SmplNotFoundError,
     SmplTimeoutError,
     SmplValidationError,
+    _raise_for_status,
 )
 from smplkit._resolver import resolve
 from smplkit._generated.config.api.configs import (
@@ -187,28 +188,13 @@ def _unset_to_none(value: Any) -> Any:
 
 
 def _check_response_status(status_code: HTTPStatus, content: bytes) -> None:
-    """Map HTTP error status codes to SDK exceptions.
-
-    Args:
-        status_code: The HTTP status code from the response.
-        content: The raw response body for error messages.
-
-    Raises:
-        SmplNotFoundError: On 404.
-        SmplConflictError: On 409.
-        SmplValidationError: On 422.
-    """
-    code = int(status_code)
-    if code == 404:
-        raise SmplNotFoundError(content.decode("utf-8", errors="replace"))
-    if code == 409:
-        raise SmplConflictError(content.decode("utf-8", errors="replace"))
-    if code == 422:
-        raise SmplValidationError(content.decode("utf-8", errors="replace"))
+    """Map HTTP error status codes to SDK exceptions with full JSON:API error detail."""
+    _raise_for_status(int(status_code), content)
 
 
 def _build_request_body(
     *,
+    config_id: str | None = None,
     name: str,
     key: str | None = None,
     description: str | None = None,
@@ -225,7 +211,7 @@ def _build_request_body(
         items=_make_items(items),
         environments=_make_environments(environments),
     )
-    resource = ResourceConfig(attributes=attrs, type_="config")
+    resource = ResourceConfig(attributes=attrs, id=config_id, type_="config")
     return ResponseConfig(data=resource)
 
 
@@ -540,7 +526,8 @@ class ConfigClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to create config")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return self._to_model(response.parsed)
 
     def list(self) -> list[Config]:
@@ -594,6 +581,7 @@ class ConfigClient:
     ) -> Config:
         """Internal: PUT a full config update and return the updated model."""
         body = _build_request_body(
+            config_id=config_id,
             name=name,
             key=key,
             description=description,
@@ -612,7 +600,8 @@ class ConfigClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to update config")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return self._to_model(response.parsed)
 
     def _to_model(self, parsed: Any) -> Config:
@@ -894,7 +883,8 @@ class AsyncConfigClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to create config")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return self._to_model(response.parsed)
 
     async def list(self) -> list[AsyncConfig]:
@@ -948,6 +938,7 @@ class AsyncConfigClient:
     ) -> AsyncConfig:
         """Internal: PUT a full config update and return the updated model."""
         body = _build_request_body(
+            config_id=config_id,
             name=name,
             key=key,
             description=description,
@@ -966,7 +957,8 @@ class AsyncConfigClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to update config")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return self._to_model(response.parsed)
 
     def _to_model(self, parsed: Any) -> AsyncConfig:

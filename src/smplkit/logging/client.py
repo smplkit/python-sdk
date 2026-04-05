@@ -16,6 +16,7 @@ from smplkit._errors import (
     SmplNotFoundError,
     SmplTimeoutError,
     SmplValidationError,
+    _raise_for_status,
 )
 from smplkit._generated.logging.client import AuthenticatedClient
 from smplkit._generated.logging.api.loggers import (
@@ -136,14 +137,8 @@ def _extract_sources(sources: Any) -> list[dict[str, Any]]:
 
 
 def _check_response_status(status_code: HTTPStatus, content: bytes) -> None:
-    """Map HTTP error status codes to SDK exceptions."""
-    code = int(status_code)
-    if code == 404:
-        raise SmplNotFoundError(content.decode("utf-8", errors="replace"))
-    if code == 409:
-        raise SmplConflictError(content.decode("utf-8", errors="replace"))
-    if code == 422:
-        raise SmplValidationError(content.decode("utf-8", errors="replace"))
+    """Map HTTP error status codes to SDK exceptions with full JSON:API error detail."""
+    _raise_for_status(int(status_code), content)
 
 
 def _maybe_reraise_network_error(exc: Exception) -> None:
@@ -502,7 +497,8 @@ class LoggingClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to create logger")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return self._logger_to_model(response.parsed)
 
     def list(self) -> list[SmplLogger]:
@@ -546,7 +542,8 @@ class LoggingClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to update logger")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return self._logger_to_model(response.parsed)
 
     def delete(self, logger_id: str) -> None:
@@ -578,7 +575,8 @@ class LoggingClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to create log group")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return self._group_to_model(response.parsed)
 
     def list_groups(self) -> list[SmplLogGroup]:
@@ -621,7 +619,8 @@ class LoggingClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to update log group")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return self._group_to_model(response.parsed)
 
     def delete_group(self, group_id: str) -> None:
@@ -868,7 +867,8 @@ class AsyncLoggingClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to create logger")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return self._logger_to_model(response.parsed)
 
     async def list(self) -> list[AsyncSmplLogger]:
@@ -912,7 +912,8 @@ class AsyncLoggingClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to update logger")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return self._logger_to_model(response.parsed)
 
     async def delete(self, logger_id: str) -> None:
@@ -944,7 +945,8 @@ class AsyncLoggingClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to create log group")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return self._group_to_model(response.parsed)
 
     async def list_groups(self) -> list[AsyncSmplLogGroup]:
@@ -987,7 +989,8 @@ class AsyncLoggingClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to update log group")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return self._group_to_model(response.parsed)
 
     async def delete_group(self, group_id: str) -> None:

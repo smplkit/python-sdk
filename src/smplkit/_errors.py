@@ -2,9 +2,100 @@
 
 from __future__ import annotations
 
+import json
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class ApiErrorDetail:
+    """A single error object from the server's JSON:API ``errors`` array."""
+
+    status: str | None = None
+    title: str | None = None
+    detail: str | None = None
+    source: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {}
+        if self.status is not None:
+            d["status"] = self.status
+        if self.title is not None:
+            d["title"] = self.title
+        if self.detail is not None:
+            d["detail"] = self.detail
+        if self.source:
+            d["source"] = self.source
+        return d
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict())
+
+
+def _derive_message(errors: list[ApiErrorDetail]) -> str:
+    """Derive a human-readable message from a list of API error details."""
+    if not errors:
+        return "An API error occurred"
+    first = errors[0]
+    msg = first.detail or first.title or first.status or "An API error occurred"
+    extra = len(errors) - 1
+    if extra == 1:
+        msg += " (and 1 more error)"
+    elif extra > 1:
+        msg += f" (and {extra} more errors)"
+    return msg
+
+
+def _parse_error_body(content: bytes) -> list[ApiErrorDetail]:
+    """Parse the JSON:API error body, returning an empty list on failure."""
+    try:
+        body = json.loads(content)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return []
+    raw_errors = body.get("errors") if isinstance(body, dict) else None
+    if not isinstance(raw_errors, list):
+        return []
+    result: list[ApiErrorDetail] = []
+    for item in raw_errors:
+        if not isinstance(item, dict):
+            continue
+        result.append(
+            ApiErrorDetail(
+                status=item.get("status"),
+                title=item.get("title"),
+                detail=item.get("detail"),
+                source=item.get("source") or {},
+            )
+        )
+    return result
+
 
 class SmplError(Exception):
     """Base exception for all smplkit SDK errors."""
+
+    def __init__(
+        self,
+        message: str | None = None,
+        *,
+        errors: list[ApiErrorDetail] | None = None,
+        status_code: int | None = None,
+    ) -> None:
+        self.errors: list[ApiErrorDetail] = errors or []
+        self.status_code: int | None = status_code
+        if message is None:
+            message = _derive_message(self.errors)
+        super().__init__(message)
+
+    def __str__(self) -> str:
+        base = super().__str__()
+        if not self.errors:
+            return base
+        if len(self.errors) == 1:
+            return f"{base}\nError: {self.errors[0].to_json()}"
+        lines = [base, "Errors:"]
+        for i, err in enumerate(self.errors):
+            lines.append(f"  [{i}] {err.to_json()}")
+        return "\n".join(lines)
 
 
 class SmplConnectionError(SmplError):
@@ -29,3 +120,27 @@ class SmplValidationError(SmplError):
 
 class SmplNotConnectedError(SmplError):
     """Raised when a method requiring connect() is called before connecting."""
+
+
+def _raise_for_status(status_code: int, content: bytes) -> None:
+    """Parse a non-2xx response and raise the appropriate SDK exception.
+
+    Raises nothing if the status code is 2xx.
+    """
+    if 200 <= status_code < 300:
+        return
+
+    errors = _parse_error_body(content)
+    message = _derive_message(errors) if errors else f"HTTP {status_code}"
+
+    exc_cls: type[SmplError]
+    if status_code == 404:
+        exc_cls = SmplNotFoundError
+    elif status_code == 409:
+        exc_cls = SmplConflictError
+    elif status_code in (400, 422):
+        exc_cls = SmplValidationError
+    else:
+        exc_cls = SmplError
+
+    raise exc_cls(message, errors=errors, status_code=status_code)

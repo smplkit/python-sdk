@@ -2,6 +2,7 @@
 
 from smplkit.client import AsyncSmplClient, SmplClient
 from smplkit._errors import (
+    ApiErrorDetail,
     SmplError,
     SmplConnectionError,
     SmplConflictError,
@@ -13,6 +14,7 @@ from smplkit._errors import (
 from smplkit.flags.types import Context, FlagType, Rule
 
 __all__ = [
+    "ApiErrorDetail",
     "AsyncSmplClient",
     "Context",
     "FlagType",

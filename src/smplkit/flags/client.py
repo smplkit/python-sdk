@@ -16,6 +16,7 @@ from smplkit._errors import (
     SmplNotFoundError,
     SmplTimeoutError,
     SmplValidationError,
+    _raise_for_status,
 )
 from smplkit._generated.app.api.context_types import (
     create_context_type as gen_create_context_type,
@@ -73,16 +74,8 @@ _CONTEXT_BATCH_FLUSH_SIZE = 100
 
 
 def _check_response_status(status_code: Any, content: bytes) -> None:
-    """Map HTTP error status codes to SDK exceptions."""
-    code = int(status_code)
-    if code == 404:
-        raise SmplNotFoundError(content.decode("utf-8", errors="replace"))
-    if code == 409:
-        from smplkit._errors import SmplConflictError
-
-        raise SmplConflictError(content.decode("utf-8", errors="replace"))
-    if code == 422:
-        raise SmplValidationError(content.decode("utf-8", errors="replace"))
+    """Map HTTP error status codes to SDK exceptions with full JSON:API error detail."""
+    _raise_for_status(int(status_code), content)
 
 
 def _maybe_reraise_network_error(exc: Exception) -> None:
@@ -483,7 +476,8 @@ class FlagsClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to create flag")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return self._to_model(response.parsed)
 
     def get(self, flag_id: str) -> Flag:
@@ -553,7 +547,8 @@ class FlagsClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to update flag")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return self._to_model(response.parsed)
 
     # ------------------------------------------------------------------
@@ -570,7 +565,8 @@ class FlagsClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to create context type")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return _parse_gen_context_type_response(response.parsed)
 
     def update_context_type(self, ct_id: str, *, attributes: dict[str, Any]) -> ContextType:
@@ -585,7 +581,8 @@ class FlagsClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to update context type")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return _parse_gen_context_type_response(response.parsed)
 
     def list_context_types(self) -> list[ContextType]:
@@ -597,7 +594,8 @@ class FlagsClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to list context types")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return [_parse_gen_context_type_resource(r) for r in response.parsed.data]
 
     def delete_context_type(self, ct_id: str) -> None:
@@ -988,7 +986,8 @@ class AsyncFlagsClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to create flag")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return self._to_model(response.parsed)
 
     async def get(self, flag_id: str) -> AsyncFlag:
@@ -1058,7 +1057,8 @@ class AsyncFlagsClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to update flag")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return self._to_model(response.parsed)
 
     # ------------------------------------------------------------------
@@ -1075,7 +1075,8 @@ class AsyncFlagsClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to create context type")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return _parse_gen_context_type_response(response.parsed)
 
     async def update_context_type(self, ct_id: str, *, attributes: dict[str, Any]) -> ContextType:
@@ -1090,7 +1091,8 @@ class AsyncFlagsClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to update context type")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return _parse_gen_context_type_response(response.parsed)
 
     async def list_context_types(self) -> list[ContextType]:
@@ -1102,7 +1104,8 @@ class AsyncFlagsClient:
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
-            raise SmplValidationError("Failed to list context types")
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return [_parse_gen_context_type_resource(r) for r in response.parsed.data]
 
     async def delete_context_type(self, ct_id: str) -> None:
