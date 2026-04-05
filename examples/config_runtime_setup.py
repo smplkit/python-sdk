@@ -21,12 +21,20 @@ async def setup_demo_configs(client: AsyncSmplClient) -> dict:
     Creates:
       - Updates "common" config with org-wide defaults + env overrides
       - "user_service" config: service-specific items (inherits from common)
-      - "auth_module" config: child of user_service (multi-level inheritance)
+      - "auth_module" config: auth-specific items (inherits from common)
 
     This mirrors what an admin would do in the Console: define a config
     hierarchy with base values and environment-specific overrides.
     """
     environment = client._environment
+
+    # Clean up leftover configs from previous runs (order matters: children first).
+    for leftover_key in ("auth_module", "user_service"):
+        try:
+            leftover = await client.config.get(key=leftover_key)
+            await client.config.delete(leftover.id)
+        except Exception:
+            pass
 
     # Update the built-in common config with org-wide defaults.
     common = await client.config.get(key="common")
@@ -70,12 +78,11 @@ async def setup_demo_configs(client: AsyncSmplClient) -> dict:
     )
     await user_service.set_value("enable_signup", False, environment="production")
 
-    # Create a child config for multi-level inheritance.
+    # Create auth_module config (also inherits from common).
     auth_module = await client.config.create(
         name="Auth Module",
         key="auth_module",
         description="Authentication module within the user service.",
-        parent=user_service.id,
         items={
             "session_ttl_minutes": {"value": 60, "type": "NUMBER"},
             "mfa_enabled": {"value": False, "type": "BOOLEAN"},

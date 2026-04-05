@@ -6,7 +6,7 @@ Demonstrates the smplkit Python SDK's management plane for Smpl Config:
 
 - Config CRUD: create, get, list, update, and delete configs
 - Base values and environment-specific overrides
-- Multi-level inheritance via parent configs
+- Config inheritance from the common root
 - Set and clear individual values
 - Listing all configs
 
@@ -83,7 +83,7 @@ async def main() -> None:
         environment="production",
         service="showcase-service",
     )
-    step("AsyncSmplClient initialized (environment=production)")
+    step("AsyncSmplClient initialized (environment=production, service=showcase-service)")
 
     # ======================================================================
     # 2. UPDATE THE BUILT-IN COMMON CONFIG
@@ -96,6 +96,14 @@ async def main() -> None:
     # ======================================================================
 
     section("2a. Update the Common Config")
+
+    # Clean up leftover configs from previous runs (order matters: children first).
+    for leftover_key in ("auth_module", "user_service"):
+        try:
+            leftover = await client.config.get(key=leftover_key)
+            await client.config.delete(leftover.id)
+        except Exception:
+            pass
 
     common = await client.config.get(key="common")
     step(f"Fetched common config: id={common.id}, key={common.key}")
@@ -164,15 +172,14 @@ async def main() -> None:
     step("Disabled signup in production")
 
     # ------------------------------------------------------------------
-    # 3b. Create a child config (multi-level inheritance)
+    # 3b. Create the auth module config (inherits from common)
     # ------------------------------------------------------------------
-    section("3b. Create the Auth Module Config (child of User Service)")
+    section("3b. Create the Auth Module Config")
 
     auth_module = await client.config.create(
         name="Auth Module",
         key="auth_module",
         description="Authentication module within the user service.",
-        parent=user_service.id,
         items={
             "session_ttl_minutes": {"value": 60, "type": "NUMBER"},
             "mfa_enabled": {"value": False, "type": "BOOLEAN"},

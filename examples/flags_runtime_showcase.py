@@ -119,6 +119,7 @@ async def main() -> None:
         environment="staging",
         service="showcase-service",
     )
+    step("AsyncSmplClient initialized (environment=staging, service=showcase-service)")
 
     # Create demo flags (normally done via Console UI).
     print("  Setting up demo flags...")
@@ -273,9 +274,9 @@ async def main() -> None:
     #   3. Enables local JSON Logic evaluation for all declared flags
     #
     # After connect(), get() never touches the network.
-    # timeout defaults to 10 seconds if not specified.
+    # The environment is set at client construction time.
 
-    await client.flags.connect("staging")
+    await client.connect()
     step("Connected to staging — flags loaded, WebSocket open")
 
     # ======================================================================
@@ -517,18 +518,17 @@ async def main() -> None:
 
     section("9. Environment Comparison")
 
-    await client.flags.disconnect()
-
+    # Use the Tier 1 evaluate() API to compare flag values across
+    # environments without disconnecting and reconnecting.
+    eval_ctx = [
+        Context("user", _current_user["id"], plan=_current_user["plan"], beta_tester=_current_user["beta_tester"]),
+        Context("account", _current_account["id"], industry=_current_account["industry"], region=_current_account["region"]),
+    ]
     for env in ["staging", "production"]:
-        await client.flags.connect(env)
-        c = checkout_v2.get()
-        b = banner_color.get()
-        r = max_retries.get()
+        c = await client.flags.evaluate("checkout-v2", environment=env, context=eval_ctx)
+        b = await client.flags.evaluate("banner-color", environment=env, context=eval_ctx)
+        r = await client.flags.evaluate("max-retries", environment=env, context=eval_ctx)
         step(f"[{env:12}] checkout-v2={c}, banner-color={b}, max-retries={r}")
-        await client.flags.disconnect()
-
-    # Reconnect to staging for tier 1 demo.
-    await client.flags.connect("staging")
 
     # ======================================================================
     # 10. TIER 1 — Explicit evaluation (pass everything)
@@ -570,7 +570,7 @@ async def main() -> None:
     #         ]
     #
     #     checkout = client.flags.boolFlag("checkout-v2", False)
-    #     client.flags.connect("production")
+    #     client.connect()
     #
     #     # In middleware — every request
     #     client.flags.register([

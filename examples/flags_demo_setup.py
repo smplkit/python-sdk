@@ -14,6 +14,16 @@ async def setup_demo_flags(client: AsyncSmplClient) -> list:
 
     Returns a list of [checkout_flag, banner_flag, retry_flag].
     """
+    # Clean up leftover flags from previous runs.
+    demo_keys = {"checkout-v2", "banner-color", "max-retries"}
+    try:
+        existing = await client.flags.list()
+        for flag in existing:
+            if flag.key in demo_keys:
+                await client.flags.delete(flag.id)
+    except Exception:
+        pass
+
     # 1. checkout-v2 — boolean
     checkout_flag = await client.flags.create(
         "checkout-v2",

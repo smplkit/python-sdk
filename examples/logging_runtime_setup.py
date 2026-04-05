@@ -29,6 +29,25 @@ async def setup_demo_loggers(client: AsyncSmplClient) -> dict:
     """
     environment = client._environment
 
+    # Clean up leftover loggers and groups from previous runs.
+    # Delete loggers first (groups can't be deleted while referenced).
+    demo_logger_keys = {"app", "app.payments", "sqlalchemy.engine"}
+    demo_group_keys = {"databases"}
+    try:
+        existing = await client.logging.list()
+        for lg in existing:
+            if lg.key in demo_logger_keys:
+                await client.logging.delete(lg.id)
+    except Exception:
+        pass
+    try:
+        existing_groups = await client.logging.list_groups()
+        for g in existing_groups:
+            if g.key in demo_group_keys:
+                await client.logging.delete_group(g.id)
+    except Exception:
+        pass
+
     # Create log group first (loggers will reference it).
     db_group = await client.logging.create_group(
         "databases",

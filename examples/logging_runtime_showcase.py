@@ -107,11 +107,13 @@ async def main() -> None:
     #       service="showcase-service",
     #   )
     #
+    ENVIRONMENT = "production"
+
     client = AsyncSmplClient(
-        environment="production",
+        environment=ENVIRONMENT,
         service="showcase-service",
     )
-    step("AsyncSmplClient initialized (environment=production, service=showcase-service)")
+    step(f"AsyncSmplClient initialized (environment={ENVIRONMENT}, service=showcase-service)")
 
     # Create server-side state (normally done via Console UI).
     print("  Setting up demo loggers and groups...")

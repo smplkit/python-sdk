@@ -88,7 +88,25 @@ async def main() -> None:
         environment="staging",
         service="showcase-service",
     )
-    step("AsyncSmplClient initialized")
+    step("AsyncSmplClient initialized (environment=staging, service=showcase-service)")
+
+    # Clean up leftover flags and context types from previous runs.
+    demo_flag_keys = {"checkout-v2", "banner-color", "max-retries", "ui-theme"}
+    demo_ct_keys = {"user", "account"}
+    try:
+        existing_flags = await client.flags.list()
+        for flag in existing_flags:
+            if flag.key in demo_flag_keys:
+                await client.flags.delete(flag.id)
+    except Exception:
+        pass
+    try:
+        existing_cts = await client.flags.list_context_types()
+        for ct in existing_cts:
+            if ct.key in demo_ct_keys:
+                await client.flags.delete_context_type(ct.id)
+    except Exception:
+        pass
 
     # ======================================================================
     # 2. CREATE FLAGS
@@ -399,6 +417,8 @@ async def main() -> None:
     # Add known attributes.
     await client.flags.update_context_type(
         user_ct.id,
+        key=user_ct.key,
+        name=user_ct.name,
         attributes={
             "first_name": {},
             "plan": {},
@@ -413,6 +433,8 @@ async def main() -> None:
     )
     await client.flags.update_context_type(
         account_ct.id,
+        key=account_ct.key,
+        name=account_ct.name,
         attributes={
             "industry": {},
             "region": {},

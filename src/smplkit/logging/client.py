@@ -155,6 +155,7 @@ def _maybe_reraise_network_error(exc: Exception) -> None:
 
 def _build_logger_body(
     *,
+    logger_id: str | None = None,
     name: str,
     key: str | None = None,
     level: str | None = None,
@@ -171,12 +172,13 @@ def _build_logger_body(
         managed=managed,
         environments=_make_environments(environments),
     )
-    resource = ResourceLogger(attributes=attrs, type_="logger")
+    resource = ResourceLogger(attributes=attrs, id=logger_id, type_="logger")
     return ResponseLogger(data=resource)
 
 
 def _build_group_body(
     *,
+    group_id: str | None = None,
     name: str,
     key: str | None = None,
     level: str | None = None,
@@ -191,7 +193,7 @@ def _build_group_body(
         group=group,
         environments=_make_group_environments(environments),
     )
-    resource = ResourceLogGroup(attributes=attrs, type_="log_group")
+    resource = ResourceLogGroup(attributes=attrs, id=group_id, type_="log_group")
     return ResponseLogGroup(data=resource)
 
 
@@ -528,6 +530,7 @@ class LoggingClient:
     def _save_logger(self, lg: SmplLogger) -> SmplLogger:
         """PUT a logger's full state. Called by SmplLogger.save()."""
         body = _build_logger_body(
+            logger_id=lg.id,
             name=lg.name,
             key=lg.key,
             level=lg.level,
@@ -606,6 +609,7 @@ class LoggingClient:
     def _save_group(self, grp: SmplLogGroup) -> SmplLogGroup:
         """PUT a group's full state. Called by SmplLogGroup.save()."""
         body = _build_group_body(
+            group_id=grp.id,
             name=grp.name,
             key=grp.key,
             level=grp.level,
@@ -898,6 +902,7 @@ class AsyncLoggingClient:
     async def _save_logger(self, lg: AsyncSmplLogger) -> AsyncSmplLogger:
         """PUT a logger's full state. Called by AsyncSmplLogger.save()."""
         body = _build_logger_body(
+            logger_id=lg.id,
             name=lg.name,
             key=lg.key,
             level=lg.level,
@@ -976,6 +981,7 @@ class AsyncLoggingClient:
     async def _save_group(self, grp: AsyncSmplLogGroup) -> AsyncSmplLogGroup:
         """PUT a group's full state. Called by AsyncSmplLogGroup.save()."""
         body = _build_group_body(
+            group_id=grp.id,
             name=grp.name,
             key=grp.key,
             level=grp.level,

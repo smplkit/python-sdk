@@ -203,9 +203,9 @@ def _build_gen_flag(
     )
 
 
-def _build_request_body(gen_flag: GenFlag) -> ResponseFlag:
+def _build_request_body(gen_flag: GenFlag, *, flag_id: str | None = None) -> ResponseFlag:
     """Wrap a generated Flag in the JSON:API request envelope."""
-    resource = ResourceFlag(attributes=gen_flag, type_="flag")
+    resource = ResourceFlag(attributes=gen_flag, id=flag_id, type_="flag")
     return ResponseFlag(data=resource)
 
 
@@ -539,7 +539,7 @@ class FlagsClient:
             description=description if description is not None else flag.description,
             environments=environments if environments is not None else flag.environments,
         )
-        body = _build_request_body(gen_flag)
+        body = _build_request_body(gen_flag, flag_id=flag.id)
         try:
             response = update_flag.sync_detailed(UUID(flag.id), client=self._flags_http, body=body)
         except Exception as exc:
@@ -569,11 +569,11 @@ class FlagsClient:
             raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return _parse_gen_context_type_response(response.parsed)
 
-    def update_context_type(self, ct_id: str, *, attributes: dict[str, Any]) -> ContextType:
+    def update_context_type(self, ct_id: str, *, key: str, name: str, attributes: dict[str, Any]) -> ContextType:
         """Update a context type (merge attributes)."""
         from uuid import UUID
 
-        body = _build_context_type_update_body(attributes=attributes)
+        body = _build_context_type_update_body(ct_id=ct_id, key=key, name=name, attributes=attributes)
         try:
             response = gen_update_context_type.sync_detailed(UUID(ct_id), client=self._app_http, body=body)
         except Exception as exc:
@@ -1049,7 +1049,7 @@ class AsyncFlagsClient:
             description=description if description is not None else flag.description,
             environments=environments if environments is not None else flag.environments,
         )
-        body = _build_request_body(gen_flag)
+        body = _build_request_body(gen_flag, flag_id=flag.id)
         try:
             response = await update_flag.asyncio_detailed(UUID(flag.id), client=self._flags_http, body=body)
         except Exception as exc:
@@ -1079,11 +1079,11 @@ class AsyncFlagsClient:
             raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
         return _parse_gen_context_type_response(response.parsed)
 
-    async def update_context_type(self, ct_id: str, *, attributes: dict[str, Any]) -> ContextType:
+    async def update_context_type(self, ct_id: str, *, key: str, name: str, attributes: dict[str, Any]) -> ContextType:
         """Update a context type (merge attributes)."""
         from uuid import UUID
 
-        body = _build_context_type_update_body(attributes=attributes)
+        body = _build_context_type_update_body(ct_id=ct_id, key=key, name=name, attributes=attributes)
         try:
             response = await gen_update_context_type.asyncio_detailed(UUID(ct_id), client=self._app_http, body=body)
         except Exception as exc:
@@ -1483,13 +1483,12 @@ def _build_context_type_body(*, key: str, name: str) -> GenContextTypeResponse:
     return GenContextTypeResponse(data=resource)
 
 
-def _build_context_type_update_body(*, attributes: dict[str, Any]) -> GenContextTypeResponse:
+def _build_context_type_update_body(*, ct_id: str, key: str, name: str, attributes: dict[str, Any]) -> GenContextTypeResponse:
     """Build a ContextTypeResponse body for update (merge attributes)."""
     ct_attrs = ContextTypeAttributes()
     ct_attrs.additional_properties = dict(attributes)
-    # Use a dummy key/name; the server ignores them on PATCH/PUT updates.
-    attrs = GenContextType(key="", name="", attributes=ct_attrs)
-    resource = ContextTypeResource(type_="context_type", attributes=attrs)
+    attrs = GenContextType(key=key, name=name, attributes=ct_attrs)
+    resource = ContextTypeResource(type_="context_type", id=ct_id, attributes=attrs)
     return GenContextTypeResponse(data=resource)
 
 

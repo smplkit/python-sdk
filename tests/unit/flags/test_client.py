@@ -527,7 +527,7 @@ class TestFlagsClientContextTypes:
     def test_update_context_type(self, mock_update):
         mock_update.return_value = _ok_response(parsed=_parsed_ct_response(attributes={"plan": {}}))
         client = _make_flags_client()
-        ct = client.update_context_type(_TEST_UUID, attributes={"plan": {}})
+        ct = client.update_context_type(_TEST_UUID, key="user", name="User", attributes={"plan": {}})
         assert ct.key == "user"
 
     @patch("smplkit.flags.client.gen_list_context_types.sync_detailed")
@@ -570,7 +570,7 @@ class TestFlagsClientContextTypes:
         mock_update.side_effect = httpx.TimeoutException("timeout")
         client = _make_flags_client()
         with pytest.raises(SmplTimeoutError):
-            client.update_context_type(_TEST_UUID, attributes={})
+            client.update_context_type(_TEST_UUID, key="user", name="User", attributes={})
 
     @patch("smplkit.flags.client.gen_list_context_types.sync_detailed")
     def test_list_context_types_network_error(self, mock_list):
@@ -607,7 +607,7 @@ class TestFlagsClientContextTypes:
         mock_update.side_effect = RuntimeError("boom")
         client = _make_flags_client()
         with pytest.raises(RuntimeError, match="boom"):
-            client.update_context_type(_TEST_UUID, attributes={})
+            client.update_context_type(_TEST_UUID, key="user", name="User", attributes={})
 
     @patch("smplkit.flags.client.gen_list_context_types.sync_detailed")
     def test_list_context_types_other_error(self, mock_list):
@@ -644,7 +644,7 @@ class TestFlagsClientContextTypes:
         mock_update.return_value = _ok_response(parsed=None)
         client = _make_flags_client()
         with pytest.raises(SmplValidationError):
-            client.update_context_type(_TEST_UUID, attributes={})
+            client.update_context_type(_TEST_UUID, key="user", name="User", attributes={})
 
     @patch("smplkit.flags.client.gen_list_context_types.sync_detailed")
     def test_list_context_types_parsed_none(self, mock_list):
@@ -1539,7 +1539,7 @@ class TestAsyncFlagsClientContextTypes:
 
         async def _run():
             client = _make_async_flags_client()
-            ct = await client.update_context_type(_TEST_UUID, attributes={"plan": {}})
+            ct = await client.update_context_type(_TEST_UUID, key="user", name="User", attributes={"plan": {}})
             assert ct.key == "user"
 
         asyncio.run(_run())
@@ -1597,7 +1597,7 @@ class TestAsyncFlagsClientContextTypes:
         async def _run():
             client = _make_async_flags_client()
             with pytest.raises(SmplTimeoutError):
-                await client.update_context_type(_TEST_UUID, attributes={})
+                await client.update_context_type(_TEST_UUID, key="user", name="User", attributes={})
 
         asyncio.run(_run())
 
@@ -1654,7 +1654,7 @@ class TestAsyncFlagsClientContextTypes:
         async def _run():
             client = _make_async_flags_client()
             with pytest.raises(RuntimeError, match="boom"):
-                await client.update_context_type(_TEST_UUID, attributes={})
+                await client.update_context_type(_TEST_UUID, key="user", name="User", attributes={})
 
         asyncio.run(_run())
 
@@ -1711,7 +1711,7 @@ class TestAsyncFlagsClientContextTypes:
         async def _run():
             client = _make_async_flags_client()
             with pytest.raises(SmplValidationError):
-                await client.update_context_type(_TEST_UUID, attributes={})
+                await client.update_context_type(_TEST_UUID, key="user", name="User", attributes={})
 
         asyncio.run(_run())
 

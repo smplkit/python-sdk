@@ -6,7 +6,7 @@ Demonstrates the smplkit Python SDK's runtime experience for Smpl Config:
 
 - Prescriptive value resolution via ``client.connect()`` + ``client.config.get()``
 - Typed accessors: ``get_str()``, ``get_int()``, ``get_bool()``
-- Multi-level inheritance (common → service → module)
+- Config inheritance (common → service / module)
 - Environment-specific override resolution
 - Change listeners: ``client.config.on_change()``
 - Manual refresh: ``client.config.refresh()``
@@ -85,7 +85,7 @@ async def main() -> None:
         environment="production",
         service="showcase-service",
     )
-    step("AsyncSmplClient initialized (environment=production)")
+    step("AsyncSmplClient initialized (environment=production, service=showcase-service)")
 
     # Create server-side state (normally done via Console UI).
     print("  Setting up demo configs...")
@@ -95,7 +95,7 @@ async def main() -> None:
     # The server now has:
     #   "common"       — org-wide defaults, with production + staging overrides
     #   "user_service" — service config (inherits from common), with production overrides
-    #   "auth_module"  — child of user_service (multi-level inheritance), with production overrides
+    #   "auth_module"  — auth config (inherits from common), with production overrides
 
     # ======================================================================
     # 2. CONNECT AND READ RESOLVED VALUES
@@ -153,15 +153,15 @@ async def main() -> None:
     # Expected: False (production override)
 
     # ======================================================================
-    # 4. MULTI-LEVEL INHERITANCE
+    # 4. INHERITANCE
     # ======================================================================
     #
-    # auth_module inherits from user_service, which inherits from common.
-    # Values resolve bottom-up: auth_module → user_service → common.
+    # auth_module inherits from common. Values defined in auth_module
+    # take precedence; anything not overridden falls through to common.
     #
     # ======================================================================
 
-    section("4. Multi-Level Inheritance (auth_module)")
+    section("4. Inheritance (auth_module)")
 
     session_ttl = await client.config.get("auth_module", "session_ttl_minutes")
     step(f"session_ttl_minutes = {session_ttl}")
