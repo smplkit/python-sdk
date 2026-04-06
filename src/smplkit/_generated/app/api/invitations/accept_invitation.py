@@ -4,35 +4,39 @@ from typing import Any
 import httpx
 
 from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
+from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
+from ...models.invitation_accept_request import InvitationAcceptRequest
+from ...models.invitation_response import InvitationResponse
 
 
 def _get_kwargs(
     *,
-    token: str,
+    body: InvitationAcceptRequest,
 ) -> dict[str, Any]:
-
-    params: dict[str, Any] = {}
-
-    params["token"] = token
-
-    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
+    headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
-        "method": "get",
+        "method": "post",
         "url": "/api/v1/invitations/accept",
-        "params": params,
     }
 
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/vnd.api+json"
+
+    _kwargs["headers"] = headers
     return _kwargs
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | ErrorResponse | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ErrorResponse | InvitationResponse | None:
     if response.status_code == 200:
-        response_200 = response.json()
+        response_200 = InvitationResponse.from_dict(response.json())
+
         return response_200
 
     if response.status_code == 400:
@@ -61,7 +65,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | ErrorResponse]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ErrorResponse | InvitationResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -72,24 +78,24 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 def sync_detailed(
     *,
-    client: AuthenticatedClient | Client,
-    token: str,
-) -> Response[Any | ErrorResponse]:
+    client: AuthenticatedClient,
+    body: InvitationAcceptRequest,
+) -> Response[ErrorResponse | InvitationResponse]:
     """Accept Invitation
 
     Args:
-        token (str):
+        body (InvitationAcceptRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse]
+        Response[ErrorResponse | InvitationResponse]
     """
 
     kwargs = _get_kwargs(
-        token=token,
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -101,48 +107,48 @@ def sync_detailed(
 
 def sync(
     *,
-    client: AuthenticatedClient | Client,
-    token: str,
-) -> Any | ErrorResponse | None:
+    client: AuthenticatedClient,
+    body: InvitationAcceptRequest,
+) -> ErrorResponse | InvitationResponse | None:
     """Accept Invitation
 
     Args:
-        token (str):
+        body (InvitationAcceptRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse
+        ErrorResponse | InvitationResponse
     """
 
     return sync_detailed(
         client=client,
-        token=token,
+        body=body,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
-    client: AuthenticatedClient | Client,
-    token: str,
-) -> Response[Any | ErrorResponse]:
+    client: AuthenticatedClient,
+    body: InvitationAcceptRequest,
+) -> Response[ErrorResponse | InvitationResponse]:
     """Accept Invitation
 
     Args:
-        token (str):
+        body (InvitationAcceptRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse]
+        Response[ErrorResponse | InvitationResponse]
     """
 
     kwargs = _get_kwargs(
-        token=token,
+        body=body,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -152,25 +158,25 @@ async def asyncio_detailed(
 
 async def asyncio(
     *,
-    client: AuthenticatedClient | Client,
-    token: str,
-) -> Any | ErrorResponse | None:
+    client: AuthenticatedClient,
+    body: InvitationAcceptRequest,
+) -> ErrorResponse | InvitationResponse | None:
     """Accept Invitation
 
     Args:
-        token (str):
+        body (InvitationAcceptRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse
+        ErrorResponse | InvitationResponse
     """
 
     return (
         await asyncio_detailed(
             client=client,
-            token=token,
+            body=body,
         )
     ).parsed

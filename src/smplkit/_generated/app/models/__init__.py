@@ -37,6 +37,7 @@ from .error import Error
 from .error_response import ErrorResponse
 from .error_source import ErrorSource
 from .invitation import Invitation
+from .invitation_accept_request import InvitationAcceptRequest
 from .invitation_bulk_create_request import InvitationBulkCreateRequest
 from .invitation_create_item import InvitationCreateItem
 from .invitation_list_response import InvitationListResponse
@@ -108,6 +109,7 @@ __all__ = (
     "ErrorResponse",
     "ErrorSource",
     "Invitation",
+    "InvitationAcceptRequest",
     "InvitationBulkCreateRequest",
     "InvitationCreateItem",
     "InvitationListResponse",
