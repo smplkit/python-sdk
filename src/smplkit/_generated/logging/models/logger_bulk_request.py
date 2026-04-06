@@ -1,76 +1,60 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, TYPE_CHECKING
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..types import UNSET, Unset
-
-from typing import cast
 
 if TYPE_CHECKING:
-  from ..models.logger_bulk_item import LoggerBulkItem
-
-
-
+    from ..models.logger_bulk_item import LoggerBulkItem
 
 
 T = TypeVar("T", bound="LoggerBulkRequest")
 
 
-
 @_attrs_define
 class LoggerBulkRequest:
-    """ 
-        Attributes:
-            loggers (list['LoggerBulkItem']):
-     """
+    """
+    Attributes:
+        loggers (list[LoggerBulkItem]):
+    """
 
-    loggers: list['LoggerBulkItem']
+    loggers: list[LoggerBulkItem]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        from ..models.logger_bulk_item import LoggerBulkItem
         loggers = []
         for loggers_item_data in self.loggers:
             loggers_item = loggers_item_data.to_dict()
             loggers.append(loggers_item)
 
-
-
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "loggers": loggers,
-        })
+        field_dict.update(
+            {
+                "loggers": loggers,
+            }
+        )
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.logger_bulk_item import LoggerBulkItem
+
         d = dict(src_dict)
         loggers = []
         _loggers = d.pop("loggers")
-        for loggers_item_data in (_loggers):
+        for loggers_item_data in _loggers:
             loggers_item = LoggerBulkItem.from_dict(loggers_item_data)
 
-
-
             loggers.append(loggers_item)
-
 
         logger_bulk_request = cls(
             loggers=loggers,
         )
-
 
         logger_bulk_request.additional_properties = d
         return logger_bulk_request
