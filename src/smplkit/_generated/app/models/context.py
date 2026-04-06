@@ -24,10 +24,9 @@ class Context:
     """
     Example:
         {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'}, 'context_type': 'user', 'created_at':
-            '2026-03-31T10:00:00Z', 'key': '123', 'name': 'Alice Smith', 'updated_at': '2026-03-31T10:00:00Z'}
+            '2026-03-31T10:00:00Z', 'name': 'Alice Smith', 'updated_at': '2026-03-31T10:00:00Z'}
 
     Attributes:
-        key (str): Entity identifier: user-123, acme-corp
         context_type (str): Context type key (e.g., 'user', 'account')
         name (str | Unset): Human-readable display name Default: ''.
         attributes (ContextAttributes | Unset): Observed attributes
@@ -35,7 +34,6 @@ class Context:
         updated_at (datetime.datetime | None | Unset):
     """
 
-    key: str
     context_type: str
     name: str | Unset = ""
     attributes: ContextAttributes | Unset = UNSET
@@ -44,8 +42,6 @@ class Context:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        key = self.key
-
         context_type = self.context_type
 
         name = self.name
@@ -74,7 +70,6 @@ class Context:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "key": key,
                 "context_type": context_type,
             }
         )
@@ -94,8 +89,6 @@ class Context:
         from ..models.context_attributes import ContextAttributes
 
         d = dict(src_dict)
-        key = d.pop("key")
-
         context_type = d.pop("context_type")
 
         name = d.pop("name", UNSET)
@@ -142,7 +135,6 @@ class Context:
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 
         context = cls(
-            key=key,
             context_type=context_type,
             name=name,
             attributes=attributes,
