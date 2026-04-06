@@ -1,8 +1,11 @@
 from typing import Literal, cast
 
-UserResourceType = Literal['user']
+UserResourceType = Literal["user"]
 
-USER_RESOURCE_TYPE_VALUES: set[UserResourceType] = { 'user',  }
+USER_RESOURCE_TYPE_VALUES: set[UserResourceType] = {
+    "user",
+}
+
 
 def check_user_resource_type(value: str) -> UserResourceType:
     if value in USER_RESOURCE_TYPE_VALUES:

@@ -1,30 +1,22 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union, cast
+from typing import Any
 
 import httpx
 
 from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
+from ...types import Response
 from ... import errors
 
 from ...models.context_batch_response import ContextBatchResponse
 from ...models.context_bulk_register import ContextBulkRegister
 from ...models.error_response import ErrorResponse
-from typing import cast
-
 
 
 def _get_kwargs(
     *,
     body: ContextBulkRegister,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
-
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
@@ -33,47 +25,37 @@ def _get_kwargs(
 
     _kwargs["json"] = body.to_dict()
 
-
     headers["Content-Type"] = "application/vnd.api+json"
 
     _kwargs["headers"] = headers
     return _kwargs
 
 
-
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[ContextBatchResponse, ErrorResponse]]:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ContextBatchResponse | ErrorResponse | None:
     if response.status_code == 200:
         response_200 = ContextBatchResponse.from_dict(response.json())
-
-
 
         return response_200
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_400
 
     if response.status_code == 401:
         response_401 = ErrorResponse.from_dict(response.json())
-
-
 
         return response_401
 
     if response.status_code == 404:
         response_404 = ErrorResponse.from_dict(response.json())
 
-
-
         return response_404
 
     if response.status_code == 429:
         response_429 = ErrorResponse.from_dict(response.json())
-
-
 
         return response_429
 
@@ -83,7 +65,9 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[ContextBatchResponse, ErrorResponse]]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ContextBatchResponse | ErrorResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -96,9 +80,8 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     body: ContextBulkRegister,
-
-) -> Response[Union[ContextBatchResponse, ErrorResponse]]:
-    """ Bulk Register Contexts
+) -> Response[ContextBatchResponse | ErrorResponse]:
+    """Bulk Register Contexts
 
     Args:
         body (ContextBulkRegister):
@@ -108,13 +91,11 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ContextBatchResponse, ErrorResponse]]
-     """
-
+        Response[ContextBatchResponse | ErrorResponse]
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
     response = client.get_httpx_client().request(
@@ -123,13 +104,13 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient,
     body: ContextBulkRegister,
-
-) -> Optional[Union[ContextBatchResponse, ErrorResponse]]:
-    """ Bulk Register Contexts
+) -> ContextBatchResponse | ErrorResponse | None:
+    """Bulk Register Contexts
 
     Args:
         body (ContextBulkRegister):
@@ -139,23 +120,21 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ContextBatchResponse, ErrorResponse]
-     """
-
+        ContextBatchResponse | ErrorResponse
+    """
 
     return sync_detailed(
         client=client,
-body=body,
-
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     body: ContextBulkRegister,
-
-) -> Response[Union[ContextBatchResponse, ErrorResponse]]:
-    """ Bulk Register Contexts
+) -> Response[ContextBatchResponse | ErrorResponse]:
+    """Bulk Register Contexts
 
     Args:
         body (ContextBulkRegister):
@@ -165,28 +144,24 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ContextBatchResponse, ErrorResponse]]
-     """
-
+        Response[ContextBatchResponse | ErrorResponse]
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient,
     body: ContextBulkRegister,
-
-) -> Optional[Union[ContextBatchResponse, ErrorResponse]]:
-    """ Bulk Register Contexts
+) -> ContextBatchResponse | ErrorResponse | None:
+    """Bulk Register Contexts
 
     Args:
         body (ContextBulkRegister):
@@ -196,12 +171,12 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ContextBatchResponse, ErrorResponse]
-     """
+        ContextBatchResponse | ErrorResponse
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            body=body,
+        )
+    ).parsed
