@@ -1,98 +1,83 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, TYPE_CHECKING
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from ..types import UNSET, Unset
 from typing import cast
-from typing import cast, Union
-from typing import Union
 
 if TYPE_CHECKING:
-  from ..models.flag_rule_logic import FlagRuleLogic
-
-
-
+    from ..models.flag_rule_logic import FlagRuleLogic
 
 
 T = TypeVar("T", bound="FlagRule")
 
 
-
 @_attrs_define
 class FlagRule:
-    """ 
-        Attributes:
-            logic (FlagRuleLogic):
-            value (Any):
-            description (Union[None, Unset, str]):
-     """
+    """
+    Attributes:
+        logic (FlagRuleLogic):
+        value (Any):
+        description (None | str | Unset):
+    """
 
-    logic: 'FlagRuleLogic'
+    logic: FlagRuleLogic
     value: Any
-    description: Union[None, Unset, str] = UNSET
+    description: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        from ..models.flag_rule_logic import FlagRuleLogic
         logic = self.logic.to_dict()
 
         value = self.value
 
-        description: Union[None, Unset, str]
+        description: None | str | Unset
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "logic": logic,
-            "value": value,
-        })
+        field_dict.update(
+            {
+                "logic": logic,
+                "value": value,
+            }
+        )
         if description is not UNSET:
             field_dict["description"] = description
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.flag_rule_logic import FlagRuleLogic
+
         d = dict(src_dict)
         logic = FlagRuleLogic.from_dict(d.pop("logic"))
 
-
-
-
         value = d.pop("value")
 
-        def _parse_description(data: object) -> Union[None, Unset, str]:
+        def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
-
 
         flag_rule = cls(
             logic=logic,
             value=value,
             description=description,
         )
-
 
         flag_rule.additional_properties = d
         return flag_rule
