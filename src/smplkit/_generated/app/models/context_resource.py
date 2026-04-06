@@ -25,8 +25,7 @@ class ContextResource:
     Attributes:
         type_ (ContextResourceType):
         attributes (Context):  Example: {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'}, 'context_type':
-            'user', 'created_at': '2026-03-31T10:00:00Z', 'key': '123', 'name': 'Alice Smith', 'updated_at':
-            '2026-03-31T10:00:00Z'}.
+            'user', 'created_at': '2026-03-31T10:00:00Z', 'name': 'Alice Smith', 'updated_at': '2026-03-31T10:00:00Z'}.
         id (None | str | Unset):
     """
 
