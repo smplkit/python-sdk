@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, Optional, Union, cast
 
 import httpx
 
@@ -9,24 +9,34 @@ from ... import errors
 
 from ...models.error_response import ErrorResponse
 from ...models.user_list_response import UserListResponse
-from ...types import Unset
+from ...types import UNSET, Unset
+from typing import cast
+from typing import cast, Union
+from typing import Union
+
 
 
 def _get_kwargs(
     *,
-    filteraccount: None | str | Unset = UNSET,
+    filteraccount: Union[None, Unset, str] = UNSET,
+
 ) -> dict[str, Any]:
+    
+
+    
 
     params: dict[str, Any] = {}
 
-    json_filteraccount: None | str | Unset
+    json_filteraccount: Union[None, Unset, str]
     if isinstance(filteraccount, Unset):
         json_filteraccount = UNSET
     else:
         json_filteraccount = filteraccount
     params["filter[account]"] = json_filteraccount
 
+
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
+
 
     _kwargs: dict[str, Any] = {
         "method": "get",
@@ -34,34 +44,44 @@ def _get_kwargs(
         "params": params,
     }
 
+
     return _kwargs
 
 
-def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse | UserListResponse | None:
+
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[ErrorResponse, UserListResponse]]:
     if response.status_code == 200:
         response_200 = UserListResponse.from_dict(response.json())
+
+
 
         return response_200
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
 
+
+
         return response_400
 
     if response.status_code == 401:
         response_401 = ErrorResponse.from_dict(response.json())
+
+
 
         return response_401
 
     if response.status_code == 404:
         response_404 = ErrorResponse.from_dict(response.json())
 
+
+
         return response_404
 
     if response.status_code == 429:
         response_429 = ErrorResponse.from_dict(response.json())
+
+
 
         return response_429
 
@@ -71,9 +91,7 @@ def _parse_response(
         return None
 
 
-def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse | UserListResponse]:
+def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[ErrorResponse, UserListResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -85,23 +103,26 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    filteraccount: None | str | Unset = UNSET,
-) -> Response[ErrorResponse | UserListResponse]:
-    """List Users
+    filteraccount: Union[None, Unset, str] = UNSET,
+
+) -> Response[Union[ErrorResponse, UserListResponse]]:
+    """ List Users
 
     Args:
-        filteraccount (None | str | Unset):
+        filteraccount (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | UserListResponse]
-    """
+        Response[Union[ErrorResponse, UserListResponse]]
+     """
+
 
     kwargs = _get_kwargs(
         filteraccount=filteraccount,
+
     )
 
     response = client.get_httpx_client().request(
@@ -110,79 +131,85 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
-
 def sync(
     *,
     client: AuthenticatedClient,
-    filteraccount: None | str | Unset = UNSET,
-) -> ErrorResponse | UserListResponse | None:
-    """List Users
+    filteraccount: Union[None, Unset, str] = UNSET,
+
+) -> Optional[Union[ErrorResponse, UserListResponse]]:
+    """ List Users
 
     Args:
-        filteraccount (None | str | Unset):
+        filteraccount (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | UserListResponse
-    """
+        Union[ErrorResponse, UserListResponse]
+     """
+
 
     return sync_detailed(
         client=client,
-        filteraccount=filteraccount,
-    ).parsed
+filteraccount=filteraccount,
 
+    ).parsed
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    filteraccount: None | str | Unset = UNSET,
-) -> Response[ErrorResponse | UserListResponse]:
-    """List Users
+    filteraccount: Union[None, Unset, str] = UNSET,
+
+) -> Response[Union[ErrorResponse, UserListResponse]]:
+    """ List Users
 
     Args:
-        filteraccount (None | str | Unset):
+        filteraccount (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | UserListResponse]
-    """
+        Response[Union[ErrorResponse, UserListResponse]]
+     """
+
 
     kwargs = _get_kwargs(
         filteraccount=filteraccount,
+
     )
 
-    response = await client.get_async_httpx_client().request(**kwargs)
+    response = await client.get_async_httpx_client().request(
+        **kwargs
+    )
 
     return _build_response(client=client, response=response)
-
 
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    filteraccount: None | str | Unset = UNSET,
-) -> ErrorResponse | UserListResponse | None:
-    """List Users
+    filteraccount: Union[None, Unset, str] = UNSET,
+
+) -> Optional[Union[ErrorResponse, UserListResponse]]:
+    """ List Users
 
     Args:
-        filteraccount (None | str | Unset):
+        filteraccount (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | UserListResponse
-    """
+        Union[ErrorResponse, UserListResponse]
+     """
 
-    return (
-        await asyncio_detailed(
-            client=client,
-            filteraccount=filteraccount,
-        )
-    ).parsed
+
+    return (await asyncio_detailed(
+        client=client,
+filteraccount=filteraccount,
+
+    )).parsed

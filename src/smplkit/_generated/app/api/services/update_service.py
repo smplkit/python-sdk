@@ -1,32 +1,38 @@
 from http import HTTPStatus
-from typing import Any
-from urllib.parse import quote
+from typing import Any, Optional, Union, cast
 
 import httpx
 
 from ...client import AuthenticatedClient, Client
-from ...types import Response
+from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error_response import ErrorResponse
 from ...models.service_response import ServiceResponse
+from typing import cast
+
 
 
 def _get_kwargs(
     id: str,
     *,
     body: ServiceResponse,
+
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
+
+    
+
+    
+
     _kwargs: dict[str, Any] = {
         "method": "put",
-        "url": "/api/v1/services/{id}".format(
-            id=quote(str(id), safe=""),
-        ),
+        "url": "/api/v1/services/{id}".format(id=id,),
     }
 
     _kwargs["json"] = body.to_dict()
+
 
     headers["Content-Type"] = "application/vnd.api+json"
 
@@ -34,31 +40,40 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse | ServiceResponse | None:
+
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[ErrorResponse, ServiceResponse]]:
     if response.status_code == 200:
         response_200 = ServiceResponse.from_dict(response.json())
+
+
 
         return response_200
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
 
+
+
         return response_400
 
     if response.status_code == 401:
         response_401 = ErrorResponse.from_dict(response.json())
+
+
 
         return response_401
 
     if response.status_code == 404:
         response_404 = ErrorResponse.from_dict(response.json())
 
+
+
         return response_404
 
     if response.status_code == 429:
         response_429 = ErrorResponse.from_dict(response.json())
+
+
 
         return response_429
 
@@ -68,9 +83,7 @@ def _parse_response(
         return None
 
 
-def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse | ServiceResponse]:
+def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[ErrorResponse, ServiceResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -84,8 +97,9 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     body: ServiceResponse,
-) -> Response[ErrorResponse | ServiceResponse]:
-    """Update Service
+
+) -> Response[Union[ErrorResponse, ServiceResponse]]:
+    """ Update Service
 
     Args:
         id (str):
@@ -96,12 +110,14 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | ServiceResponse]
-    """
+        Response[Union[ErrorResponse, ServiceResponse]]
+     """
+
 
     kwargs = _get_kwargs(
         id=id,
-        body=body,
+body=body,
+
     )
 
     response = client.get_httpx_client().request(
@@ -110,14 +126,14 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
-
 def sync(
     id: str,
     *,
     client: AuthenticatedClient,
     body: ServiceResponse,
-) -> ErrorResponse | ServiceResponse | None:
-    """Update Service
+
+) -> Optional[Union[ErrorResponse, ServiceResponse]]:
+    """ Update Service
 
     Args:
         id (str):
@@ -128,23 +144,25 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | ServiceResponse
-    """
+        Union[ErrorResponse, ServiceResponse]
+     """
+
 
     return sync_detailed(
         id=id,
-        client=client,
-        body=body,
-    ).parsed
+client=client,
+body=body,
 
+    ).parsed
 
 async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
     body: ServiceResponse,
-) -> Response[ErrorResponse | ServiceResponse]:
-    """Update Service
+
+) -> Response[Union[ErrorResponse, ServiceResponse]]:
+    """ Update Service
 
     Args:
         id (str):
@@ -155,26 +173,30 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | ServiceResponse]
-    """
+        Response[Union[ErrorResponse, ServiceResponse]]
+     """
+
 
     kwargs = _get_kwargs(
         id=id,
-        body=body,
+body=body,
+
     )
 
-    response = await client.get_async_httpx_client().request(**kwargs)
+    response = await client.get_async_httpx_client().request(
+        **kwargs
+    )
 
     return _build_response(client=client, response=response)
-
 
 async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient,
     body: ServiceResponse,
-) -> ErrorResponse | ServiceResponse | None:
-    """Update Service
+
+) -> Optional[Union[ErrorResponse, ServiceResponse]]:
+    """ Update Service
 
     Args:
         id (str):
@@ -185,13 +207,13 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | ServiceResponse
-    """
+        Union[ErrorResponse, ServiceResponse]
+     """
 
-    return (
-        await asyncio_detailed(
-            id=id,
-            client=client,
-            body=body,
-        )
-    ).parsed
+
+    return (await asyncio_detailed(
+        id=id,
+client=client,
+body=body,
+
+    )).parsed

@@ -1,52 +1,66 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..types import UNSET, Unset
+
+from typing import cast
 
 if TYPE_CHECKING:
-    from ..models.resource_config import ResourceConfig
+  from ..models.resource_config import ResourceConfig
+
+
+
 
 
 T = TypeVar("T", bound="ResponseConfig")
 
 
+
 @_attrs_define
 class ResponseConfig:
-    """
-    Attributes:
-        data (ResourceConfig):
-    """
+    """ 
+        Attributes:
+            data (ResourceConfig):
+     """
 
-    data: ResourceConfig
+    data: 'ResourceConfig'
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
+
+
+
+
     def to_dict(self) -> dict[str, Any]:
+        from ..models.resource_config import ResourceConfig
         data = self.data.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "data": data,
-            }
-        )
+        field_dict.update({
+            "data": data,
+        })
 
         return field_dict
+
+
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.resource_config import ResourceConfig
-
         d = dict(src_dict)
         data = ResourceConfig.from_dict(d.pop("data"))
+
+
+
 
         response_config = cls(
             data=data,
         )
+
 
         response_config.additional_properties = d
         return response_config

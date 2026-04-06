@@ -1,11 +1,8 @@
 from typing import Literal, cast
 
-ServiceResourceType = Literal["service"]
+ServiceResourceType = Literal['service']
 
-SERVICE_RESOURCE_TYPE_VALUES: set[ServiceResourceType] = {
-    "service",
-}
-
+SERVICE_RESOURCE_TYPE_VALUES: set[ServiceResourceType] = { 'service',  }
 
 def check_service_resource_type(value: str) -> ServiceResourceType:
     if value in SERVICE_RESOURCE_TYPE_VALUES:

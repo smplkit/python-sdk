@@ -1,11 +1,8 @@
 from typing import Literal, cast
 
-AccountResourceType = Literal["account"]
+AccountResourceType = Literal['account']
 
-ACCOUNT_RESOURCE_TYPE_VALUES: set[AccountResourceType] = {
-    "account",
-}
-
+ACCOUNT_RESOURCE_TYPE_VALUES: set[AccountResourceType] = { 'account',  }
 
 def check_account_resource_type(value: str) -> AccountResourceType:
     if value in ACCOUNT_RESOURCE_TYPE_VALUES:

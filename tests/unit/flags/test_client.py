@@ -151,7 +151,7 @@ def _parsed_context_list_response():
     from smplkit._generated.app.models.context_list_response import ContextListResponse
     from smplkit._generated.app.models.context_resource import ContextResource
 
-    ctx = GenContext(key="u-1", context_type="user")
+    ctx = GenContext(name="u-1", context_type="user")
     resource = ContextResource(type_="context", attributes=ctx, id="user:u-1")
     return ContextListResponse(data=[resource])
 

@@ -1,42 +1,52 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 
 if TYPE_CHECKING:
-    from ..models.log_group import LogGroup
+  from ..models.log_group import LogGroup
+
+
+
 
 
 T = TypeVar("T", bound="ResourceLogGroup")
 
 
+
 @_attrs_define
 class ResourceLogGroup:
-    """
-    Attributes:
-        attributes (LogGroup):  Example: {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level':
-            'ERROR'}}, 'key': 'database-loggers', 'level': 'WARN', 'name': 'Database Loggers', 'updated_at':
-            '2026-04-01T10:00:00Z'}.
-        id (None | str | Unset):
-        type_ (str | Unset):  Default: ''.
-    """
+    """ 
+        Attributes:
+            attributes (LogGroup):  Example: {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level':
+                'ERROR'}}, 'key': 'database-loggers', 'level': 'WARN', 'name': 'Database Loggers', 'updated_at':
+                '2026-04-01T10:00:00Z'}.
+            id (Union[None, Unset, str]):
+            type_ (Union[Unset, str]):  Default: ''.
+     """
 
-    attributes: LogGroup
-    id: None | str | Unset = UNSET
-    type_: str | Unset = ""
+    attributes: 'LogGroup'
+    id: Union[None, Unset, str] = UNSET
+    type_: Union[Unset, str] = ''
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
+
+
+
+
     def to_dict(self) -> dict[str, Any]:
+        from ..models.log_group import LogGroup
         attributes = self.attributes.to_dict()
 
-        id: None | str | Unset
+        id: Union[None, Unset, str]
         if isinstance(self.id, Unset):
             id = UNSET
         else:
@@ -44,13 +54,12 @@ class ResourceLogGroup:
 
         type_ = self.type_
 
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "attributes": attributes,
-            }
-        )
+        field_dict.update({
+            "attributes": attributes,
+        })
         if id is not UNSET:
             field_dict["id"] = id
         if type_ is not UNSET:
@@ -58,21 +67,26 @@ class ResourceLogGroup:
 
         return field_dict
 
+
+
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.log_group import LogGroup
-
         d = dict(src_dict)
         attributes = LogGroup.from_dict(d.pop("attributes"))
 
-        def _parse_id(data: object) -> None | str | Unset:
+
+
+
+        def _parse_id(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         id = _parse_id(d.pop("id", UNSET))
+
 
         type_ = d.pop("type", UNSET)
 
@@ -81,6 +95,7 @@ class ResourceLogGroup:
             id=id,
             type_=type_,
         )
+
 
         resource_log_group.additional_properties = d
         return resource_log_group

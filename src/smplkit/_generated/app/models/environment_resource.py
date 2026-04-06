@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -10,81 +8,101 @@ from ..types import UNSET, Unset
 
 from ..models.environment_resource_type import check_environment_resource_type
 from ..models.environment_resource_type import EnvironmentResourceType
+from ..types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 
 if TYPE_CHECKING:
-    from ..models.environment import Environment
+  from ..models.environment import Environment
+
+
+
 
 
 T = TypeVar("T", bound="EnvironmentResource")
 
 
+
 @_attrs_define
 class EnvironmentResource:
-    """
-    Example:
-        {'attributes': {'classification': 'STANDARD', 'color': '#2ecc71', 'created_at': '2026-03-20T11:02:16.616Z',
-            'name': 'Production', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id': 'production', 'type': 'environment'}
+    """ 
+        Example:
+            {'attributes': {'classification': 'STANDARD', 'color': '#2ecc71', 'created_at': '2026-03-20T11:02:16.616Z',
+                'name': 'Production', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id': 'production', 'type': 'environment'}
 
-    Attributes:
-        type_ (EnvironmentResourceType):
-        attributes (Environment):  Example: {'classification': 'STANDARD', 'color': '#2ecc71', 'created_at':
-            '2026-03-20T11:02:16.616Z', 'name': 'Production', 'updated_at': '2026-03-20T11:02:16.616Z'}.
-        id (None | str | Unset):
-    """
+        Attributes:
+            type_ (EnvironmentResourceType):
+            attributes (Environment):  Example: {'classification': 'STANDARD', 'color': '#2ecc71', 'created_at':
+                '2026-03-20T11:02:16.616Z', 'name': 'Production', 'updated_at': '2026-03-20T11:02:16.616Z'}.
+            id (Union[None, Unset, str]):
+     """
 
     type_: EnvironmentResourceType
-    attributes: Environment
-    id: None | str | Unset = UNSET
+    attributes: 'Environment'
+    id: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
+
+
+
+
     def to_dict(self) -> dict[str, Any]:
+        from ..models.environment import Environment
         type_: str = self.type_
 
         attributes = self.attributes.to_dict()
 
-        id: None | str | Unset
+        id: Union[None, Unset, str]
         if isinstance(self.id, Unset):
             id = UNSET
         else:
             id = self.id
 
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "type": type_,
-                "attributes": attributes,
-            }
-        )
+        field_dict.update({
+            "type": type_,
+            "attributes": attributes,
+        })
         if id is not UNSET:
             field_dict["id"] = id
 
         return field_dict
 
+
+
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.environment import Environment
-
         d = dict(src_dict)
         type_ = check_environment_resource_type(d.pop("type"))
 
+
+
+
         attributes = Environment.from_dict(d.pop("attributes"))
 
-        def _parse_id(data: object) -> None | str | Unset:
+
+
+
+        def _parse_id(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         id = _parse_id(d.pop("id", UNSET))
+
 
         environment_resource = cls(
             type_=type_,
             attributes=attributes,
             id=id,
         )
+
 
         environment_resource.additional_properties = d
         return environment_resource

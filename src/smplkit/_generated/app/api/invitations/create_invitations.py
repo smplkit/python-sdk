@@ -1,22 +1,30 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, Optional, Union, cast
 
 import httpx
 
 from ...client import AuthenticatedClient, Client
-from ...types import Response
+from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error_response import ErrorResponse
 from ...models.invitation_bulk_create_request import InvitationBulkCreateRequest
 from ...models.invitation_list_response import InvitationListResponse
+from typing import cast
+
 
 
 def _get_kwargs(
     *,
     body: InvitationBulkCreateRequest,
+
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
+
+
+    
+
+    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
@@ -25,37 +33,47 @@ def _get_kwargs(
 
     _kwargs["json"] = body.to_dict()
 
+
     headers["Content-Type"] = "application/vnd.api+json"
 
     _kwargs["headers"] = headers
     return _kwargs
 
 
-def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse | InvitationListResponse | None:
+
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[ErrorResponse, InvitationListResponse]]:
     if response.status_code == 201:
         response_201 = InvitationListResponse.from_dict(response.json())
+
+
 
         return response_201
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
 
+
+
         return response_400
 
     if response.status_code == 401:
         response_401 = ErrorResponse.from_dict(response.json())
+
+
 
         return response_401
 
     if response.status_code == 404:
         response_404 = ErrorResponse.from_dict(response.json())
 
+
+
         return response_404
 
     if response.status_code == 429:
         response_429 = ErrorResponse.from_dict(response.json())
+
+
 
         return response_429
 
@@ -65,9 +83,7 @@ def _parse_response(
         return None
 
 
-def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse | InvitationListResponse]:
+def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[ErrorResponse, InvitationListResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -80,8 +96,9 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     body: InvitationBulkCreateRequest,
-) -> Response[ErrorResponse | InvitationListResponse]:
-    """Bulk Create Invitations
+
+) -> Response[Union[ErrorResponse, InvitationListResponse]]:
+    """ Bulk Create Invitations
 
     Args:
         body (InvitationBulkCreateRequest):
@@ -91,11 +108,13 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | InvitationListResponse]
-    """
+        Response[Union[ErrorResponse, InvitationListResponse]]
+     """
+
 
     kwargs = _get_kwargs(
         body=body,
+
     )
 
     response = client.get_httpx_client().request(
@@ -104,13 +123,13 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
-
 def sync(
     *,
     client: AuthenticatedClient,
     body: InvitationBulkCreateRequest,
-) -> ErrorResponse | InvitationListResponse | None:
-    """Bulk Create Invitations
+
+) -> Optional[Union[ErrorResponse, InvitationListResponse]]:
+    """ Bulk Create Invitations
 
     Args:
         body (InvitationBulkCreateRequest):
@@ -120,21 +139,23 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | InvitationListResponse
-    """
+        Union[ErrorResponse, InvitationListResponse]
+     """
+
 
     return sync_detailed(
         client=client,
-        body=body,
-    ).parsed
+body=body,
 
+    ).parsed
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     body: InvitationBulkCreateRequest,
-) -> Response[ErrorResponse | InvitationListResponse]:
-    """Bulk Create Invitations
+
+) -> Response[Union[ErrorResponse, InvitationListResponse]]:
+    """ Bulk Create Invitations
 
     Args:
         body (InvitationBulkCreateRequest):
@@ -144,24 +165,28 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | InvitationListResponse]
-    """
+        Response[Union[ErrorResponse, InvitationListResponse]]
+     """
+
 
     kwargs = _get_kwargs(
         body=body,
+
     )
 
-    response = await client.get_async_httpx_client().request(**kwargs)
+    response = await client.get_async_httpx_client().request(
+        **kwargs
+    )
 
     return _build_response(client=client, response=response)
-
 
 async def asyncio(
     *,
     client: AuthenticatedClient,
     body: InvitationBulkCreateRequest,
-) -> ErrorResponse | InvitationListResponse | None:
-    """Bulk Create Invitations
+
+) -> Optional[Union[ErrorResponse, InvitationListResponse]]:
+    """ Bulk Create Invitations
 
     Args:
         body (InvitationBulkCreateRequest):
@@ -171,12 +196,12 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | InvitationListResponse
-    """
+        Union[ErrorResponse, InvitationListResponse]
+     """
 
-    return (
-        await asyncio_detailed(
-            client=client,
-            body=body,
-        )
-    ).parsed
+
+    return (await asyncio_detailed(
+        client=client,
+body=body,
+
+    )).parsed

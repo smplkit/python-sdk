@@ -1,28 +1,38 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
+
+
+
+
+
 
 
 T = TypeVar("T", bound="Plan")
 
 
+
 @_attrs_define
 class Plan:
-    """
-    Attributes:
-        display_name (str):
-        description (str):
-        sort_order (int):
-    """
+    """ 
+        Attributes:
+            display_name (str):
+            description (str):
+            sort_order (int):
+     """
 
     display_name: str
     description: str
     sort_order: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
+
+
+
+
 
     def to_dict(self) -> dict[str, Any]:
         display_name = self.display_name
@@ -31,17 +41,18 @@ class Plan:
 
         sort_order = self.sort_order
 
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "display_name": display_name,
-                "description": description,
-                "sort_order": sort_order,
-            }
-        )
+        field_dict.update({
+            "display_name": display_name,
+            "description": description,
+            "sort_order": sort_order,
+        })
 
         return field_dict
+
+
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
@@ -57,6 +68,7 @@ class Plan:
             description=description,
             sort_order=sort_order,
         )
+
 
         plan.additional_properties = d
         return plan

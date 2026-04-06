@@ -1,11 +1,8 @@
 from typing import Literal, cast
 
-ContextTypeResourceType = Literal["context_type"]
+ContextTypeResourceType = Literal['context_type']
 
-CONTEXT_TYPE_RESOURCE_TYPE_VALUES: set[ContextTypeResourceType] = {
-    "context_type",
-}
-
+CONTEXT_TYPE_RESOURCE_TYPE_VALUES: set[ContextTypeResourceType] = { 'context_type',  }
 
 def check_context_type_resource_type(value: str) -> ContextTypeResourceType:
     if value in CONTEXT_TYPE_RESOURCE_TYPE_VALUES:

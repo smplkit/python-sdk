@@ -1,11 +1,8 @@
 from typing import Literal, cast
 
-ProductResourceType = Literal["product"]
+ProductResourceType = Literal['product']
 
-PRODUCT_RESOURCE_TYPE_VALUES: set[ProductResourceType] = {
-    "product",
-}
-
+PRODUCT_RESOURCE_TYPE_VALUES: set[ProductResourceType] = { 'product',  }
 
 def check_product_resource_type(value: str) -> ProductResourceType:
     if value in PRODUCT_RESOURCE_TYPE_VALUES:

@@ -1,11 +1,8 @@
 from typing import Literal, cast
 
-ApiKeyResourceType = Literal["api_key"]
+ApiKeyResourceType = Literal['api_key']
 
-API_KEY_RESOURCE_TYPE_VALUES: set[ApiKeyResourceType] = {
-    "api_key",
-}
-
+API_KEY_RESOURCE_TYPE_VALUES: set[ApiKeyResourceType] = { 'api_key',  }
 
 def check_api_key_resource_type(value: str) -> ApiKeyResourceType:
     if value in API_KEY_RESOURCE_TYPE_VALUES:

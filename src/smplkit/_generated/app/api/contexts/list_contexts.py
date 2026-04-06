@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, Optional, Union, cast
 
 import httpx
 
@@ -9,24 +9,34 @@ from ... import errors
 
 from ...models.context_list_response import ContextListResponse
 from ...models.error_response import ErrorResponse
-from ...types import Unset
+from ...types import UNSET, Unset
+from typing import cast
+from typing import cast, Union
+from typing import Union
+
 
 
 def _get_kwargs(
     *,
-    filtercontext_type_id: None | str | Unset = UNSET,
+    filtercontext_type_id: Union[None, Unset, str] = UNSET,
+
 ) -> dict[str, Any]:
+    
+
+    
 
     params: dict[str, Any] = {}
 
-    json_filtercontext_type_id: None | str | Unset
+    json_filtercontext_type_id: Union[None, Unset, str]
     if isinstance(filtercontext_type_id, Unset):
         json_filtercontext_type_id = UNSET
     else:
         json_filtercontext_type_id = filtercontext_type_id
     params["filter[context_type_id]"] = json_filtercontext_type_id
 
+
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
+
 
     _kwargs: dict[str, Any] = {
         "method": "get",
@@ -34,34 +44,44 @@ def _get_kwargs(
         "params": params,
     }
 
+
     return _kwargs
 
 
-def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ContextListResponse | ErrorResponse | None:
+
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[ContextListResponse, ErrorResponse]]:
     if response.status_code == 200:
         response_200 = ContextListResponse.from_dict(response.json())
+
+
 
         return response_200
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
 
+
+
         return response_400
 
     if response.status_code == 401:
         response_401 = ErrorResponse.from_dict(response.json())
+
+
 
         return response_401
 
     if response.status_code == 404:
         response_404 = ErrorResponse.from_dict(response.json())
 
+
+
         return response_404
 
     if response.status_code == 429:
         response_429 = ErrorResponse.from_dict(response.json())
+
+
 
         return response_429
 
@@ -71,9 +91,7 @@ def _parse_response(
         return None
 
 
-def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ContextListResponse | ErrorResponse]:
+def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[ContextListResponse, ErrorResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -85,23 +103,26 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    filtercontext_type_id: None | str | Unset = UNSET,
-) -> Response[ContextListResponse | ErrorResponse]:
-    """List Contexts
+    filtercontext_type_id: Union[None, Unset, str] = UNSET,
+
+) -> Response[Union[ContextListResponse, ErrorResponse]]:
+    """ List Contexts
 
     Args:
-        filtercontext_type_id (None | str | Unset):
+        filtercontext_type_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ContextListResponse | ErrorResponse]
-    """
+        Response[Union[ContextListResponse, ErrorResponse]]
+     """
+
 
     kwargs = _get_kwargs(
         filtercontext_type_id=filtercontext_type_id,
+
     )
 
     response = client.get_httpx_client().request(
@@ -110,79 +131,85 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
-
 def sync(
     *,
     client: AuthenticatedClient,
-    filtercontext_type_id: None | str | Unset = UNSET,
-) -> ContextListResponse | ErrorResponse | None:
-    """List Contexts
+    filtercontext_type_id: Union[None, Unset, str] = UNSET,
+
+) -> Optional[Union[ContextListResponse, ErrorResponse]]:
+    """ List Contexts
 
     Args:
-        filtercontext_type_id (None | str | Unset):
+        filtercontext_type_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ContextListResponse | ErrorResponse
-    """
+        Union[ContextListResponse, ErrorResponse]
+     """
+
 
     return sync_detailed(
         client=client,
-        filtercontext_type_id=filtercontext_type_id,
-    ).parsed
+filtercontext_type_id=filtercontext_type_id,
 
+    ).parsed
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    filtercontext_type_id: None | str | Unset = UNSET,
-) -> Response[ContextListResponse | ErrorResponse]:
-    """List Contexts
+    filtercontext_type_id: Union[None, Unset, str] = UNSET,
+
+) -> Response[Union[ContextListResponse, ErrorResponse]]:
+    """ List Contexts
 
     Args:
-        filtercontext_type_id (None | str | Unset):
+        filtercontext_type_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ContextListResponse | ErrorResponse]
-    """
+        Response[Union[ContextListResponse, ErrorResponse]]
+     """
+
 
     kwargs = _get_kwargs(
         filtercontext_type_id=filtercontext_type_id,
+
     )
 
-    response = await client.get_async_httpx_client().request(**kwargs)
+    response = await client.get_async_httpx_client().request(
+        **kwargs
+    )
 
     return _build_response(client=client, response=response)
-
 
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    filtercontext_type_id: None | str | Unset = UNSET,
-) -> ContextListResponse | ErrorResponse | None:
-    """List Contexts
+    filtercontext_type_id: Union[None, Unset, str] = UNSET,
+
+) -> Optional[Union[ContextListResponse, ErrorResponse]]:
+    """ List Contexts
 
     Args:
-        filtercontext_type_id (None | str | Unset):
+        filtercontext_type_id (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ContextListResponse | ErrorResponse
-    """
+        Union[ContextListResponse, ErrorResponse]
+     """
 
-    return (
-        await asyncio_detailed(
-            client=client,
-            filtercontext_type_id=filtercontext_type_id,
-        )
-    ).parsed
+
+    return (await asyncio_detailed(
+        client=client,
+filtercontext_type_id=filtercontext_type_id,
+
+    )).parsed

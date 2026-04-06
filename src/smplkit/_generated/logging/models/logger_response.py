@@ -1,56 +1,70 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..types import UNSET, Unset
+
+from typing import cast
 
 if TYPE_CHECKING:
-    from ..models.logger_resource import LoggerResource
+  from ..models.logger_resource import LoggerResource
+
+
+
 
 
 T = TypeVar("T", bound="LoggerResponse")
 
 
+
 @_attrs_define
 class LoggerResponse:
-    """
-    Attributes:
-        data (LoggerResource):  Example: {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments':
-            {'production': {'level': 'WARN'}, 'staging': {'level': 'DEBUG'}}, 'group':
-            '660e8400-e29b-41d4-a716-446655440000', 'key': 'com.example.sql', 'level': 'DEBUG', 'managed': True, 'name':
-            'SQL Logger', 'sources': [{'first_observed': '2026-04-01T10:00:00Z', 'service': 'api-gateway'}], 'updated_at':
-            '2026-04-01T10:00:00Z'}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type': 'logger'}.
-    """
+    """ 
+        Attributes:
+            data (LoggerResource):  Example: {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments':
+                {'production': {'level': 'WARN'}, 'staging': {'level': 'DEBUG'}}, 'group':
+                '660e8400-e29b-41d4-a716-446655440000', 'key': 'com.example.sql', 'level': 'DEBUG', 'managed': True, 'name':
+                'SQL Logger', 'sources': [{'first_observed': '2026-04-01T10:00:00Z', 'service': 'api-gateway'}], 'updated_at':
+                '2026-04-01T10:00:00Z'}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type': 'logger'}.
+     """
 
-    data: LoggerResource
+    data: 'LoggerResource'
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
+
+
+
+
     def to_dict(self) -> dict[str, Any]:
+        from ..models.logger_resource import LoggerResource
         data = self.data.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "data": data,
-            }
-        )
+        field_dict.update({
+            "data": data,
+        })
 
         return field_dict
+
+
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.logger_resource import LoggerResource
-
         d = dict(src_dict)
         data = LoggerResource.from_dict(d.pop("data"))
+
+
+
 
         logger_response = cls(
             data=data,
         )
+
 
         logger_response.additional_properties = d
         return logger_response

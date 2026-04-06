@@ -1,11 +1,8 @@
 from typing import Literal, cast
 
-EnvironmentResourceType = Literal["environment"]
+EnvironmentResourceType = Literal['environment']
 
-ENVIRONMENT_RESOURCE_TYPE_VALUES: set[EnvironmentResourceType] = {
-    "environment",
-}
-
+ENVIRONMENT_RESOURCE_TYPE_VALUES: set[EnvironmentResourceType] = { 'environment',  }
 
 def check_environment_resource_type(value: str) -> EnvironmentResourceType:
     if value in ENVIRONMENT_RESOURCE_TYPE_VALUES:

@@ -1,96 +1,111 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 from typing import cast
-from typing import Literal
+from typing import cast, Union
+from typing import Literal, cast
+from typing import Union
 
 if TYPE_CHECKING:
-    from ..models.config import Config
+  from ..models.config import Config
+
+
+
 
 
 T = TypeVar("T", bound="ConfigResource")
 
 
+
 @_attrs_define
 class ConfigResource:
-    """
-    Example:
-        {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database configuration', 'environments':
-            {'prod': {'values': {'host': {'value': 'db-prod.internal'}}}}, 'items': {'host': {'description': 'Primary
-            database hostname', 'type': 'STRING', 'value': 'db.internal'}}, 'key': 'database', 'name': 'Database',
-            'updated_at': '2026-03-27T10:00:00Z'}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type': 'config'}
+    """ 
+        Example:
+            {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database configuration', 'environments':
+                {'prod': {'values': {'host': {'value': 'db-prod.internal'}}}}, 'items': {'host': {'description': 'Primary
+                database hostname', 'type': 'STRING', 'value': 'db.internal'}}, 'key': 'database', 'name': 'Database',
+                'updated_at': '2026-03-27T10:00:00Z'}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type': 'config'}
 
-    Attributes:
-        type_ (Literal['config']):
-        attributes (Config):  Example: {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database configuration',
-            'environments': {'prod': {'values': {'host': {'value': 'db-prod.internal'}, 'pool_size': {'value': 20}}}},
-            'items': {'host': {'description': 'Primary database hostname', 'type': 'STRING', 'value': 'db.internal'},
-            'pool_size': {'description': 'Connection pool size', 'type': 'NUMBER', 'value': 10}}, 'key': 'database', 'name':
-            'Database', 'updated_at': '2026-03-27T10:00:00Z'}.
-        id (None | str | Unset):
-    """
+        Attributes:
+            type_ (Literal['config']):
+            attributes (Config):  Example: {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database configuration',
+                'environments': {'prod': {'values': {'host': {'value': 'db-prod.internal'}, 'pool_size': {'value': 20}}}},
+                'items': {'host': {'description': 'Primary database hostname', 'type': 'STRING', 'value': 'db.internal'},
+                'pool_size': {'description': 'Connection pool size', 'type': 'NUMBER', 'value': 10}}, 'key': 'database', 'name':
+                'Database', 'updated_at': '2026-03-27T10:00:00Z'}.
+            id (Union[None, Unset, str]):
+     """
 
-    type_: Literal["config"]
-    attributes: Config
-    id: None | str | Unset = UNSET
+    type_: Literal['config']
+    attributes: 'Config'
+    id: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
+
+
+
+
     def to_dict(self) -> dict[str, Any]:
+        from ..models.config import Config
         type_ = self.type_
 
         attributes = self.attributes.to_dict()
 
-        id: None | str | Unset
+        id: Union[None, Unset, str]
         if isinstance(self.id, Unset):
             id = UNSET
         else:
             id = self.id
 
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "type": type_,
-                "attributes": attributes,
-            }
-        )
+        field_dict.update({
+            "type": type_,
+            "attributes": attributes,
+        })
         if id is not UNSET:
             field_dict["id"] = id
 
         return field_dict
 
+
+
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.config import Config
-
         d = dict(src_dict)
-        type_ = cast(Literal["config"], d.pop("type"))
-        if type_ != "config":
+        type_ = cast(Literal['config'] , d.pop("type"))
+        if type_ != 'config':
             raise ValueError(f"type must match const 'config', got '{type_}'")
 
         attributes = Config.from_dict(d.pop("attributes"))
 
-        def _parse_id(data: object) -> None | str | Unset:
+
+
+
+        def _parse_id(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         id = _parse_id(d.pop("id", UNSET))
+
 
         config_resource = cls(
             type_=type_,
             attributes=attributes,
             id=id,
         )
+
 
         config_resource.additional_properties = d
         return config_resource

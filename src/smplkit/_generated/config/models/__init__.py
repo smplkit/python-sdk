@@ -1,4 +1,4 @@
-"""Contains all the data models used in inputs/outputs"""
+""" Contains all the data models used in inputs/outputs """
 
 from .config import Config
 from .config_environments_type_0 import ConfigEnvironmentsType0

@@ -1,55 +1,69 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 
 if TYPE_CHECKING:
-    from ..models.flag_rule import FlagRule
+  from ..models.flag_rule import FlagRule
+
+
+
 
 
 T = TypeVar("T", bound="FlagEnvironment")
 
 
+
 @_attrs_define
 class FlagEnvironment:
-    """
-    Attributes:
-        enabled (bool | Unset):  Default: False.
-        default (Any | None | Unset):
-        rules (list[FlagRule] | Unset):
-    """
+    """ 
+        Attributes:
+            enabled (Union[Unset, bool]):  Default: False.
+            default (Union[Any, None, Unset]):
+            rules (Union[Unset, list['FlagRule']]):
+     """
 
-    enabled: bool | Unset = False
-    default: Any | None | Unset = UNSET
-    rules: list[FlagRule] | Unset = UNSET
+    enabled: Union[Unset, bool] = False
+    default: Union[Any, None, Unset] = UNSET
+    rules: Union[Unset, list['FlagRule']] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
+
+
+
+
     def to_dict(self) -> dict[str, Any]:
+        from ..models.flag_rule import FlagRule
         enabled = self.enabled
 
-        default: Any | None | Unset
+        default: Union[Any, None, Unset]
         if isinstance(self.default, Unset):
             default = UNSET
         else:
             default = self.default
 
-        rules: list[dict[str, Any]] | Unset = UNSET
+        rules: Union[Unset, list[dict[str, Any]]] = UNSET
         if not isinstance(self.rules, Unset):
             rules = []
             for rules_item_data in self.rules:
                 rules_item = rules_item_data.to_dict()
                 rules.append(rules_item)
 
+
+
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({})
+        field_dict.update({
+        })
         if enabled is not UNSET:
             field_dict["enabled"] = enabled
         if default is not UNSET:
@@ -59,36 +73,40 @@ class FlagEnvironment:
 
         return field_dict
 
+
+
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.flag_rule import FlagRule
-
         d = dict(src_dict)
         enabled = d.pop("enabled", UNSET)
 
-        def _parse_default(data: object) -> Any | None | Unset:
+        def _parse_default(data: object) -> Union[Any, None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Any | None | Unset, data)
+            return cast(Union[Any, None, Unset], data)
 
         default = _parse_default(d.pop("default", UNSET))
 
-        _rules = d.pop("rules", UNSET)
-        rules: list[FlagRule] | Unset = UNSET
-        if _rules is not UNSET:
-            rules = []
-            for rules_item_data in _rules:
-                rules_item = FlagRule.from_dict(rules_item_data)
 
-                rules.append(rules_item)
+        rules = []
+        _rules = d.pop("rules", UNSET)
+        for rules_item_data in (_rules or []):
+            rules_item = FlagRule.from_dict(rules_item_data)
+
+
+
+            rules.append(rules_item)
+
 
         flag_environment = cls(
             enabled=enabled,
             default=default,
             rules=rules,
         )
+
 
         flag_environment.additional_properties = d
         return flag_environment

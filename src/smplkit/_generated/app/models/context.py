@@ -1,60 +1,66 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 from dateutil.parser import isoparse
 from typing import cast
+from typing import cast, Union
+from typing import Union
 import datetime
 
 if TYPE_CHECKING:
-    from ..models.context_attributes import ContextAttributes
+  from ..models.context_attributes import ContextAttributes
+
+
+
 
 
 T = TypeVar("T", bound="Context")
 
 
+
 @_attrs_define
 class Context:
-    """
-    Example:
-        {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'}, 'context_type': 'user', 'created_at':
-            '2026-03-31T10:00:00Z', 'key': '123', 'name': 'Alice Smith', 'updated_at': '2026-03-31T10:00:00Z'}
+    """ 
+        Example:
+            {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'}, 'context_type': 'user', 'created_at':
+                '2026-03-31T10:00:00Z', 'name': 'Alice Smith', 'updated_at': '2026-03-31T10:00:00Z'}
 
-    Attributes:
-        key (str): Entity identifier: user-123, acme-corp
-        context_type (str): Context type key (e.g., 'user', 'account')
-        name (str | Unset): Human-readable display name Default: ''.
-        attributes (ContextAttributes | Unset): Observed attributes
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
-    """
+        Attributes:
+            context_type (str): Context type key (e.g., 'user', 'account')
+            name (Union[Unset, str]): Human-readable display name Default: ''.
+            attributes (Union[Unset, ContextAttributes]): Observed attributes
+            created_at (Union[None, Unset, datetime.datetime]):
+            updated_at (Union[None, Unset, datetime.datetime]):
+     """
 
-    key: str
     context_type: str
-    name: str | Unset = ""
-    attributes: ContextAttributes | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
+    name: Union[Unset, str] = ''
+    attributes: Union[Unset, 'ContextAttributes'] = UNSET
+    created_at: Union[None, Unset, datetime.datetime] = UNSET
+    updated_at: Union[None, Unset, datetime.datetime] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-    def to_dict(self) -> dict[str, Any]:
-        key = self.key
 
+
+
+
+    def to_dict(self) -> dict[str, Any]:
+        from ..models.context_attributes import ContextAttributes
         context_type = self.context_type
 
         name = self.name
 
-        attributes: dict[str, Any] | Unset = UNSET
+        attributes: Union[Unset, dict[str, Any]] = UNSET
         if not isinstance(self.attributes, Unset):
             attributes = self.attributes.to_dict()
 
-        created_at: None | str | Unset
+        created_at: Union[None, Unset, str]
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -62,7 +68,7 @@ class Context:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: Union[None, Unset, str]
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -70,14 +76,12 @@ class Context:
         else:
             updated_at = self.updated_at
 
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "key": key,
-                "context_type": context_type,
-            }
-        )
+        field_dict.update({
+            "context_type": context_type,
+        })
         if name is not UNSET:
             field_dict["name"] = name
         if attributes is not UNSET:
@@ -89,25 +93,27 @@ class Context:
 
         return field_dict
 
+
+
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.context_attributes import ContextAttributes
-
         d = dict(src_dict)
-        key = d.pop("key")
-
         context_type = d.pop("context_type")
 
         name = d.pop("name", UNSET)
 
         _attributes = d.pop("attributes", UNSET)
-        attributes: ContextAttributes | Unset
-        if isinstance(_attributes, Unset):
+        attributes: Union[Unset, ContextAttributes]
+        if isinstance(_attributes,  Unset):
             attributes = UNSET
         else:
             attributes = ContextAttributes.from_dict(_attributes)
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+
+
+
+        def _parse_created_at(data: object) -> Union[None, Unset, datetime.datetime]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -117,14 +123,17 @@ class Context:
                     raise TypeError()
                 created_at_type_0 = isoparse(data)
 
+
+
                 return created_at_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(datetime.datetime | None | Unset, data)
+            return cast(Union[None, Unset, datetime.datetime], data)
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+
+        def _parse_updated_at(data: object) -> Union[None, Unset, datetime.datetime]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -134,21 +143,24 @@ class Context:
                     raise TypeError()
                 updated_at_type_0 = isoparse(data)
 
+
+
                 return updated_at_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(datetime.datetime | None | Unset, data)
+            return cast(Union[None, Unset, datetime.datetime], data)
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 
+
         context = cls(
-            key=key,
             context_type=context_type,
             name=name,
             attributes=attributes,
             created_at=created_at,
             updated_at=updated_at,
         )
+
 
         context.additional_properties = d
         return context

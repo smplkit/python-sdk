@@ -1,37 +1,45 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 from typing import cast
+from typing import cast, Union
+from typing import Union
 
 if TYPE_CHECKING:
-    from ..models.environment_override_values_type_0 import EnvironmentOverrideValuesType0
+  from ..models.environment_override_values_type_0 import EnvironmentOverrideValuesType0
+
+
+
 
 
 T = TypeVar("T", bound="EnvironmentOverride")
 
 
+
 @_attrs_define
 class EnvironmentOverride:
-    """Schema for per-environment overrides.
+    """ Schema for per-environment overrides.
 
-    Attributes:
-        values (EnvironmentOverrideValuesType0 | None | Unset):
-    """
+        Attributes:
+            values (Union['EnvironmentOverrideValuesType0', None, Unset]):
+     """
 
-    values: EnvironmentOverrideValuesType0 | None | Unset = UNSET
+    values: Union['EnvironmentOverrideValuesType0', None, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
+
+
+
+
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.environment_override_values_type_0 import EnvironmentOverrideValuesType0
-
-        values: dict[str, Any] | None | Unset
+        values: Union[None, Unset, dict[str, Any]]
         if isinstance(self.values, Unset):
             values = UNSET
         elif isinstance(self.values, EnvironmentOverrideValuesType0):
@@ -39,21 +47,23 @@ class EnvironmentOverride:
         else:
             values = self.values
 
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({})
+        field_dict.update({
+        })
         if values is not UNSET:
             field_dict["values"] = values
 
         return field_dict
 
+
+
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.environment_override_values_type_0 import EnvironmentOverrideValuesType0
-
         d = dict(src_dict)
-
-        def _parse_values(data: object) -> EnvironmentOverrideValuesType0 | None | Unset:
+        def _parse_values(data: object) -> Union['EnvironmentOverrideValuesType0', None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -63,16 +73,20 @@ class EnvironmentOverride:
                     raise TypeError()
                 values_type_0 = EnvironmentOverrideValuesType0.from_dict(data)
 
+
+
                 return values_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except: # noqa: E722
                 pass
-            return cast(EnvironmentOverrideValuesType0 | None | Unset, data)
+            return cast(Union['EnvironmentOverrideValuesType0', None, Unset], data)
 
         values = _parse_values(d.pop("values", UNSET))
+
 
         environment_override = cls(
             values=values,
         )
+
 
         environment_override.additional_properties = d
         return environment_override

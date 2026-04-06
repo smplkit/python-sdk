@@ -1,60 +1,76 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..types import UNSET, Unset
+
+from typing import cast
 
 if TYPE_CHECKING:
-    from ..models.plan_resource import PlanResource
+  from ..models.plan_resource import PlanResource
+
+
+
 
 
 T = TypeVar("T", bound="PlanListResponse")
 
 
+
 @_attrs_define
 class PlanListResponse:
-    """
-    Attributes:
-        data (list[PlanResource]):
-    """
+    """ 
+        Attributes:
+            data (list['PlanResource']):
+     """
 
-    data: list[PlanResource]
+    data: list['PlanResource']
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
+
+
+
+
     def to_dict(self) -> dict[str, Any]:
+        from ..models.plan_resource import PlanResource
         data = []
         for data_item_data in self.data:
             data_item = data_item_data.to_dict()
             data.append(data_item)
 
+
+
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "data": data,
-            }
-        )
+        field_dict.update({
+            "data": data,
+        })
 
         return field_dict
+
+
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.plan_resource import PlanResource
-
         d = dict(src_dict)
         data = []
         _data = d.pop("data")
-        for data_item_data in _data:
+        for data_item_data in (_data):
             data_item = PlanResource.from_dict(data_item_data)
 
+
+
             data.append(data_item)
+
 
         plan_list_response = cls(
             data=data,
         )
+
 
         plan_list_response.additional_properties = d
         return plan_list_response
