@@ -70,6 +70,7 @@ from .user_list_response import UserListResponse
 from .user_resource import UserResource
 from .user_resource_type import UserResourceType
 from .user_response import UserResponse
+from .verify_email_request import VerifyEmailRequest
 
 __all__ = (
     "Account",
@@ -142,4 +143,5 @@ __all__ = (
     "UserResource",
     "UserResourceType",
     "UserResponse",
+    "VerifyEmailRequest",
 )
