@@ -1,66 +1,56 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from ..types import UNSET, Unset
 from dateutil.parser import isoparse
 from typing import cast
-from typing import cast, Union
-from typing import Union
 import datetime
-
-
-
-
 
 
 T = TypeVar("T", bound="User")
 
 
-
 @_attrs_define
 class User:
-    """ 
-        Example:
-            {'account': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'auth_provider': 'GOOGLE', 'created_at':
-                '2026-03-20T11:02:16.616Z', 'display_name': 'Jane Smith', 'email': 'jane@example.com', 'email_verified': True,
-                'profile_pic': 'https://lh3.googleusercontent.com/a/example', 'role': 'OWNER'}
+    """
+    Example:
+        {'account': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'auth_provider': 'GOOGLE', 'created_at':
+            '2026-03-20T11:02:16.616Z', 'display_name': 'Jane Smith', 'email': 'jane@example.com', 'email_verified': True,
+            'profile_pic': 'https://lh3.googleusercontent.com/a/example', 'role': 'OWNER'}
 
-        Attributes:
-            email (str): User's email address
-            display_name (str):
-            profile_pic (Union[None, Unset, str]):
-            auth_provider (Union[Unset, str]):  Default: ''.
-            email_verified (Union[Unset, bool]):  Default: False.
-            role (Union[None, Unset, str]): Role in current account context
-            account (Union[Unset, str]): Account UUID Default: ''.
-            created_at (Union[None, Unset, datetime.datetime]):
-     """
+    Attributes:
+        email (str): User's email address
+        display_name (str):
+        profile_pic (None | str | Unset):
+        auth_provider (str | Unset):  Default: ''.
+        email_verified (bool | Unset):  Default: False.
+        role (None | str | Unset): Role in current account context
+        account (str | Unset): Account UUID Default: ''.
+        created_at (datetime.datetime | None | Unset):
+    """
 
     email: str
     display_name: str
-    profile_pic: Union[None, Unset, str] = UNSET
-    auth_provider: Union[Unset, str] = ''
-    email_verified: Union[Unset, bool] = False
-    role: Union[None, Unset, str] = UNSET
-    account: Union[Unset, str] = ''
-    created_at: Union[None, Unset, datetime.datetime] = UNSET
+    profile_pic: None | str | Unset = UNSET
+    auth_provider: str | Unset = ""
+    email_verified: bool | Unset = False
+    role: None | str | Unset = UNSET
+    account: str | Unset = ""
+    created_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         email = self.email
 
         display_name = self.display_name
 
-        profile_pic: Union[None, Unset, str]
+        profile_pic: None | str | Unset
         if isinstance(self.profile_pic, Unset):
             profile_pic = UNSET
         else:
@@ -70,7 +60,7 @@ class User:
 
         email_verified = self.email_verified
 
-        role: Union[None, Unset, str]
+        role: None | str | Unset
         if isinstance(self.role, Unset):
             role = UNSET
         else:
@@ -78,7 +68,7 @@ class User:
 
         account = self.account
 
-        created_at: Union[None, Unset, str]
+        created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -86,13 +76,14 @@ class User:
         else:
             created_at = self.created_at
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "email": email,
-            "display_name": display_name,
-        })
+        field_dict.update(
+            {
+                "email": email,
+                "display_name": display_name,
+            }
+        )
         if profile_pic is not UNSET:
             field_dict["profile_pic"] = profile_pic
         if auth_provider is not UNSET:
@@ -108,8 +99,6 @@ class User:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
@@ -117,33 +106,31 @@ class User:
 
         display_name = d.pop("display_name")
 
-        def _parse_profile_pic(data: object) -> Union[None, Unset, str]:
+        def _parse_profile_pic(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         profile_pic = _parse_profile_pic(d.pop("profile_pic", UNSET))
-
 
         auth_provider = d.pop("auth_provider", UNSET)
 
         email_verified = d.pop("email_verified", UNSET)
 
-        def _parse_role(data: object) -> Union[None, Unset, str]:
+        def _parse_role(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         role = _parse_role(d.pop("role", UNSET))
 
-
         account = d.pop("account", UNSET)
 
-        def _parse_created_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -153,15 +140,12 @@ class User:
                     raise TypeError()
                 created_at_type_0 = isoparse(data)
 
-
-
                 return created_at_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(datetime.datetime | None | Unset, data)
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
-
 
         user = cls(
             email=email,
@@ -173,7 +157,6 @@ class User:
             account=account,
             created_at=created_at,
         )
-
 
         user.additional_properties = d
         return user

@@ -1,70 +1,56 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, TYPE_CHECKING
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..types import UNSET, Unset
-
-from typing import cast
 
 if TYPE_CHECKING:
-  from ..models.api_key_resource import ApiKeyResource
-
-
-
+    from ..models.api_key_resource import ApiKeyResource
 
 
 T = TypeVar("T", bound="ApiKeyResponse")
 
 
-
 @_attrs_define
 class ApiKeyResponse:
-    """ 
-        Attributes:
-            data (ApiKeyResource):  Example: {'attributes': {'created_at': '2026-03-20T11:02:16.616Z', 'created_by':
-                'd290f1ee-6c54-4b01-90e6-d701748f0851', 'expires_at': '2027-03-20T11:02:16.616Z', 'key':
-                'sk_api_a1b2c3d4e5f6g7h8i9j0', 'last_used_at': '2026-03-19T08:45:00.000Z', 'name': 'Production API Key',
-                'scopes': {}, 'status': 'ACTIVE', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id':
-                'b2c3d4e5-f6a7-8901-bcde-f12345678901', 'type': 'api_key'}.
-     """
+    """
+    Attributes:
+        data (ApiKeyResource):  Example: {'attributes': {'created_at': '2026-03-20T11:02:16.616Z', 'created_by':
+            'd290f1ee-6c54-4b01-90e6-d701748f0851', 'expires_at': '2027-03-20T11:02:16.616Z', 'key':
+            'sk_api_a1b2c3d4e5f6g7h8i9j0', 'last_used_at': '2026-03-19T08:45:00.000Z', 'name': 'Production API Key',
+            'scopes': {}, 'status': 'ACTIVE', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id':
+            'b2c3d4e5-f6a7-8901-bcde-f12345678901', 'type': 'api_key'}.
+    """
 
-    data: 'ApiKeyResource'
+    data: ApiKeyResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        from ..models.api_key_resource import ApiKeyResource
         data = self.data.to_dict()
-
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "data": data,
-        })
+        field_dict.update(
+            {
+                "data": data,
+            }
+        )
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.api_key_resource import ApiKeyResource
+
         d = dict(src_dict)
         data = ApiKeyResource.from_dict(d.pop("data"))
-
-
-
 
         api_key_response = cls(
             data=data,
         )
-
 
         api_key_response.additional_properties = d
         return api_key_response

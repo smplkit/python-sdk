@@ -1,83 +1,72 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, TYPE_CHECKING
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from ..types import UNSET, Unset
 from dateutil.parser import isoparse
 from typing import cast
-from typing import cast, Union
-from typing import Union
 import datetime
 
 if TYPE_CHECKING:
-  from ..models.api_key_data import ApiKeyData
-  from ..models.api_key_scopes import ApiKeyScopes
-
-
-
+    from ..models.api_key_data import ApiKeyData
+    from ..models.api_key_scopes import ApiKeyScopes
 
 
 T = TypeVar("T", bound="ApiKey")
 
 
-
 @_attrs_define
 class ApiKey:
-    """ 
-        Example:
-            {'created_at': '2026-03-20T11:02:16.616Z', 'created_by': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'expires_at':
-                '2027-03-20T11:02:16.616Z', 'key': 'sk_api_a1b2c3d4e5f6g7h8i9j0', 'last_used_at': '2026-03-19T08:45:00.000Z',
-                'name': 'Production API Key', 'scopes': {}, 'status': 'ACTIVE', 'updated_at': '2026-03-20T11:02:16.616Z'}
+    """
+    Example:
+        {'created_at': '2026-03-20T11:02:16.616Z', 'created_by': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'expires_at':
+            '2027-03-20T11:02:16.616Z', 'key': 'sk_api_a1b2c3d4e5f6g7h8i9j0', 'last_used_at': '2026-03-19T08:45:00.000Z',
+            'name': 'Production API Key', 'scopes': {}, 'status': 'ACTIVE', 'updated_at': '2026-03-20T11:02:16.616Z'}
 
-        Attributes:
-            name (str):
-            status (Union[Unset, str]):  Default: ''.
-            key (Union[Unset, str]):  Default: ''.
-            scopes (Union[Unset, ApiKeyScopes]):
-            created_by (Union[Unset, str]):  Default: ''.
-            expires_at (Union[None, Unset, datetime.datetime]):
-            last_used_at (Union[None, Unset, datetime.datetime]):
-            created_at (Union[None, Unset, datetime.datetime]):
-            updated_at (Union[None, Unset, datetime.datetime]):
-            data (Union[Unset, ApiKeyData]):
-     """
+    Attributes:
+        name (str):
+        status (str | Unset):  Default: ''.
+        key (str | Unset):  Default: ''.
+        scopes (ApiKeyScopes | Unset):
+        created_by (str | Unset):  Default: ''.
+        expires_at (datetime.datetime | None | Unset):
+        last_used_at (datetime.datetime | None | Unset):
+        created_at (datetime.datetime | None | Unset):
+        updated_at (datetime.datetime | None | Unset):
+        data (ApiKeyData | Unset):
+    """
 
     name: str
-    status: Union[Unset, str] = ''
-    key: Union[Unset, str] = ''
-    scopes: Union[Unset, 'ApiKeyScopes'] = UNSET
-    created_by: Union[Unset, str] = ''
-    expires_at: Union[None, Unset, datetime.datetime] = UNSET
-    last_used_at: Union[None, Unset, datetime.datetime] = UNSET
-    created_at: Union[None, Unset, datetime.datetime] = UNSET
-    updated_at: Union[None, Unset, datetime.datetime] = UNSET
-    data: Union[Unset, 'ApiKeyData'] = UNSET
+    status: str | Unset = ""
+    key: str | Unset = ""
+    scopes: ApiKeyScopes | Unset = UNSET
+    created_by: str | Unset = ""
+    expires_at: datetime.datetime | None | Unset = UNSET
+    last_used_at: datetime.datetime | None | Unset = UNSET
+    created_at: datetime.datetime | None | Unset = UNSET
+    updated_at: datetime.datetime | None | Unset = UNSET
+    data: ApiKeyData | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        from ..models.api_key_data import ApiKeyData
-        from ..models.api_key_scopes import ApiKeyScopes
         name = self.name
 
         status = self.status
 
         key = self.key
 
-        scopes: Union[Unset, dict[str, Any]] = UNSET
+        scopes: dict[str, Any] | Unset = UNSET
         if not isinstance(self.scopes, Unset):
             scopes = self.scopes.to_dict()
 
         created_by = self.created_by
 
-        expires_at: Union[None, Unset, str]
+        expires_at: None | str | Unset
         if isinstance(self.expires_at, Unset):
             expires_at = UNSET
         elif isinstance(self.expires_at, datetime.datetime):
@@ -85,7 +74,7 @@ class ApiKey:
         else:
             expires_at = self.expires_at
 
-        last_used_at: Union[None, Unset, str]
+        last_used_at: None | str | Unset
         if isinstance(self.last_used_at, Unset):
             last_used_at = UNSET
         elif isinstance(self.last_used_at, datetime.datetime):
@@ -93,7 +82,7 @@ class ApiKey:
         else:
             last_used_at = self.last_used_at
 
-        created_at: Union[None, Unset, str]
+        created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -101,7 +90,7 @@ class ApiKey:
         else:
             created_at = self.created_at
 
-        updated_at: Union[None, Unset, str]
+        updated_at: None | str | Unset
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -109,16 +98,17 @@ class ApiKey:
         else:
             updated_at = self.updated_at
 
-        data: Union[Unset, dict[str, Any]] = UNSET
+        data: dict[str, Any] | Unset = UNSET
         if not isinstance(self.data, Unset):
             data = self.data.to_dict()
 
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "name": name,
-        })
+        field_dict.update(
+            {
+                "name": name,
+            }
+        )
         if status is not UNSET:
             field_dict["status"] = status
         if key is not UNSET:
@@ -140,12 +130,11 @@ class ApiKey:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.api_key_data import ApiKeyData
         from ..models.api_key_scopes import ApiKeyScopes
+
         d = dict(src_dict)
         name = d.pop("name")
 
@@ -154,18 +143,15 @@ class ApiKey:
         key = d.pop("key", UNSET)
 
         _scopes = d.pop("scopes", UNSET)
-        scopes: Union[Unset, ApiKeyScopes]
-        if isinstance(_scopes,  Unset):
+        scopes: ApiKeyScopes | Unset
+        if isinstance(_scopes, Unset):
             scopes = UNSET
         else:
             scopes = ApiKeyScopes.from_dict(_scopes)
 
-
-
-
         created_by = d.pop("created_by", UNSET)
 
-        def _parse_expires_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_expires_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -175,17 +161,14 @@ class ApiKey:
                     raise TypeError()
                 expires_at_type_0 = isoparse(data)
 
-
-
                 return expires_at_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(datetime.datetime | None | Unset, data)
 
         expires_at = _parse_expires_at(d.pop("expires_at", UNSET))
 
-
-        def _parse_last_used_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_last_used_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -195,17 +178,14 @@ class ApiKey:
                     raise TypeError()
                 last_used_at_type_0 = isoparse(data)
 
-
-
                 return last_used_at_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(datetime.datetime | None | Unset, data)
 
         last_used_at = _parse_last_used_at(d.pop("last_used_at", UNSET))
 
-
-        def _parse_created_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -215,17 +195,14 @@ class ApiKey:
                     raise TypeError()
                 created_at_type_0 = isoparse(data)
 
-
-
                 return created_at_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(datetime.datetime | None | Unset, data)
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-
-        def _parse_updated_at(data: object) -> Union[None, Unset, datetime.datetime]:
+        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -235,25 +212,19 @@ class ApiKey:
                     raise TypeError()
                 updated_at_type_0 = isoparse(data)
 
-
-
                 return updated_at_type_0
-            except: # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[None, Unset, datetime.datetime], data)
+            return cast(datetime.datetime | None | Unset, data)
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 
-
         _data = d.pop("data", UNSET)
-        data: Union[Unset, ApiKeyData]
-        if isinstance(_data,  Unset):
+        data: ApiKeyData | Unset
+        if isinstance(_data, Unset):
             data = UNSET
         else:
             data = ApiKeyData.from_dict(_data)
-
-
-
 
         api_key = cls(
             name=name,
@@ -267,7 +238,6 @@ class ApiKey:
             updated_at=updated_at,
             data=data,
         )
-
 
         api_key.additional_properties = d
         return api_key
