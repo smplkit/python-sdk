@@ -23,13 +23,13 @@ T = TypeVar("T", bound="ServiceResource")
 class ServiceResource:
     """
     Example:
-        {'attributes': {'created_at': '2026-03-20T11:02:16.616Z', 'key': 'user_service', 'name': 'User Service',
-            'updated_at': '2026-03-20T11:02:16.616Z'}, 'id': 'e5f6a7b8-c9d0-1234-efab-345678901234', 'type': 'service'}
+        {'attributes': {'created_at': '2026-03-20T11:02:16.616Z', 'name': 'User Service', 'updated_at':
+            '2026-03-20T11:02:16.616Z'}, 'id': 'user_service', 'type': 'service'}
 
     Attributes:
         type_ (ServiceResourceType):
-        attributes (Service):  Example: {'created_at': '2026-03-20T11:02:16.616Z', 'key': 'user_service', 'name': 'User
-            Service', 'updated_at': '2026-03-20T11:02:16.616Z'}.
+        attributes (Service):  Example: {'created_at': '2026-03-20T11:02:16.616Z', 'name': 'User Service', 'updated_at':
+            '2026-03-20T11:02:16.616Z'}.
         id (None | str | Unset):
     """
 

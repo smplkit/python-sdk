@@ -18,9 +18,8 @@ T = TypeVar("T", bound="ServiceResponse")
 class ServiceResponse:
     """
     Attributes:
-        data (ServiceResource):  Example: {'attributes': {'created_at': '2026-03-20T11:02:16.616Z', 'key':
-            'user_service', 'name': 'User Service', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id':
-            'e5f6a7b8-c9d0-1234-efab-345678901234', 'type': 'service'}.
+        data (ServiceResource):  Example: {'attributes': {'created_at': '2026-03-20T11:02:16.616Z', 'name': 'User
+            Service', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id': 'user_service', 'type': 'service'}.
     """
 
     data: ServiceResource
