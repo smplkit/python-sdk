@@ -38,14 +38,11 @@ async def setup_demo_flags(client: AsyncSmplClient) -> list:
                 "enabled": True,
                 "rules": [
                     Rule("Enable for enterprise users in US region")
-                        .when("user.plan", "==", "enterprise")
-                        .when("account.region", "==", "us")
-                        .serve(True)
-                        .build(),
-                    Rule("Enable for beta testers")
-                        .when("user.beta_tester", "==", True)
-                        .serve(True)
-                        .build(),
+                    .when("user.plan", "==", "enterprise")
+                    .when("account.region", "==", "us")
+                    .serve(True)
+                    .build(),
+                    Rule("Enable for beta testers").when("user.beta_tester", "==", True).serve(True).build(),
                 ],
             },
             "production": {
@@ -74,14 +71,11 @@ async def setup_demo_flags(client: AsyncSmplClient) -> list:
             "staging": {
                 "enabled": True,
                 "rules": [
-                    Rule("Blue for enterprise users")
-                        .when("user.plan", "==", "enterprise")
-                        .serve("blue")
-                        .build(),
+                    Rule("Blue for enterprise users").when("user.plan", "==", "enterprise").serve("blue").build(),
                     Rule("Green for technology companies")
-                        .when("account.industry", "==", "technology")
-                        .serve("green")
-                        .build(),
+                    .when("account.industry", "==", "technology")
+                    .serve("green")
+                    .build(),
                 ],
             },
             "production": {
@@ -111,10 +105,7 @@ async def setup_demo_flags(client: AsyncSmplClient) -> list:
             "staging": {
                 "enabled": True,
                 "rules": [
-                    Rule("High retries for large accounts")
-                        .when("account.employee_count", ">", 100)
-                        .serve(5)
-                        .build(),
+                    Rule("High retries for large accounts").when("account.employee_count", ">", 100).serve(5).build(),
                 ],
             },
             "production": {

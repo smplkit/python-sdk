@@ -192,8 +192,7 @@ async def main() -> None:
 
     def on_change(event) -> None:
         changes.append(event)
-        print(f"    [CHANGE] {event.config_key}.{event.item_key}: "
-              f"{event.old_value!r} -> {event.new_value!r}")
+        print(f"    [CHANGE] {event.config_key}.{event.item_key}: {event.old_value!r} -> {event.new_value!r}")
 
     client.config.on_change(on_change)
     step("Global change listener registered")

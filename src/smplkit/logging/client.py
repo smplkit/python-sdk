@@ -500,7 +500,9 @@ class LoggingClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return self._logger_to_model(response.parsed)
 
     def list(self) -> list[SmplLogger]:
@@ -546,7 +548,9 @@ class LoggingClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return self._logger_to_model(response.parsed)
 
     def delete(self, logger_id: str) -> None:
@@ -579,7 +583,9 @@ class LoggingClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return self._group_to_model(response.parsed)
 
     def list_groups(self) -> list[SmplLogGroup]:
@@ -624,7 +630,9 @@ class LoggingClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return self._group_to_model(response.parsed)
 
     def delete_group(self, group_id: str) -> None:
@@ -872,7 +880,9 @@ class AsyncLoggingClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return self._logger_to_model(response.parsed)
 
     async def list(self) -> list[AsyncSmplLogger]:
@@ -918,7 +928,9 @@ class AsyncLoggingClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return self._logger_to_model(response.parsed)
 
     async def delete(self, logger_id: str) -> None:
@@ -951,7 +963,9 @@ class AsyncLoggingClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return self._group_to_model(response.parsed)
 
     async def list_groups(self) -> list[AsyncSmplLogGroup]:
@@ -996,7 +1010,9 @@ class AsyncLoggingClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return self._group_to_model(response.parsed)
 
     async def delete_group(self, group_id: str) -> None:

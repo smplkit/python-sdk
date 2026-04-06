@@ -20,23 +20,22 @@ async def setup_demo_flags(client: AsyncSmplClient) -> list:
         type=FlagType.BOOLEAN,
         default=False,
     )
-    await checkout.update(environments={
-        "staging": {
-            "enabled": True,
-            "rules": [
-                Rule("Enable for enterprise users in US region")
+    await checkout.update(
+        environments={
+            "staging": {
+                "enabled": True,
+                "rules": [
+                    Rule("Enable for enterprise users in US region")
                     .when("user.plan", "==", "enterprise")
                     .when("account.region", "==", "us")
                     .serve(True)
                     .build(),
-                Rule("Enable for beta testers")
-                    .when("user.beta_tester", "==", True)
-                    .serve(True)
-                    .build(),
-            ],
-        },
-        "production": {"enabled": False, "default": False, "rules": []},
-    })
+                    Rule("Enable for beta testers").when("user.beta_tester", "==", True).serve(True).build(),
+                ],
+            },
+            "production": {"enabled": False, "default": False, "rules": []},
+        }
+    )
 
     banner = await client.flags.create(
         "banner-color",
@@ -49,22 +48,21 @@ async def setup_demo_flags(client: AsyncSmplClient) -> list:
             {"name": "Blue", "value": "blue"},
         ],
     )
-    await banner.update(environments={
-        "staging": {
-            "enabled": True,
-            "rules": [
-                Rule("Blue for enterprise users")
-                    .when("user.plan", "==", "enterprise")
-                    .serve("blue")
-                    .build(),
-                Rule("Green for technology companies")
+    await banner.update(
+        environments={
+            "staging": {
+                "enabled": True,
+                "rules": [
+                    Rule("Blue for enterprise users").when("user.plan", "==", "enterprise").serve("blue").build(),
+                    Rule("Green for technology companies")
                     .when("account.industry", "==", "technology")
                     .serve("green")
                     .build(),
-            ],
-        },
-        "production": {"enabled": True, "default": "blue", "rules": []},
-    })
+                ],
+            },
+            "production": {"enabled": True, "default": "blue", "rules": []},
+        }
+    )
 
     retries = await client.flags.create(
         "max-retries",
@@ -78,18 +76,17 @@ async def setup_demo_flags(client: AsyncSmplClient) -> list:
             {"name": "Aggressive (10)", "value": 10},
         ],
     )
-    await retries.update(environments={
-        "staging": {
-            "enabled": True,
-            "rules": [
-                Rule("High retries for large accounts")
-                    .when("account.employee_count", ">", 100)
-                    .serve(5)
-                    .build(),
-            ],
-        },
-        "production": {"enabled": True, "rules": []},
-    })
+    await retries.update(
+        environments={
+            "staging": {
+                "enabled": True,
+                "rules": [
+                    Rule("High retries for large accounts").when("account.employee_count", ">", 100).serve(5).build(),
+                ],
+            },
+            "production": {"enabled": True, "rules": []},
+        }
+    )
 
     return [checkout, banner, retries]
 

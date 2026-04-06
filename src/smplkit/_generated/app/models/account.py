@@ -27,6 +27,7 @@ class Account:
         name (str):
         key (str):
         has_stripe_customer (bool | Unset):  Default: False.
+        expires_at (datetime.datetime | None | Unset):
         created_at (datetime.datetime | None | Unset):
         deleted_at (datetime.datetime | None | Unset):
     """
@@ -34,6 +35,7 @@ class Account:
     name: str
     key: str
     has_stripe_customer: bool | Unset = False
+    expires_at: datetime.datetime | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     deleted_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -44,6 +46,14 @@ class Account:
         key = self.key
 
         has_stripe_customer = self.has_stripe_customer
+
+        expires_at: None | str | Unset
+        if isinstance(self.expires_at, Unset):
+            expires_at = UNSET
+        elif isinstance(self.expires_at, datetime.datetime):
+            expires_at = self.expires_at.isoformat()
+        else:
+            expires_at = self.expires_at
 
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
@@ -71,6 +81,8 @@ class Account:
         )
         if has_stripe_customer is not UNSET:
             field_dict["has_stripe_customer"] = has_stripe_customer
+        if expires_at is not UNSET:
+            field_dict["expires_at"] = expires_at
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
         if deleted_at is not UNSET:
@@ -86,6 +98,23 @@ class Account:
         key = d.pop("key")
 
         has_stripe_customer = d.pop("has_stripe_customer", UNSET)
+
+        def _parse_expires_at(data: object) -> datetime.datetime | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                expires_at_type_0 = isoparse(data)
+
+                return expires_at_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None | Unset, data)
+
+        expires_at = _parse_expires_at(d.pop("expires_at", UNSET))
 
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -125,6 +154,7 @@ class Account:
             name=name,
             key=key,
             has_stripe_customer=has_stripe_customer,
+            expires_at=expires_at,
             created_at=created_at,
             deleted_at=deleted_at,
         )
