@@ -7,20 +7,20 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
-from ...models.config_response import ConfigResponse
-from ...models.http_validation_error import HTTPValidationError
-from ...models.response_config import ResponseConfig
+from ...models.auth_token_response import AuthTokenResponse
+from ...models.error_response import ErrorResponse
+from ...models.verify_email_request import VerifyEmailRequest
 
 
 def _get_kwargs(
     *,
-    body: ResponseConfig,
+    body: VerifyEmailRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/api/v1/configs",
+        "url": "/api/v1/auth/verify-email",
     }
 
     _kwargs["json"] = body.to_dict()
@@ -33,16 +33,31 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ConfigResponse | HTTPValidationError | None:
-    if response.status_code == 201:
-        response_201 = ConfigResponse.from_dict(response.json())
+) -> AuthTokenResponse | ErrorResponse | None:
+    if response.status_code == 200:
+        response_200 = AuthTokenResponse.from_dict(response.json())
 
-        return response_201
+        return response_200
 
-    if response.status_code == 422:
-        response_422 = HTTPValidationError.from_dict(response.json())
+    if response.status_code == 400:
+        response_400 = ErrorResponse.from_dict(response.json())
 
-        return response_422
+        return response_400
+
+    if response.status_code == 401:
+        response_401 = ErrorResponse.from_dict(response.json())
+
+        return response_401
+
+    if response.status_code == 404:
+        response_404 = ErrorResponse.from_dict(response.json())
+
+        return response_404
+
+    if response.status_code == 429:
+        response_429 = ErrorResponse.from_dict(response.json())
+
+        return response_429
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -52,7 +67,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ConfigResponse | HTTPValidationError]:
+) -> Response[AuthTokenResponse | ErrorResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -63,20 +78,22 @@ def _build_response(
 
 def sync_detailed(
     *,
-    client: AuthenticatedClient,
-    body: ResponseConfig,
-) -> Response[ConfigResponse | HTTPValidationError]:
-    """Create Config
+    client: AuthenticatedClient | Client,
+    body: VerifyEmailRequest,
+) -> Response[AuthTokenResponse | ErrorResponse]:
+    """Verify Email
+
+     Verifies a user's email address using the token from the verification email.
 
     Args:
-        body (ResponseConfig):
+        body (VerifyEmailRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ConfigResponse | HTTPValidationError]
+        Response[AuthTokenResponse | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
@@ -92,20 +109,22 @@ def sync_detailed(
 
 def sync(
     *,
-    client: AuthenticatedClient,
-    body: ResponseConfig,
-) -> ConfigResponse | HTTPValidationError | None:
-    """Create Config
+    client: AuthenticatedClient | Client,
+    body: VerifyEmailRequest,
+) -> AuthTokenResponse | ErrorResponse | None:
+    """Verify Email
+
+     Verifies a user's email address using the token from the verification email.
 
     Args:
-        body (ResponseConfig):
+        body (VerifyEmailRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ConfigResponse | HTTPValidationError
+        AuthTokenResponse | ErrorResponse
     """
 
     return sync_detailed(
@@ -116,20 +135,22 @@ def sync(
 
 async def asyncio_detailed(
     *,
-    client: AuthenticatedClient,
-    body: ResponseConfig,
-) -> Response[ConfigResponse | HTTPValidationError]:
-    """Create Config
+    client: AuthenticatedClient | Client,
+    body: VerifyEmailRequest,
+) -> Response[AuthTokenResponse | ErrorResponse]:
+    """Verify Email
+
+     Verifies a user's email address using the token from the verification email.
 
     Args:
-        body (ResponseConfig):
+        body (VerifyEmailRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ConfigResponse | HTTPValidationError]
+        Response[AuthTokenResponse | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
@@ -143,20 +164,22 @@ async def asyncio_detailed(
 
 async def asyncio(
     *,
-    client: AuthenticatedClient,
-    body: ResponseConfig,
-) -> ConfigResponse | HTTPValidationError | None:
-    """Create Config
+    client: AuthenticatedClient | Client,
+    body: VerifyEmailRequest,
+) -> AuthTokenResponse | ErrorResponse | None:
+    """Verify Email
+
+     Verifies a user's email address using the token from the verification email.
 
     Args:
-        body (ResponseConfig):
+        body (VerifyEmailRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ConfigResponse | HTTPValidationError
+        AuthTokenResponse | ErrorResponse
     """
 
     return (
