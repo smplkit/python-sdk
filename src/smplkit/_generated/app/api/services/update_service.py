@@ -10,11 +10,10 @@ from ... import errors
 
 from ...models.error_response import ErrorResponse
 from ...models.service_response import ServiceResponse
-from uuid import UUID
 
 
 def _get_kwargs(
-    id: UUID,
+    id: str,
     *,
     body: ServiceResponse,
 ) -> dict[str, Any]:
@@ -81,7 +80,7 @@ def _build_response(
 
 
 def sync_detailed(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
     body: ServiceResponse,
@@ -89,7 +88,7 @@ def sync_detailed(
     """Update Service
 
     Args:
-        id (UUID):
+        id (str):
         body (ServiceResponse):
 
     Raises:
@@ -113,7 +112,7 @@ def sync_detailed(
 
 
 def sync(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
     body: ServiceResponse,
@@ -121,7 +120,7 @@ def sync(
     """Update Service
 
     Args:
-        id (UUID):
+        id (str):
         body (ServiceResponse):
 
     Raises:
@@ -140,7 +139,7 @@ def sync(
 
 
 async def asyncio_detailed(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
     body: ServiceResponse,
@@ -148,7 +147,7 @@ async def asyncio_detailed(
     """Update Service
 
     Args:
-        id (UUID):
+        id (str):
         body (ServiceResponse):
 
     Raises:
@@ -170,7 +169,7 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
     body: ServiceResponse,
@@ -178,7 +177,7 @@ async def asyncio(
     """Update Service
 
     Args:
-        id (UUID):
+        id (str):
         body (ServiceResponse):
 
     Raises:

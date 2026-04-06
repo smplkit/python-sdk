@@ -20,30 +20,21 @@ T = TypeVar("T", bound="Service")
 class Service:
     """
     Example:
-        {'created_at': '2026-03-20T11:02:16.616Z', 'key': 'user_service', 'name': 'User Service', 'updated_at':
-            '2026-03-20T11:02:16.616Z'}
+        {'created_at': '2026-03-20T11:02:16.616Z', 'name': 'User Service', 'updated_at': '2026-03-20T11:02:16.616Z'}
 
     Attributes:
         name (str):
-        key (None | str | Unset):
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
     """
 
     name: str
-    key: None | str | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         name = self.name
-
-        key: None | str | Unset
-        if isinstance(self.key, Unset):
-            key = UNSET
-        else:
-            key = self.key
 
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
@@ -68,8 +59,6 @@ class Service:
                 "name": name,
             }
         )
-        if key is not UNSET:
-            field_dict["key"] = key
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
         if updated_at is not UNSET:
@@ -81,15 +70,6 @@ class Service:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
         name = d.pop("name")
-
-        def _parse_key(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        key = _parse_key(d.pop("key", UNSET))
 
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -127,7 +107,6 @@ class Service:
 
         service = cls(
             name=name,
-            key=key,
             created_at=created_at,
             updated_at=updated_at,
         )
