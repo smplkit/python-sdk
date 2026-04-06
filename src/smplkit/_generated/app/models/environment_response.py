@@ -18,9 +18,9 @@ T = TypeVar("T", bound="EnvironmentResponse")
 class EnvironmentResponse:
     """
     Attributes:
-        data (EnvironmentResource):  Example: {'attributes': {'color': '#2ecc71', 'created_at':
-            '2026-03-20T11:02:16.616Z', 'key': 'production', 'name': 'Production', 'updated_at':
-            '2026-03-20T11:02:16.616Z'}, 'id': 'c3d4e5f6-a7b8-9012-cdef-123456789012', 'type': 'environment'}.
+        data (EnvironmentResource):  Example: {'attributes': {'classification': 'STANDARD', 'color': '#2ecc71',
+            'created_at': '2026-03-20T11:02:16.616Z', 'name': 'Production', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id':
+            'production', 'type': 'environment'}.
     """
 
     data: EnvironmentResource

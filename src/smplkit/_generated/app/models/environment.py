@@ -20,20 +20,20 @@ T = TypeVar("T", bound="Environment")
 class Environment:
     """
     Example:
-        {'color': '#2ecc71', 'created_at': '2026-03-20T11:02:16.616Z', 'key': 'production', 'name': 'Production',
-            'updated_at': '2026-03-20T11:02:16.616Z'}
+        {'classification': 'STANDARD', 'color': '#2ecc71', 'created_at': '2026-03-20T11:02:16.616Z', 'name':
+            'Production', 'updated_at': '2026-03-20T11:02:16.616Z'}
 
     Attributes:
         name (str):
-        key (None | str | Unset):
         color (None | str | Unset):
+        classification (None | str | Unset):
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
     """
 
     name: str
-    key: None | str | Unset = UNSET
     color: None | str | Unset = UNSET
+    classification: None | str | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -41,17 +41,17 @@ class Environment:
     def to_dict(self) -> dict[str, Any]:
         name = self.name
 
-        key: None | str | Unset
-        if isinstance(self.key, Unset):
-            key = UNSET
-        else:
-            key = self.key
-
         color: None | str | Unset
         if isinstance(self.color, Unset):
             color = UNSET
         else:
             color = self.color
+
+        classification: None | str | Unset
+        if isinstance(self.classification, Unset):
+            classification = UNSET
+        else:
+            classification = self.classification
 
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
@@ -76,10 +76,10 @@ class Environment:
                 "name": name,
             }
         )
-        if key is not UNSET:
-            field_dict["key"] = key
         if color is not UNSET:
             field_dict["color"] = color
+        if classification is not UNSET:
+            field_dict["classification"] = classification
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
         if updated_at is not UNSET:
@@ -92,15 +92,6 @@ class Environment:
         d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_key(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        key = _parse_key(d.pop("key", UNSET))
-
         def _parse_color(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -109,6 +100,15 @@ class Environment:
             return cast(None | str | Unset, data)
 
         color = _parse_color(d.pop("color", UNSET))
+
+        def _parse_classification(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        classification = _parse_classification(d.pop("classification", UNSET))
 
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -146,8 +146,8 @@ class Environment:
 
         environment = cls(
             name=name,
-            key=key,
             color=color,
+            classification=classification,
             created_at=created_at,
             updated_at=updated_at,
         )
