@@ -1,5 +1,5 @@
+"""A client library for accessing smplkit Config API"""
 
-""" A client library for accessing smplkit Config API """
 from .client import AuthenticatedClient, Client
 
 __all__ = (
