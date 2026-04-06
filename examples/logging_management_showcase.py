@@ -126,16 +126,14 @@ async def main() -> None:
         managed=True,
         # No level — will inherit via dot-notation from "app"
     )
-    step(f"Created: key={payments_lg.key}, managed={payments_lg.managed}, "
-         f"level={payments_lg.level or '(null)'}")
+    step(f"Created: key={payments_lg.key}, managed={payments_lg.managed}, level={payments_lg.level or '(null)'}")
 
     sqla_lg = await client.logging.create(
         "sqlalchemy.engine",
         name="sqlalchemy.engine",
         managed=True,
     )
-    step(f"Created: key={sqla_lg.key}, managed={sqla_lg.managed}, "
-         f"level={sqla_lg.level or '(null)'}")
+    step(f"Created: key={sqla_lg.key}, managed={sqla_lg.managed}, level={sqla_lg.level or '(null)'}")
 
     section("2b. Create an Unmanaged Logger")
 
@@ -278,8 +276,7 @@ async def main() -> None:
     http_group.level = "DEBUG"
     http_group.environments = {"production": {"level": "WARN"}}
     await http_group.save()
-    step(f"Updated {http_group.key}: level={http_group.level}, "
-         f"envs={http_group.environments}")
+    step(f"Updated {http_group.key}: level={http_group.level}, envs={http_group.environments}")
 
     # ======================================================================
     # 6. GROUP ASSIGNMENT
@@ -316,8 +313,10 @@ async def main() -> None:
     # ======================================================================
     section("7a. Release a Managed Logger")
 
-    step(f"Before: key={sqla_lg.key}, managed={sqla_lg.managed}, "
-         f"level={sqla_lg.level or '(null)'}, group={sqla_lg.group}")
+    step(
+        f"Before: key={sqla_lg.key}, managed={sqla_lg.managed}, "
+        f"level={sqla_lg.level or '(null)'}, group={sqla_lg.group}"
+    )
 
     sqla_lg.managed = False
     await sqla_lg.save()
@@ -325,8 +324,10 @@ async def main() -> None:
     # save() updates this object in place from the server response,
     # so sqla_lg now reflects the cleared state.
     step("Released sqlalchemy.engine → unmanaged")
-    step(f"After: managed={sqla_lg.managed}, level={sqla_lg.level or '(null)'}, "
-         f"group={sqla_lg.group or '(null)'}, environments={sqla_lg.environments}")
+    step(
+        f"After: managed={sqla_lg.managed}, level={sqla_lg.level or '(null)'}, "
+        f"group={sqla_lg.group or '(null)'}, environments={sqla_lg.environments}"
+    )
     # Expected: managed=false, level=null, group=null, environments={}
 
     section("7b. Re-Promote a Logger")

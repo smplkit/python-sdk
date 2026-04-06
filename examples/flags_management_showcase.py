@@ -243,14 +243,11 @@ async def main() -> None:
                 "enabled": True,
                 "rules": [
                     Rule("Enable for enterprise users in US region")
-                        .when("user.plan", "==", "enterprise")
-                        .when("account.region", "==", "us")
-                        .serve(True)
-                        .build(),
-                    Rule("Enable for beta testers")
-                        .when("user.beta_tester", "==", True)
-                        .serve(True)
-                        .build(),
+                    .when("user.plan", "==", "enterprise")
+                    .when("account.region", "==", "us")
+                    .serve(True)
+                    .build(),
+                    Rule("Enable for beta testers").when("user.beta_tester", "==", True).serve(True).build(),
                 ],
             },
             "production": {
@@ -273,14 +270,11 @@ async def main() -> None:
             "staging": {
                 "enabled": True,
                 "rules": [
-                    Rule("Blue for enterprise users")
-                        .when("user.plan", "==", "enterprise")
-                        .serve("blue")
-                        .build(),
+                    Rule("Blue for enterprise users").when("user.plan", "==", "enterprise").serve("blue").build(),
                     Rule("Green for technology companies")
-                        .when("account.industry", "==", "technology")
-                        .serve("green")
-                        .build(),
+                    .when("account.industry", "==", "technology")
+                    .serve("green")
+                    .build(),
                 ],
             },
             "production": {
@@ -303,10 +297,7 @@ async def main() -> None:
             "staging": {
                 "enabled": True,
                 "rules": [
-                    Rule("High retries for large accounts")
-                        .when("account.employee_count", ">", 100)
-                        .serve(5)
-                        .build(),
+                    Rule("High retries for large accounts").when("account.employee_count", ">", 100).serve(5).build(),
                 ],
             },
             "production": {
@@ -362,11 +353,13 @@ async def main() -> None:
     current_envs = banner_flag.environments
     prod = current_envs.get("production", {"enabled": True, "rules": []})
     prod_rules = prod.get("rules", [])
-    prod_rules.append({
-        "description": "Purple for enterprise users",
-        "logic": {"==": [{"var": "user.plan"}, "enterprise"]},
-        "value": "purple",
-    })
+    prod_rules.append(
+        {
+            "description": "Purple for enterprise users",
+            "logic": {"==": [{"var": "user.plan"}, "enterprise"]},
+            "value": "purple",
+        }
+    )
     await banner_flag.update(
         environments={
             **current_envs,
@@ -380,10 +373,10 @@ async def main() -> None:
     step("Adding another rule to banner-color production (addRule + Rule)...")
     await banner_flag.addRule(
         Rule("Green for retail companies")
-            .environment("production")
-            .when("account.industry", "==", "retail")
-            .serve("green")
-            .build()
+        .environment("production")
+        .when("account.industry", "==", "retail")
+        .serve("green")
+        .build()
     )
     step("Rule added — no manual environment juggling, no raw JSON Logic")
 

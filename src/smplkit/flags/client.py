@@ -477,7 +477,9 @@ class FlagsClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return self._to_model(response.parsed)
 
     def get(self, flag_id: str) -> Flag:
@@ -548,7 +550,9 @@ class FlagsClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return self._to_model(response.parsed)
 
     # ------------------------------------------------------------------
@@ -566,7 +570,9 @@ class FlagsClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return _parse_gen_context_type_response(response.parsed)
 
     def update_context_type(self, ct_id: str, *, key: str, name: str, attributes: dict[str, Any]) -> ContextType:
@@ -582,7 +588,9 @@ class FlagsClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return _parse_gen_context_type_response(response.parsed)
 
     def list_context_types(self) -> list[ContextType]:
@@ -595,7 +603,9 @@ class FlagsClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return [_parse_gen_context_type_resource(r) for r in response.parsed.data]
 
     def delete_context_type(self, ct_id: str) -> None:
@@ -987,7 +997,9 @@ class AsyncFlagsClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return self._to_model(response.parsed)
 
     async def get(self, flag_id: str) -> AsyncFlag:
@@ -1058,7 +1070,9 @@ class AsyncFlagsClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return self._to_model(response.parsed)
 
     # ------------------------------------------------------------------
@@ -1076,7 +1090,9 @@ class AsyncFlagsClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return _parse_gen_context_type_response(response.parsed)
 
     async def update_context_type(self, ct_id: str, *, key: str, name: str, attributes: dict[str, Any]) -> ContextType:
@@ -1092,7 +1108,9 @@ class AsyncFlagsClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return _parse_gen_context_type_response(response.parsed)
 
     async def list_context_types(self) -> list[ContextType]:
@@ -1105,7 +1123,9 @@ class AsyncFlagsClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return [_parse_gen_context_type_resource(r) for r in response.parsed.data]
 
     async def delete_context_type(self, ct_id: str) -> None:
@@ -1483,7 +1503,9 @@ def _build_context_type_body(*, key: str, name: str) -> GenContextTypeResponse:
     return GenContextTypeResponse(data=resource)
 
 
-def _build_context_type_update_body(*, ct_id: str, key: str, name: str, attributes: dict[str, Any]) -> GenContextTypeResponse:
+def _build_context_type_update_body(
+    *, ct_id: str, key: str, name: str, attributes: dict[str, Any]
+) -> GenContextTypeResponse:
     """Build a ContextTypeResponse body for update (merge attributes)."""
     ct_attrs = ContextTypeAttributes()
     ct_attrs.additional_properties = dict(attributes)

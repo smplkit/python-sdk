@@ -28,20 +28,14 @@ class TestResolveApiKey:
     def test_environment_section_takes_precedence_over_default(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         config_file = tmp_path / ".smplkit"
-        config_file.write_text(
-            "[production]\napi_key = sk_api_prod\n\n"
-            "[default]\napi_key = sk_api_fallback\n"
-        )
+        config_file.write_text("[production]\napi_key = sk_api_prod\n\n[default]\napi_key = sk_api_fallback\n")
         monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
         assert _resolve_api_key(None, "production") == "sk_api_prod"
 
     def test_default_section_used_when_environment_section_missing(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         config_file = tmp_path / ".smplkit"
-        config_file.write_text(
-            "[staging]\napi_key = sk_api_staging\n\n"
-            "[default]\napi_key = sk_api_fallback\n"
-        )
+        config_file.write_text("[staging]\napi_key = sk_api_staging\n\n[default]\napi_key = sk_api_fallback\n")
         monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
         assert _resolve_api_key(None, "production") == "sk_api_fallback"
 
@@ -127,10 +121,7 @@ class TestSmplClientResolution:
     def test_config_file_env_section(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         config_file = tmp_path / ".smplkit"
-        config_file.write_text(
-            "[production]\napi_key = sk_api_prod\n\n"
-            "[default]\napi_key = sk_api_fallback\n"
-        )
+        config_file.write_text("[production]\napi_key = sk_api_prod\n\n[default]\napi_key = sk_api_fallback\n")
         monkeypatch.setattr("smplkit._resolve.Path.home", lambda: tmp_path)
         client = SmplClient(environment="production")
         assert client._api_key == "sk_api_prod"

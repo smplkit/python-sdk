@@ -527,7 +527,9 @@ class ConfigClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return self._to_model(response.parsed)
 
     def list(self) -> list[Config]:
@@ -601,7 +603,9 @@ class ConfigClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return self._to_model(response.parsed)
 
     def _to_model(self, parsed: Any) -> Config:
@@ -884,7 +888,9 @@ class AsyncConfigClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return self._to_model(response.parsed)
 
     async def list(self) -> list[AsyncConfig]:
@@ -958,7 +964,9 @@ class AsyncConfigClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
             _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code))
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
         return self._to_model(response.parsed)
 
     def _to_model(self, parsed: Any) -> AsyncConfig:

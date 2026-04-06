@@ -196,8 +196,7 @@ async def main() -> None:
     step(f"    Resolution: no level → no group → ancestor 'app' → ERROR ✓")
 
     step(f"\n  sqlalchemy.engine → {python_level_name('sqlalchemy.engine')}")
-    step(f"    Resolution: no level → group 'databases' "
-         f"→ env override ({ENVIRONMENT}=WARN) ✓")
+    step(f"    Resolution: no level → group 'databases' → env override ({ENVIRONMENT}=WARN) ✓")
 
     # ======================================================================
     # 4. DYNAMIC LEVEL CONTROL

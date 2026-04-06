@@ -522,7 +522,9 @@ async def main() -> None:
     # environments without disconnecting and reconnecting.
     eval_ctx = [
         Context("user", _current_user["id"], plan=_current_user["plan"], beta_tester=_current_user["beta_tester"]),
-        Context("account", _current_account["id"], industry=_current_account["industry"], region=_current_account["region"]),
+        Context(
+            "account", _current_account["id"], industry=_current_account["industry"], region=_current_account["region"]
+        ),
     ]
     for env in ["staging", "production"]:
         c = await client.flags.evaluate("checkout-v2", environment=env, context=eval_ctx)
