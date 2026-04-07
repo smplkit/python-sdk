@@ -8,92 +8,105 @@ exists only as test scaffolding.
 See flags_management_showcase.py for the full management API walkthrough.
 """
 
-from smplkit import AsyncSmplClient, FlagType, Rule
+from __future__ import annotations
+
+from smplkit import AsyncSmplClient, Rule
 
 
-async def setup_demo_flags(client: AsyncSmplClient) -> list:
-    """Create demo flags. Returns list of flag objects for cleanup."""
+async def setup_demo_flags(client: AsyncSmplClient) -> list[str]:
+    """Create and configure three demo flags for the runtime showcase.
 
-    checkout = await client.flags.create(
-        "checkout-v2",
-        name="Checkout V2",
-        type=FlagType.BOOLEAN,
-        default=False,
+    Returns a list of flag keys for cleanup.
+    """
+    demo_keys = ["checkout-v2", "banner-color", "max-retries"]
+
+    # Clean up leftover flags from previous runs.
+    try:
+        existing = await client.flags.list()
+        for flag in existing:
+            if flag.key in demo_keys:
+                await client.flags.delete(flag.key)
+    except Exception:
+        pass
+
+    # 1. checkout-v2 — boolean
+    checkout = client.flags.newBooleanFlag("checkout-v2", default=False,
+        description="Controls rollout of the new checkout experience.")
+    checkout.setEnvironmentEnabled("staging", True)
+    checkout.addRule(
+        Rule("Enable for enterprise users in US region")
+        .environment("staging")
+        .when("user.plan", "==", "enterprise")
+        .when("account.region", "==", "us")
+        .serve(True)
+        .build()
     )
-    await checkout.update(
-        environments={
-            "staging": {
-                "enabled": True,
-                "rules": [
-                    Rule("Enable for enterprise users in US region")
-                    .when("user.plan", "==", "enterprise")
-                    .when("account.region", "==", "us")
-                    .serve(True)
-                    .build(),
-                    Rule("Enable for beta testers").when("user.beta_tester", "==", True).serve(True).build(),
-                ],
-            },
-            "production": {"enabled": False, "default": False, "rules": []},
-        }
+    checkout.addRule(
+        Rule("Enable for beta testers")
+        .environment("staging")
+        .when("user.beta_tester", "==", True)
+        .serve(True)
+        .build()
     )
+    checkout.setEnvironmentEnabled("production", False)
+    checkout.setEnvironmentDefault("production", False)
+    await checkout.save()
 
-    banner = await client.flags.create(
-        "banner-color",
+    # 2. banner-color — string
+    banner = client.flags.newStringFlag("banner-color", default="red",
         name="Banner Color",
-        type=FlagType.STRING,
-        default="red",
+        description="Controls the banner color shown to users.",
         values=[
             {"name": "Red", "value": "red"},
             {"name": "Green", "value": "green"},
             {"name": "Blue", "value": "blue"},
-        ],
+        ])
+    banner.setEnvironmentEnabled("staging", True)
+    banner.addRule(
+        Rule("Blue for enterprise users")
+        .environment("staging")
+        .when("user.plan", "==", "enterprise")
+        .serve("blue")
+        .build()
     )
-    await banner.update(
-        environments={
-            "staging": {
-                "enabled": True,
-                "rules": [
-                    Rule("Blue for enterprise users").when("user.plan", "==", "enterprise").serve("blue").build(),
-                    Rule("Green for technology companies")
-                    .when("account.industry", "==", "technology")
-                    .serve("green")
-                    .build(),
-                ],
-            },
-            "production": {"enabled": True, "default": "blue", "rules": []},
-        }
+    banner.addRule(
+        Rule("Green for technology companies")
+        .environment("staging")
+        .when("account.industry", "==", "technology")
+        .serve("green")
+        .build()
     )
+    banner.setEnvironmentEnabled("production", True)
+    banner.setEnvironmentDefault("production", "blue")
+    await banner.save()
 
-    retries = await client.flags.create(
-        "max-retries",
-        name="Max Retries",
-        type=FlagType.NUMERIC,
-        default=3,
+    # 3. max-retries — numeric
+    retries = client.flags.newNumberFlag("max-retries", default=3,
+        description="Maximum number of API retries before failing.",
         values=[
             {"name": "Low (1)", "value": 1},
             {"name": "Standard (3)", "value": 3},
             {"name": "High (5)", "value": 5},
             {"name": "Aggressive (10)", "value": 10},
-        ],
+        ])
+    retries.setEnvironmentEnabled("staging", True)
+    retries.addRule(
+        Rule("High retries for large accounts")
+        .environment("staging")
+        .when("account.employee_count", ">", 100)
+        .serve(5)
+        .build()
     )
-    await retries.update(
-        environments={
-            "staging": {
-                "enabled": True,
-                "rules": [
-                    Rule("High retries for large accounts").when("account.employee_count", ">", 100).serve(5).build(),
-                ],
-            },
-            "production": {"enabled": True, "rules": []},
-        }
-    )
+    retries.setEnvironmentEnabled("production", True)
+    await retries.save()
 
-    return [checkout, banner, retries]
+    return demo_keys
 
 
-async def teardown_demo_flags(client: AsyncSmplClient, flags: list) -> None:
-    """Delete demo flags and auto-created context types."""
-    for flag in flags:
-        await client.flags.delete(flag.id)
-    for ct in await client.flags.list_context_types():
-        await client.flags.delete_context_type(ct.id)
+async def teardown_demo_flags(client: AsyncSmplClient, keys: list[str]) -> None:
+    """Delete the demo flags created by setup_demo_flags."""
+    for key in keys:
+        try:
+            await client.flags.delete(key)
+        except Exception:
+            pass

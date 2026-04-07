@@ -4,15 +4,15 @@ Smpl Flags SDK Showcase — Management API
 
 Demonstrates the smplkit Python SDK's management plane for Smpl Flags:
 
-- Client initialization
-- Creating flags (BOOLEAN, STRING, NUMERIC, JSON) via FlagType enum
+- Client initialization (no connect() needed for management)
+- Typed flag creation via factory methods: newBooleanFlag, newStringFlag,
+  newNumberFlag, newJsonFlag
+- Active record pattern: local mutations + save() to persist
 - Rule builder: fluent API for constructing JSON Logic rules
-- Configuring values, environments, and rules
-- Convenience methods (addRule)
-- Updating flag definitions
-- Listing and inspecting flags
-- Deleting flags
-- Managing context types
+- addRule() as local mutation, save() to persist
+- Environment convenience methods: setEnvironmentEnabled, setEnvironmentDefault
+- Listing and inspecting flags via get(key) and list()
+- Deleting flags by key
 
 Most customers will create and configure flags via the Console UI.
 This showcase demonstrates the programmatic equivalent — useful for
@@ -38,7 +38,7 @@ Usage::
 
 import asyncio
 
-from smplkit import AsyncSmplClient, FlagType, Rule
+from smplkit import AsyncSmplClient, Rule
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -64,409 +64,351 @@ async def main() -> None:
     # ======================================================================
     section("1. SDK Initialization")
 
-    # The SmplClient constructor resolves three required parameters:
-    #
-    #   api_key     — not passed here; resolved automatically from the
-    #                 SMPLKIT_API_KEY environment variable or the
-    #                 ~/.smplkit configuration file.
-    #
-    #   environment — the target environment. Can also be resolved from
-    #                 SMPLKIT_ENVIRONMENT if not passed.
-    #
-    #   service     — identifies this SDK instance. Can also be resolved
-    #                 from SMPLKIT_SERVICE if not passed.
-    #
-    # To pass the API key explicitly:
-    #
-    #   client = AsyncSmplClient(
-    #       "sk_api_...",
-    #       environment="staging",
-    #       service="showcase-service",
-    #   )
-    #
-    client = AsyncSmplClient(
-        environment="staging",
-        service="showcase-service",
-    )
-    step("AsyncSmplClient initialized (environment=staging, service=showcase-service)")
+    # Management operations do not require connect() or start() — they
+    # are stateless HTTP calls. The constructor resolves environment,
+    # service, and API key, then registers the service with the server.
+    async with AsyncSmplClient(environment="staging", service="showcase-service") as client:
 
-    # Clean up leftover flags and context types from previous runs.
-    demo_flag_keys = {"checkout-v2", "banner-color", "max-retries", "ui-theme"}
-    demo_ct_keys = {"user", "account"}
-    try:
-        existing_flags = await client.flags.list()
-        for flag in existing_flags:
-            if flag.key in demo_flag_keys:
-                await client.flags.delete(flag.id)
-    except Exception:
-        pass
-    try:
-        existing_cts = await client.flags.list_context_types()
-        for ct in existing_cts:
-            if ct.key in demo_ct_keys:
-                await client.flags.delete_context_type(ct.id)
-    except Exception:
-        pass
+        step("AsyncSmplClient initialized (environment=staging, service=showcase-service)")
 
-    # ======================================================================
-    # 2. CREATE FLAGS
-    # ======================================================================
-    #
-    # Flags are created with a key, name, type, default value, and an
-    # optional values array. The key is the lone positional arg; everything
-    # else is a keyword arg.
-    #
-    # Required: key (positional), name, type (FlagType enum), default
-    # Optional: description, values
-    #
-    # FlagType enum: FlagType.BOOLEAN, FlagType.STRING, FlagType.NUMERIC,
-    #                FlagType.JSON
-    #
-    # For BOOLEAN flags, the values array is auto-generated if not
-    # provided: [{"name": "True", "value": true}, {"name": "False", "value": false}].
-    #
-    # For STRING, NUMERIC, and JSON flags, the values array defines the
-    # closed set of legal values the flag can serve. The default must
-    # reference a value in this set.
-    # ======================================================================
+        # Clean up leftover flags from previous runs.
+        demo_flag_keys = {"checkout-v2", "banner-color", "max-retries", "ui-theme"}
+        try:
+            existing_flags = await client.flags.list()
+            for flag in existing_flags:
+                if flag.key in demo_flag_keys:
+                    await client.flags.delete(flag.key)
+        except Exception:
+            pass
 
-    # ------------------------------------------------------------------
-    # 2a. BOOLEAN flag
-    # ------------------------------------------------------------------
-    section("2a. Create a Boolean Flag")
+        # ==================================================================
+        # 2. CREATE FLAGS — Typed Factory Methods
+        # ==================================================================
+        #
+        # Flags are created via typed factory methods on the FlagsClient:
+        #
+        #   newBooleanFlag(key, *, default, name=None, description=None)
+        #   newStringFlag(key, *, default, name=None, description=None, values=None)
+        #   newNumberFlag(key, *, default, name=None, description=None, values=None)
+        #   newJsonFlag(key, *, default, name=None, description=None, values=None)
+        #
+        # These return an unsaved Flag instance (id=None). Nothing is sent
+        # to the server until .save() is called. The flag type is implicit
+        # in the factory method name — no FlagType enum needed.
+        #
+        # When name is omitted, the SDK generates a display name from the
+        # key (e.g., "checkout-v2" → "Checkout V2").
+        # ==================================================================
 
-    checkout_flag = await client.flags.create(
-        "checkout-v2",
-        name="Checkout V2",
-        type=FlagType.BOOLEAN,
-        default=False,
-        description="Controls rollout of the new checkout experience.",
-    )
-    step(f"Created: key={checkout_flag.key}, type={checkout_flag.type}")
-    step(f"  id={checkout_flag.id}")
-    step(f"  values={checkout_flag.values}")
-    step(f"  default={checkout_flag.default}")
-    # values auto-generated: [{"name": "True", "value": true}, {"name": "False", "value": false}]
+        # ------------------------------------------------------------------
+        # 2a. BOOLEAN flag
+        # ------------------------------------------------------------------
+        section("2a. Create a Boolean Flag")
 
-    # ------------------------------------------------------------------
-    # 2b. STRING flag
-    # ------------------------------------------------------------------
-    section("2b. Create a String Flag")
+        checkout_flag = client.flags.newBooleanFlag(
+            "checkout-v2",
+            default=False,
+            description="Controls rollout of the new checkout experience.",
+        )
+        step(f"Created locally: key={checkout_flag.key}, type={checkout_flag.type}")
+        step(f"  id={checkout_flag.id}  (None — not yet saved)")
+        step(f"  default={checkout_flag.default}")
 
-    banner_flag = await client.flags.create(
-        "banner-color",
-        name="Banner Color",
-        type=FlagType.STRING,
-        default="red",
-        description="Controls the banner color shown to users.",
-        values=[
-            {"name": "Red", "value": "red"},
-            {"name": "Green", "value": "green"},
-            {"name": "Blue", "value": "blue"},
-        ],
-    )
-    step(f"Created: key={banner_flag.key}, type={banner_flag.type}")
-    step(f"  values={banner_flag.values}")
+        await checkout_flag.save()
+        step(f"  Saved → id={checkout_flag.id}")
 
-    # ------------------------------------------------------------------
-    # 2c. NUMERIC flag
-    # ------------------------------------------------------------------
-    section("2c. Create a Numeric Flag")
+        # ------------------------------------------------------------------
+        # 2b. STRING flag
+        # ------------------------------------------------------------------
+        section("2b. Create a String Flag")
 
-    retry_flag = await client.flags.create(
-        "max-retries",
-        name="Max Retries",
-        type=FlagType.NUMERIC,
-        default=3,
-        description="Maximum number of API retries before failing.",
-        values=[
-            {"name": "Low (1)", "value": 1},
-            {"name": "Standard (3)", "value": 3},
-            {"name": "High (5)", "value": 5},
-            {"name": "Aggressive (10)", "value": 10},
-        ],
-    )
-    step(f"Created: key={retry_flag.key}, type={retry_flag.type}")
+        banner_flag = client.flags.newStringFlag(
+            "banner-color",
+            default="red",
+            name="Banner Color",
+            description="Controls the banner color shown to users.",
+            values=[
+                {"name": "Red", "value": "red"},
+                {"name": "Green", "value": "green"},
+                {"name": "Blue", "value": "blue"},
+            ],
+        )
+        await banner_flag.save()
+        step(f"Created and saved: key={banner_flag.key}, type={banner_flag.type}")
+        step(f"  values={banner_flag.values}")
 
-    # ------------------------------------------------------------------
-    # 2d. JSON flag
-    # ------------------------------------------------------------------
-    section("2d. Create a JSON Flag")
+        # ------------------------------------------------------------------
+        # 2c. NUMERIC flag
+        # ------------------------------------------------------------------
+        section("2c. Create a Numeric Flag")
 
-    theme_flag = await client.flags.create(
-        "ui-theme",
-        name="UI Theme",
-        type=FlagType.JSON,
-        default={"mode": "light", "accent": "#0066cc"},
-        description="Controls the UI theme configuration.",
-        values=[
-            {"name": "Light", "value": {"mode": "light", "accent": "#0066cc"}},
-            {"name": "Dark", "value": {"mode": "dark", "accent": "#66ccff"}},
-            {"name": "High Contrast", "value": {"mode": "dark", "accent": "#ffffff"}},
-        ],
-    )
-    step(f"Created: key={theme_flag.key}, type={theme_flag.type}")
+        retry_flag = client.flags.newNumberFlag(
+            "max-retries",
+            default=3,
+            description="Maximum number of API retries before failing.",
+            values=[
+                {"name": "Low (1)", "value": 1},
+                {"name": "Standard (3)", "value": 3},
+                {"name": "High (5)", "value": 5},
+                {"name": "Aggressive (10)", "value": 10},
+            ],
+        )
+        await retry_flag.save()
+        step(f"Created and saved: key={retry_flag.key}, type={retry_flag.type}")
 
-    # ======================================================================
-    # 3. CONFIGURE ENVIRONMENTS AND RULES
-    # ======================================================================
-    #
-    # Each flag can be independently configured per environment. An
-    # environment entry includes:
-    #   - enabled (bool): whether rules are evaluated
-    #   - default (optional): environment-level override of the flag default
-    #   - rules (array): ordered list of rules (first match wins)
-    #
-    # Rules can be built using the Rule builder (recommended) or as raw
-    # JSON Logic dicts. The Rule builder provides a fluent API:
-    #
-    #   Rule("description")
-    #       .when("user.plan", "==", "enterprise")
-    #       .serve(True)
-    #       .build()
-    #
-    # Multiple .when() calls are AND'd. .serve() sets the value.
-    # .build() finalizes the rule as a dict ready for the API.
-    # .environment() is optional — used with addRule (see section 5).
-    #
-    # Supported operators: ==, !=, >, <, >=, <=, in, contains
-    # ======================================================================
+        # ------------------------------------------------------------------
+        # 2d. JSON flag
+        # ------------------------------------------------------------------
+        section("2d. Create a JSON Flag")
 
-    # ------------------------------------------------------------------
-    # 3a. Configure checkout-v2 environments
-    # ------------------------------------------------------------------
-    section("3a. Configure checkout-v2 Environments")
+        theme_flag = client.flags.newJsonFlag(
+            "ui-theme",
+            default={"mode": "light", "accent": "#0066cc"},
+            description="Controls the UI theme configuration.",
+            values=[
+                {"name": "Light", "value": {"mode": "light", "accent": "#0066cc"}},
+                {"name": "Dark", "value": {"mode": "dark", "accent": "#66ccff"}},
+                {"name": "High Contrast", "value": {"mode": "dark", "accent": "#ffffff"}},
+            ],
+        )
+        await theme_flag.save()
+        step(f"Created and saved: key={theme_flag.key}, type={theme_flag.type}")
 
-    await checkout_flag.update(
-        environments={
-            "staging": {
-                "enabled": True,
-                "rules": [
-                    Rule("Enable for enterprise users in US region")
-                    .when("user.plan", "==", "enterprise")
-                    .when("account.region", "==", "us")
-                    .serve(True)
-                    .build(),
-                    Rule("Enable for beta testers").when("user.beta_tester", "==", True).serve(True).build(),
-                ],
-            },
-            "production": {
-                "enabled": False,
-                "default": False,
-                "rules": [],
-            },
-        },
-    )
-    step("staging: enabled with 2 targeting rules")
-    step("production: disabled, default=false")
+        # ==================================================================
+        # 3. CONFIGURE ENVIRONMENTS AND RULES
+        # ==================================================================
+        #
+        # Each flag can be independently configured per environment. Use
+        # convenience methods for common operations, or manipulate the
+        # environments dict directly for full control.
+        #
+        # All mutations are LOCAL until save() is called. This lets you
+        # preview the full state before persisting.
+        #
+        # Rules can be built using the Rule builder (recommended) or as
+        # raw JSON Logic dicts.
+        #
+        #   Rule("description")
+        #       .environment("staging")       # which env to target
+        #       .when("user.plan", "==", "enterprise")
+        #       .serve(True)
+        #       .build()
+        #
+        # Multiple .when() calls are AND'd. Supported operators:
+        #   ==, !=, >, <, >=, <=, in, contains
+        # ==================================================================
 
-    # ------------------------------------------------------------------
-    # 3b. Configure banner-color environments
-    # ------------------------------------------------------------------
-    section("3b. Configure banner-color Environments")
+        # ------------------------------------------------------------------
+        # 3a. Configure checkout-v2 environments
+        # ------------------------------------------------------------------
+        section("3a. Configure checkout-v2 Environments")
 
-    await banner_flag.update(
-        environments={
-            "staging": {
-                "enabled": True,
-                "rules": [
-                    Rule("Blue for enterprise users").when("user.plan", "==", "enterprise").serve("blue").build(),
-                    Rule("Green for technology companies")
-                    .when("account.industry", "==", "technology")
-                    .serve("green")
-                    .build(),
-                ],
-            },
-            "production": {
-                "enabled": True,
-                "default": "blue",
-                "rules": [],
-            },
-        },
-    )
-    step("staging: enabled with 2 rules")
-    step("production: enabled, no rules, default override = blue")
+        # Convenience methods — local mutations, no API call
+        checkout_flag.setEnvironmentEnabled("staging", True)
+        checkout_flag.addRule(
+            Rule("Enable for enterprise users in US region")
+            .environment("staging")
+            .when("user.plan", "==", "enterprise")
+            .when("account.region", "==", "us")
+            .serve(True)
+            .build()
+        )
+        checkout_flag.addRule(
+            Rule("Enable for beta testers")
+            .environment("staging")
+            .when("user.beta_tester", "==", True)
+            .serve(True)
+            .build()
+        )
 
-    # ------------------------------------------------------------------
-    # 3c. Configure max-retries environments
-    # ------------------------------------------------------------------
-    section("3c. Configure max-retries Environments")
+        checkout_flag.setEnvironmentEnabled("production", False)
+        checkout_flag.setEnvironmentDefault("production", False)
 
-    await retry_flag.update(
-        environments={
-            "staging": {
-                "enabled": True,
-                "rules": [
-                    Rule("High retries for large accounts").when("account.employee_count", ">", 100).serve(5).build(),
-                ],
-            },
-            "production": {
-                "enabled": True,
-                "rules": [],
-            },
-        },
-    )
-    step("staging: enabled with 1 rule")
-    step("production: enabled, no rules")
+        # All mutations are local — now persist
+        await checkout_flag.save()
+        step("staging: enabled with 2 targeting rules")
+        step("production: disabled, default=false")
+        step("All changes persisted via single save()")
 
-    # ======================================================================
-    # 4. INSPECT AND LIST FLAGS
-    # ======================================================================
+        # ------------------------------------------------------------------
+        # 3b. Configure banner-color environments
+        # ------------------------------------------------------------------
+        section("3b. Configure banner-color Environments")
 
-    section("4. List and Inspect Flags")
+        banner_flag.setEnvironmentEnabled("staging", True)
+        banner_flag.addRule(
+            Rule("Blue for enterprise users")
+            .environment("staging")
+            .when("user.plan", "==", "enterprise")
+            .serve("blue")
+            .build()
+        )
+        banner_flag.addRule(
+            Rule("Green for technology companies")
+            .environment("staging")
+            .when("account.industry", "==", "technology")
+            .serve("green")
+            .build()
+        )
 
-    # List all flags.
-    flags = await client.flags.list()
-    step(f"Total flags: {len(flags)}")
-    for f in flags:
-        env_keys = list(f.environments.keys()) if f.environments else []
-        step(f"  {f.key} ({f.type}) — default={f.default}, environments={env_keys}")
+        banner_flag.setEnvironmentEnabled("production", True)
+        banner_flag.setEnvironmentDefault("production", "blue")
 
-    # Fetch a single flag by ID.
-    fetched = await client.flags.get(checkout_flag.id)
-    step(f"\nFetched by ID: {fetched.key}")
-    step(f"  staging rules: {len(fetched.environments.get('staging', {}).get('rules', []))}")
-    step(f"  production enabled: {fetched.environments.get('production', {}).get('enabled')}")
+        await banner_flag.save()
+        step("staging: enabled with 2 rules")
+        step("production: enabled, no rules, default override = blue")
 
-    # ======================================================================
-    # 5. UPDATE A FLAG
-    # ======================================================================
+        # ------------------------------------------------------------------
+        # 3c. Configure max-retries environments
+        # ------------------------------------------------------------------
+        section("3c. Configure max-retries Environments")
 
-    section("5. Update a Flag")
+        retry_flag.setEnvironmentEnabled("staging", True)
+        retry_flag.addRule(
+            Rule("High retries for large accounts")
+            .environment("staging")
+            .when("account.employee_count", ">", 100)
+            .serve(5)
+            .build()
+        )
 
-    # Add a new value to banner-color.
-    step("Adding 'Purple' to banner-color values...")
-    current_values = banner_flag.values
-    current_values.append({"name": "Purple", "value": "purple"})
-    await banner_flag.update(values=current_values)
-    step(f"Updated values: {[v['name'] for v in banner_flag.values]}")
+        retry_flag.setEnvironmentEnabled("production", True)
 
-    # Change the flag-level default.
-    step("Changing banner-color default to 'blue'...")
-    await banner_flag.update(default="blue")
-    step(f"Updated default: {banner_flag.default}")
+        await retry_flag.save()
+        step("staging: enabled with 1 rule")
+        step("production: enabled, no rules")
 
-    # Add a rule to an existing environment — the hard way (raw JSON Logic).
-    # You have to fetch current state, build the dict, append, and send
-    # the whole environments object.
-    step("Adding a rule to banner-color production (raw JSON Logic)...")
-    current_envs = banner_flag.environments
-    prod = current_envs.get("production", {"enabled": True, "rules": []})
-    prod_rules = prod.get("rules", [])
-    prod_rules.append(
-        {
-            "description": "Purple for enterprise users",
-            "logic": {"==": [{"var": "user.plan"}, "enterprise"]},
-            "value": "purple",
-        }
-    )
-    await banner_flag.update(
-        environments={
-            **current_envs,
-            "production": {**prod, "rules": prod_rules},
-        },
-    )
-    step(f"Production now has {len(prod_rules)} rule(s)")
+        # ==================================================================
+        # 4. INSPECT AND LIST FLAGS
+        # ==================================================================
 
-    # Add a rule — the easy way. addRule takes a single built Rule.
-    # The Rule's .environment() tells addRule where to insert it.
-    step("Adding another rule to banner-color production (addRule + Rule)...")
-    await banner_flag.addRule(
-        Rule("Green for retail companies")
-        .environment("production")
-        .when("account.industry", "==", "retail")
-        .serve("green")
-        .build()
-    )
-    step("Rule added — no manual environment juggling, no raw JSON Logic")
+        section("4. List and Inspect Flags")
 
-    # Verify both rules are there.
-    refreshed = await client.flags.get(banner_flag.id)
-    prod_rules = refreshed.environments.get("production", {}).get("rules", [])
-    step(f"Production rules after both additions: {len(prod_rules)}")
-    for i, rule in enumerate(prod_rules):
-        step(f"  [{i}] {rule.get('description', 'no description')}")
+        # List all flags — always an HTTP request.
+        flags = await client.flags.list()
+        step(f"Total flags: {len(flags)}")
+        for f in flags:
+            env_keys = list(f.environments.keys()) if f.environments else []
+            step(f"  {f.key} ({f.type}) — default={f.default}, environments={env_keys}")
 
-    # ======================================================================
-    # 6. CONTEXT TYPE MANAGEMENT
-    # ======================================================================
-    #
-    # Context types define the shape of data that rules can target. They
-    # are typically auto-created by the SDK during runtime context
-    # registration, but can also be managed explicitly via the API —
-    # useful for setting up the Console rule builder before any SDK is
-    # deployed.
-    # ======================================================================
+        # Fetch a single flag by key — always an HTTP request.
+        fetched = await client.flags.get("checkout-v2")
+        step(f"\nFetched by key: {fetched.key}")
+        step(f"  staging rules: {len(fetched.environments.get('staging', {}).get('rules', []))}")
+        step(f"  production enabled: {fetched.environments.get('production', {}).get('enabled')}")
 
-    section("6. Context Type Management")
+        # ==================================================================
+        # 5. UPDATE A FLAG — Active Record Pattern
+        # ==================================================================
 
-    # Create context types that the Console rule builder will use.
-    user_ct = await client.flags.create_context_type(
-        "user",
-        name="User",
-    )
-    step(f"Created context type: key={user_ct.key}, name={user_ct.name}")
+        section("5. Update a Flag")
 
-    # Add known attributes.
-    await client.flags.update_context_type(
-        user_ct.id,
-        key=user_ct.key,
-        name=user_ct.name,
-        attributes={
-            "first_name": {},
-            "plan": {},
-            "beta_tester": {},
-        },
-    )
-    step(f"Added attributes: {list(user_ct.attributes.keys())}")
+        # Fetch → mutate → save. All mutations are local until save().
 
-    account_ct = await client.flags.create_context_type(
-        "account",
-        name="Account",
-    )
-    await client.flags.update_context_type(
-        account_ct.id,
-        key=account_ct.key,
-        name=account_ct.name,
-        attributes={
-            "industry": {},
-            "region": {},
-            "employee_count": {},
-        },
-    )
-    step(f"Created context type: key={account_ct.key}")
+        # Add a new value to banner-color.
+        step("Adding 'Purple' to banner-color values...")
+        banner_flag.values.append({"name": "Purple", "value": "purple"})
+        step(f"Values (local): {[v['name'] for v in banner_flag.values]}")
 
-    # List context types.
-    context_types = await client.flags.list_context_types()
-    for ct in context_types:
-        attrs = list(ct.attributes.keys()) if ct.attributes else []
-        step(f"  {ct.key}: attributes={attrs}")
+        # Change the flag-level default.
+        banner_flag.default = "blue"
+        step(f"Default (local): {banner_flag.default}")
 
-    # ======================================================================
-    # 7. CLEANUP
-    # ======================================================================
-    section("7. Cleanup")
+        # Change description.
+        banner_flag.description = "Controls the banner color — updated"
+        step(f"Description (local): {banner_flag.description}")
 
-    # Delete flags.
-    for flag in [checkout_flag, banner_flag, retry_flag, theme_flag]:
-        await client.flags.delete(flag.id)
-        step(f"Deleted flag: {flag.key}")
+        # Add a rule to production using addRule (local mutation).
+        banner_flag.addRule(
+            Rule("Purple for enterprise users")
+            .environment("production")
+            .when("user.plan", "==", "enterprise")
+            .serve("purple")
+            .build()
+        )
+        step("Added rule to production (local)")
 
-    # Delete context types.
-    for ct in [user_ct, account_ct]:
-        await client.flags.delete_context_type(ct.id)
-        step(f"Deleted context type: {ct.key}")
+        banner_flag.addRule(
+            Rule("Green for retail companies")
+            .environment("production")
+            .when("account.industry", "==", "retail")
+            .serve("green")
+            .build()
+        )
+        step("Added another rule to production (local)")
 
-    # Close the client.
-    await client.close()
-    step("AsyncSmplClient closed")
+        # Single save() persists all accumulated mutations.
+        await banner_flag.save()
+        step("All changes persisted via single save()")
 
-    # ======================================================================
-    # DONE
-    # ======================================================================
-    section("ALL DONE")
-    print("  The Flags Management showcase completed successfully.")
-    print("  All flags and context types have been cleaned up.\n")
+        # Verify by re-fetching.
+        refreshed = await client.flags.get("banner-color")
+        prod_rules = refreshed.environments.get("production", {}).get("rules", [])
+        step(f"Production rules after save: {len(prod_rules)}")
+        for i, rule in enumerate(prod_rules):
+            step(f"  [{i}] {rule.get('description', 'no description')}")
+
+        # ==================================================================
+        # 6. CLEAR RULES AND ENVIRONMENT CONVENIENCE METHODS
+        # ==================================================================
+
+        section("6. Environment Convenience Methods")
+
+        # clearRules() removes all rules from an environment.
+        checkout_flag.clearRules("staging")
+        step("Cleared all staging rules on checkout-v2 (local)")
+
+        # Raw dict manipulation is always available as an alternative.
+        checkout_flag.environments["production"] = {"enabled": True, "default": True, "rules": []}
+        step("Set production via raw dict (local)")
+
+        await checkout_flag.save()
+        step("Persisted")
+
+        # ==================================================================
+        # 7. SYNC CLIENT DEMO
+        # ==================================================================
+        section("7. Sync Client (same API, no await)")
+
+        # For sync applications (Django, Flask, CLI tools):
+        #
+        #     from smplkit import SmplClient, Rule
+        #
+        #     with SmplClient(environment="staging", service="my-service") as client:
+        #
+        #         # Create a flag — local, then persist
+        #         flag = client.flags.newBooleanFlag("my-flag", default=False)
+        #         flag.save()
+        #
+        #         # Fetch, mutate, save
+        #         flag = client.flags.get("my-flag")
+        #         flag.setEnvironmentEnabled("staging", True)
+        #         flag.addRule(
+        #             Rule("...").environment("staging").when(...).serve(True).build()
+        #         )
+        #         flag.save()
+        #
+        #         # List and delete
+        #         flags = client.flags.list()
+        #         client.flags.delete("my-flag")
+
+        step("(See code comments for sync usage examples)")
+
+        # ==================================================================
+        # 8. CLEANUP
+        # ==================================================================
+        section("8. Cleanup")
+
+        for key in ["checkout-v2", "banner-color", "max-retries", "ui-theme"]:
+            await client.flags.delete(key)
+            step(f"Deleted flag: {key}")
+
+        # ==================================================================
+        # DONE
+        # ==================================================================
+        section("ALL DONE")
+        print("  The Flags Management showcase completed successfully.")
+        print("  All flags have been cleaned up.\n")
 
 
 if __name__ == "__main__":

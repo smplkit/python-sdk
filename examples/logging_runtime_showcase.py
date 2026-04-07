@@ -5,17 +5,16 @@ Smpl Logging SDK Showcase — Runtime
 Demonstrates the smplkit Python SDK's runtime experience for Smpl Logging:
 
 - Automatic logger discovery via Python's ``logging`` module
-- Auto-discovered loggers matching server-side managed loggers
+- Explicit start() — opt-in monkey-patching and level management
 - Level resolution chain: env override → base level → group → dot-notation → fallback
 - Dynamic level control: server-side changes applied to the Python runtime
-- Manual refresh: ``client.logging.refresh()``
-- Continuous discovery (loggers created after connect)
-- Runtime level change detection
+- @client.logging.on_change decorator with optional key scoping
+- Continuous discovery (loggers created after start)
 
 This is the SDK experience that 99%% of customers will use. Loggers are
 discovered automatically and managed via the Console UI (or the
 management API shown in ``logging_management_showcase.py``). This script
-focuses entirely on the runtime: connecting, discovering, resolving, and
+focuses entirely on the runtime: starting, discovering, resolving, and
 reacting to changes.
 
 Prerequisites:
@@ -33,7 +32,7 @@ Usage::
 import asyncio
 import logging as stdlib_logging
 
-from smplkit import AsyncSmplClient
+from smplkit import AsyncSmplClient, LogLevel
 
 # Demo scaffolding — creates server-side loggers and groups so this
 # showcase can run standalone. In a real app, loggers are auto-discovered
@@ -72,10 +71,9 @@ async def main() -> None:
     # In a real application, loggers are created by your code and
     # libraries throughout the codebase. Here we simulate that.
     #
-    # These Python loggers exist in the process BEFORE we connect the
-    # smplkit SDK. When connect() runs, the discovery engine scans the
-    # registry and finds them.
-    #
+    # These Python loggers exist in the process BEFORE we call start().
+    # When start() runs, the discovery engine scans the registry and
+    # finds them.
     # ======================================================================
 
     stdlib_logging.getLogger("app").setLevel(stdlib_logging.INFO)
@@ -87,263 +85,239 @@ async def main() -> None:
     # ======================================================================
     section("1. SDK Initialization")
 
-    # The SmplClient constructor resolves three required parameters:
-    #
-    #   api_key     — not passed here; resolved automatically from the
-    #                 SMPLKIT_API_KEY environment variable or the
-    #                 ~/.smplkit configuration file.
-    #
-    #   environment — the target environment. Can also be resolved from
-    #                 SMPLKIT_ENVIRONMENT if not passed.
-    #
-    #   service     — identifies this SDK instance. Can also be resolved
-    #                 from SMPLKIT_SERVICE if not passed.
-    #
-    # To pass the API key explicitly:
-    #
-    #   client = AsyncSmplClient(
-    #       "sk_api_...",
-    #       environment="production",
-    #       service="showcase-service",
-    #   )
-    #
     ENVIRONMENT = "production"
 
-    client = AsyncSmplClient(
-        environment=ENVIRONMENT,
-        service="showcase-service",
-    )
-    step(f"AsyncSmplClient initialized (environment={ENVIRONMENT}, service=showcase-service)")
+    async with AsyncSmplClient(environment=ENVIRONMENT, service="showcase-service") as client:
 
-    # Create server-side state (normally done via Console UI).
-    print("  Setting up demo loggers and groups...")
-    demo = await setup_demo_loggers(client)
-    print("  Demo loggers ready.\n")
+        step(f"AsyncSmplClient initialized (environment={ENVIRONMENT}, service=showcase-service)")
 
-    # The server now has:
-    #   "app"              — managed, base=WARN, production=ERROR
-    #   "app.payments"     — managed, level=NULL (inherits from ancestor)
-    #   "sqlalchemy.engine" — managed, level=NULL, group="databases"
-    #   "databases" group  — base=ERROR, production=WARN
+        # Create server-side state (normally done via Console UI).
+        print("  Setting up demo loggers and groups...")
+        demo = await setup_demo_loggers(client)
+        print("  Demo loggers ready.\n")
 
-    # ======================================================================
-    # 2. AUTO-DISCOVERY + CONNECT
-    # ======================================================================
-    #
-    # connect() does the following for logging:
-    #
-    #   1. Scans logging.root.manager.loggerDict — finds "app",
-    #      "app.payments", "sqlalchemy.engine" (plus SDK-internal loggers).
-    #   2. Monkey-patches Manager.getLogger for continuous discovery.
-    #   3. Monkey-patches Logger.setLevel for runtime change detection.
-    #   4. Bulk-registers discovered loggers. The server finds existing
-    #      rows (created by setup) and updates their sources array
-    #      with this service+environment pair and the observed levels.
-    #   5. Fetches all logger and group data from the server.
-    #   6. Resolves effective levels for managed loggers and applies
-    #      them to the Python runtime via setLevel().
-    #
-    # ======================================================================
+        # ==================================================================
+        # 2. CHANGE LISTENERS — Register Before start()
+        # ==================================================================
+        #
+        # @client.logging.on_change — fires when ANY logger/group changes
+        # @client.logging.on_change("sqlalchemy.engine") — scoped to a key
+        #
+        # Listeners can be registered before start(). They are stored
+        # locally and begin firing when WebSocket events arrive after start().
+        # ==================================================================
 
-    section("2. Auto-Discovery + Connect")
+        section("2. Register Change Listeners")
 
-    step("Python levels before connect (application defaults):")
-    for name in ["app", "app.payments", "sqlalchemy.engine"]:
-        step(f"  {name}: {python_level_name(name)}")
-    # Expected: INFO, WARNING, WARNING
+        all_changes: list = []
 
-    await client.connect()
-    step("\nclient.connect() completed")
+        @client.logging.on_change
+        def on_any_change(event):
+            all_changes.append(event)
+            print(f"    [CHANGE] {event.key}: level={event.level}")
 
-    step("\nPython levels after connect (smplkit has taken control):")
-    for name in ["app", "app.payments", "sqlalchemy.engine"]:
-        step(f"  {name}: {python_level_name(name)}")
-    # Expected: ERROR, ERROR, WARNING — resolved per the chain below
+        step("Global change listener registered")
 
-    # ======================================================================
-    # 3. LEVEL RESOLUTION
-    # ======================================================================
-    #
-    # The resolution chain (first non-null wins):
-    #
-    #   1. Logger's own environment override
-    #   2. Logger's own base level
-    #   3. Group chain (recursive up the group hierarchy)
-    #   4. Dot-notation ancestry (walk "app.payments" → "app")
-    #   5. System fallback: INFO
-    #
-    # Current server state:
-    #   app              — base=WARN, production=ERROR
-    #   app.payments     — level=NULL, no group
-    #   sqlalchemy.engine — level=NULL, group="databases"
-    #   "databases" group — base=ERROR, production=WARN
-    #
-    # Resolution (in production environment):
-    #   app              → step 1: production=ERROR → ERROR ✓
-    #   app.payments     → steps 1-3: nothing → step 4: ancestor "app"
-    #                      → "app" resolves to ERROR → ERROR ✓
-    #   sqlalchemy.engine → steps 1-2: nothing → step 3: group "databases"
-    #                       → "databases" production=WARN → WARN ✓
-    #
-    # ======================================================================
+        sql_changes: list = []
 
-    section("3. Level Resolution — Full Chain")
+        @client.logging.on_change("sqlalchemy.engine")
+        def on_sql_change(event):
+            sql_changes.append(event)
+            print(f"    [SQL] sqlalchemy.engine level changed to {event.level}")
 
-    step(f"  app → {python_level_name('app')}")
-    step(f"    Resolution: env override ({ENVIRONMENT}=ERROR) ✓")
+        step("Scoped listener registered for sqlalchemy.engine")
 
-    step(f"\n  app.payments → {python_level_name('app.payments')}")
-    step(f"    Resolution: no level → no group → ancestor 'app' → ERROR ✓")
+        # ==================================================================
+        # 3. START — Discovery + Level Management
+        # ==================================================================
+        #
+        # start() is the explicit opt-in for runtime logging control.
+        # It performs:
+        #   1. Scans logging.root.manager.loggerDict for existing loggers
+        #   2. Installs monkey-patches for continuous discovery
+        #   3. Bulk-registers discovered loggers with the server
+        #   4. Fetches all logger and group definitions
+        #   5. Resolves levels for managed loggers and applies them
+        #   6. Opens the shared WebSocket for live updates
+        #   7. Starts the periodic flush timer for new discoveries
+        #
+        # start() is idempotent — calling it multiple times is safe.
+        # Management methods do NOT require start().
+        # ==================================================================
 
-    step(f"\n  sqlalchemy.engine → {python_level_name('sqlalchemy.engine')}")
-    step(f"    Resolution: no level → group 'databases' → env override ({ENVIRONMENT}=WARN) ✓")
+        section("3. Auto-Discovery + Start")
 
-    # ======================================================================
-    # 4. DYNAMIC LEVEL CONTROL
-    # ======================================================================
-    #
-    # Change a level on the server, call refresh(), and the Python
-    # runtime reflects the change instantly. In production, WebSocket
-    # events trigger this automatically — no manual refresh() needed.
-    #
-    # The management API uses GET-mutate-save: fetch the object (or
-    # use one you already have), set properties, call save() to PUT
-    # the full object.
-    #
-    # ======================================================================
+        step("Python levels before start() (application defaults):")
+        for name in ["app", "app.payments", "sqlalchemy.engine"]:
+            step(f"  {name}: {python_level_name(name)}")
+        # Expected: INFO, WARNING, WARNING
 
-    # ------------------------------------------------------------------
-    # 4a. Change a group level — all members shift
-    # ------------------------------------------------------------------
-    section("4a. Dynamic Control — Change Group Level")
+        await client.logging.start()
+        step("\nclient.logging.start() completed")
 
-    db_group = demo["groups"][0]
-    step(f"sqlalchemy.engine before: {python_level_name('sqlalchemy.engine')}")
+        step("\nPython levels after start() (smplkit has taken control):")
+        for name in ["app", "app.payments", "sqlalchemy.engine"]:
+            step(f"  {name}: {python_level_name(name)}")
+        # Expected: ERROR, ERROR, WARNING — resolved per the chain below
 
-    db_group.environments = {ENVIRONMENT: {"level": "DEBUG"}}
-    await db_group.save()
-    step(f"Changed databases group {ENVIRONMENT} override: WARN → DEBUG")
+        # ==================================================================
+        # 4. LEVEL RESOLUTION
+        # ==================================================================
+        #
+        # The resolution chain (first non-null wins):
+        #   1. Logger's own environment override
+        #   2. Logger's own base level
+        #   3. Group chain (recursive up the group hierarchy)
+        #   4. Dot-notation ancestry (walk "app.payments" → "app")
+        #   5. System fallback: INFO
+        #
+        # Resolution (in production environment):
+        #   app              → step 1: production=ERROR → ERROR ✓
+        #   app.payments     → steps 1-3: nothing → step 4: ancestor "app"
+        #                      → "app" resolves to ERROR → ERROR ✓
+        #   sqlalchemy.engine → steps 1-2: nothing → step 3: group "databases"
+        #                       → "databases" production=WARN → WARN ✓
+        # ==================================================================
 
-    await client.logging.refresh()
-    step("client.logging.refresh()")
+        section("4. Level Resolution — Full Chain")
 
-    step(f"sqlalchemy.engine after: {python_level_name('sqlalchemy.engine')}")
-    step("  Group-level change cascaded to all group members")
+        step(f"  app → {python_level_name('app')}")
+        step(f"    Resolution: env override ({ENVIRONMENT}=ERROR) ✓")
 
-    # ------------------------------------------------------------------
-    # 4b. Change an ancestor level — dot-notation children shift
-    # ------------------------------------------------------------------
-    section("4b. Dynamic Control — Change Ancestor Level")
+        step(f"\n  app.payments → {python_level_name('app.payments')}")
+        step(f"    Resolution: no level → no group → ancestor 'app' → ERROR ✓")
 
-    app_lg = demo["loggers"][0]
-    step(f"app.payments before: {python_level_name('app.payments')}")
+        step(f"\n  sqlalchemy.engine → {python_level_name('sqlalchemy.engine')}")
+        step(f"    Resolution: no level → group 'databases' → env override ({ENVIRONMENT}=WARN) ✓")
 
-    app_lg.environments = {ENVIRONMENT: {"level": "TRACE"}}
-    await app_lg.save()
-    step(f"Changed app {ENVIRONMENT} override: ERROR → TRACE")
+        # ==================================================================
+        # 5. DYNAMIC LEVEL CONTROL
+        # ==================================================================
+        #
+        # Change a level on the server via management API. In production,
+        # WebSocket events trigger re-resolution automatically. Here we
+        # use a brief sleep to let the WebSocket deliver the update.
+        # ==================================================================
 
-    await client.logging.refresh()
-    step("client.logging.refresh()")
+        # ------------------------------------------------------------------
+        # 5a. Change a group level — all members shift
+        # ------------------------------------------------------------------
+        section("5a. Dynamic Control — Change Group Level")
 
-    step(f"app after: {python_level_name('app')}")
-    step(f"app.payments after: {python_level_name('app.payments')}")
-    step("  Ancestor-level change cascaded via dot-notation hierarchy")
+        db_group = await client.logging.get_group("databases")
+        step(f"sqlalchemy.engine before: {python_level_name('sqlalchemy.engine')}")
 
-    # ------------------------------------------------------------------
-    # 4c. Clear an environment override — falls through to base level
-    # ------------------------------------------------------------------
-    section("4c. Dynamic Control — Clear Override")
+        db_group.setEnvironmentLevel(ENVIRONMENT, LogLevel.DEBUG)
+        await db_group.save()
+        step(f"Changed databases group {ENVIRONMENT} override: WARN → DEBUG")
 
-    step(f"app before: {python_level_name('app')}")
+        await asyncio.sleep(2)
 
-    app_lg.environments = {}
-    await app_lg.save()
-    step("Cleared all env overrides on app")
+        step(f"sqlalchemy.engine after: {python_level_name('sqlalchemy.engine')}")
+        step("  Group-level change cascaded to all group members")
 
-    await client.logging.refresh()
-    step("client.logging.refresh()")
+        # ------------------------------------------------------------------
+        # 5b. Change an ancestor level — dot-notation children shift
+        # ------------------------------------------------------------------
+        section("5b. Dynamic Control — Change Ancestor Level")
 
-    step(f"app after: {python_level_name('app')}")
-    # Expected: WARNING — no env override, falls through to base level (WARN)
+        app_lg = await client.logging.get("app")
+        step(f"app.payments before: {python_level_name('app.payments')}")
 
-    step(f"app.payments after: {python_level_name('app.payments')}")
-    # Expected: WARNING — inherits from ancestor "app"
+        app_lg.setEnvironmentLevel(ENVIRONMENT, LogLevel.TRACE)
+        await app_lg.save()
+        step(f"Changed app {ENVIRONMENT} override: ERROR → TRACE")
 
-    # ======================================================================
-    # 5. CONTINUOUS DISCOVERY
-    # ======================================================================
-    #
-    # The monkey-patches installed during connect() intercept:
-    #   - logging.Manager.getLogger → detects new loggers
-    #   - logging.Logger.setLevel  → detects runtime level changes
-    #
-    # New loggers are queued and bulk-registered on the next periodic
-    # flush (every 5 seconds). They land as unmanaged on the server
-    # and appear in the Console for the admin to review.
-    #
-    # Level changes on existing loggers are reported back so the
-    # Console stays current even for unmanaged loggers.
-    #
-    # ======================================================================
+        await asyncio.sleep(2)
 
-    section("5. Continuous Discovery")
+        step(f"app after: {python_level_name('app')}")
+        step(f"app.payments after: {python_level_name('app.payments')}")
+        step("  Ancestor-level change cascaded via dot-notation hierarchy")
 
-    step("Creating a new Python logger after connect()...")
-    new_logger = stdlib_logging.getLogger("app.notifications")
-    new_logger.setLevel(stdlib_logging.INFO)
-    step("Created: app.notifications (INFO)")
-    step("The SDK intercepted this and queued it for bulk registration.")
-    step("It will appear on the server after the next periodic flush (~5s).")
+        # ------------------------------------------------------------------
+        # 5c. Clear an environment override — falls through to base level
+        # ------------------------------------------------------------------
+        section("5c. Dynamic Control — Clear Override")
 
-    step("\nChanging an existing logger's level at runtime...")
-    stdlib_logging.getLogger("app").setLevel(stdlib_logging.DEBUG)
-    step("Changed app level to DEBUG via Python setLevel()")
-    step("The SDK intercepted this change and will report it to the server.")
-    step("(This does not affect smplkit's managed-level resolution — the")
-    step(" next refresh() will reapply the server-configured level.)")
+        step(f"app before: {python_level_name('app')}")
 
-    # ======================================================================
-    # 6. SYNC CLIENT DEMO
-    # ======================================================================
-    section("6. Sync Client (same API, no await)")
+        app_lg.clearAllEnvironmentLevels()
+        await app_lg.save()
+        step("Cleared all env overrides on app")
 
-    # For sync applications (Django, Flask, CLI tools):
-    #
-    #     from smplkit import SmplClient
-    #
-    #     client = SmplClient(
-    #         "sk_api_...",
-    #         environment="production",
-    #         service="my-service",
-    #     )
-    #     client.connect()  # discovers loggers, applies managed levels
-    #
-    #     # Your application runs — loggers are being controlled.
-    #     # New loggers are auto-discovered. Level changes are reported.
-    #
-    #     client.logging.refresh()  # manually re-fetch + re-apply
-    #
-    #     client.close()
+        await asyncio.sleep(2)
 
-    step("(See code comments for sync usage examples)")
+        step(f"app after: {python_level_name('app')}")
+        # Expected: WARNING — no env override, falls through to base level (WARN)
 
-    # ======================================================================
-    # 7. CLEANUP
-    # ======================================================================
-    section("7. Cleanup")
+        step(f"app.payments after: {python_level_name('app.payments')}")
+        # Expected: WARNING — inherits from ancestor "app"
 
-    await teardown_demo_loggers(client, demo)
-    step("Demo loggers and groups deleted")
+        # ==================================================================
+        # 6. CONTINUOUS DISCOVERY
+        # ==================================================================
+        #
+        # The monkey-patches installed during start() intercept:
+        #   - logging.Manager.getLogger → detects new loggers
+        #   - logging.Logger.setLevel  → detects runtime level changes
+        #
+        # New loggers are queued and bulk-registered on the next periodic
+        # flush (every 5 seconds).
+        # ==================================================================
 
-    await client.close()
-    step("AsyncSmplClient closed")
+        section("6. Continuous Discovery")
 
-    # ======================================================================
-    # DONE
-    # ======================================================================
-    section("ALL DONE")
-    print("  The Logging Runtime showcase completed successfully.")
-    print("  If you got here, Smpl Logging is ready to ship.\n")
+        step("Creating a new Python logger after start()...")
+        new_logger = stdlib_logging.getLogger("app.notifications")
+        new_logger.setLevel(stdlib_logging.INFO)
+        step("Created: app.notifications (INFO)")
+        step("The SDK intercepted this and queued it for bulk registration.")
+        step("It will appear on the server after the next periodic flush (~5s).")
+
+        # ==================================================================
+        # 7. CHANGE LISTENER RESULTS
+        # ==================================================================
+        section("7. Change Listener Results")
+
+        step(f"Global changes received: {len(all_changes)}")
+        step(f"SQL-specific changes received: {len(sql_changes)}")
+
+        # ==================================================================
+        # 8. SYNC CLIENT DEMO
+        # ==================================================================
+        section("8. Sync Client (same API, no await)")
+
+        # For sync applications (Django, Flask, CLI tools):
+        #
+        #     from smplkit import SmplClient, LogLevel
+        #
+        #     with SmplClient(environment="production", service="my-service") as client:
+        #
+        #         @client.logging.on_change("sqlalchemy.engine")
+        #         def on_sql_change(event):
+        #             print(f"SQL level changed to {event.level}")
+        #
+        #         client.logging.start()  # discovers loggers, applies levels
+        #
+        #         # Your application runs — loggers are being controlled.
+        #         # New loggers are auto-discovered. Level changes are reported.
+
+        step("(See code comments for sync usage examples)")
+
+        # ==================================================================
+        # 9. CLEANUP
+        # ==================================================================
+        section("9. Cleanup")
+
+        await teardown_demo_loggers(client, demo)
+        step("Demo loggers and groups deleted")
+
+        # ==================================================================
+        # DONE
+        # ==================================================================
+        section("ALL DONE")
+        print("  The Logging Runtime showcase completed successfully.")
+        print("  If you got here, Smpl Logging is ready to ship.\n")
 
 
 if __name__ == "__main__":

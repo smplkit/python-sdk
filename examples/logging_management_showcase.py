@@ -4,24 +4,20 @@ Smpl Logging SDK Showcase — Management API
 
 Demonstrates the smplkit Python SDK's management plane for Smpl Logging:
 
-- Logger inspection: list and get auto-discovered loggers
-- Promote / release: toggling ``managed`` status
-- Direct level control: base levels and environment overrides
-- Clear-field semantics: setting level back to NULL for inheritance
-- Log group CRUD: create, list, get, update, delete
-- Group assignment: assigning loggers to groups
-- Manual logger creation
+- Logger CRUD: new() + save(), get(key), list(), delete(key)
+- Active record pattern: fetch → mutate → save()
+- LogLevel enum for type-safe level management
+- Convenience methods: setLevel, clearLevel, setEnvironmentLevel, etc.
+- Log group CRUD: new_group() + save(), get_group(key), list_groups(), delete_group(key)
+- Group assignment
+- Promote / release: toggling managed status
 
 Most customers will manage loggers via the Console UI. This showcase
 demonstrates the programmatic equivalent — useful for infrastructure-
 as-code, CI/CD pipelines, setup scripts, and automated testing.
 
-For the runtime experience (auto-discovery, connect, level resolution,
-dynamic control, continuous discovery), see ``logging_runtime_showcase.py``.
-
-**Free-plan limits:** This showcase is designed to run within free-plan
-entitlements: ≤ 5 managed loggers, ≤ 3 log groups, nesting depth = 1
-(flat groups only).
+For the runtime experience (auto-discovery, start(), level resolution,
+dynamic control), see ``logging_runtime_showcase.py``.
 
 Prerequisites:
     - ``pip install smplkit-sdk``
@@ -37,7 +33,7 @@ Usage::
 
 import asyncio
 
-from smplkit import AsyncSmplClient
+from smplkit import AsyncSmplClient, LogLevel
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -63,341 +59,255 @@ async def main() -> None:
     # ======================================================================
     section("1. SDK Initialization")
 
-    # The SmplClient constructor resolves three required parameters:
-    #
-    #   api_key     — not passed here; resolved automatically from the
-    #                 SMPLKIT_API_KEY environment variable or the
-    #                 ~/.smplkit configuration file.
-    #
-    #   environment — the target environment. Can also be resolved from
-    #                 SMPLKIT_ENVIRONMENT if not passed.
-    #
-    #   service     — identifies this SDK instance. Can also be resolved
-    #                 from SMPLKIT_SERVICE if not passed.
-    #
-    # To pass the API key explicitly:
-    #
-    #   client = AsyncSmplClient(
-    #       "sk_api_...",
-    #       environment="production",
-    #       service="showcase-service",
-    #   )
-    #
-    # Management operations do not require connect() — they are
-    # stateless API calls.
-    client = AsyncSmplClient(
-        environment="production",
-        service="showcase-service",
-    )
-    step("AsyncSmplClient initialized (environment=production, service=showcase-service)")
+    # Management operations do not require start() — they are stateless
+    # HTTP calls. No monkey-patching, no discovery, no WebSocket.
+    async with AsyncSmplClient(environment="production", service="showcase-service") as client:
 
-    # ======================================================================
-    # 2. MANUAL LOGGER CREATION
-    # ======================================================================
-    #
-    # client.logging.create() creates a logger via POST /api/v1/loggers.
-    #
-    # The managed field controls entitlement enforcement:
-    #   managed=True  → consumes a logging.managed_loggers slot
-    #   managed=False → no slot consumed (same as auto-discovery)
-    #
-    # In production, most loggers are auto-discovered. Manual creation
-    # is useful for:
-    #   - Creating control points (e.g., a dot-notation parent that no
-    #     service has instantiated yet)
-    #   - Infrastructure-as-code / scripted setup
-    #   - Testing
-    #
-    # ======================================================================
+        step("AsyncSmplClient initialized (environment=production, service=showcase-service)")
 
-    section("2a. Create Managed Loggers")
+        # Clean up leftover loggers and groups from previous runs.
+        demo_logger_keys = {"app", "app.payments", "sqlalchemy.engine", "app.internal.debug"}
+        demo_group_keys = {"databases", "http_clients"}
+        try:
+            existing = await client.logging.list()
+            for lg in existing:
+                if lg.key in demo_logger_keys:
+                    await client.logging.delete(lg.key)
+        except Exception:
+            pass
+        try:
+            existing_groups = await client.logging.list_groups()
+            for g in existing_groups:
+                if g.key in demo_group_keys:
+                    await client.logging.delete_group(g.key)
+        except Exception:
+            pass
 
-    app_lg = await client.logging.create(
-        "app",
-        name="app",
-        managed=True,
-        level="WARN",
-    )
-    step(f"Created: key={app_lg.key}, managed={app_lg.managed}, level={app_lg.level}")
+        # ==================================================================
+        # 2. CREATE LOGGERS — new() + save()
+        # ==================================================================
+        #
+        # client.logging.new(key, *, name=None, managed=False) creates a
+        # local Logger instance. Nothing hits the server until save().
+        #
+        # Convenience methods (setLevel, setEnvironmentLevel) accept
+        # LogLevel enum values only — no string coercion.
+        # ==================================================================
 
-    payments_lg = await client.logging.create(
-        "app.payments",
-        name="app.payments",
-        managed=True,
+        section("2a. Create Managed Loggers")
+
+        app_lg = client.logging.new("app", name="app", managed=True)
+        app_lg.setLevel(LogLevel.WARN)
+        await app_lg.save()
+        step(f"Created: key={app_lg.key}, managed={app_lg.managed}, level={app_lg.level}")
+
+        payments_lg = client.logging.new("app.payments", name="app.payments", managed=True)
         # No level — will inherit via dot-notation from "app"
-    )
-    step(f"Created: key={payments_lg.key}, managed={payments_lg.managed}, level={payments_lg.level or '(null)'}")
+        await payments_lg.save()
+        step(f"Created: key={payments_lg.key}, managed={payments_lg.managed}, level={payments_lg.level or '(null)'}")
 
-    sqla_lg = await client.logging.create(
-        "sqlalchemy.engine",
-        name="sqlalchemy.engine",
-        managed=True,
-    )
-    step(f"Created: key={sqla_lg.key}, managed={sqla_lg.managed}, level={sqla_lg.level or '(null)'}")
+        sqla_lg = client.logging.new("sqlalchemy.engine", name="sqlalchemy.engine", managed=True)
+        await sqla_lg.save()
+        step(f"Created: key={sqla_lg.key}, managed={sqla_lg.managed}, level={sqla_lg.level or '(null)'}")
 
-    section("2b. Create an Unmanaged Logger")
+        section("2b. Create an Unmanaged Logger")
 
-    unmanaged_lg = await client.logging.create(
-        "app.internal.debug",
-        name="app.internal.debug",
-        managed=False,
-    )
-    step(f"Created: key={unmanaged_lg.key}, managed={unmanaged_lg.managed}")
-    step("  Unmanaged loggers do not consume managed-logger slots")
+        unmanaged_lg = client.logging.new("app.internal.debug", name="app.internal.debug", managed=False)
+        await unmanaged_lg.save()
+        step(f"Created: key={unmanaged_lg.key}, managed={unmanaged_lg.managed}")
+        step("  Unmanaged loggers do not consume managed-logger slots")
 
-    # ======================================================================
-    # 3. LOGGER INSPECTION
-    # ======================================================================
+        # ==================================================================
+        # 3. LOGGER INSPECTION
+        # ==================================================================
 
-    # ------------------------------------------------------------------
-    # 3a. List all loggers
-    # ------------------------------------------------------------------
-    section("3a. List All Loggers")
+        section("3a. List All Loggers")
 
-    loggers = await client.logging.list()
-    step(f"Total loggers: {len(loggers)}")
-    for lg in loggers:
-        step(f"  {lg.key} (managed={lg.managed}, level={lg.level or '(null)'})")
+        loggers = await client.logging.list()
+        step(f"Total loggers: {len(loggers)}")
+        for lg in loggers:
+            step(f"  {lg.key} (managed={lg.managed}, level={lg.level or '(null)'})")
 
-    # ------------------------------------------------------------------
-    # 3b. Get a single logger by ID
-    # ------------------------------------------------------------------
-    section("3b. Get a Logger by ID")
+        section("3b. Get a Logger by Key")
 
-    fetched = await client.logging.get(app_lg.id)
-    step(f"Fetched: key={fetched.key}, name={fetched.name}")
-    step(f"  managed={fetched.managed}")
-    step(f"  level={fetched.level}")
-    step(f"  environments={fetched.environments}")
-    step(f"  sources={fetched.sources}")
+        fetched = await client.logging.get("app")
+        step(f"Fetched: key={fetched.key}, name={fetched.name}")
+        step(f"  managed={fetched.managed}")
+        step(f"  level={fetched.level}")
+        step(f"  environments={fetched.environments}")
 
-    # ======================================================================
-    # 4. DIRECT LEVEL CONTROL
-    # ======================================================================
-    #
-    # Smplkit uses complete-replace semantics for all PUT operations.
-    # The SDK model is GET-mutate-save: fetch the current state (or
-    # use the object you already have), set properties, then call
-    # save() to PUT the full object.
-    #
-    # ======================================================================
+        # ==================================================================
+        # 4. LEVEL CONTROL — Convenience Methods
+        # ==================================================================
+        #
+        # setLevel(LogLevel)               — set base level
+        # clearLevel()                     — clear base level (inherit)
+        # setEnvironmentLevel(env, level)  — set per-env override
+        # clearEnvironmentLevel(env)       — clear per-env override
+        # clearAllEnvironmentLevels()      — clear all env overrides
+        #
+        # All are local mutations. save() persists.
+        # ==================================================================
 
-    # ------------------------------------------------------------------
-    # 4a. Set a base level
-    # ------------------------------------------------------------------
-    section("4a. Set Base Level")
+        section("4a. Set Base Level")
 
-    sqla_lg.level = "ERROR"
-    await sqla_lg.save()
-    step(f"Set sqlalchemy.engine base level → {sqla_lg.level}")
+        sqla_lg.setLevel(LogLevel.ERROR)
+        await sqla_lg.save()
+        step(f"Set sqlalchemy.engine base level → {sqla_lg.level}")
 
-    # ------------------------------------------------------------------
-    # 4b. Set environment overrides
-    # ------------------------------------------------------------------
-    section("4b. Set Environment Overrides")
+        section("4b. Set Environment Overrides")
 
-    app_lg.environments = {
-        "production": {"level": "ERROR"},
-        "staging": {"level": "DEBUG"},
-    }
-    await app_lg.save()
-    step(f"Set app environment overrides: {app_lg.environments}")
-    step("  production → ERROR, staging → DEBUG, other envs → base (WARN)")
+        app_lg.setEnvironmentLevel("production", LogLevel.ERROR)
+        app_lg.setEnvironmentLevel("staging", LogLevel.DEBUG)
+        await app_lg.save()
+        step(f"Set app environment overrides: {app_lg.environments}")
+        step("  production → ERROR, staging → DEBUG, other envs → base (WARN)")
 
-    # ------------------------------------------------------------------
-    # 4c. Clear a level (set back to null for inheritance)
-    # ------------------------------------------------------------------
-    section("4c. Clear Level — Restore Inheritance")
+        section("4c. Clear Level — Restore Inheritance")
 
-    # Setting level to None sends null in the PUT, which the server
-    # stores as NULL. With no explicit level, the logger inherits from
-    # its group, dot-notation ancestor, or the system default (INFO).
-    sqla_lg.level = None
-    await sqla_lg.save()
-    step(f"Cleared sqlalchemy.engine level → {sqla_lg.level or '(null)'}")
-    step("  Now inherits from group, dot-notation ancestor, or system default")
+        sqla_lg.clearLevel()
+        await sqla_lg.save()
+        step(f"Cleared sqlalchemy.engine level → {sqla_lg.level or '(null)'}")
+        step("  Now inherits from group, dot-notation ancestor, or system default")
 
-    # Clear env overrides by setting to an empty dict.
-    app_lg.environments = {}
-    await app_lg.save()
-    step(f"Cleared app env overrides → {app_lg.environments}")
+        app_lg.clearAllEnvironmentLevels()
+        await app_lg.save()
+        step(f"Cleared app env overrides → {app_lg.environments}")
 
-    # ======================================================================
-    # 5. LOG GROUP CRUD
-    # ======================================================================
+        # ==================================================================
+        # 5. LOG GROUP CRUD
+        # ==================================================================
 
-    # ------------------------------------------------------------------
-    # 5a. Create log groups
-    # ------------------------------------------------------------------
-    section("5a. Create Log Groups")
+        section("5a. Create Log Groups")
 
-    db_group = await client.logging.create_group(
-        "databases",
-        name="Databases",
-        level="ERROR",
-        environments={"production": {"level": "WARN"}},
-    )
-    step(f"Created group: key={db_group.key}, id={db_group.id}")
-    step(f"  level=ERROR, production override=WARN")
+        db_group = client.logging.new_group("databases", name="Databases")
+        db_group.setLevel(LogLevel.ERROR)
+        db_group.setEnvironmentLevel("production", LogLevel.WARN)
+        await db_group.save()
+        step(f"Created group: key={db_group.key}, id={db_group.id}")
+        step(f"  level=ERROR, production override=WARN")
 
-    http_group = await client.logging.create_group(
-        "http_clients",
-        name="HTTP Clients",
-        level="INFO",
-    )
-    step(f"Created group: key={http_group.key}, id={http_group.id}")
+        http_group = client.logging.new_group("http_clients", name="HTTP Clients")
+        http_group.setLevel(LogLevel.INFO)
+        await http_group.save()
+        step(f"Created group: key={http_group.key}, id={http_group.id}")
 
-    # ------------------------------------------------------------------
-    # 5b. List log groups
-    # ------------------------------------------------------------------
-    section("5b. List Log Groups")
+        section("5b. List Log Groups")
 
-    groups = await client.logging.list_groups()
-    step(f"Total groups: {len(groups)}")
-    for g in groups:
-        env_str = f", envs={g.environments}" if g.environments else ""
-        step(f"  {g.key}: level={g.level}{env_str}")
+        groups = await client.logging.list_groups()
+        step(f"Total groups: {len(groups)}")
+        for g in groups:
+            env_str = f", envs={g.environments}" if g.environments else ""
+            step(f"  {g.key}: level={g.level}{env_str}")
 
-    # ------------------------------------------------------------------
-    # 5c. Get a single group by ID
-    # ------------------------------------------------------------------
-    section("5c. Get a Log Group by ID")
+        section("5c. Get a Log Group by Key")
 
-    fetched_group = await client.logging.get_group(db_group.id)
-    step(f"Fetched: key={fetched_group.key}, name={fetched_group.name}")
-    step(f"  level={fetched_group.level}")
-    step(f"  environments={fetched_group.environments}")
+        fetched_group = await client.logging.get_group("databases")
+        step(f"Fetched: key={fetched_group.key}, name={fetched_group.name}")
+        step(f"  level={fetched_group.level}")
+        step(f"  environments={fetched_group.environments}")
 
-    # ------------------------------------------------------------------
-    # 5d. Update a group
-    # ------------------------------------------------------------------
-    section("5d. Update a Log Group")
+        section("5d. Update a Log Group")
 
-    http_group.level = "DEBUG"
-    http_group.environments = {"production": {"level": "WARN"}}
-    await http_group.save()
-    step(f"Updated {http_group.key}: level={http_group.level}, envs={http_group.environments}")
+        http_group.setLevel(LogLevel.DEBUG)
+        http_group.setEnvironmentLevel("production", LogLevel.WARN)
+        await http_group.save()
+        step(f"Updated {http_group.key}: level={http_group.level}, envs={http_group.environments}")
 
-    # ======================================================================
-    # 6. GROUP ASSIGNMENT
-    # ======================================================================
-    section("6. Group Assignment")
+        # ==================================================================
+        # 6. GROUP ASSIGNMENT
+        # ==================================================================
+        section("6. Group Assignment")
 
-    # Assign a logger to a group.
-    sqla_lg.group = db_group.id
-    await sqla_lg.save()
-    step(f"Assigned sqlalchemy.engine → group '{db_group.key}'")
-    step(f"  group={sqla_lg.group}")
-    step("  Managed state unchanged — group assignment does not affect managed status")
+        sqla_lg.group = db_group.id
+        await sqla_lg.save()
+        step(f"Assigned sqlalchemy.engine → group '{db_group.key}'")
 
-    # Unassign by setting group to None.
-    sqla_lg.group = None
-    await sqla_lg.save()
-    step(f"\nUnassigned sqlalchemy.engine from group")
-    step(f"  group={sqla_lg.group or '(null)'}")
+        sqla_lg.group = None
+        await sqla_lg.save()
+        step(f"Unassigned sqlalchemy.engine from group")
 
-    # Re-assign for the remaining demo.
-    sqla_lg.group = db_group.id
-    await sqla_lg.save()
-    step(f"Re-assigned sqlalchemy.engine → group '{db_group.key}'")
+        sqla_lg.group = db_group.id
+        await sqla_lg.save()
+        step(f"Re-assigned sqlalchemy.engine → group '{db_group.key}'")
 
-    # ======================================================================
-    # 7. PROMOTE / RELEASE
-    # ======================================================================
-    #
-    # Promoting a logger (managed=false → true) consumes a managed
-    # slot. Releasing (managed=true → false) frees a slot and clears
-    # level, environments, and group_id — returning the logger to its
-    # unmanaged, observed-only state.
-    #
-    # ======================================================================
-    section("7a. Release a Managed Logger")
+        # ==================================================================
+        # 7. PROMOTE / RELEASE
+        # ==================================================================
 
-    step(
-        f"Before: key={sqla_lg.key}, managed={sqla_lg.managed}, "
-        f"level={sqla_lg.level or '(null)'}, group={sqla_lg.group}"
-    )
+        section("7a. Release a Managed Logger")
 
-    sqla_lg.managed = False
-    await sqla_lg.save()
-    # The server clears level, environments, and group on release.
-    # save() updates this object in place from the server response,
-    # so sqla_lg now reflects the cleared state.
-    step("Released sqlalchemy.engine → unmanaged")
-    step(
-        f"After: managed={sqla_lg.managed}, level={sqla_lg.level or '(null)'}, "
-        f"group={sqla_lg.group or '(null)'}, environments={sqla_lg.environments}"
-    )
-    # Expected: managed=false, level=null, group=null, environments={}
+        step(f"Before: key={sqla_lg.key}, managed={sqla_lg.managed}, "
+             f"level={sqla_lg.level or '(null)'}, group={sqla_lg.group}")
 
-    section("7b. Re-Promote a Logger")
+        sqla_lg.managed = False
+        await sqla_lg.save()
+        step("Released sqlalchemy.engine → unmanaged")
+        step(f"After: managed={sqla_lg.managed}, level={sqla_lg.level or '(null)'}, "
+             f"group={sqla_lg.group or '(null)'}, environments={sqla_lg.environments}")
 
-    sqla_lg.managed = True
-    await sqla_lg.save()
-    step(f"Re-promoted: managed={sqla_lg.managed}")
-    step("  Starts fresh with level=NULL — admin configures from here")
+        section("7b. Re-Promote a Logger")
 
-    # ======================================================================
-    # 8. SYNC CLIENT DEMO
-    # ======================================================================
-    section("8. Sync Client (same API, no await)")
+        sqla_lg.managed = True
+        await sqla_lg.save()
+        step(f"Re-promoted: managed={sqla_lg.managed}")
+        step("  Starts fresh with level=NULL — admin configures from here")
 
-    # For sync applications (Django, Flask, CLI tools):
-    #
-    #     from smplkit import SmplClient
-    #
-    #     client = SmplClient(
-    #         "sk_api_...",
-    #         environment="production",
-    #         service="my-service",
-    #     )
-    #
-    #     # Management API (no connect() needed)
-    #     loggers = client.logging.list()
-    #     logger = client.logging.get(logger_id)
-    #     logger.managed = True
-    #     logger.save()
-    #
-    #     group = client.logging.create_group(
-    #         "sql", name="SQL Loggers", level="WARN",
-    #     )
-    #     logger.group = group.id
-    #     logger.save()
-    #
-    #     logger.managed = False  # release
-    #     logger.save()
-    #
-    #     client.logging.delete_group(group.id)
-    #     client.close()
+        # ==================================================================
+        # 8. SYNC CLIENT DEMO
+        # ==================================================================
+        section("8. Sync Client (same API, no await)")
 
-    step("(See code comments for sync usage examples)")
+        # For sync applications (Django, Flask, CLI tools):
+        #
+        #     from smplkit import SmplClient, LogLevel
+        #
+        #     with SmplClient(environment="production", service="my-service") as client:
+        #
+        #         # Create a logger
+        #         lgr = client.logging.new("my.logger", managed=True)
+        #         lgr.setLevel(LogLevel.WARN)
+        #         lgr.save()
+        #
+        #         # Fetch, mutate, save
+        #         lgr = client.logging.get("my.logger")
+        #         lgr.setEnvironmentLevel("production", LogLevel.ERROR)
+        #         lgr.save()
+        #
+        #         # Groups
+        #         grp = client.logging.new_group("sql", name="SQL Loggers")
+        #         grp.setLevel(LogLevel.WARN)
+        #         grp.save()
+        #
+        #         lgr.group = grp.id
+        #         lgr.save()
+        #
+        #         client.logging.delete("my.logger")
+        #         client.logging.delete_group("sql")
 
-    # ======================================================================
-    # 9. CLEANUP
-    # ======================================================================
-    section("9. Cleanup")
+        step("(See code comments for sync usage examples)")
 
-    # Delete log groups (server automatically unparents member loggers).
-    await client.logging.delete_group(db_group.id)
-    step(f"Deleted group: {db_group.key}")
+        # ==================================================================
+        # 9. CLEANUP
+        # ==================================================================
+        section("9. Cleanup")
 
-    await client.logging.delete_group(http_group.id)
-    step(f"Deleted group: {http_group.key}")
+        await client.logging.delete_group("databases")
+        step("Deleted group: databases")
 
-    # Delete all loggers.
-    for lg in [app_lg, payments_lg, sqla_lg, unmanaged_lg]:
-        await client.logging.delete(lg.id)
-        step(f"Deleted logger: {lg.key}")
+        await client.logging.delete_group("http_clients")
+        step("Deleted group: http_clients")
 
-    await client.close()
-    step("AsyncSmplClient closed")
+        for key in ["app", "app.payments", "sqlalchemy.engine", "app.internal.debug"]:
+            await client.logging.delete(key)
+            step(f"Deleted logger: {key}")
 
-    # ======================================================================
-    # DONE
-    # ======================================================================
-    section("ALL DONE")
-    print("  The Logging Management showcase completed successfully.")
-    print("  All loggers and log groups have been cleaned up.\n")
+        # ==================================================================
+        # DONE
+        # ==================================================================
+        section("ALL DONE")
+        print("  The Logging Management showcase completed successfully.")
+        print("  All loggers and log groups have been cleaned up.\n")
 
 
 if __name__ == "__main__":

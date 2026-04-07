@@ -2,115 +2,124 @@
 Demo setup for the Config Runtime Showcase.
 
 Creates and configures a config hierarchy so the runtime showcase can
-demonstrate prescriptive resolution, typed accessors, inheritance, and
-change listeners out of the box.
+demonstrate resolve(), subscribe(), inheritance, and change listeners.
 
 In a real application, configs are created and maintained via the Console
 UI (or the management API shown in ``config_management_showcase.py``).
 This file exists only as test scaffolding.
-
-See config_management_showcase.py for the full management API walkthrough.
 """
 
 from smplkit import AsyncSmplClient
 
 
 async def setup_demo_configs(client: AsyncSmplClient) -> dict:
-    """Create demo configs. Returns a dict of objects for cleanup.
+    """Create demo configs. Returns a dict of keys for cleanup.
 
     Creates:
       - Updates "common" config with org-wide defaults + env overrides
       - "user_service" config: service-specific items (inherits from common)
       - "auth_module" config: auth-specific items (inherits from common)
-
-    This mirrors what an admin would do in the Console: define a config
-    hierarchy with base values and environment-specific overrides.
     """
-    environment = client._environment
-
     # Clean up leftover configs from previous runs (order matters: children first).
     for leftover_key in ("auth_module", "user_service"):
         try:
-            leftover = await client.config.get(key=leftover_key)
-            await client.config.delete(leftover.id)
+            await client.config.delete(leftover_key)
         except Exception:
             pass
 
     # Update the built-in common config with org-wide defaults.
-    common = await client.config.get(key="common")
-    await common.update(
-        description="Organization-wide shared configuration",
-        items={
-            "app_name": {"value": "Acme SaaS Platform", "type": "STRING"},
-            "support_email": {"value": "support@acme.dev", "type": "STRING"},
-            "max_retries": {"value": 3, "type": "NUMBER"},
-            "request_timeout_ms": {"value": 5000, "type": "NUMBER"},
-            "pagination_default_page_size": {"value": 25, "type": "NUMBER"},
+    common = await client.config.get("common")
+    common.description = "Organization-wide shared configuration"
+    common.items = {
+        "app_name": {"value": "Acme SaaS Platform", "type": "STRING"},
+        "support_email": {"value": "support@acme.dev", "type": "STRING"},
+        "max_retries": {"value": 3, "type": "NUMBER"},
+        "request_timeout_ms": {"value": 5000, "type": "NUMBER"},
+        "pagination_default_page_size": {"value": 25, "type": "NUMBER"},
+    }
+    common.environments = {
+        "production": {
+            "values": {
+                "max_retries": {"value": 5},
+                "request_timeout_ms": {"value": 10000},
+            },
         },
-    )
-    await common.set_values(
-        {"max_retries": 5, "request_timeout_ms": 10000},
-        environment="production",
-    )
-    await common.set_values(
-        {"max_retries": 2},
-        environment="staging",
-    )
+        "staging": {
+            "values": {
+                "max_retries": {"value": 2},
+            },
+        },
+    }
+    await common.save()
 
     # Create a service-specific config (inherits from common).
-    user_service = await client.config.create(
+    user_service = client.config.new(
+        "user_service",
         name="User Service",
-        key="user_service",
         description="Configuration for the user microservice.",
-        items={
-            "database": {"value": {"host": "localhost", "port": 5432, "name": "users_dev", "pool_size": 5}},
-            "cache_ttl_seconds": {"value": 300, "type": "NUMBER"},
-            "enable_signup": {"value": True, "type": "BOOLEAN"},
-            "pagination_default_page_size": {"value": 50, "type": "NUMBER"},
-        },
     )
-    await user_service.set_values(
-        {
-            "database": {"host": "prod-users-rds.internal.acme.dev", "name": "users_prod", "pool_size": 20},
-            "cache_ttl_seconds": 600,
+    user_service.items = {
+        "database.host": {"value": "localhost", "type": "STRING"},
+        "database.port": {"value": 5432, "type": "NUMBER"},
+        "database.name": {"value": "users_dev", "type": "STRING"},
+        "database.pool_size": {"value": 5, "type": "NUMBER"},
+        "cache_ttl_seconds": {"value": 300, "type": "NUMBER"},
+        "enable_signup": {"value": True, "type": "BOOLEAN"},
+        "pagination_default_page_size": {"value": 50, "type": "NUMBER"},
+    }
+    user_service.environments = {
+        "production": {
+            "values": {
+                "database.host": {"value": "prod-users-rds.internal.acme.dev"},
+                "database.name": {"value": "users_prod"},
+                "database.pool_size": {"value": 20},
+                "cache_ttl_seconds": {"value": 600},
+                "enable_signup": {"value": False},
+            },
         },
-        environment="production",
-    )
-    await user_service.set_value("enable_signup", False, environment="production")
+    }
+    await user_service.save()
 
     # Create auth_module config (also inherits from common).
-    auth_module = await client.config.create(
+    auth_module = client.config.new(
+        "auth_module",
         name="Auth Module",
-        key="auth_module",
         description="Authentication module within the user service.",
-        items={
-            "session_ttl_minutes": {"value": 60, "type": "NUMBER"},
-            "mfa_enabled": {"value": False, "type": "BOOLEAN"},
+    )
+    auth_module.items = {
+        "session_ttl_minutes": {"value": 60, "type": "NUMBER"},
+        "mfa_enabled": {"value": False, "type": "BOOLEAN"},
+    }
+    auth_module.environments = {
+        "production": {
+            "values": {
+                "session_ttl_minutes": {"value": 30},
+                "mfa_enabled": {"value": True},
+            },
         },
-    )
-    await auth_module.set_values(
-        {"session_ttl_minutes": 30, "mfa_enabled": True},
-        environment="production",
-    )
+    }
+    await auth_module.save()
 
     return {
-        "configs": [user_service, auth_module],
-        "common": common,
+        "config_keys": ["user_service", "auth_module"],
+        "common_key": "common",
     }
 
 
 async def teardown_demo_configs(client: AsyncSmplClient, demo: dict) -> None:
     """Delete demo configs and reset common."""
-    for cfg in demo.get("configs", []):
+    for key in demo.get("config_keys", []):
         try:
-            await client.config.delete(cfg.id)
-        except Exception:
-            pass  # May already be deleted
-
-    # Reset common config to empty.
-    common = demo.get("common")
-    if common:
-        try:
-            await common.update(description="", items={}, environments={})
+            await client.config.delete(key)
         except Exception:
             pass
+
+    # Reset common config to empty.
+    try:
+        common = await client.config.get(demo["common_key"])
+        common.description = ""
+        common.items = {}
+        common.environments = {}
+        await common.save()
+    except Exception:
+        pass

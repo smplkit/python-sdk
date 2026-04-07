@@ -15,27 +15,34 @@ Runnable examples demonstrating the [smplkit Python SDK](https://github.com/smpl
 2. A valid smplkit API key, provided via one of:
    - `SMPLKIT_API_KEY` environment variable
    - `~/.smplkit` configuration file (see SDK docs)
-3. At least one config created in your smplkit account (every account comes with a `common` config by default).
+3. At least two environments configured (e.g., `staging`, `production`).
 
-## Config Showcase
+## Structure
 
-**File:** [`config_showcase.py`](config_showcase.py)
+Each product has two showcases — **management** and **runtime** — plus a setup helper that creates server-side state for the runtime showcase.
 
-An end-to-end walkthrough of the Smpl Config SDK covering:
+| Product | Management | Runtime | Setup |
+|---------|-----------|---------|-------|
+| **Flags** | `flags_management_showcase.py` | `flags_runtime_showcase.py` | `flags_runtime_setup.py` |
+| **Config** | `config_management_showcase.py` | `config_runtime_showcase.py` | `config_runtime_setup.py` |
+| **Logging** | `logging_management_showcase.py` | `logging_runtime_showcase.py` | `logging_runtime_setup.py` |
 
-- **Client initialization** — `AsyncSmplClient` (and sync `SmplClient`)
-- **Management-plane CRUD** — create, update, list, and delete configs
-- **Environment overrides** — per-environment value layering via `set_values()` and `set_value()`
-- **Multi-level inheritance** — child → parent → common deep-merge resolution
-- **Runtime value resolution** — `connect()`, `get()`, typed accessors (`get_str`, `get_int`, `get_bool`)
-- **Real-time updates** — WebSocket-driven cache invalidation and change listeners
-- **Manual refresh** — force re-fetch via `refresh()`
-- **Async context manager** — `async with config.connect(...) as runtime:`
+**Management showcases** demonstrate the programmatic CRUD API: creating resources with `new*()` + `save()`, fetching with `get(key)`, listing, mutating, and deleting. No `connect()` or `start()` needed — management methods are stateless HTTP calls.
 
-### Running
+**Runtime showcases** demonstrate the developer experience: lazy initialization (Flags/Config) or explicit `start()` (Logging), local evaluation, live updates via WebSocket, and change listeners. Each runtime showcase imports its setup helper to create server-side state, then cleans up after itself.
+
+## Running
 
 ```bash
-python examples/config_showcase.py
+# Management (standalone — no setup file needed)
+python examples/flags_management_showcase.py
+python examples/config_management_showcase.py
+python examples/logging_management_showcase.py
+
+# Runtime (imports its setup helper automatically)
+python examples/flags_runtime_showcase.py
+python examples/config_runtime_showcase.py
+python examples/logging_runtime_showcase.py
 ```
 
-The script creates temporary configs, exercises all SDK features, then cleans up after itself.
+Each script creates temporary resources, exercises all SDK features, then cleans up after itself.

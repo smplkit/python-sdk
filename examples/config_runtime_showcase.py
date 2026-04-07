@@ -4,17 +4,19 @@ Smpl Config SDK Showcase — Runtime
 
 Demonstrates the smplkit Python SDK's runtime experience for Smpl Config:
 
-- Prescriptive value resolution via ``client.connect()`` + ``client.config.get()``
-- Typed accessors: ``get_str()``, ``get_int()``, ``get_bool()``
+- Lazy initialization — first resolve() fetches configs and opens WebSocket
+- resolve(key) → plain dict of resolved values
+- resolve(key, Model) → typed dataclass or Pydantic model
+- subscribe() → live proxy that updates automatically
 - Config inheritance (common → service / module)
 - Environment-specific override resolution
-- Change listeners: ``client.config.on_change()``
-- Manual refresh: ``client.config.refresh()``
+- @client.config.on_change decorator with optional key/item scoping
 
 This is the SDK experience that 99%% of customers will use. Configs are
 created and maintained via the Console UI (or the management API shown
 in ``config_management_showcase.py``). This script focuses entirely on
-the runtime: connecting, resolving values, and reacting to changes.
+the runtime: resolving values, subscribing for updates, and reacting
+to changes.
 
 Prerequisites:
     - ``pip install smplkit-sdk``
@@ -29,6 +31,7 @@ Usage::
 """
 
 import asyncio
+from dataclasses import dataclass
 
 from smplkit import AsyncSmplClient
 
@@ -54,211 +57,241 @@ def step(description: str) -> None:
     print(f"  → {description}")
 
 
+# ---------------------------------------------------------------------------
+# User-defined models for typed resolution
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class Database:
+    host: str
+    port: int
+    name: str
+    pool_size: int
+
+
+@dataclass
+class UserServiceConfig:
+    database: Database
+    cache_ttl_seconds: int
+    enable_signup: bool
+    pagination_default_page_size: int
+    # Inherited from common:
+    app_name: str = ""
+    support_email: str = ""
+    max_retries: int = 3
+    request_timeout_ms: int = 5000
+
+
 async def main() -> None:
 
-    # ======================================================================
-    # 1. SDK INITIALIZATION + SETUP
-    # ======================================================================
-    section("1. SDK Initialization")
+    async with AsyncSmplClient(environment="production", service="showcase-service") as client:
 
-    # The SmplClient constructor resolves three required parameters:
-    #
-    #   api_key     — not passed here; resolved automatically from the
-    #                 SMPLKIT_API_KEY environment variable or the
-    #                 ~/.smplkit configuration file.
-    #
-    #   environment — the target environment. Can also be resolved from
-    #                 SMPLKIT_ENVIRONMENT if not passed.
-    #
-    #   service     — identifies this SDK instance. Can also be resolved
-    #                 from SMPLKIT_SERVICE if not passed.
-    #
-    # To pass the API key explicitly:
-    #
-    #   client = AsyncSmplClient(
-    #       "sk_api_...",
-    #       environment="production",
-    #       service="showcase-service",
-    #   )
-    #
-    client = AsyncSmplClient(
-        environment="production",
-        service="showcase-service",
-    )
-    step("AsyncSmplClient initialized (environment=production, service=showcase-service)")
+        step("AsyncSmplClient initialized (environment=production, service=showcase-service)")
 
-    # Create server-side state (normally done via Console UI).
-    print("  Setting up demo configs...")
-    demo = await setup_demo_configs(client)
-    print("  Demo configs ready.\n")
+        # Create server-side state (normally done via Console UI).
+        print("  Setting up demo configs...")
+        demo = await setup_demo_configs(client)
+        print("  Demo configs ready.\n")
 
-    # The server now has:
-    #   "common"       — org-wide defaults, with production + staging overrides
-    #   "user_service" — service config (inherits from common), with production overrides
-    #   "auth_module"  — auth config (inherits from common), with production overrides
+        # The server now has:
+        #   "common"       — org-wide defaults, with production + staging overrides
+        #   "user_service" — service config (inherits from common), with production overrides
+        #   "auth_module"  — auth config (inherits from common), with production overrides
 
-    # ======================================================================
-    # 2. CONNECT AND READ RESOLVED VALUES
-    # ======================================================================
-    #
-    # client.connect() fetches all configs, resolves values for the
-    # environment, and caches everything in-process. After connect(),
-    # client.config.get() is a pure local dict read — zero network.
-    #
-    # ======================================================================
+        # ==================================================================
+        # 2. RESOLVE — Plain Dict
+        # ==================================================================
+        #
+        # resolve(key) returns a flat dict of resolved values for the
+        # current environment. Inheritance is walked, environment overrides
+        # applied, values unwrapped from their typed definitions.
+        #
+        # The FIRST resolve() call triggers lazy initialization:
+        #   1. Bulk-fetches all configs
+        #   2. Resolves inheritance and environment overrides
+        #   3. Opens the shared WebSocket for live updates
+        #
+        # Subsequent calls are pure local cache reads — no network.
+        # ==================================================================
 
-    section("2. Connect and Read Resolved Values")
+        section("2. Resolve — Plain Dict")
 
-    await client.connect()
-    step("client.connect() completed — all configs fetched and cached")
+        config_dict = client.config.resolve("user_service")
+        step(f"Total resolved keys: {len(config_dict)}")
 
-    # Prescriptive access: get(config_key, item_key)
-    db_config = await client.config.get("user_service", "database")
-    step(f"database = {db_config}")
+        step(f"database.host = {config_dict.get('database.host')}")
+        # Expected: "prod-users-rds.internal.acme.dev" (production override)
 
-    retries = await client.config.get("user_service", "max_retries")
-    step(f"max_retries = {retries}")
-    # Expected: 5 (inherited from common's production override)
+        step(f"max_retries = {config_dict.get('max_retries')}")
+        # Expected: 5 (inherited from common's production override)
 
-    cache_ttl = await client.config.get("user_service", "cache_ttl_seconds")
-    step(f"cache_ttl_seconds = {cache_ttl}")
-    # Expected: 600 (user_service production override)
+        step(f"cache_ttl_seconds = {config_dict.get('cache_ttl_seconds')}")
+        # Expected: 600 (user_service production override)
 
-    page_size = await client.config.get("user_service", "pagination_default_page_size")
-    step(f"pagination_default_page_size = {page_size}")
-    # Expected: 50 (user_service base overrides common's 25)
+        step(f"pagination_default_page_size = {config_dict.get('pagination_default_page_size')}")
+        # Expected: 50 (user_service base overrides common's 25)
 
-    missing = await client.config.get("user_service", "nonexistent_key")
-    step(f"nonexistent key = {missing}")
-    # Expected: None
+        step(f"enable_signup = {config_dict.get('enable_signup')}")
+        # Expected: False (user_service production override)
 
-    # Get all values for a config as a dict
-    all_values = await client.config.get("user_service")
-    step(f"Total resolved keys for user_service: {len(all_values)}")
+        step(f"nonexistent_key = {config_dict.get('nonexistent_key')}")
+        # Expected: None
 
-    # ======================================================================
-    # 3. TYPED ACCESSORS
-    # ======================================================================
+        # ==================================================================
+        # 3. RESOLVE — Typed Model
+        # ==================================================================
+        #
+        # resolve(key, Model) builds a nested dict from flat dot-notation
+        # keys and constructs the model from it:
+        #   "database.host" + "database.port" → {"database": {"host": ..., "port": ...}}
+        #   → UserServiceConfig(database=Database(host=..., port=...))
+        #
+        # Works with dataclasses, Pydantic models, or any class whose
+        # constructor accepts keyword arguments.
+        # ==================================================================
 
-    section("3. Typed Accessors")
+        section("3. Resolve — Typed Model")
 
-    app_name = await client.config.get_str("user_service", "app_name", default="Unknown")
-    step(f"app_name (str) = {app_name}")
+        cfg = client.config.resolve("user_service", UserServiceConfig)
+        step(f"cfg.database.host = {cfg.database.host}")
+        step(f"cfg.database.pool_size = {cfg.database.pool_size}")
+        step(f"cfg.cache_ttl_seconds = {cfg.cache_ttl_seconds}")
+        step(f"cfg.enable_signup = {cfg.enable_signup}")
+        step(f"cfg.max_retries = {cfg.max_retries}")
+        step(f"cfg.app_name = {cfg.app_name}")
 
-    timeout_ms = await client.config.get_int("user_service", "request_timeout_ms", default=3000)
-    step(f"request_timeout_ms (int) = {timeout_ms}")
+        assert isinstance(cfg, UserServiceConfig)
+        assert isinstance(cfg.database, Database)
+        step("Type assertions passed ✓")
 
-    signup = await client.config.get_bool("user_service", "enable_signup", default=True)
-    step(f"enable_signup (bool) = {signup}")
-    # Expected: False (production override)
+        # ==================================================================
+        # 4. INHERITANCE
+        # ==================================================================
+        #
+        # auth_module inherits from common. Values defined in auth_module
+        # take precedence; anything not overridden falls through to common.
+        # ==================================================================
 
-    # ======================================================================
-    # 4. INHERITANCE
-    # ======================================================================
-    #
-    # auth_module inherits from common. Values defined in auth_module
-    # take precedence; anything not overridden falls through to common.
-    #
-    # ======================================================================
+        section("4. Inheritance (auth_module)")
 
-    section("4. Inheritance (auth_module)")
+        auth_dict = client.config.resolve("auth_module")
+        step(f"session_ttl_minutes = {auth_dict.get('session_ttl_minutes')}")
+        # Expected: 30 (auth_module production override)
 
-    session_ttl = await client.config.get("auth_module", "session_ttl_minutes")
-    step(f"session_ttl_minutes = {session_ttl}")
-    # Expected: 30 (auth_module production override)
+        step(f"mfa_enabled = {auth_dict.get('mfa_enabled')}")
+        # Expected: True (auth_module production override)
 
-    mfa = await client.config.get("auth_module", "mfa_enabled")
-    step(f"mfa_enabled = {mfa}")
-    # Expected: True (auth_module production override)
+        step(f"app_name (inherited from common) = {auth_dict.get('app_name')}")
+        # Expected: "Acme SaaS Platform"
 
-    inherited_app = await client.config.get("auth_module", "app_name")
-    step(f"app_name (inherited from common) = {inherited_app}")
+        # ==================================================================
+        # 5. SUBSCRIBE — Live Proxy
+        # ==================================================================
+        #
+        # subscribe() returns a live proxy that always reflects the latest
+        # server-side state without re-fetching. When a WebSocket event
+        # arrives, the proxy's underlying data is updated automatically.
+        # ==================================================================
 
-    # ======================================================================
-    # 5. CHANGE LISTENERS AND REFRESH
-    # ======================================================================
-    #
-    # Register callbacks to react when config values change. Then trigger
-    # a change via the management API and call refresh() to pick it up.
-    #
-    # In production, WebSocket events trigger refreshes automatically —
-    # no manual refresh() needed.
-    #
-    # ======================================================================
+        section("5. Subscribe — Live Proxy")
 
-    section("5a. Change Listeners")
+        live = client.config.subscribe("user_service", UserServiceConfig)
+        step(f"live.database.host = {live.database.host}")
+        step(f"live.cache_ttl_seconds = {live.cache_ttl_seconds}")
+        step("This proxy will reflect new values after server-side changes")
+        step("propagate via WebSocket — no polling, no re-fetch needed.")
 
-    changes: list = []
+        # ==================================================================
+        # 6. CHANGE LISTENERS
+        # ==================================================================
+        #
+        # @client.config.on_change — fires when ANY config changes
+        # @client.config.on_change("user-service") — scoped to a config
+        # @client.config.on_change("user-service", item_key="database.host")
+        #     — scoped to a specific item
+        # ==================================================================
 
-    def on_change(event) -> None:
-        changes.append(event)
-        print(f"    [CHANGE] {event.config_key}.{event.item_key}: {event.old_value!r} -> {event.new_value!r}")
+        section("6a. Change Listeners")
 
-    client.config.on_change(on_change)
-    step("Global change listener registered")
+        changes: list = []
 
-    retries_changes: list = []
-    client.config.on_change(
-        lambda e: retries_changes.append(e),
-        config_key="common",
-        item_key="max_retries",
-    )
-    step("Key-specific listener registered for common.max_retries")
+        @client.config.on_change
+        def on_any_change(event):
+            changes.append(event)
+            print(f"    [CHANGE] {event.config_key}.{event.item_key}: "
+                  f"{event.old_value!r} -> {event.new_value!r}")
 
-    # ------------------------------------------------------------------
-    # 5b. Trigger a change via management API, then refresh
-    # ------------------------------------------------------------------
-    section("5b. Refresh After Management Change")
+        step("Global change listener registered")
 
-    common = demo["common"]
-    await common.set_value("max_retries", 7, environment="production")
-    step("Updated max_retries to 7 on common (production)")
+        retries_changes: list = []
 
-    await client.config.refresh()
-    step("client.config.refresh() completed")
+        @client.config.on_change("common", item_key="max_retries")
+        def on_retries_change(event):
+            retries_changes.append(event)
 
-    new_retries = await client.config.get("user_service", "max_retries")
-    step(f"max_retries after refresh = {new_retries}")
-    # Expected: 7
+        step("Item-specific listener registered for common.max_retries")
 
-    step(f"Global changes received: {len(changes)}")
-    step(f"Retries-specific changes received: {len(retries_changes)}")
+        # ------------------------------------------------------------------
+        # 6b. Trigger a change via management API, then let WebSocket deliver
+        # ------------------------------------------------------------------
+        section("6b. Trigger a Change")
 
-    # ======================================================================
-    # 6. SYNC CLIENT DEMO
-    # ======================================================================
-    section("6. Sync Client (same API, no await)")
+        common = await client.config.get("common")
+        common.environments["production"]["values"]["max_retries"] = {"value": 7}
+        await common.save()
+        step("Updated max_retries to 7 on common (production) via management API")
 
-    # For sync applications (Django, Flask, CLI tools):
-    #
-    #     from smplkit import SmplClient
-    #
-    #     client = SmplClient(environment="production", service="my-service")
-    #     client.connect()
-    #     host = client.config.get_str("user_service", "database_host")
-    #     retries = client.config.get_int("user_service", "max_retries", default=3)
-    #     client.config.refresh()  # re-fetch all configs
-    #     client.close()
+        # Give WebSocket a moment to deliver the update.
+        await asyncio.sleep(2)
 
-    step("(See code comments for sync usage examples)")
+        # Read the updated value — should reflect the change.
+        new_retries = client.config.resolve("user_service").get("max_retries")
+        step(f"max_retries after WebSocket update = {new_retries}")
+        # Expected: 7
 
-    # ======================================================================
-    # 7. CLEANUP
-    # ======================================================================
-    section("7. Cleanup")
+        step(f"Global changes received: {len(changes)}")
+        step(f"Retries-specific changes received: {len(retries_changes)}")
 
-    await teardown_demo_configs(client, demo)
-    step("Demo configs deleted")
+        # ==================================================================
+        # 7. SYNC CLIENT DEMO
+        # ==================================================================
+        section("7. Sync Client (same API, no await)")
 
-    await client.close()
-    step("AsyncSmplClient closed")
+        # For sync applications (Django, Flask, CLI tools):
+        #
+        #     from smplkit import SmplClient
+        #
+        #     with SmplClient(environment="production", service="my-service") as client:
+        #
+        #         # First resolve() triggers lazy init
+        #         config = client.config.resolve("user_service")
+        #         host = config["database.host"]
+        #
+        #         # Typed resolution
+        #         cfg = client.config.resolve("user_service", UserServiceConfig)
+        #         print(cfg.database.host)
+        #
+        #         # Live proxy
+        #         live = client.config.subscribe("user_service", UserServiceConfig)
+        #         print(live.database.host)  # always current
 
-    # ======================================================================
-    # DONE
-    # ======================================================================
-    section("ALL DONE")
-    print("  The Config Runtime showcase completed successfully.")
-    print("  If you got here, Smpl Config is ready to ship.\n")
+        step("(See code comments for sync usage examples)")
+
+        # ==================================================================
+        # 8. CLEANUP
+        # ==================================================================
+        section("8. Cleanup")
+
+        await teardown_demo_configs(client, demo)
+        step("Demo configs deleted")
+
+        # ==================================================================
+        # DONE
+        # ==================================================================
+        section("ALL DONE")
+        print("  The Config Runtime showcase completed successfully.")
+        print("  If you got here, Smpl Config is ready to ship.\n")
 
 
 if __name__ == "__main__":
