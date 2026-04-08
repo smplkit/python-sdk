@@ -545,7 +545,9 @@ class ConfigClient:
             self._config_cache = new_cache
         self._fire_change_listeners(old_cache, new_cache, source="manual")
 
-    def on_change(self, fn_or_key: Callable[[ConfigChangeEvent], None] | str | None = None, *, item_key: str | None = None) -> Any:
+    def on_change(
+        self, fn_or_key: Callable[[ConfigChangeEvent], None] | str | None = None, *, item_key: str | None = None
+    ) -> Any:
         """Register a change listener (dual-mode decorator).
 
         Supports three forms:
@@ -911,7 +913,9 @@ class AsyncConfigClient:
             self._config_cache = new_cache
         self._fire_change_listeners(old_cache, new_cache, source="manual")
 
-    def on_change(self, fn_or_key: Callable[[ConfigChangeEvent], None] | str | None = None, *, item_key: str | None = None) -> Any:
+    def on_change(
+        self, fn_or_key: Callable[[ConfigChangeEvent], None] | str | None = None, *, item_key: str | None = None
+    ) -> Any:
         """Register a change listener (dual-mode decorator).
 
         Supports three forms:

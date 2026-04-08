@@ -341,18 +341,14 @@ class TestBuildGenFlag:
 
 class TestBuildRequestBody:
     def test_wraps_flag(self):
-        gen_flag = _build_gen_flag(
-            key="test", name="Test", type_="BOOLEAN", default=False, values=[]
-        )
+        gen_flag = _build_gen_flag(key="test", name="Test", type_="BOOLEAN", default=False, values=[])
         body = _build_request_body(gen_flag)
         assert body.data.attributes is gen_flag
         assert body.data.type_ == "flag"
         assert body.data.id is None
 
     def test_with_flag_id(self):
-        gen_flag = _build_gen_flag(
-            key="test", name="Test", type_="BOOLEAN", default=False, values=[]
-        )
+        gen_flag = _build_gen_flag(key="test", name="Test", type_="BOOLEAN", default=False, values=[])
         body = _build_request_body(gen_flag, flag_id="abc-123")
         assert body.data.id == "abc-123"
 

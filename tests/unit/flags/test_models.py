@@ -206,9 +206,7 @@ class TestFlag:
     # ------------------------------------------------------------------
 
     def test_clearRules_existing(self):
-        flag = _make_flag(
-            environments={"staging": {"enabled": True, "rules": [{"logic": {}, "value": True}]}}
-        )
+        flag = _make_flag(environments={"staging": {"enabled": True, "rules": [{"logic": {}, "value": True}]}})
         flag.clearRules("staging")
         assert flag.environments["staging"]["rules"] == []
 

@@ -103,9 +103,7 @@ class TestResolveSyncPrescriptive:
         assert result.host == "localhost"
 
     def test_resolve_unflattens_dot_keys_for_model(self):
-        client = _make_connected_client({
-            "svc": {"database.host": "h", "database.port": 5432, "retries": 3}
-        })
+        client = _make_connected_client({"svc": {"database.host": "h", "database.port": 5432, "retries": 3}})
 
         class SvcConfig:
             def __init__(self, database, retries):

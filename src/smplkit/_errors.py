@@ -118,7 +118,6 @@ class SmplValidationError(SmplError):
     """Raised when the server rejects a request due to validation errors."""
 
 
-
 def _raise_for_status(status_code: int, content: bytes) -> None:
     """Parse a non-2xx response and raise the appropriate SDK exception.
 

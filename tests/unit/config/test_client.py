@@ -333,9 +333,7 @@ class TestConfigClientConnectInternal:
         cfg.key = key
         cfg._items_raw = items_raw
         cfg.environments = environments or {}
-        cfg._build_chain.return_value = [
-            {"id": "fake-id", "items": items_raw, "environments": environments or {}}
-        ]
+        cfg._build_chain.return_value = [{"id": "fake-id", "items": items_raw, "environments": environments or {}}]
         return cfg
 
     def test_connect_internal_populates_cache(self):
@@ -1060,9 +1058,7 @@ class TestAsyncConfigClientConnectInternal:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             mock_cfg = self._make_mock_config("db", {"host": {"value": "localhost"}})
-            with patch.object(
-                client.config, "list", new_callable=AsyncMock, return_value=[mock_cfg]
-            ) as mock_list:
+            with patch.object(client.config, "list", new_callable=AsyncMock, return_value=[mock_cfg]) as mock_list:
                 await client.config._connect_internal()
                 await client.config._connect_internal()
             mock_list.assert_called_once()
