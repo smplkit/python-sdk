@@ -175,3 +175,74 @@ def test_service_registration_failure_on_init_is_swallowed(mock_bulk):
         if t.daemon and t.is_alive():
             t.join(timeout=2.0)
     assert client._api_key == "sk_api_test"
+
+
+@patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
+def test_async_service_context_registered_on_init(mock_bulk):
+    """AsyncSmplClient also registers service context via background thread."""
+    mock_bulk.return_value = MagicMock()
+
+    client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
+    import threading
+
+    for t in threading.enumerate():
+        if t.daemon and t.is_alive():
+            t.join(timeout=2.0)
+
+    mock_bulk.assert_called_once()
+    _, kwargs = mock_bulk.call_args
+    body = kwargs["body"]
+    assert body.contexts[0].type_ == "service"
+    assert body.contexts[0].key == "my-svc"
+    assert client._api_key == "sk_api_test"
+
+
+@patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
+def test_async_service_registration_failure_on_init_is_swallowed(mock_bulk):
+    """AsyncSmplClient init succeeds even if service registration fails."""
+    mock_bulk.side_effect = Exception("network error")
+
+    client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
+    import threading
+
+    for t in threading.enumerate():
+        if t.daemon and t.is_alive():
+            t.join(timeout=2.0)
+    assert client._api_key == "sk_api_test"
+
+
+@patch("smplkit.client.gen_bulk_register_contexts.asyncio_detailed")
+def test_async_register_service_context_success(mock_bulk):
+    """The async _register_service_context method works end to end."""
+    mock_bulk.return_value = MagicMock()
+
+    client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
+    # Wait for the sync background thread (from __init__) to finish first
+    import threading
+
+    for t in threading.enumerate():
+        if t.daemon and t.is_alive():
+            t.join(timeout=2.0)
+
+    asyncio.run(client._register_service_context())
+    mock_bulk.assert_called_once()
+    _, kwargs = mock_bulk.call_args
+    body = kwargs["body"]
+    assert body.contexts[0].type_ == "service"
+    assert body.contexts[0].key == "my-svc"
+
+
+@patch("smplkit.client.gen_bulk_register_contexts.asyncio_detailed")
+def test_async_register_service_context_failure_swallowed(mock_bulk):
+    """The async _register_service_context swallows exceptions."""
+    mock_bulk.side_effect = Exception("network error")
+
+    client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
+    import threading
+
+    for t in threading.enumerate():
+        if t.daemon and t.is_alive():
+            t.join(timeout=2.0)
+
+    # Should not raise
+    asyncio.run(client._register_service_context())

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from smplkit._errors import SmplConnectionError, SmplNotFoundError
+from smplkit._errors import SmplConnectionError
 from smplkit.logging.client import (
     AsyncLoggingClient,
     AsyncSmplLogGroup,

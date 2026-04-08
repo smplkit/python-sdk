@@ -1,7 +1,7 @@
 """Tests for prescriptive config access: resolve, subscribe, LiveConfigProxy, change listeners."""
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
