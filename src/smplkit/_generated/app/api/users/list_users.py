@@ -15,6 +15,7 @@ from ...types import Unset
 def _get_kwargs(
     *,
     filteraccount: None | str | Unset = UNSET,
+    filteremail: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -25,6 +26,13 @@ def _get_kwargs(
     else:
         json_filteraccount = filteraccount
     params["filter[account]"] = json_filteraccount
+
+    json_filteremail: None | str | Unset
+    if isinstance(filteremail, Unset):
+        json_filteremail = UNSET
+    else:
+        json_filteremail = filteremail
+    params["filter[email]"] = json_filteremail
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -86,11 +94,13 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     filteraccount: None | str | Unset = UNSET,
+    filteremail: None | str | Unset = UNSET,
 ) -> Response[ErrorResponse | UserListResponse]:
     """List Users
 
     Args:
         filteraccount (None | str | Unset):
+        filteremail (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -102,6 +112,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         filteraccount=filteraccount,
+        filteremail=filteremail,
     )
 
     response = client.get_httpx_client().request(
@@ -115,11 +126,13 @@ def sync(
     *,
     client: AuthenticatedClient,
     filteraccount: None | str | Unset = UNSET,
+    filteremail: None | str | Unset = UNSET,
 ) -> ErrorResponse | UserListResponse | None:
     """List Users
 
     Args:
         filteraccount (None | str | Unset):
+        filteremail (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -132,6 +145,7 @@ def sync(
     return sync_detailed(
         client=client,
         filteraccount=filteraccount,
+        filteremail=filteremail,
     ).parsed
 
 
@@ -139,11 +153,13 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     filteraccount: None | str | Unset = UNSET,
+    filteremail: None | str | Unset = UNSET,
 ) -> Response[ErrorResponse | UserListResponse]:
     """List Users
 
     Args:
         filteraccount (None | str | Unset):
+        filteremail (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -155,6 +171,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         filteraccount=filteraccount,
+        filteremail=filteremail,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -166,11 +183,13 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     filteraccount: None | str | Unset = UNSET,
+    filteremail: None | str | Unset = UNSET,
 ) -> ErrorResponse | UserListResponse | None:
     """List Users
 
     Args:
         filteraccount (None | str | Unset):
+        filteremail (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -184,5 +203,6 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             filteraccount=filteraccount,
+            filteremail=filteremail,
         )
     ).parsed
