@@ -1,6 +1,7 @@
 """Contains all the data models used in inputs/outputs"""
 
 from .account import Account
+from .account_product_subscriptions import AccountProductSubscriptions
 from .account_resource import AccountResource
 from .account_resource_type import AccountResourceType
 from .account_response import AccountResponse
@@ -74,6 +75,7 @@ from .verify_email_request import VerifyEmailRequest
 
 __all__ = (
     "Account",
+    "AccountProductSubscriptions",
     "AccountResource",
     "AccountResourceType",
     "AccountResponse",
