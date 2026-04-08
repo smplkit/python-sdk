@@ -16,16 +16,17 @@ class Config:
     """A configuration resource fetched from the Smpl Config service.
 
     Instances are returned by :class:`ConfigClient` methods and provide
-    management-plane operations (update, set values) as well as the
-    :meth:`connect` entry point for runtime value resolution.
+    a :meth:`save` method that creates or updates the resource on the
+    server, as well as the :meth:`connect` entry point for runtime
+    value resolution.
 
     Attributes:
-        id: Unique identifier (UUID).
+        id: Unique identifier (UUID), or ``None`` for unsaved configs.
         key: Human-readable key (e.g. ``"user_service"``).
         name: Display name.
         description: Optional description.
         parent: Parent config UUID, or ``None`` for root configs.
-        items: Base values dict (``{key: raw_value}``).
+        items: Base values dict (``{key: raw_value}``), settable.
         items_raw: Full typed items (``{key: {value, type, description}}``).
         environments: Dict mapping environment names to their overrides.
         created_at: Creation timestamp.
@@ -36,7 +37,7 @@ class Config:
         self,
         client: ConfigClient,
         *,
-        id: str,
+        id: str | None = None,
         key: str,
         name: str,
         description: str | None = None,
@@ -66,132 +67,60 @@ class Config:
         """
         return {k: v["value"] if isinstance(v, dict) and "value" in v else v for k, v in self._items_raw.items()}
 
+    @items.setter
+    def items(self, value: dict[str, Any]) -> None:
+        """Set base items from a plain ``{key: raw_value}`` dict.
+
+        Values are auto-wrapped into the typed shape
+        ``{key: {value: raw_value}}``.
+        """
+        wrapped: dict[str, Any] = {}
+        for k, v in value.items():
+            if isinstance(v, dict) and "value" in v:
+                wrapped[k] = v
+            else:
+                wrapped[k] = {"value": v}
+        self._items_raw = wrapped
+
     @property
     def items_raw(self) -> dict[str, Any]:
         """Return the full typed items ``{key: {value, type, description}}``."""
         return dict(self._items_raw)
 
-    def update(
-        self,
-        *,
-        name: str | None = None,
-        description: str | None = None,
-        items: dict[str, Any] | None = None,
-        environments: dict[str, Any] | None = None,
-    ) -> None:
-        """Update this config's attributes on the server.
+    def save(self) -> None:
+        """Persist this config to the server.
 
-        Builds the request from current attribute values, overriding with
-        any provided kwargs. Updates local attributes in place on success.
-
-        Args:
-            name: New display name.
-            description: New description.
-            items: New items in typed shape (replaces entirely).
-            environments: New environments dict (replaces entirely).
+        If ``self.id`` is ``None``, creates a new config via POST.
+        Otherwise, updates the existing config via PUT.
 
         Raises:
-            SmplNotFoundError: If the config no longer exists.
+            SmplNotFoundError: If the config no longer exists (update).
             SmplValidationError: If the server rejects the request.
         """
-        new_name = name if name is not None else self.name
-        new_desc = description if description is not None else self.description
-        new_items = items if items is not None else self._items_raw
-        new_envs = environments if environments is not None else self.environments
-
-        updated = self._client._update_config(
-            config_id=self.id,
-            name=new_name,
-            key=self.key,
-            description=new_desc,
-            parent=self.parent,
-            items=new_items,
-            environments=new_envs,
-        )
-        self.name = updated.name
-        self.description = updated.description
-        self._items_raw = updated._items_raw
-        self.environments = updated.environments
-        self.updated_at = updated.updated_at
-
-    def set_items(
-        self,
-        items: dict[str, Any],
-        *,
-        environment: str | None = None,
-    ) -> None:
-        """Replace base or environment-specific items and PUT the config.
-
-        Args:
-            items: The items dict to set.  For base items, use the typed shape
-                ``{key: {value, type, description}}``.  For environment
-                overrides, use ``{key: raw_value}``.
-            environment: If provided, replaces that environment's values.
-                If ``None``, replaces the base ``items``.
-
-        Raises:
-            SmplNotFoundError: If the config no longer exists.
-            SmplValidationError: If the server rejects the request.
-        """
-        if environment is None:
-            new_items = items
-            new_envs = self.environments
+        if self.id is None:
+            other = self._client._create_config(self)
         else:
-            new_items = self._items_raw
-            env_entry = dict(self.environments.get(environment, {}))
-            env_entry["values"] = items
-            new_envs = {**self.environments, environment: env_entry}
+            other = self._client._update_config_from_model(self)
+        self._apply(other)
 
-        updated = self._client._update_config(
-            config_id=self.id,
-            name=self.name,
-            key=self.key,
-            description=self.description,
-            parent=self.parent,
-            items=new_items,
-            environments=new_envs,
-        )
-        self._items_raw = updated._items_raw
-        self.environments = updated.environments
-        self.updated_at = updated.updated_at
-
-    # Keep backward-compatible alias
-    set_values = set_items
-
-    def set_value(
-        self,
-        key: str,
-        value: Any,
-        *,
-        environment: str | None = None,
-    ) -> None:
-        """Set a single key within base or environment-specific values.
-
-        Merges the key into existing values rather than replacing all values.
-
-        Args:
-            key: The config key to set.
-            value: The value to assign.
-            environment: Target environment, or ``None`` for base values.
-
-        Raises:
-            SmplNotFoundError: If the config no longer exists.
-            SmplValidationError: If the server rejects the request.
-        """
-        if environment is None:
-            merged = {**self._items_raw, key: {"value": value}}
-            self.set_items(merged)
-        else:
-            existing = dict((self.environments.get(environment, {}) or {}).get("values", {}) or {})
-            existing[key] = value
-            self.set_items(existing, environment=environment)
+    def _apply(self, other: Config) -> None:
+        """Copy all properties from *other* into this instance."""
+        self.id = other.id
+        self.key = other.key
+        self.name = other.name
+        self.description = other.description
+        self.parent = other.parent
+        self._items_raw = other._items_raw
+        self.environments = other.environments
+        self.created_at = other.created_at
+        self.updated_at = other.updated_at
 
     def _build_chain(self) -> list[dict[str, Any]]:
         """Walk the parent chain and return config data dicts child-to-root."""
         chain = [{"id": self.id, "items": self._items_raw, "environments": self.environments}]
         current = self
         while current.parent is not None:
-            parent_config = self._client.get(id=current.parent)
+            parent_config = self._client.get(current.parent)
             chain.append(
                 {
                     "id": parent_config.id,
@@ -212,12 +141,12 @@ class AsyncConfig:
     All management-plane methods are ``async``.
 
     Attributes:
-        id: Unique identifier (UUID).
+        id: Unique identifier (UUID), or ``None`` for unsaved configs.
         key: Human-readable key (e.g. ``"user_service"``).
         name: Display name.
         description: Optional description.
         parent: Parent config UUID, or ``None`` for root configs.
-        items: Base values dict (``{key: raw_value}``).
+        items: Base values dict (``{key: raw_value}``), settable.
         items_raw: Full typed items (``{key: {value, type, description}}``).
         environments: Dict mapping environment names to their overrides.
         created_at: Creation timestamp.
@@ -228,7 +157,7 @@ class AsyncConfig:
         self,
         client: AsyncConfigClient,
         *,
-        id: str,
+        id: str | None = None,
         key: str,
         name: str,
         description: str | None = None,
@@ -254,125 +183,56 @@ class AsyncConfig:
         """Return base values as a plain dict ``{key: raw_value}``."""
         return {k: v["value"] if isinstance(v, dict) and "value" in v else v for k, v in self._items_raw.items()}
 
+    @items.setter
+    def items(self, value: dict[str, Any]) -> None:
+        """Set base items from a plain ``{key: raw_value}`` dict."""
+        wrapped: dict[str, Any] = {}
+        for k, v in value.items():
+            if isinstance(v, dict) and "value" in v:
+                wrapped[k] = v
+            else:
+                wrapped[k] = {"value": v}
+        self._items_raw = wrapped
+
     @property
     def items_raw(self) -> dict[str, Any]:
         """Return the full typed items ``{key: {value, type, description}}``."""
         return dict(self._items_raw)
 
-    async def update(
-        self,
-        *,
-        name: str | None = None,
-        description: str | None = None,
-        items: dict[str, Any] | None = None,
-        environments: dict[str, Any] | None = None,
-    ) -> None:
-        """Update this config's attributes on the server.
+    async def save(self) -> None:
+        """Persist this config to the server.
 
-        Args:
-            name: New display name.
-            description: New description.
-            items: New items in typed shape (replaces entirely).
-            environments: New environments dict (replaces entirely).
+        If ``self.id`` is ``None``, creates a new config via POST.
+        Otherwise, updates the existing config via PUT.
 
         Raises:
-            SmplNotFoundError: If the config no longer exists.
+            SmplNotFoundError: If the config no longer exists (update).
             SmplValidationError: If the server rejects the request.
         """
-        new_name = name if name is not None else self.name
-        new_desc = description if description is not None else self.description
-        new_items = items if items is not None else self._items_raw
-        new_envs = environments if environments is not None else self.environments
-
-        updated = await self._client._update_config(
-            config_id=self.id,
-            name=new_name,
-            key=self.key,
-            description=new_desc,
-            parent=self.parent,
-            items=new_items,
-            environments=new_envs,
-        )
-        self.name = updated.name
-        self.description = updated.description
-        self._items_raw = updated._items_raw
-        self.environments = updated.environments
-        self.updated_at = updated.updated_at
-
-    async def set_items(
-        self,
-        items: dict[str, Any],
-        *,
-        environment: str | None = None,
-    ) -> None:
-        """Replace base or environment-specific items and PUT the config.
-
-        Args:
-            items: The items dict to set.
-            environment: If provided, replaces that environment's values.
-                If ``None``, replaces the base ``items``.
-
-        Raises:
-            SmplNotFoundError: If the config no longer exists.
-            SmplValidationError: If the server rejects the request.
-        """
-        if environment is None:
-            new_items = items
-            new_envs = self.environments
+        if self.id is None:
+            other = await self._client._create_config(self)
         else:
-            new_items = self._items_raw
-            env_entry = dict(self.environments.get(environment, {}))
-            env_entry["values"] = items
-            new_envs = {**self.environments, environment: env_entry}
+            other = await self._client._update_config_from_model(self)
+        self._apply(other)
 
-        updated = await self._client._update_config(
-            config_id=self.id,
-            name=self.name,
-            key=self.key,
-            description=self.description,
-            parent=self.parent,
-            items=new_items,
-            environments=new_envs,
-        )
-        self._items_raw = updated._items_raw
-        self.environments = updated.environments
-        self.updated_at = updated.updated_at
-
-    # Keep backward-compatible alias
-    set_values = set_items
-
-    async def set_value(
-        self,
-        key: str,
-        value: Any,
-        *,
-        environment: str | None = None,
-    ) -> None:
-        """Set a single key within base or environment-specific values.
-
-        Args:
-            key: The config key to set.
-            value: The value to assign.
-            environment: Target environment, or ``None`` for base values.
-
-        Raises:
-            SmplNotFoundError: If the config no longer exists.
-            SmplValidationError: If the server rejects the request.
-        """
-        if environment is None:
-            merged = {**self._items_raw, key: {"value": value}}
-            await self.set_items(merged)
-        else:
-            existing = dict((self.environments.get(environment, {}) or {}).get("values", {}) or {})
-            existing[key] = value
-            await self.set_items(existing, environment=environment)
+    def _apply(self, other: AsyncConfig) -> None:
+        """Copy all properties from *other* into this instance."""
+        self.id = other.id
+        self.key = other.key
+        self.name = other.name
+        self.description = other.description
+        self.parent = other.parent
+        self._items_raw = other._items_raw
+        self.environments = other.environments
+        self.created_at = other.created_at
+        self.updated_at = other.updated_at
 
     async def _build_chain(self) -> list[dict[str, Any]]:
         """Walk the parent chain and return config data dicts child-to-root."""
         chain = [{"id": self.id, "items": self._items_raw, "environments": self.environments}]
         current = self
         while current.parent is not None:
-            parent_config = await self._client.get(id=current.parent)
+            parent_config = await self._client.get(current.parent)
             chain.append(
                 {
                     "id": parent_config.id,

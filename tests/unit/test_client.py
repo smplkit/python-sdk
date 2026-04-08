@@ -128,152 +128,50 @@ def test_async_close_stops_ws_manager():
     asyncio.run(_run())
 
 
-# ---------------------------------------------------------------------------
-# Sync connect()
-# ---------------------------------------------------------------------------
-
-
-def test_connect_calls_flags_and_config():
-    """connect() calls flags._connect_internal() and config._connect_internal()."""
+def test_smpl_client_no_connect_method():
+    """connect() has been removed from SmplClient."""
     client = SmplClient(api_key="sk_api_test", environment="test")
-    with (
-        patch.object(client.flags, "_connect_internal") as mock_flags,
-        patch.object(client.config, "_connect_internal") as mock_config,
-    ):
-        client.connect()
-    mock_flags.assert_called_once()
-    mock_config.assert_called_once()
-    assert client._connected is True
+    assert not hasattr(client, "connect")
 
 
-def test_connect_idempotent():
-    """Calling connect() twice should only connect once."""
-    client = SmplClient(api_key="sk_api_test", environment="test")
-    with (
-        patch.object(client.flags, "_connect_internal") as mock_flags,
-        patch.object(client.config, "_connect_internal"),
-    ):
-        client.connect()
-        client.connect()
-    mock_flags.assert_called_once()
+def test_async_smpl_client_no_connect_method():
+    """connect() has been removed from AsyncSmplClient."""
+    client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+    assert not hasattr(client, "connect")
 
 
 @patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
-def test_connect_registers_service(mock_bulk):
-    """connect() registers service context when service is set."""
+def test_service_context_registered_on_init(mock_bulk):
+    """Service context is registered during __init__ (fire-and-forget)."""
     mock_bulk.return_value = MagicMock()
 
     client = SmplClient(api_key="sk_api_test", environment="test", service="my-svc")
+    # Wait for the background thread to finish
+    import threading
 
-    with patch.object(client.flags, "_connect_internal"), patch.object(client.config, "_connect_internal"):
-        client.connect()
+    for t in threading.enumerate():
+        if t.daemon and t.is_alive():
+            t.join(timeout=2.0)
 
     mock_bulk.assert_called_once()
     _, kwargs = mock_bulk.call_args
     body = kwargs["body"]
     assert body.contexts[0].type_ == "service"
     assert body.contexts[0].key == "my-svc"
+    # keep reference to avoid unused-variable warnings
+    assert client._api_key == "sk_api_test"
 
 
 @patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
-def test_connect_always_registers_service(mock_bulk):
-    """connect() always registers service since service is now required."""
-    mock_bulk.return_value = MagicMock()
-
-    client = SmplClient(api_key="sk_api_test", environment="test")
-
-    with patch.object(client.flags, "_connect_internal"), patch.object(client.config, "_connect_internal"):
-        client.connect()
-
-    mock_bulk.assert_called_once()
-
-
-@patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
-def test_connect_service_registration_failure_is_swallowed(mock_bulk):
-    """connect() succeeds even if service registration fails."""
+def test_service_registration_failure_on_init_is_swallowed(mock_bulk):
+    """Init succeeds even if service registration fails."""
     mock_bulk.side_effect = Exception("network error")
 
+    # Should not raise
     client = SmplClient(api_key="sk_api_test", environment="test", service="my-svc")
+    import threading
 
-    with patch.object(client.flags, "_connect_internal"), patch.object(client.config, "_connect_internal"):
-        client.connect()  # Should not raise
-
-    assert client._connected is True
-
-
-# ---------------------------------------------------------------------------
-# Async connect()
-# ---------------------------------------------------------------------------
-
-
-def test_async_connect_calls_flags_and_config():
-    async def _run():
-        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
-        with (
-            patch.object(client.flags, "_connect_internal") as mock_flags,
-            patch.object(client.config, "_connect_internal") as mock_config,
-        ):
-            await client.connect()
-        mock_flags.assert_called_once()
-        mock_config.assert_called_once()
-        assert client._connected is True
-
-    asyncio.run(_run())
-
-
-def test_async_connect_idempotent():
-    async def _run():
-        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
-        with (
-            patch.object(client.flags, "_connect_internal") as mock_flags,
-            patch.object(client.config, "_connect_internal"),
-        ):
-            await client.connect()
-            await client.connect()
-        mock_flags.assert_called_once()
-
-    asyncio.run(_run())
-
-
-@patch("smplkit.client.gen_bulk_register_contexts.asyncio_detailed")
-def test_async_connect_registers_service(mock_bulk):
-    mock_bulk.return_value = MagicMock()
-
-    async def _run():
-        from unittest.mock import AsyncMock
-
-        client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
-
-        with (
-            patch.object(client.flags, "_connect_internal", new_callable=AsyncMock),
-            patch.object(client.config, "_connect_internal", new_callable=AsyncMock),
-        ):
-            await client.connect()
-
-        mock_bulk.assert_called_once()
-        _, kwargs = mock_bulk.call_args
-        body = kwargs["body"]
-        assert body.contexts[0].type_ == "service"
-        assert body.contexts[0].key == "my-svc"
-
-    asyncio.run(_run())
-
-
-@patch("smplkit.client.gen_bulk_register_contexts.asyncio_detailed")
-def test_async_connect_service_failure_swallowed(mock_bulk):
-    mock_bulk.side_effect = Exception("network error")
-
-    async def _run():
-        from unittest.mock import AsyncMock
-
-        client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
-
-        with (
-            patch.object(client.flags, "_connect_internal", new_callable=AsyncMock),
-            patch.object(client.config, "_connect_internal", new_callable=AsyncMock),
-        ):
-            await client.connect()  # Should not raise
-
-        assert client._connected is True
-
-    asyncio.run(_run())
+    for t in threading.enumerate():
+        if t.daemon and t.is_alive():
+            t.join(timeout=2.0)
+    assert client._api_key == "sk_api_test"

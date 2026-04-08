@@ -6,31 +6,29 @@ import logging as stdlib_logging
 import threading
 from collections import OrderedDict
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 from uuid import UUID
 
 from smplkit._errors import (
     SmplConflictError,
     SmplConnectionError,
-    SmplNotConnectedError,
     SmplNotFoundError,
     SmplTimeoutError,
     SmplValidationError,
     _raise_for_status,
 )
+from smplkit._helpers import key_to_display_name
 from smplkit._generated.logging.client import AuthenticatedClient
 from smplkit._generated.logging.api.loggers import (
     bulk_register_loggers,
     create_logger,
     delete_logger,
-    get_logger,
     list_loggers,
     update_logger,
 )
 from smplkit._generated.logging.api.log_groups import (
     create_log_group,
     delete_log_group,
-    get_log_group,
     list_log_groups,
     update_log_group,
 )
@@ -54,6 +52,7 @@ from smplkit.logging._discovery import (
 from smplkit.logging._resolution import resolve_level
 
 if TYPE_CHECKING:
+    from smplkit import LogLevel
     from smplkit.client import AsyncSmplClient, SmplClient
 
 logger = stdlib_logging.getLogger("smplkit")
@@ -213,7 +212,7 @@ class SmplLogger:
         self,
         client: LoggingClient | None = None,
         *,
-        id: str,
+        id: str | None = None,
         key: str,
         name: str,
         level: str | None = None,
@@ -237,9 +236,29 @@ class SmplLogger:
         self.updated_at = updated_at
 
     def save(self) -> None:
-        """PUT the full current state of this logger to the server."""
+        """Persist this logger to the server (create or update)."""
         updated = self._client._save_logger(self)
         self._apply(updated)
+
+    def setLevel(self, level: LogLevel) -> None:  # noqa: N802
+        """Set the base log level."""
+        self.level = level.value
+
+    def clearLevel(self) -> None:  # noqa: N802
+        """Remove the base log level."""
+        self.level = None
+
+    def setEnvironmentLevel(self, env: str, level: LogLevel) -> None:  # noqa: N802
+        """Set the log level for a specific environment."""
+        self.environments[env] = {"level": level.value}
+
+    def clearEnvironmentLevel(self, env: str) -> None:  # noqa: N802
+        """Remove the log level override for a specific environment."""
+        self.environments.pop(env, None)
+
+    def clearAllEnvironmentLevels(self) -> None:  # noqa: N802
+        """Remove all environment-level overrides."""
+        self.environments = {}
 
     def _apply(self, other: SmplLogger) -> None:
         """Copy all properties from other into self."""
@@ -269,7 +288,7 @@ class AsyncSmplLogger:
         self,
         client: AsyncLoggingClient | None = None,
         *,
-        id: str,
+        id: str | None = None,
         key: str,
         name: str,
         level: str | None = None,
@@ -293,9 +312,29 @@ class AsyncSmplLogger:
         self.updated_at = updated_at
 
     async def save(self) -> None:
-        """PUT the full current state of this logger to the server."""
+        """Persist this logger to the server (create or update)."""
         updated = await self._client._save_logger(self)
         self._apply(updated)
+
+    def setLevel(self, level: LogLevel) -> None:  # noqa: N802
+        """Set the base log level."""
+        self.level = level.value
+
+    def clearLevel(self) -> None:  # noqa: N802
+        """Remove the base log level."""
+        self.level = None
+
+    def setEnvironmentLevel(self, env: str, level: LogLevel) -> None:  # noqa: N802
+        """Set the log level for a specific environment."""
+        self.environments[env] = {"level": level.value}
+
+    def clearEnvironmentLevel(self, env: str) -> None:  # noqa: N802
+        """Remove the log level override for a specific environment."""
+        self.environments.pop(env, None)
+
+    def clearAllEnvironmentLevels(self) -> None:  # noqa: N802
+        """Remove all environment-level overrides."""
+        self.environments = {}
 
     def _apply(self, other: AsyncSmplLogger) -> None:
         """Copy all properties from other into self."""
@@ -325,7 +364,7 @@ class SmplLogGroup:
         self,
         client: LoggingClient | None = None,
         *,
-        id: str,
+        id: str | None = None,
         key: str,
         name: str,
         level: str | None = None,
@@ -345,9 +384,29 @@ class SmplLogGroup:
         self.updated_at = updated_at
 
     def save(self) -> None:
-        """PUT the full current state of this group to the server."""
+        """Persist this group to the server (create or update)."""
         updated = self._client._save_group(self)
         self._apply(updated)
+
+    def setLevel(self, level: LogLevel) -> None:  # noqa: N802
+        """Set the base log level."""
+        self.level = level.value
+
+    def clearLevel(self) -> None:  # noqa: N802
+        """Remove the base log level."""
+        self.level = None
+
+    def setEnvironmentLevel(self, env: str, level: LogLevel) -> None:  # noqa: N802
+        """Set the log level for a specific environment."""
+        self.environments[env] = {"level": level.value}
+
+    def clearEnvironmentLevel(self, env: str) -> None:  # noqa: N802
+        """Remove the log level override for a specific environment."""
+        self.environments.pop(env, None)
+
+    def clearAllEnvironmentLevels(self) -> None:  # noqa: N802
+        """Remove all environment-level overrides."""
+        self.environments = {}
 
     def _apply(self, other: SmplLogGroup) -> None:
         """Copy all properties from other into self."""
@@ -375,7 +434,7 @@ class AsyncSmplLogGroup:
         self,
         client: AsyncLoggingClient | None = None,
         *,
-        id: str,
+        id: str | None = None,
         key: str,
         name: str,
         level: str | None = None,
@@ -395,9 +454,29 @@ class AsyncSmplLogGroup:
         self.updated_at = updated_at
 
     async def save(self) -> None:
-        """PUT the full current state of this group to the server."""
+        """Persist this group to the server (create or update)."""
         updated = await self._client._save_group(self)
         self._apply(updated)
+
+    def setLevel(self, level: LogLevel) -> None:  # noqa: N802
+        """Set the base log level."""
+        self.level = level.value
+
+    def clearLevel(self) -> None:  # noqa: N802
+        """Remove the base log level."""
+        self.level = None
+
+    def setEnvironmentLevel(self, env: str, level: LogLevel) -> None:  # noqa: N802
+        """Set the log level for a specific environment."""
+        self.environments[env] = {"level": level.value}
+
+    def clearEnvironmentLevel(self, env: str) -> None:  # noqa: N802
+        """Remove the log level override for a specific environment."""
+        self.environments.pop(env, None)
+
+    def clearAllEnvironmentLevels(self) -> None:  # noqa: N802
+        """Remove all environment-level overrides."""
+        self.environments = {}
 
     def _apply(self, other: AsyncSmplLogGroup) -> None:
         """Copy all properties from other into self."""
@@ -470,40 +549,23 @@ class LoggingClient:
         self._flush_timer: threading.Timer | None = None
         self._loggers_cache: dict[str, dict[str, Any]] = {}  # key → logger data
         self._groups_cache: dict[str, dict[str, Any]] = {}  # id → group data
+        self._global_listeners: list[Callable[..., Any]] = []
+        self._key_listeners: dict[str, list[Callable[..., Any]]] = {}
 
     # --- Management API: Loggers ---
 
-    def create(
-        self,
-        key: str,
-        *,
-        name: str,
-        managed: bool = False,
-        level: str | None = None,
-        group: str | None = None,
-        environments: dict[str, Any] | None = None,
-    ) -> SmplLogger:
-        """Create a logger."""
-        body = _build_logger_body(
-            name=name,
+    def new(self, key: str, *, name: str | None = None, managed: bool = False) -> SmplLogger:
+        """Return an unsaved :class:`SmplLogger` with ``id=None``.
+
+        Call :meth:`SmplLogger.save` to persist it.
+        """
+        return SmplLogger(
+            self,
+            id=None,
             key=key,
-            level=level,
-            group=group,
+            name=name if name is not None else key_to_display_name(key),
             managed=managed,
-            environments=environments,
         )
-        try:
-            response = create_logger.sync_detailed(client=self._logging_http, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return self._logger_to_model(response.parsed)
 
     def list(self) -> list[SmplLogger]:
         """List all loggers."""
@@ -517,20 +579,20 @@ class LoggingClient:
             return []
         return [self._logger_resource_to_model(r) for r in response.parsed.data]
 
-    def get(self, logger_id: str) -> SmplLogger:
-        """Get a logger by ID."""
+    def get(self, key: str) -> SmplLogger:
+        """Get a logger by key."""
         try:
-            response = get_logger.sync_detailed(UUID(logger_id), client=self._logging_http)
+            response = list_loggers.sync_detailed(client=self._logging_http, filterkey=key)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            raise SmplNotFoundError(f"Logger {logger_id} not found")
-        return self._logger_to_model(response.parsed)
+        if response.parsed is None or not hasattr(response.parsed, "data") or not response.parsed.data:
+            raise SmplNotFoundError(f"Logger with key {key!r} not found")
+        return self._logger_resource_to_model(response.parsed.data[0])
 
     def _save_logger(self, lg: SmplLogger) -> SmplLogger:
-        """PUT a logger's full state. Called by SmplLogger.save()."""
+        """Create or update a logger. Called by SmplLogger.save()."""
         body = _build_logger_body(
             logger_id=lg.id,
             name=lg.name,
@@ -541,7 +603,10 @@ class LoggingClient:
             environments=lg.environments if lg.environments else None,
         )
         try:
-            response = update_logger.sync_detailed(UUID(lg.id), client=self._logging_http, body=body)
+            if lg.id is None:
+                response = create_logger.sync_detailed(client=self._logging_http, body=body)
+            else:
+                response = update_logger.sync_detailed(UUID(lg.id), client=self._logging_http, body=body)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
@@ -553,10 +618,11 @@ class LoggingClient:
             )
         return self._logger_to_model(response.parsed)
 
-    def delete(self, logger_id: str) -> None:
-        """Delete a logger."""
+    def delete(self, key: str) -> None:
+        """Delete a logger by key."""
+        lg = self.get(key)
         try:
-            response = delete_logger.sync_detailed(UUID(logger_id), client=self._logging_http)
+            response = delete_logger.sync_detailed(UUID(lg.id), client=self._logging_http)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
@@ -564,29 +630,18 @@ class LoggingClient:
 
     # --- Management API: Log Groups ---
 
-    def create_group(
-        self,
-        key: str,
-        *,
-        name: str,
-        level: str | None = None,
-        group: str | None = None,
-        environments: dict[str, Any] | None = None,
-    ) -> SmplLogGroup:
-        """Create a log group."""
-        body = _build_group_body(name=name, key=key, level=level, group=group, environments=environments)
-        try:
-            response = create_log_group.sync_detailed(client=self._logging_http, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return self._group_to_model(response.parsed)
+    def new_group(self, key: str, *, name: str | None = None, group: str | None = None) -> SmplLogGroup:
+        """Return an unsaved :class:`SmplLogGroup` with ``id=None``.
+
+        Call :meth:`SmplLogGroup.save` to persist it.
+        """
+        return SmplLogGroup(
+            self,
+            id=None,
+            key=key,
+            name=name if name is not None else key_to_display_name(key),
+            group=group,
+        )
 
     def list_groups(self) -> list[SmplLogGroup]:
         """List all log groups."""
@@ -600,20 +655,25 @@ class LoggingClient:
             return []
         return [self._group_resource_to_model(r) for r in response.parsed.data]
 
-    def get_group(self, group_id: str) -> SmplLogGroup:
-        """Get a log group by ID."""
+    def get_group(self, key: str) -> SmplLogGroup:
+        """Get a log group by key."""
         try:
-            response = get_log_group.sync_detailed(UUID(group_id), client=self._logging_http)
+            response = list_log_groups.sync_detailed(client=self._logging_http)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            raise SmplNotFoundError(f"Log group {group_id} not found")
-        return self._group_to_model(response.parsed)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            raise SmplNotFoundError(f"Log group with key {key!r} not found")
+        for r in response.parsed.data:
+            attrs = r.attributes
+            rkey = _unset_to_none(attrs.key)
+            if rkey == key:
+                return self._group_resource_to_model(r)
+        raise SmplNotFoundError(f"Log group with key {key!r} not found")
 
     def _save_group(self, grp: SmplLogGroup) -> SmplLogGroup:
-        """PUT a group's full state. Called by SmplLogGroup.save()."""
+        """Create or update a group. Called by SmplLogGroup.save()."""
         body = _build_group_body(
             group_id=grp.id,
             name=grp.name,
@@ -623,7 +683,10 @@ class LoggingClient:
             environments=grp.environments if grp.environments else None,
         )
         try:
-            response = update_log_group.sync_detailed(UUID(grp.id), client=self._logging_http, body=body)
+            if grp.id is None:
+                response = create_log_group.sync_detailed(client=self._logging_http, body=body)
+            else:
+                response = update_log_group.sync_detailed(UUID(grp.id), client=self._logging_http, body=body)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
@@ -635,19 +698,61 @@ class LoggingClient:
             )
         return self._group_to_model(response.parsed)
 
-    def delete_group(self, group_id: str) -> None:
-        """Delete a log group."""
+    def delete_group(self, key: str) -> None:
+        """Delete a log group by key."""
+        grp = self.get_group(key)
         try:
-            response = delete_log_group.sync_detailed(UUID(group_id), client=self._logging_http)
+            response = delete_log_group.sync_detailed(UUID(grp.id), client=self._logging_http)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
 
+    # --- Runtime: start & change listeners ---
+
+    def start(self) -> None:
+        """Explicitly opt in to runtime logging control.
+
+        Idempotent — safe to call multiple times.
+        """
+        self._connect_internal()
+
+    def on_change(self, fn_or_key: Callable[..., Any] | str | None = None) -> Any:
+        """Register a change listener.
+
+        Supports two forms:
+
+        - ``@client.logging.on_change`` — registers a global listener.
+        - ``@client.logging.on_change("sqlalchemy.engine")`` — registers a key-scoped listener.
+        """
+        if callable(fn_or_key):
+            # @on_change (bare decorator)
+            self._global_listeners.append(fn_or_key)
+            return fn_or_key
+        elif isinstance(fn_or_key, str):
+            # @on_change("key")
+            key = fn_or_key
+
+            def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+                self._key_listeners.setdefault(key, []).append(fn)
+                return fn
+
+            return decorator
+        else:
+            # @on_change() — called with parens but no args
+
+            def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+                self._global_listeners.append(fn)
+                return fn
+
+            return decorator
+
     # --- Prescriptive (connect-gated) ---
 
     def _connect_internal(self) -> None:
-        """Called by ``SmplClient.connect()``."""
+        """Called by ``SmplClient.connect()`` or :meth:`start`."""
+        if self._connected:
+            return
         # 1. Discover existing loggers
         existing = discover_existing_loggers()
         for name, level in existing:
@@ -674,13 +779,7 @@ class LoggingClient:
         self._connected = True
 
     def refresh(self) -> None:
-        """Re-fetch all loggers and groups, re-resolve, re-apply.
-
-        Raises:
-            SmplNotConnectedError: If called before connect.
-        """
-        if not self._connected:
-            raise SmplNotConnectedError("SmplClient is not connected. Call client.connect() first.")
+        """Re-fetch all loggers and groups, re-resolve, re-apply."""
         self._fetch_and_apply()
 
     def _close(self) -> None:
@@ -850,40 +949,23 @@ class AsyncLoggingClient:
         self._flush_timer: threading.Timer | None = None
         self._loggers_cache: dict[str, dict[str, Any]] = {}
         self._groups_cache: dict[str, dict[str, Any]] = {}
+        self._global_listeners: list[Callable[..., Any]] = []
+        self._key_listeners: dict[str, list[Callable[..., Any]]] = {}
 
     # --- Management API: Loggers ---
 
-    async def create(
-        self,
-        key: str,
-        *,
-        name: str,
-        managed: bool = False,
-        level: str | None = None,
-        group: str | None = None,
-        environments: dict[str, Any] | None = None,
-    ) -> AsyncSmplLogger:
-        """Create a logger."""
-        body = _build_logger_body(
-            name=name,
+    def new(self, key: str, *, name: str | None = None, managed: bool = False) -> AsyncSmplLogger:
+        """Return an unsaved :class:`AsyncSmplLogger` with ``id=None``.
+
+        Call :meth:`AsyncSmplLogger.save` to persist it.
+        """
+        return AsyncSmplLogger(
+            self,
+            id=None,
             key=key,
-            level=level,
-            group=group,
+            name=name if name is not None else key_to_display_name(key),
             managed=managed,
-            environments=environments,
         )
-        try:
-            response = await create_logger.asyncio_detailed(client=self._logging_http, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return self._logger_to_model(response.parsed)
 
     async def list(self) -> list[AsyncSmplLogger]:
         """List all loggers."""
@@ -897,20 +979,20 @@ class AsyncLoggingClient:
             return []
         return [self._logger_resource_to_model(r) for r in response.parsed.data]
 
-    async def get(self, logger_id: str) -> AsyncSmplLogger:
-        """Get a logger by ID."""
+    async def get(self, key: str) -> AsyncSmplLogger:
+        """Get a logger by key."""
         try:
-            response = await get_logger.asyncio_detailed(UUID(logger_id), client=self._logging_http)
+            response = await list_loggers.asyncio_detailed(client=self._logging_http, filterkey=key)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            raise SmplNotFoundError(f"Logger {logger_id} not found")
-        return self._logger_to_model(response.parsed)
+        if response.parsed is None or not hasattr(response.parsed, "data") or not response.parsed.data:
+            raise SmplNotFoundError(f"Logger with key {key!r} not found")
+        return self._logger_resource_to_model(response.parsed.data[0])
 
     async def _save_logger(self, lg: AsyncSmplLogger) -> AsyncSmplLogger:
-        """PUT a logger's full state. Called by AsyncSmplLogger.save()."""
+        """Create or update a logger. Called by AsyncSmplLogger.save()."""
         body = _build_logger_body(
             logger_id=lg.id,
             name=lg.name,
@@ -921,7 +1003,10 @@ class AsyncLoggingClient:
             environments=lg.environments if lg.environments else None,
         )
         try:
-            response = await update_logger.asyncio_detailed(UUID(lg.id), client=self._logging_http, body=body)
+            if lg.id is None:
+                response = await create_logger.asyncio_detailed(client=self._logging_http, body=body)
+            else:
+                response = await update_logger.asyncio_detailed(UUID(lg.id), client=self._logging_http, body=body)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
@@ -933,10 +1018,11 @@ class AsyncLoggingClient:
             )
         return self._logger_to_model(response.parsed)
 
-    async def delete(self, logger_id: str) -> None:
-        """Delete a logger."""
+    async def delete(self, key: str) -> None:
+        """Delete a logger by key."""
+        lg = await self.get(key)
         try:
-            response = await delete_logger.asyncio_detailed(UUID(logger_id), client=self._logging_http)
+            response = await delete_logger.asyncio_detailed(UUID(lg.id), client=self._logging_http)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
@@ -944,29 +1030,18 @@ class AsyncLoggingClient:
 
     # --- Management API: Log Groups ---
 
-    async def create_group(
-        self,
-        key: str,
-        *,
-        name: str,
-        level: str | None = None,
-        group: str | None = None,
-        environments: dict[str, Any] | None = None,
-    ) -> AsyncSmplLogGroup:
-        """Create a log group."""
-        body = _build_group_body(name=name, key=key, level=level, group=group, environments=environments)
-        try:
-            response = await create_log_group.asyncio_detailed(client=self._logging_http, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return self._group_to_model(response.parsed)
+    def new_group(self, key: str, *, name: str | None = None, group: str | None = None) -> AsyncSmplLogGroup:
+        """Return an unsaved :class:`AsyncSmplLogGroup` with ``id=None``.
+
+        Call :meth:`AsyncSmplLogGroup.save` to persist it.
+        """
+        return AsyncSmplLogGroup(
+            self,
+            id=None,
+            key=key,
+            name=name if name is not None else key_to_display_name(key),
+            group=group,
+        )
 
     async def list_groups(self) -> list[AsyncSmplLogGroup]:
         """List all log groups."""
@@ -980,20 +1055,25 @@ class AsyncLoggingClient:
             return []
         return [self._group_resource_to_model(r) for r in response.parsed.data]
 
-    async def get_group(self, group_id: str) -> AsyncSmplLogGroup:
-        """Get a log group by ID."""
+    async def get_group(self, key: str) -> AsyncSmplLogGroup:
+        """Get a log group by key."""
         try:
-            response = await get_log_group.asyncio_detailed(UUID(group_id), client=self._logging_http)
+            response = await list_log_groups.asyncio_detailed(client=self._logging_http)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            raise SmplNotFoundError(f"Log group {group_id} not found")
-        return self._group_to_model(response.parsed)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            raise SmplNotFoundError(f"Log group with key {key!r} not found")
+        for r in response.parsed.data:
+            attrs = r.attributes
+            rkey = _unset_to_none(attrs.key)
+            if rkey == key:
+                return self._group_resource_to_model(r)
+        raise SmplNotFoundError(f"Log group with key {key!r} not found")
 
     async def _save_group(self, grp: AsyncSmplLogGroup) -> AsyncSmplLogGroup:
-        """PUT a group's full state. Called by AsyncSmplLogGroup.save()."""
+        """Create or update a group. Called by AsyncSmplLogGroup.save()."""
         body = _build_group_body(
             group_id=grp.id,
             name=grp.name,
@@ -1003,7 +1083,10 @@ class AsyncLoggingClient:
             environments=grp.environments if grp.environments else None,
         )
         try:
-            response = await update_log_group.asyncio_detailed(UUID(grp.id), client=self._logging_http, body=body)
+            if grp.id is None:
+                response = await create_log_group.asyncio_detailed(client=self._logging_http, body=body)
+            else:
+                response = await update_log_group.asyncio_detailed(UUID(grp.id), client=self._logging_http, body=body)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
@@ -1015,19 +1098,61 @@ class AsyncLoggingClient:
             )
         return self._group_to_model(response.parsed)
 
-    async def delete_group(self, group_id: str) -> None:
-        """Delete a log group."""
+    async def delete_group(self, key: str) -> None:
+        """Delete a log group by key."""
+        grp = await self.get_group(key)
         try:
-            response = await delete_log_group.asyncio_detailed(UUID(group_id), client=self._logging_http)
+            response = await delete_log_group.asyncio_detailed(UUID(grp.id), client=self._logging_http)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
 
+    # --- Runtime: start & change listeners ---
+
+    async def start(self) -> None:
+        """Explicitly opt in to runtime logging control.
+
+        Idempotent — safe to call multiple times.
+        """
+        await self._connect_internal()
+
+    def on_change(self, fn_or_key: Callable[..., Any] | str | None = None) -> Any:
+        """Register a change listener.
+
+        Supports two forms:
+
+        - ``@client.logging.on_change`` — registers a global listener.
+        - ``@client.logging.on_change("sqlalchemy.engine")`` — registers a key-scoped listener.
+        """
+        if callable(fn_or_key):
+            # @on_change (bare decorator)
+            self._global_listeners.append(fn_or_key)
+            return fn_or_key
+        elif isinstance(fn_or_key, str):
+            # @on_change("key")
+            key = fn_or_key
+
+            def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+                self._key_listeners.setdefault(key, []).append(fn)
+                return fn
+
+            return decorator
+        else:
+            # @on_change() — called with parens but no args
+
+            def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+                self._global_listeners.append(fn)
+                return fn
+
+            return decorator
+
     # --- Prescriptive (connect-gated) ---
 
     async def _connect_internal(self) -> None:
-        """Called by ``AsyncSmplClient.connect()``."""
+        """Called by ``AsyncSmplClient.connect()`` or :meth:`start`."""
+        if self._connected:
+            return
         existing = discover_existing_loggers()
         for name, level in existing:
             normalized = normalize_logger_name(name)
@@ -1049,8 +1174,6 @@ class AsyncLoggingClient:
 
     async def refresh(self) -> None:
         """Re-fetch all loggers and groups, re-resolve, re-apply."""
-        if not self._connected:
-            raise SmplNotConnectedError("SmplClient is not connected. Call client.connect() first.")
         await self._fetch_and_apply()
 
     def _close(self) -> None:

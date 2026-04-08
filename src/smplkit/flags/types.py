@@ -1,18 +1,8 @@
-"""Public types for the Flags SDK: FlagType, Context, Rule."""
+"""Public types for the Flags SDK: Context, Rule."""
 
 from __future__ import annotations
 
-from enum import Enum
 from typing import Any
-
-
-class FlagType(str, Enum):
-    """The value type of a flag."""
-
-    BOOLEAN = "BOOLEAN"
-    STRING = "STRING"
-    NUMERIC = "NUMERIC"
-    JSON = "JSON"
 
 
 class Context:

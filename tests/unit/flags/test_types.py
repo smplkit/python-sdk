@@ -1,17 +1,6 @@
-"""Tests for FlagType, Context, and Rule public types."""
+"""Tests for Context and Rule public types."""
 
-from smplkit.flags.types import Context, FlagType, Rule
-
-
-class TestFlagType:
-    def test_values(self):
-        assert FlagType.BOOLEAN == "BOOLEAN"
-        assert FlagType.STRING == "STRING"
-        assert FlagType.NUMERIC == "NUMERIC"
-        assert FlagType.JSON == "JSON"
-
-    def test_is_str_enum(self):
-        assert isinstance(FlagType.BOOLEAN, str)
+from smplkit.flags.types import Context, Rule
 
 
 class TestContext:
@@ -48,6 +37,13 @@ class TestContext:
     def test_name_defaults_to_none(self):
         ctx = Context("user", "u-1")
         assert ctx.name is None
+
+    def test_repr(self):
+        ctx = Context("user", "u-1", name="Alice", plan="enterprise")
+        r = repr(ctx)
+        assert "user" in r
+        assert "u-1" in r
+        assert "Alice" in r
 
 
 class TestRule:

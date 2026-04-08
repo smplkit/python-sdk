@@ -1,4 +1,4 @@
-"""Flag and ContextType resource models returned by the management API."""
+"""Unified flag model hierarchy — management + runtime in a single class tree."""
 
 from __future__ import annotations
 
@@ -9,18 +9,25 @@ if TYPE_CHECKING:
 
 
 class Flag:
-    """A flag resource (sync).  Returned by :class:`FlagsClient` methods."""
+    """A flag resource (sync).
+
+    Serves as both a management model (save, addRule, convenience methods)
+    and a runtime handle (.get() for evaluation).
+
+    Subclasses (BooleanFlag, StringFlag, NumberFlag, JsonFlag) override
+    .get() to return a typed value.
+    """
 
     def __init__(
         self,
         client: FlagsClient,
         *,
-        id: str,
+        id: str | None = None,
         key: str,
         name: str,
         type: str,
         default: Any,
-        values: list[dict[str, Any]],
+        values: list[dict[str, Any]] | None = None,
         description: str | None = None,
         environments: dict[str, Any] | None = None,
         created_at: Any = None,
@@ -32,55 +39,80 @@ class Flag:
         self.name = name
         self.type = type
         self.default = default
-        self.values = values
+        self.values = values or []
         self.description = description
-        self.environments = environments or {}
+        self.environments = environments if environments is not None else {}
         self.created_at = created_at
         self.updated_at = updated_at
 
-    def update(
-        self,
-        *,
-        environments: dict[str, Any] | None = None,
-        values: list[dict[str, Any]] | None = None,
-        default: Any = None,
-        description: str | None = None,
-        name: str | None = None,
-    ) -> None:
-        """Update this flag (sync).  Only provided fields are changed."""
-        updated = self._client._update_flag(
-            flag=self,
-            environments=environments,
-            values=values,
-            default=default,
-            description=description,
-            name=name,
-        )
-        self._apply(updated)
+    # ------------------------------------------------------------------
+    # Management: save (create or update)
+    # ------------------------------------------------------------------
 
-    def addRule(self, built_rule: dict[str, Any]) -> None:
-        """Add a rule to a specific environment (sync)."""
+    def save(self) -> None:
+        """Persist this flag to the server.
+
+        POST if ``id is None`` (create), PUT if ``id`` is set (update).
+        Applies the server response back to this instance.
+        """
+        if self.id is None:
+            created = self._client._create_flag(self)
+            self._apply(created)
+        else:
+            updated = self._client._update_flag(flag=self)
+            self._apply(updated)
+
+    # ------------------------------------------------------------------
+    # Management: local mutations
+    # ------------------------------------------------------------------
+
+    def addRule(self, built_rule: dict[str, Any]) -> Flag:
+        """Append a rule to a specific environment (local mutation, no HTTP).
+
+        The *built_rule* dict must include an ``"environment"`` key.  The
+        rule (without the ``environment`` key) is appended to that
+        environment's rules list.  Call :meth:`save` to persist.
+
+        Returns *self* for chaining.
+        """
         env_key = built_rule.get("environment")
         if env_key is None:
             raise ValueError(
                 "Built rule must include 'environment' key. "
                 "Use Rule(...).environment('env_key').when(...).serve(...).build()"
             )
-        # Re-fetch current state to avoid stale data
-        current = self._client.get(self.id)
-        self._apply(current)
-
-        envs = dict(self.environments)
-        env_data = dict(envs.get(env_key, {"enabled": True, "rules": []}))
-        rules = list(env_data.get("rules", []))
-
         rule_copy = {k: v for k, v in built_rule.items() if k != "environment"}
-        rules.append(rule_copy)
-        env_data["rules"] = rules
-        envs[env_key] = env_data
+        env_data = self.environments.setdefault(env_key, {})
+        env_data.setdefault("rules", []).append(rule_copy)
+        return self
 
-        updated = self._client._update_flag(flag=self, environments=envs)
-        self._apply(updated)
+    def setEnvironmentEnabled(self, env_key: str, enabled: bool) -> None:
+        """Set whether the flag is enabled in *env_key* (local mutation)."""
+        self.environments.setdefault(env_key, {})["enabled"] = enabled
+
+    def setEnvironmentDefault(self, env_key: str, default: Any) -> None:
+        """Set the environment-specific default (local mutation)."""
+        self.environments.setdefault(env_key, {})["default"] = default
+
+    def clearRules(self, env_key: str) -> None:
+        """Remove all rules from *env_key* (local mutation)."""
+        self.environments.setdefault(env_key, {})["rules"] = []
+
+    # ------------------------------------------------------------------
+    # Runtime: evaluation
+    # ------------------------------------------------------------------
+
+    def get(self, context: list | None = None) -> Any:
+        """Evaluate this flag and return its current value.
+
+        Evaluation is local (no I/O).  On the first call, the client
+        lazily initializes its flag store and WebSocket connection.
+        """
+        return self._client._evaluate_handle(self.key, self.default, context)
+
+    # ------------------------------------------------------------------
+    # Internal
+    # ------------------------------------------------------------------
 
     def _apply(self, other: Flag) -> None:
         """Copy properties from *other* into this instance."""
@@ -99,19 +131,69 @@ class Flag:
         return f"Flag(key={self.key!r}, type={self.type!r}, default={self.default!r})"
 
 
+class BooleanFlag(Flag):
+    """A boolean flag — .get() returns bool."""
+
+    def get(self, context: list | None = None) -> bool:
+        value = self._client._evaluate_handle(self.key, self.default, context)
+        if isinstance(value, bool):
+            return value
+        return self.default
+
+
+class StringFlag(Flag):
+    """A string flag — .get() returns str."""
+
+    def get(self, context: list | None = None) -> str:
+        value = self._client._evaluate_handle(self.key, self.default, context)
+        if isinstance(value, str):
+            return value
+        return self.default
+
+
+class NumberFlag(Flag):
+    """A numeric flag — .get() returns int | float."""
+
+    def get(self, context: list | None = None) -> int | float:
+        value = self._client._evaluate_handle(self.key, self.default, context)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return value
+        return self.default
+
+
+class JsonFlag(Flag):
+    """A JSON flag — .get() returns dict."""
+
+    def get(self, context: list | None = None) -> dict[str, Any]:
+        value = self._client._evaluate_handle(self.key, self.default, context)
+        if isinstance(value, dict):
+            return value
+        return self.default
+
+
+# ===================================================================
+# Async variants
+# ===================================================================
+
+
 class AsyncFlag:
-    """A flag resource (async).  Returned by :class:`AsyncFlagsClient` methods."""
+    """A flag resource (async).
+
+    Same interface as :class:`Flag` but :meth:`save` is async.
+    Local mutations (addRule, setEnvironmentEnabled, etc.) and
+    evaluation (.get()) are synchronous.
+    """
 
     def __init__(
         self,
         client: AsyncFlagsClient,
         *,
-        id: str,
+        id: str | None = None,
         key: str,
         name: str,
         type: str,
         default: Any,
-        values: list[dict[str, Any]],
+        values: list[dict[str, Any]] | None = None,
         description: str | None = None,
         environments: dict[str, Any] | None = None,
         created_at: Any = None,
@@ -123,58 +205,65 @@ class AsyncFlag:
         self.name = name
         self.type = type
         self.default = default
-        self.values = values
+        self.values = values or []
         self.description = description
-        self.environments = environments or {}
+        self.environments = environments if environments is not None else {}
         self.created_at = created_at
         self.updated_at = updated_at
 
-    async def update(
-        self,
-        *,
-        environments: dict[str, Any] | None = None,
-        values: list[dict[str, Any]] | None = None,
-        default: Any = None,
-        description: str | None = None,
-        name: str | None = None,
-    ) -> None:
-        """Update this flag (async).  Only provided fields are changed."""
-        updated = await self._client._update_flag(
-            flag=self,
-            environments=environments,
-            values=values,
-            default=default,
-            description=description,
-            name=name,
-        )
-        self._apply(updated)
+    # ------------------------------------------------------------------
+    # Management: save (create or update)
+    # ------------------------------------------------------------------
 
-    async def addRule(self, built_rule: dict[str, Any]) -> None:
-        """Add a rule to a specific environment (async)."""
+    async def save(self) -> None:
+        """Persist this flag to the server (async).
+
+        POST if ``id is None`` (create), PUT if ``id`` is set (update).
+        """
+        if self.id is None:
+            created = await self._client._create_flag(self)
+            self._apply(created)
+        else:
+            updated = await self._client._update_flag(flag=self)
+            self._apply(updated)
+
+    # ------------------------------------------------------------------
+    # Management: local mutations (sync)
+    # ------------------------------------------------------------------
+
+    def addRule(self, built_rule: dict[str, Any]) -> AsyncFlag:
         env_key = built_rule.get("environment")
         if env_key is None:
             raise ValueError(
                 "Built rule must include 'environment' key. "
                 "Use Rule(...).environment('env_key').when(...).serve(...).build()"
             )
-        # Re-fetch current state to avoid stale data
-        current = await self._client.get(self.id)
-        self._apply(current)
-
-        envs = dict(self.environments)
-        env_data = dict(envs.get(env_key, {"enabled": True, "rules": []}))
-        rules = list(env_data.get("rules", []))
-
         rule_copy = {k: v for k, v in built_rule.items() if k != "environment"}
-        rules.append(rule_copy)
-        env_data["rules"] = rules
-        envs[env_key] = env_data
+        env_data = self.environments.setdefault(env_key, {})
+        env_data.setdefault("rules", []).append(rule_copy)
+        return self
 
-        updated = await self._client._update_flag(flag=self, environments=envs)
-        self._apply(updated)
+    def setEnvironmentEnabled(self, env_key: str, enabled: bool) -> None:
+        self.environments.setdefault(env_key, {})["enabled"] = enabled
+
+    def setEnvironmentDefault(self, env_key: str, default: Any) -> None:
+        self.environments.setdefault(env_key, {})["default"] = default
+
+    def clearRules(self, env_key: str) -> None:
+        self.environments.setdefault(env_key, {})["rules"] = []
+
+    # ------------------------------------------------------------------
+    # Runtime: evaluation (sync — evaluation is local, no I/O)
+    # ------------------------------------------------------------------
+
+    def get(self, context: list | None = None) -> Any:
+        return self._client._evaluate_handle(self.key, self.default, context)
+
+    # ------------------------------------------------------------------
+    # Internal
+    # ------------------------------------------------------------------
 
     def _apply(self, other: AsyncFlag) -> None:
-        """Copy properties from *other* into this instance."""
         self.id = other.id
         self.key = other.key
         self.name = other.name
@@ -190,21 +279,33 @@ class AsyncFlag:
         return f"AsyncFlag(key={self.key!r}, type={self.type!r}, default={self.default!r})"
 
 
-class ContextType:
-    """A context type resource returned by management API methods."""
+class AsyncBooleanFlag(AsyncFlag):
+    def get(self, context: list | None = None) -> bool:
+        value = self._client._evaluate_handle(self.key, self.default, context)
+        if isinstance(value, bool):
+            return value
+        return self.default
 
-    def __init__(
-        self,
-        *,
-        id: str,
-        key: str,
-        name: str,
-        attributes: dict[str, Any] | None = None,
-    ) -> None:
-        self.id = id
-        self.key = key
-        self.name = name
-        self.attributes = attributes or {}
 
-    def __repr__(self) -> str:
-        return f"ContextType(key={self.key!r}, name={self.name!r})"
+class AsyncStringFlag(AsyncFlag):
+    def get(self, context: list | None = None) -> str:
+        value = self._client._evaluate_handle(self.key, self.default, context)
+        if isinstance(value, str):
+            return value
+        return self.default
+
+
+class AsyncNumberFlag(AsyncFlag):
+    def get(self, context: list | None = None) -> int | float:
+        value = self._client._evaluate_handle(self.key, self.default, context)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return value
+        return self.default
+
+
+class AsyncJsonFlag(AsyncFlag):
+    def get(self, context: list | None = None) -> dict[str, Any]:
+        value = self._client._evaluate_handle(self.key, self.default, context)
+        if isinstance(value, dict):
+            return value
+        return self.default

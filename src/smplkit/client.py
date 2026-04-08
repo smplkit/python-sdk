@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 
 from smplkit._errors import SmplError
 from smplkit._generated.app.api.contexts import bulk_register_contexts as gen_bulk_register_contexts
@@ -34,8 +35,6 @@ _NO_SERVICE_MESSAGE = (
     "  2. Set the SMPLKIT_SERVICE environment variable"
 )
 
-_NOT_CONNECTED_MESSAGE = "SmplClient is not connected. Call client.connect() first."
-
 
 def _no_api_key_message(environment: str) -> str:
     return (
@@ -56,8 +55,7 @@ class SmplClient:
         from smplkit import SmplClient
 
         with SmplClient("sk_api_...", environment="production", service="my-svc") as client:
-            checkout_v2 = client.flags.boolFlag("checkout-v2", False)
-            client.connect()
+            checkout_v2 = client.flags.booleanFlag("checkout-v2", default=False)
             if checkout_v2.get(): ...
 
     The API key is optional. When omitted, it is resolved from the
@@ -108,35 +106,12 @@ class SmplClient:
             token=resolved,
         )
         self._ws_manager: SharedWebSocket | None = None
-        self._connected = False
         self.config = ConfigClient(self)
         self.flags = FlagsClient(self)
         self.logging = LoggingClient(self)
 
-    def connect(self) -> None:
-        """Connect to the smplkit platform.
-
-        Opens the shared WebSocket, fetches initial flag and config data,
-        and registers the service as a context instance.
-
-        This method is idempotent — calling it multiple times is safe.
-        """
-        if self._connected:
-            return
-
-        # Register service context (fire-and-forget)
-        self._register_service_context()
-
-        # Connect flags (fetch definitions, register WS listeners)
-        self.flags._connect_internal()
-
-        # Connect config (fetch all, resolve, cache)
-        self.config._connect_internal()
-
-        # Connect logging (discover, register, fetch, resolve, apply)
-        self.logging._connect_internal()
-
-        self._connected = True
+        # Register service context (fire-and-forget, non-blocking)
+        threading.Thread(target=self._register_service_context, daemon=True).start()
 
     def _register_service_context(self) -> None:
         """Register the service as a context instance on the app service."""
@@ -185,8 +160,7 @@ class AsyncSmplClient:
         from smplkit import AsyncSmplClient
 
         async with AsyncSmplClient("sk_api_...", environment="production", service="my-svc") as client:
-            checkout_v2 = client.flags.boolFlag("checkout-v2", False)
-            await client.connect()
+            checkout_v2 = client.flags.booleanFlag("checkout-v2", default=False)
             if checkout_v2.get(): ...
 
     The API key is optional. When omitted, it is resolved from the
@@ -237,35 +211,23 @@ class AsyncSmplClient:
             token=resolved,
         )
         self._ws_manager: SharedWebSocket | None = None
-        self._connected = False
         self.config = AsyncConfigClient(self)
         self.flags = AsyncFlagsClient(self)
         self.logging = AsyncLoggingClient(self)
 
-    async def connect(self) -> None:
-        """Connect to the smplkit platform.
+        # Register service context (fire-and-forget, non-blocking)
+        threading.Thread(target=self._register_service_context_sync, daemon=True).start()
 
-        Opens the shared WebSocket, fetches initial flag and config data,
-        and registers the service as a context instance.
-
-        This method is idempotent — calling it multiple times is safe.
-        """
-        if self._connected:
-            return
-
-        # Register service context (fire-and-forget)
-        await self._register_service_context()
-
-        # Connect flags (fetch definitions, register WS listeners)
-        await self.flags._connect_internal()
-
-        # Connect config (fetch all, resolve, cache)
-        await self.config._connect_internal()
-
-        # Connect logging (discover, register, fetch, resolve, apply)
-        await self.logging._connect_internal()
-
-        self._connected = True
+    def _register_service_context_sync(self) -> None:
+        """Sync wrapper for service context registration (runs in background thread)."""
+        try:
+            attrs = ContextBulkItemAttributes()
+            attrs.additional_properties = {"name": self._service}
+            item = ContextBulkItem(type_="service", key=self._service, attributes=attrs)
+            body = ContextBulkRegister(contexts=[item])
+            gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
+        except Exception:
+            logger.warning("Failed to register service context", exc_info=True)
 
     async def _register_service_context(self) -> None:
         """Register the service as a context instance on the app service."""

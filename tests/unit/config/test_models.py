@@ -38,7 +38,12 @@ def _make_async_config(**overrides) -> AsyncConfig:
     return AsyncConfig(client, **defaults)
 
 
-class TestConfig:
+# ===================================================================
+# Config — attributes and basics
+# ===================================================================
+
+
+class TestConfigAttributes:
     def test_attributes(self):
         cfg = _make_config()
         assert cfg.id == "abc-123"
@@ -64,6 +69,120 @@ class TestConfig:
         assert cfg.items == {}
         assert cfg.environments == {}
 
+    def test_id_can_be_none(self):
+        client = MagicMock()
+        cfg = Config(client, id=None, key="k", name="n")
+        assert cfg.id is None
+
+
+# ===================================================================
+# Config — settable items property
+# ===================================================================
+
+
+class TestConfigSettableItems:
+    def test_set_plain_values(self):
+        cfg = _make_config()
+        cfg.items = {"host": "localhost", "port": 5432}
+        assert cfg.items == {"host": "localhost", "port": 5432}
+        # Internally wrapped
+        assert cfg._items_raw == {"host": {"value": "localhost"}, "port": {"value": 5432}}
+
+    def test_set_already_wrapped_values(self):
+        cfg = _make_config()
+        cfg.items = {"host": {"value": "localhost", "type": "STRING"}}
+        assert cfg.items == {"host": "localhost"}
+        assert cfg._items_raw == {"host": {"value": "localhost", "type": "STRING"}}
+
+    def test_set_mixed_values(self):
+        cfg = _make_config()
+        cfg.items = {"host": "localhost", "port": {"value": 5432}}
+        assert cfg.items == {"host": "localhost", "port": 5432}
+
+    def test_items_raw_returns_copy(self):
+        cfg = _make_config()
+        raw = cfg.items_raw
+        raw["new_key"] = {"value": "should not leak"}
+        assert "new_key" not in cfg.items_raw
+
+
+# ===================================================================
+# Config — save()
+# ===================================================================
+
+
+class TestConfigSave:
+    def test_save_creates_when_id_is_none(self):
+        mock_client = MagicMock()
+        created = _make_config(id="new-id", name="Created Config")
+        mock_client._create_config.return_value = created
+
+        cfg = Config(mock_client, id=None, key="test", name="Test")
+        cfg.save()
+
+        mock_client._create_config.assert_called_once_with(cfg)
+        assert cfg.id == "new-id"
+        assert cfg.name == "Created Config"
+
+    def test_save_updates_when_id_is_set(self):
+        mock_client = MagicMock()
+        updated = _make_config(id="abc-123", name="Updated Config")
+        mock_client._update_config_from_model.return_value = updated
+
+        cfg = Config(mock_client, id="abc-123", key="test", name="Old Name")
+        cfg.save()
+
+        mock_client._update_config_from_model.assert_called_once_with(cfg)
+        assert cfg.name == "Updated Config"
+
+
+# ===================================================================
+# Config — _apply()
+# ===================================================================
+
+
+class TestConfigApply:
+    def test_apply_copies_all_fields(self):
+        import datetime
+
+        cfg = _make_config(id="old-id", key="old-key", name="Old")
+        other = _make_config(
+            id="new-id",
+            key="new-key",
+            name="New",
+            description="New desc",
+            parent="parent-id",
+            items={"host": {"value": "h"}},
+            environments={"prod": {"values": {"host": "prod-h"}}},
+        )
+        other.created_at = datetime.datetime(2025, 1, 1)
+        other.updated_at = datetime.datetime(2025, 6, 1)
+
+        cfg._apply(other)
+
+        assert cfg.id == "new-id"
+        assert cfg.key == "new-key"
+        assert cfg.name == "New"
+        assert cfg.description == "New desc"
+        assert cfg.parent == "parent-id"
+        assert cfg.items == {"host": "h"}
+        assert cfg.environments == {"prod": {"values": {"host": "prod-h"}}}
+        assert cfg.created_at == datetime.datetime(2025, 1, 1)
+        assert cfg.updated_at == datetime.datetime(2025, 6, 1)
+
+    def test_apply_copies_items_raw(self):
+        cfg = _make_config()
+        other = _make_config(items={"x": {"value": 99, "type": "NUMBER"}})
+        cfg._apply(other)
+        assert cfg._items_raw == {"x": {"value": 99, "type": "NUMBER"}}
+
+
+# ===================================================================
+# Config — _build_chain
+# ===================================================================
+
+
+class TestConfigBuildChain:
     def test_build_chain_no_parent(self):
         cfg = _make_config()
         chain = cfg._build_chain()
@@ -96,98 +215,15 @@ class TestConfig:
         assert len(chain) == 2
         assert chain[0]["id"] == "child-1"
         assert chain[1]["id"] == "parent-1"
-        mock_client.get.assert_called_once_with(id="parent-1")
-
-    def test_update_delegates_to_client(self):
-        mock_client = MagicMock()
-        updated = _make_config(name="Updated Name", description="new desc")
-        mock_client._update_config.return_value = updated
-
-        cfg = Config(
-            mock_client,
-            id="abc-123",
-            key="test_config",
-            name="Old Name",
-            items={"a": {"value": 1}},
-            environments={},
-        )
-        cfg.update(name="Updated Name", description="new desc")
-        mock_client._update_config.assert_called_once()
-        assert cfg.name == "Updated Name"
-
-    def test_set_items_base(self):
-        mock_client = MagicMock()
-        updated = _make_config(items={"x": {"value": 99}})
-        mock_client._update_config.return_value = updated
-
-        cfg = Config(
-            mock_client,
-            id="abc-123",
-            key="test_config",
-            name="Test",
-            items={"a": {"value": 1}},
-            environments={},
-        )
-        cfg.set_items({"x": {"value": 99}})
-        call_kwargs = mock_client._update_config.call_args[1]
-        assert call_kwargs["items"] == {"x": {"value": 99}}
-
-    def test_set_items_with_environment(self):
-        mock_client = MagicMock()
-        updated = _make_config(environments={"production": {"values": {"x": 99}}})
-        mock_client._update_config.return_value = updated
-
-        cfg = Config(
-            mock_client,
-            id="abc-123",
-            key="test_config",
-            name="Test",
-            items={"a": {"value": 1}},
-            environments={},
-        )
-        cfg.set_items({"x": 99}, environment="production")
-        call_kwargs = mock_client._update_config.call_args[1]
-        assert call_kwargs["environments"]["production"]["values"] == {"x": 99}
-
-    def test_set_value_base(self):
-        mock_client = MagicMock()
-        updated = _make_config(items={"a": {"value": 1}, "b": {"value": 2}})
-        mock_client._update_config.return_value = updated
-
-        cfg = Config(
-            mock_client,
-            id="abc-123",
-            key="test_config",
-            name="Test",
-            items={"a": {"value": 1}},
-            environments={},
-        )
-        cfg.set_value("b", 2)
-        call_kwargs = mock_client._update_config.call_args[1]
-        assert call_kwargs["items"] == {"a": {"value": 1}, "b": {"value": 2}}
-
-    def test_set_value_with_environment(self):
-        mock_client = MagicMock()
-        updated = _make_config(environments={"prod": {"values": {"flag": True}}})
-        mock_client._update_config.return_value = updated
-
-        cfg = Config(
-            mock_client,
-            id="abc-123",
-            key="test_config",
-            name="Test",
-            items={},
-            environments={"prod": {"values": {"existing": 1}}},
-        )
-        cfg.set_value("flag", True, environment="prod")
-        call_kwargs = mock_client._update_config.call_args[1]
-        assert call_kwargs["environments"]["prod"]["values"] == {
-            "existing": 1,
-            "flag": True,
-        }
+        mock_client.get.assert_called_once_with("parent-1")
 
 
-class TestAsyncConfig:
+# ===================================================================
+# AsyncConfig — attributes and basics
+# ===================================================================
+
+
+class TestAsyncConfigAttributes:
     def test_attributes(self):
         cfg = _make_async_config()
         assert cfg.id == "abc-123"
@@ -201,95 +237,119 @@ class TestAsyncConfig:
         assert "AsyncConfig(" in r
         assert "abc-123" in r
 
-    def test_update_delegates_to_client(self):
+    def test_id_can_be_none(self):
+        client = MagicMock()
+        cfg = AsyncConfig(client, id=None, key="k", name="n")
+        assert cfg.id is None
+
+
+# ===================================================================
+# AsyncConfig — settable items property
+# ===================================================================
+
+
+class TestAsyncConfigSettableItems:
+    def test_set_plain_values(self):
+        cfg = _make_async_config()
+        cfg.items = {"host": "localhost", "port": 5432}
+        assert cfg.items == {"host": "localhost", "port": 5432}
+        assert cfg._items_raw == {"host": {"value": "localhost"}, "port": {"value": 5432}}
+
+    def test_set_already_wrapped_values(self):
+        cfg = _make_async_config()
+        cfg.items = {"host": {"value": "localhost", "type": "STRING"}}
+        assert cfg.items == {"host": "localhost"}
+        assert cfg._items_raw == {"host": {"value": "localhost", "type": "STRING"}}
+
+    def test_set_mixed_values(self):
+        cfg = _make_async_config()
+        cfg.items = {"host": "localhost", "port": {"value": 5432}}
+        assert cfg.items == {"host": "localhost", "port": 5432}
+
+    def test_items_raw_returns_copy(self):
+        cfg = _make_async_config()
+        raw = cfg.items_raw
+        raw["new_key"] = {"value": "should not leak"}
+        assert "new_key" not in cfg.items_raw
+
+
+# ===================================================================
+# AsyncConfig — save()
+# ===================================================================
+
+
+class TestAsyncConfigSave:
+    def test_save_creates_when_id_is_none(self):
         mock_client = MagicMock()
-        updated = _make_async_config(name="Updated Name")
-        mock_client._update_config = AsyncMock(return_value=updated)
+        created = _make_async_config(id="new-id", name="Created Config")
+        mock_client._create_config = AsyncMock(return_value=created)
 
-        cfg = AsyncConfig(
-            mock_client,
-            id="abc-123",
-            key="test_config",
-            name="Old Name",
-            items={"a": {"value": 1}},
-            environments={},
-        )
+        cfg = AsyncConfig(mock_client, id=None, key="test", name="Test")
+        asyncio.run(cfg.save())
 
-        asyncio.run(cfg.update(name="Updated Name"))
-        mock_client._update_config.assert_called_once()
-        assert cfg.name == "Updated Name"
+        mock_client._create_config.assert_called_once_with(cfg)
+        assert cfg.id == "new-id"
+        assert cfg.name == "Created Config"
 
-    def test_set_items_base(self):
+    def test_save_updates_when_id_is_set(self):
         mock_client = MagicMock()
-        updated = _make_async_config(items={"x": {"value": 99}})
-        mock_client._update_config = AsyncMock(return_value=updated)
+        updated = _make_async_config(id="abc-123", name="Updated Config")
+        mock_client._update_config_from_model = AsyncMock(return_value=updated)
 
-        cfg = AsyncConfig(
-            mock_client,
-            id="abc-123",
-            key="test_config",
-            name="Test",
-            items={"a": {"value": 1}},
-            environments={},
+        cfg = AsyncConfig(mock_client, id="abc-123", key="test", name="Old Name")
+        asyncio.run(cfg.save())
+
+        mock_client._update_config_from_model.assert_called_once_with(cfg)
+        assert cfg.name == "Updated Config"
+
+
+# ===================================================================
+# AsyncConfig — _apply()
+# ===================================================================
+
+
+class TestAsyncConfigApply:
+    def test_apply_copies_all_fields(self):
+        import datetime
+
+        cfg = _make_async_config(id="old-id", key="old-key", name="Old")
+        other = _make_async_config(
+            id="new-id",
+            key="new-key",
+            name="New",
+            description="New desc",
+            parent="parent-id",
+            items={"host": {"value": "h"}},
+            environments={"prod": {"values": {"host": "prod-h"}}},
         )
-        asyncio.run(cfg.set_items({"x": {"value": 99}}))
-        call_kwargs = mock_client._update_config.call_args[1]
-        assert call_kwargs["items"] == {"x": {"value": 99}}
+        other.created_at = datetime.datetime(2025, 1, 1)
+        other.updated_at = datetime.datetime(2025, 6, 1)
 
-    def test_set_items_with_environment(self):
-        mock_client = MagicMock()
-        updated = _make_async_config(environments={"production": {"values": {"x": 99}}})
-        mock_client._update_config = AsyncMock(return_value=updated)
+        cfg._apply(other)
 
-        cfg = AsyncConfig(
-            mock_client,
-            id="abc-123",
-            key="test_config",
-            name="Test",
-            items={"a": {"value": 1}},
-            environments={},
-        )
-        asyncio.run(cfg.set_items({"x": 99}, environment="production"))
-        call_kwargs = mock_client._update_config.call_args[1]
-        assert call_kwargs["environments"]["production"]["values"] == {"x": 99}
+        assert cfg.id == "new-id"
+        assert cfg.key == "new-key"
+        assert cfg.name == "New"
+        assert cfg.description == "New desc"
+        assert cfg.parent == "parent-id"
+        assert cfg.items == {"host": "h"}
+        assert cfg.environments == {"prod": {"values": {"host": "prod-h"}}}
+        assert cfg.created_at == datetime.datetime(2025, 1, 1)
+        assert cfg.updated_at == datetime.datetime(2025, 6, 1)
 
-    def test_set_value_base(self):
-        mock_client = MagicMock()
-        updated = _make_async_config(items={"a": {"value": 1}, "b": {"value": 2}})
-        mock_client._update_config = AsyncMock(return_value=updated)
+    def test_apply_copies_items_raw(self):
+        cfg = _make_async_config()
+        other = _make_async_config(items={"x": {"value": 99, "type": "NUMBER"}})
+        cfg._apply(other)
+        assert cfg._items_raw == {"x": {"value": 99, "type": "NUMBER"}}
 
-        cfg = AsyncConfig(
-            mock_client,
-            id="abc-123",
-            key="test_config",
-            name="Test",
-            items={"a": {"value": 1}},
-            environments={},
-        )
-        asyncio.run(cfg.set_value("b", 2))
-        call_kwargs = mock_client._update_config.call_args[1]
-        assert call_kwargs["items"] == {"a": {"value": 1}, "b": {"value": 2}}
 
-    def test_set_value_with_environment(self):
-        mock_client = MagicMock()
-        updated = _make_async_config(environments={"prod": {"values": {"flag": True}}})
-        mock_client._update_config = AsyncMock(return_value=updated)
+# ===================================================================
+# AsyncConfig — _build_chain
+# ===================================================================
 
-        cfg = AsyncConfig(
-            mock_client,
-            id="abc-123",
-            key="test_config",
-            name="Test",
-            items={},
-            environments={"prod": {"values": {"existing": 1}}},
-        )
-        asyncio.run(cfg.set_value("flag", True, environment="prod"))
-        call_kwargs = mock_client._update_config.call_args[1]
-        assert call_kwargs["environments"]["prod"]["values"] == {
-            "existing": 1,
-            "flag": True,
-        }
 
+class TestAsyncConfigBuildChain:
     def test_build_chain_with_parent(self):
         parent_cfg = _make_async_config(
             id="parent-1",
@@ -319,7 +379,7 @@ class TestAsyncConfig:
             assert chain[1]["id"] == "parent-1"
 
         asyncio.run(_run())
-        mock_client.get.assert_called_once_with(id="parent-1")
+        mock_client.get.assert_called_once_with("parent-1")
 
     def test_build_chain_no_parent(self):
         cfg = _make_async_config()

@@ -1,4 +1,4 @@
-"""ConfigClient and AsyncConfigClient — management and prescriptive operations for configs."""
+"""ConfigClient and AsyncConfigClient — management and runtime operations for configs."""
 
 from __future__ import annotations
 
@@ -13,17 +13,16 @@ from uuid import UUID
 from smplkit._errors import (
     SmplConflictError,
     SmplConnectionError,
-    SmplNotConnectedError,
     SmplNotFoundError,
     SmplTimeoutError,
     SmplValidationError,
     _raise_for_status,
 )
+from smplkit._helpers import key_to_display_name
 from smplkit._resolver import resolve
 from smplkit._generated.config.api.configs import (
     create_config,
     delete_config,
-    get_config,
     list_configs,
     update_config,
 )
@@ -215,6 +214,22 @@ def _build_request_body(
     return ResponseConfig(data=resource)
 
 
+def _unflatten(flat: dict[str, Any]) -> dict[str, Any]:
+    """Convert dot-notation keys to a nested dict.
+
+    ``{"database.host": "localhost", "database.port": 5432}``
+    becomes ``{"database": {"host": "localhost", "port": 5432}}``.
+    """
+    nested: dict[str, Any] = {}
+    for key, value in flat.items():
+        parts = key.split(".")
+        current = nested
+        for part in parts[:-1]:
+            current = current.setdefault(part, {})
+        current[parts[-1]] = value
+    return nested
+
+
 class ConfigChangeEvent:
     """Describes a single config value change.
 
@@ -248,11 +263,74 @@ class ConfigChangeEvent:
         )
 
 
-class ConfigClient:
-    """Synchronous management and prescriptive client for Smpl Config.
+class LiveConfigProxy:
+    """A live proxy that reads from the config cache on every access.
 
-    Provides CRUD operations on config resources and prescriptive
-    value access after ``client.connect()``.  Obtained via
+    Returned by :meth:`ConfigClient.subscribe` and
+    :meth:`AsyncConfigClient.subscribe`.
+
+    Attribute access returns the current resolved value for the given
+    item key. If a *model* was provided, attributes are unflattened and
+    the model is reconstructed lazily on access.
+
+    Supports both ``proxy.attr`` and ``proxy["key"]`` access styles.
+    """
+
+    def __init__(
+        self,
+        client: ConfigClient | AsyncConfigClient,
+        config_key: str,
+        model: type | None = None,
+    ) -> None:
+        object.__setattr__(self, "_client", client)
+        object.__setattr__(self, "_config_key", config_key)
+        object.__setattr__(self, "_model", model)
+
+    def _current_values(self) -> dict[str, Any]:
+        """Read the current resolved values from the client cache."""
+        client = object.__getattribute__(self, "_client")
+        config_key = object.__getattribute__(self, "_config_key")
+        return dict(client._config_cache.get(config_key, {}))
+
+    def _build_model(self) -> Any:
+        """Build a model instance from current values, if a model was given."""
+        model = object.__getattribute__(self, "_model")
+        values = self._current_values()
+        if model is None:
+            return values
+        nested = _unflatten(values)
+        if hasattr(model, "model_validate"):
+            return model.model_validate(nested)
+        return model(**nested)
+
+    def __getattr__(self, name: str) -> Any:
+        model = object.__getattribute__(self, "_model")
+        if model is not None:
+            instance = self._build_model()
+            return getattr(instance, name)
+        values = self._current_values()
+        try:
+            return values[name]
+        except KeyError:
+            raise AttributeError(f"No config item {name!r}") from None
+
+    def __getitem__(self, key: str) -> Any:
+        values = self._current_values()
+        return values[key]
+
+    def __repr__(self) -> str:
+        config_key = object.__getattribute__(self, "_config_key")
+        model = object.__getattribute__(self, "_model")
+        if model is not None:
+            return f"LiveConfigProxy(config_key={config_key!r}, model={model.__name__})"
+        return f"LiveConfigProxy(config_key={config_key!r})"
+
+
+class ConfigClient:
+    """Synchronous management and runtime client for Smpl Config.
+
+    Provides CRUD operations on config resources and runtime value
+    resolution via :meth:`resolve` and :meth:`subscribe`.  Obtained via
     ``SmplClient(...).config``.
 
     Raises:
@@ -270,8 +348,10 @@ class ConfigClient:
     def _connect_internal(self) -> None:
         """Fetch all configs, resolve values for the environment, and cache.
 
-        Called by :meth:`SmplClient.connect`.
+        Idempotent — returns immediately if already connected.
         """
+        if self._connected:
+            return
         configs = self.list()
         environment = self._parent._environment
         cache: dict[str, dict[str, Any]] = {}
@@ -282,116 +362,178 @@ class ConfigClient:
             self._config_cache = cache
         self._connected = True
 
-    def get(self, *args: str, key: str | None = None, id: str | None = None, default: Any = None) -> Any:
-        """Fetch a config by key/UUID (management) or read a resolved value (prescriptive).
+    # ------------------------------------------------------------------
+    # CRUD
+    # ------------------------------------------------------------------
 
-        **Prescriptive mode** (positional args)::
+    def new(
+        self,
+        key: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        parent: str | None = None,
+    ) -> Config:
+        """Return an unsaved :class:`Config` with ``id=None``.
 
-            value = client.config.get("db_connection", "host")
-            all_values = client.config.get("db_connection")
-
-        Requires :meth:`SmplClient.connect` to have been called.
-
-        **Management mode** (keyword args)::
-
-            cfg = client.config.get(key="db_connection")
-            cfg = client.config.get(id="some-uuid")
-
-        Works without ``connect()``.
+        Call :meth:`Config.save` to persist it.
 
         Args:
-            *args: Positional args for prescriptive access:
-                ``(config_key,)`` or ``(config_key, item_key)``.
-            key: The human-readable config key for management access.
-            id: The config UUID for management access.
-            default: Default value for prescriptive access when key is missing.
+            key: Human-readable key.
+            name: Display name. Auto-generated from *key* if omitted.
+            description: Optional description.
+            parent: Parent config UUID, or ``None``.
 
         Returns:
-            In prescriptive mode: the resolved value, a dict of all values,
-            or *default*.
-            In management mode: the matching :class:`Config`.
+            A new :class:`Config` that has not yet been saved.
+        """
+        return Config(
+            self,
+            id=None,
+            key=key,
+            name=name or key_to_display_name(key),
+            description=description,
+            parent=parent,
+        )
+
+    def get(self, key: str) -> Config:
+        """Fetch a config by key.
+
+        Uses the list endpoint with a ``filterkey`` to look up the
+        config by its human-readable key.
+
+        Args:
+            key: The human-readable config key.
+
+        Returns:
+            The matching :class:`Config`.
 
         Raises:
-            SmplNotConnectedError: If prescriptive mode is used before connect.
-            ValueError: If management args are ambiguous.
-            SmplNotFoundError: If no matching config exists (management mode).
+            SmplNotFoundError: If no matching config exists.
         """
-        if args:
-            # Prescriptive mode: get("db_connection", "host")
-            if not self._connected:
-                raise SmplNotConnectedError("SmplClient is not connected. Call client.connect() first.")
-            config_key = args[0]
-            item_key = args[1] if len(args) > 1 else None
-            resolved = self._config_cache.get(config_key)
-            if resolved is None:
-                return default
-            if item_key is None:
-                return dict(resolved)
-            return resolved.get(item_key, default)
-
-        # Management mode
-        if (key is None) == (id is None):
-            raise ValueError("Exactly one of 'key' or 'id' must be provided.")
-
         try:
-            if id is not None:
-                return self._get_by_id(id)
-            return self._get_by_key(key)  # type: ignore[arg-type]
+            response = list_configs.sync_detailed(
+                client=self._parent._http_client,
+                filterkey=key,
+            )
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            raise SmplNotFoundError(f"Config with key '{key}' not found")
+        items = response.parsed.data
+        if not items:
+            raise SmplNotFoundError(f"Config with key '{key}' not found")
+        return self._resource_to_model(items[0])
 
-    def get_str(self, config_key: str, item_key: str, *, default: str | None = None) -> str | None:
-        """Return a config value if it is a string, else *default*.
+    def list(self) -> list[Config]:
+        """List all configs for the account.
 
-        Requires :meth:`SmplClient.connect`.
+        Returns:
+            A list of :class:`Config` objects.
         """
-        value = self.get(config_key, item_key)
-        return value if isinstance(value, str) else default
+        try:
+            response = list_configs.sync_detailed(
+                client=self._parent._http_client,
+            )
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [self._resource_to_model(r) for r in response.parsed.data]
 
-    def get_int(self, config_key: str, item_key: str, *, default: int | None = None) -> int | None:
-        """Return a config value if it is an int, else *default*.
+    def delete(self, key: str) -> None:
+        """Delete a config by key.
 
-        Bools are excluded (``isinstance(True, int)`` is ``True`` in Python).
-        Requires :meth:`SmplClient.connect`.
+        Resolves the key to a UUID via :meth:`get`, then deletes by UUID.
+
+        Args:
+            key: The human-readable config key.
+
+        Raises:
+            SmplNotFoundError: If the config does not exist.
+            SmplConflictError: If the config has children.
         """
-        value = self.get(config_key, item_key)
-        return value if isinstance(value, int) and not isinstance(value, bool) else default
+        config = self.get(key)
+        try:
+            response = delete_config.sync_detailed(
+                UUID(config.id),
+                client=self._parent._http_client,
+            )
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
 
-    def get_bool(self, config_key: str, item_key: str, *, default: bool | None = None) -> bool | None:
-        """Return a config value if it is a bool, else *default*.
+    # ------------------------------------------------------------------
+    # Runtime: resolve / subscribe
+    # ------------------------------------------------------------------
 
-        Requires :meth:`SmplClient.connect`.
+    def resolve(self, key: str, model: type | None = None) -> Any:
+        """Return resolved config values for *key*.
+
+        Triggers lazy init via :meth:`_connect_internal` on first call.
+
+        If *model* is ``None``, returns a flat ``dict[str, Any]`` of
+        resolved values.
+
+        If *model* is provided, dot-notation keys are unflattened into a
+        nested dict and the model is constructed:
+
+        - If the model has a ``model_validate`` classmethod (Pydantic),
+          ``model.model_validate(nested)`` is called.
+        - Otherwise, ``model(**nested)`` is called (dataclasses, etc.).
+
+        Args:
+            key: The config key to resolve.
+            model: Optional model class to construct from resolved values.
+
+        Returns:
+            A flat dict, or an instance of *model*.
         """
-        value = self.get(config_key, item_key)
-        return value if isinstance(value, bool) else default
+        self._connect_internal()
+        values = dict(self._config_cache.get(key, {}))
+        if model is None:
+            return values
+        nested = _unflatten(values)
+        if hasattr(model, "model_validate"):
+            return model.model_validate(nested)
+        return model(**nested)
 
-    def get_float(self, config_key: str, item_key: str, *, default: float | None = None) -> float | None:
-        """Return a config value if it is a float or int, else *default*.
+    def subscribe(self, key: str, model: type | None = None) -> LiveConfigProxy:
+        """Return a :class:`LiveConfigProxy` for *key*.
 
-        Bools are excluded. Ints are promoted to float.
-        Requires :meth:`SmplClient.connect`.
+        The proxy delegates to the latest cache state on every access,
+        so values update automatically after :meth:`refresh`.
+
+        Triggers lazy init via :meth:`_connect_internal` on first call.
+
+        Args:
+            key: The config key to subscribe to.
+            model: Optional model class — if provided, attribute access
+                reconstructs the model from the latest cache values.
+
+        Returns:
+            A :class:`LiveConfigProxy`.
         """
-        value = self.get(config_key, item_key)
-        if isinstance(value, bool):
-            return default
-        if isinstance(value, (int, float)):
-            return float(value)
-        return default
+        self._connect_internal()
+        return LiveConfigProxy(self, key, model)
+
+    # ------------------------------------------------------------------
+    # Runtime: refresh / change listeners
+    # ------------------------------------------------------------------
 
     def refresh(self) -> None:
         """Re-fetch all configs, re-resolve for the environment, and update the cache.
 
         Fires change listeners for any values that differ from the previous cache.
 
-        Requires :meth:`SmplClient.connect` to have been called at least once.
-
         Raises:
-            SmplNotConnectedError: If called before connect.
             SmplConnectionError: If the HTTP fetch fails.
         """
-        if not self._connected:
-            raise SmplNotConnectedError("SmplClient is not connected. Call client.connect() first.")
         configs = self.list()
         environment = self._parent._environment
         new_cache: dict[str, dict[str, Any]] = {}
@@ -403,21 +545,36 @@ class ConfigClient:
             self._config_cache = new_cache
         self._fire_change_listeners(old_cache, new_cache, source="manual")
 
-    def on_change(
-        self,
-        callback: Callable[[ConfigChangeEvent], None],
-        *,
-        config_key: str | None = None,
-        item_key: str | None = None,
-    ) -> None:
-        """Register a listener that fires when a config value changes.
+    def on_change(self, fn_or_key: Callable[[ConfigChangeEvent], None] | str | None = None, *, item_key: str | None = None) -> Any:
+        """Register a change listener (dual-mode decorator).
 
-        Args:
-            callback: Called with a :class:`ConfigChangeEvent` on change.
-            config_key: If provided, only fire for changes to this config.
-            item_key: If provided, only fire for changes to this item key.
+        Supports three forms:
+
+        - ``@client.config.on_change`` — global listener (bare decorator).
+        - ``@client.config.on_change("key")`` — config-scoped listener.
+        - ``@client.config.on_change("key", item_key="field")`` — item-scoped.
         """
-        self._listeners.append((callback, config_key, item_key))
+        if callable(fn_or_key):
+            # @on_change (bare decorator)
+            self._listeners.append((fn_or_key, None, None))
+            return fn_or_key
+        elif isinstance(fn_or_key, str):
+            # @on_change("key") or @on_change("key", item_key="field")
+            config_key = fn_or_key
+
+            def decorator(fn: Callable[[ConfigChangeEvent], None]) -> Callable[[ConfigChangeEvent], None]:
+                self._listeners.append((fn, config_key, item_key))
+                return fn
+
+            return decorator
+        else:
+            # @on_change() — called with parens but no args
+
+            def decorator(fn: Callable[[ConfigChangeEvent], None]) -> Callable[[ConfigChangeEvent], None]:
+                self._listeners.append((fn, None, None))
+                return fn
+
+            return decorator
 
     def _fire_change_listeners(
         self,
@@ -459,62 +616,18 @@ class ConfigClient:
                             exc_info=True,
                         )
 
-    def _get_by_id(self, config_id: str) -> Config:
-        """Fetch a config by UUID."""
-        response = get_config.sync_detailed(
-            UUID(config_id),
-            client=self._parent._http_client,
-        )
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            raise SmplNotFoundError(f"Config {config_id} not found")
-        return self._to_model(response.parsed)
+    # ------------------------------------------------------------------
+    # Internal: create / update for Config.save()
+    # ------------------------------------------------------------------
 
-    def _get_by_key(self, key: str) -> Config:
-        """Fetch a config by key using the list endpoint with a filter."""
-        response = list_configs.sync_detailed(
-            client=self._parent._http_client,
-            filterkey=key,
-        )
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            raise SmplNotFoundError(f"Config with key '{key}' not found")
-        items = response.parsed.data
-        if not items:
-            raise SmplNotFoundError(f"Config with key '{key}' not found")
-        return self._resource_to_model(items[0])
-
-    def create(
-        self,
-        *,
-        name: str,
-        key: str | None = None,
-        description: str | None = None,
-        parent: str | None = None,
-        items: dict[str, Any] | None = None,
-    ) -> Config:
-        """Create a new config.
-
-        Args:
-            name: Display name for the config.
-            key: Human-readable key. Auto-generated if omitted.
-            description: Optional description.
-            parent: Parent config UUID. Defaults to the account's common
-                config if omitted.
-            items: Initial items in typed shape ``{key: {value, type, desc}}``.
-
-        Returns:
-            The created :class:`Config`.
-
-        Raises:
-            SmplValidationError: If the server rejects the request.
-        """
+    def _create_config(self, config: Config) -> Config:
+        """Internal: POST a new config from a Config model (for Config.save)."""
         body = _build_request_body(
-            name=name,
-            key=key,
-            description=description,
-            parent=parent,
-            items=items,
+            name=config.name,
+            key=config.key,
+            description=config.description,
+            parent=config.parent,
+            items=config._items_raw,
         )
         try:
             response = create_config.sync_detailed(
@@ -532,68 +645,20 @@ class ConfigClient:
             )
         return self._to_model(response.parsed)
 
-    def list(self) -> list[Config]:
-        """List all configs for the account.
-
-        Returns:
-            A list of :class:`Config` objects.
-        """
-        try:
-            response = list_configs.sync_detailed(
-                client=self._parent._http_client,
-            )
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [self._resource_to_model(r) for r in response.parsed.data]
-
-    def delete(self, config_id: str) -> None:
-        """Delete a config by UUID.
-
-        Args:
-            config_id: The UUID of the config to delete.
-
-        Raises:
-            SmplNotFoundError: If the config does not exist.
-            SmplConflictError: If the config has children.
-        """
-        try:
-            response = delete_config.sync_detailed(
-                UUID(config_id),
-                client=self._parent._http_client,
-            )
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-
-    def _update_config(
-        self,
-        *,
-        config_id: str,
-        name: str,
-        key: str | None = None,
-        description: str | None = None,
-        parent: str | None = None,
-        items: dict[str, Any] | None = None,
-        environments: dict[str, Any] | None = None,
-    ) -> Config:
-        """Internal: PUT a full config update and return the updated model."""
+    def _update_config_from_model(self, config: Config) -> Config:
+        """Internal: PUT a config update from a Config model (for Config.save)."""
         body = _build_request_body(
-            config_id=config_id,
-            name=name,
-            key=key,
-            description=description,
-            parent=parent,
-            items=items,
-            environments=environments,
+            config_id=config.id,
+            name=config.name,
+            key=config.key,
+            description=config.description,
+            parent=config.parent,
+            items=config._items_raw,
+            environments=config.environments,
         )
         try:
             response = update_config.sync_detailed(
-                UUID(config_id),
+                UUID(config.id),
                 client=self._parent._http_client,
                 body=body,
             )
@@ -607,6 +672,10 @@ class ConfigClient:
                 f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
             )
         return self._to_model(response.parsed)
+
+    # ------------------------------------------------------------------
+    # Internal: model conversion
+    # ------------------------------------------------------------------
 
     def _to_model(self, parsed: Any) -> Config:
         """Convert a ConfigResponse (single resource) to a Config model."""
@@ -630,10 +699,10 @@ class ConfigClient:
 
 
 class AsyncConfigClient:
-    """Asynchronous management and prescriptive client for Smpl Config.
+    """Asynchronous management and runtime client for Smpl Config.
 
-    Provides CRUD operations on config resources and prescriptive
-    value access after ``client.connect()``.  Obtained via
+    Provides CRUD operations on config resources and runtime value
+    resolution via :meth:`resolve` and :meth:`subscribe`.  Obtained via
     ``AsyncSmplClient(...).config``.
 
     Raises:
@@ -651,8 +720,10 @@ class AsyncConfigClient:
     async def _connect_internal(self) -> None:
         """Fetch all configs, resolve values for the environment, and cache.
 
-        Called by :meth:`AsyncSmplClient.connect`.
+        Idempotent — returns immediately if already connected.
         """
+        if self._connected:
+            return
         configs = await self.list()
         environment = self._parent._environment
         cache: dict[str, dict[str, Any]] = {}
@@ -663,96 +734,172 @@ class AsyncConfigClient:
             self._config_cache = cache
         self._connected = True
 
-    async def get(self, *args: str, key: str | None = None, id: str | None = None, default: Any = None) -> Any:
-        """Fetch a config by key/UUID (management) or read a resolved value (prescriptive).
+    # ------------------------------------------------------------------
+    # CRUD
+    # ------------------------------------------------------------------
 
-        **Prescriptive mode** (positional args)::
+    def new(
+        self,
+        key: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        parent: str | None = None,
+    ) -> AsyncConfig:
+        """Return an unsaved :class:`AsyncConfig` with ``id=None``.
 
-            value = await client.config.get("db_connection", "host")
+        Call :meth:`AsyncConfig.save` to persist it.
 
-        Requires :meth:`AsyncSmplClient.connect` to have been called.
+        Args:
+            key: Human-readable key.
+            name: Display name. Auto-generated from *key* if omitted.
+            description: Optional description.
+            parent: Parent config UUID, or ``None``.
 
-        **Management mode** (keyword args)::
-
-            cfg = await client.config.get(key="db_connection")
-
-        Works without ``connect()``.
+        Returns:
+            A new :class:`AsyncConfig` that has not yet been saved.
         """
-        if args:
-            # Prescriptive mode: get("db_connection", "host")
-            if not self._connected:
-                raise SmplNotConnectedError("SmplClient is not connected. Call client.connect() first.")
-            config_key = args[0]
-            item_key = args[1] if len(args) > 1 else None
-            resolved = self._config_cache.get(config_key)
-            if resolved is None:
-                return default
-            if item_key is None:
-                return dict(resolved)
-            return resolved.get(item_key, default)
+        return AsyncConfig(
+            self,
+            id=None,
+            key=key,
+            name=name or key_to_display_name(key),
+            description=description,
+            parent=parent,
+        )
 
-        # Management mode
-        if (key is None) == (id is None):
-            raise ValueError("Exactly one of 'key' or 'id' must be provided.")
+    async def get(self, key: str) -> AsyncConfig:
+        """Fetch a config by key.
 
+        Uses the list endpoint with a ``filterkey`` to look up the
+        config by its human-readable key.
+
+        Args:
+            key: The human-readable config key.
+
+        Returns:
+            The matching :class:`AsyncConfig`.
+
+        Raises:
+            SmplNotFoundError: If no matching config exists.
+        """
         try:
-            if id is not None:
-                return await self._get_by_id(id)
-            return await self._get_by_key(key)  # type: ignore[arg-type]
+            response = await list_configs.asyncio_detailed(
+                client=self._parent._http_client,
+                filterkey=key,
+            )
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            raise SmplNotFoundError(f"Config with key '{key}' not found")
+        items = response.parsed.data
+        if not items:
+            raise SmplNotFoundError(f"Config with key '{key}' not found")
+        return self._resource_to_model(items[0])
 
-    async def get_str(self, config_key: str, item_key: str, *, default: str | None = None) -> str | None:
-        """Return a config value if it is a string, else *default*.
+    async def list(self) -> list[AsyncConfig]:
+        """List all configs for the account.
 
-        Requires :meth:`AsyncSmplClient.connect`.
+        Returns:
+            A list of :class:`AsyncConfig` objects.
         """
-        value = await self.get(config_key, item_key)
-        return value if isinstance(value, str) else default
+        try:
+            response = await list_configs.asyncio_detailed(
+                client=self._parent._http_client,
+            )
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [self._resource_to_model(r) for r in response.parsed.data]
 
-    async def get_int(self, config_key: str, item_key: str, *, default: int | None = None) -> int | None:
-        """Return a config value if it is an int, else *default*.
+    async def delete(self, key: str) -> None:
+        """Delete a config by key.
 
-        Bools are excluded. Requires :meth:`AsyncSmplClient.connect`.
+        Resolves the key to a UUID via :meth:`get`, then deletes by UUID.
+
+        Args:
+            key: The human-readable config key.
+
+        Raises:
+            SmplNotFoundError: If the config does not exist.
+            SmplConflictError: If the config has children.
         """
-        value = await self.get(config_key, item_key)
-        return value if isinstance(value, int) and not isinstance(value, bool) else default
+        config = await self.get(key)
+        try:
+            response = await delete_config.asyncio_detailed(
+                UUID(config.id),
+                client=self._parent._http_client,
+            )
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
 
-    async def get_bool(self, config_key: str, item_key: str, *, default: bool | None = None) -> bool | None:
-        """Return a config value if it is a bool, else *default*.
+    # ------------------------------------------------------------------
+    # Runtime: resolve / subscribe
+    # ------------------------------------------------------------------
 
-        Requires :meth:`AsyncSmplClient.connect`.
+    async def resolve(self, key: str, model: type | None = None) -> Any:
+        """Return resolved config values for *key*.
+
+        Triggers lazy init via :meth:`_connect_internal` on first call.
+
+        If *model* is ``None``, returns a flat ``dict[str, Any]`` of
+        resolved values.
+
+        If *model* is provided, dot-notation keys are unflattened into a
+        nested dict and the model is constructed.
+
+        Args:
+            key: The config key to resolve.
+            model: Optional model class to construct from resolved values.
+
+        Returns:
+            A flat dict, or an instance of *model*.
         """
-        value = await self.get(config_key, item_key)
-        return value if isinstance(value, bool) else default
+        await self._connect_internal()
+        values = dict(self._config_cache.get(key, {}))
+        if model is None:
+            return values
+        nested = _unflatten(values)
+        if hasattr(model, "model_validate"):
+            return model.model_validate(nested)
+        return model(**nested)
 
-    async def get_float(self, config_key: str, item_key: str, *, default: float | None = None) -> float | None:
-        """Return a config value if it is a float or int, else *default*.
+    async def subscribe(self, key: str, model: type | None = None) -> LiveConfigProxy:
+        """Return a :class:`LiveConfigProxy` for *key*.
 
-        Bools are excluded. Ints are promoted to float.
-        Requires :meth:`AsyncSmplClient.connect`.
+        The proxy delegates to the latest cache state on every access.
+
+        Triggers lazy init via :meth:`_connect_internal` on first call.
+
+        Args:
+            key: The config key to subscribe to.
+            model: Optional model class.
+
+        Returns:
+            A :class:`LiveConfigProxy`.
         """
-        value = await self.get(config_key, item_key)
-        if isinstance(value, bool):
-            return default
-        if isinstance(value, (int, float)):
-            return float(value)
-        return default
+        await self._connect_internal()
+        return LiveConfigProxy(self, key, model)
+
+    # ------------------------------------------------------------------
+    # Runtime: refresh / change listeners
+    # ------------------------------------------------------------------
 
     async def refresh(self) -> None:
         """Re-fetch all configs, re-resolve for the environment, and update the cache.
 
         Fires change listeners for any values that differ from the previous cache.
 
-        Requires :meth:`AsyncSmplClient.connect`.
-
         Raises:
-            SmplNotConnectedError: If called before connect.
             SmplConnectionError: If the HTTP fetch fails.
         """
-        if not self._connected:
-            raise SmplNotConnectedError("SmplClient is not connected. Call client.connect() first.")
         configs = await self.list()
         environment = self._parent._environment
         new_cache: dict[str, dict[str, Any]] = {}
@@ -764,21 +911,36 @@ class AsyncConfigClient:
             self._config_cache = new_cache
         self._fire_change_listeners(old_cache, new_cache, source="manual")
 
-    def on_change(
-        self,
-        callback: Callable[[ConfigChangeEvent], None],
-        *,
-        config_key: str | None = None,
-        item_key: str | None = None,
-    ) -> None:
-        """Register a listener that fires when a config value changes.
+    def on_change(self, fn_or_key: Callable[[ConfigChangeEvent], None] | str | None = None, *, item_key: str | None = None) -> Any:
+        """Register a change listener (dual-mode decorator).
 
-        Args:
-            callback: Called with a :class:`ConfigChangeEvent` on change.
-            config_key: If provided, only fire for changes to this config.
-            item_key: If provided, only fire for changes to this item key.
+        Supports three forms:
+
+        - ``@client.config.on_change`` — global listener (bare decorator).
+        - ``@client.config.on_change("key")`` — config-scoped listener.
+        - ``@client.config.on_change("key", item_key="field")`` — item-scoped.
         """
-        self._listeners.append((callback, config_key, item_key))
+        if callable(fn_or_key):
+            # @on_change (bare decorator)
+            self._listeners.append((fn_or_key, None, None))
+            return fn_or_key
+        elif isinstance(fn_or_key, str):
+            # @on_change("key") or @on_change("key", item_key="field")
+            config_key = fn_or_key
+
+            def decorator(fn: Callable[[ConfigChangeEvent], None]) -> Callable[[ConfigChangeEvent], None]:
+                self._listeners.append((fn, config_key, item_key))
+                return fn
+
+            return decorator
+        else:
+            # @on_change() — called with parens but no args
+
+            def decorator(fn: Callable[[ConfigChangeEvent], None]) -> Callable[[ConfigChangeEvent], None]:
+                self._listeners.append((fn, None, None))
+                return fn
+
+            return decorator
 
     def _fire_change_listeners(
         self,
@@ -820,62 +982,18 @@ class AsyncConfigClient:
                             exc_info=True,
                         )
 
-    async def _get_by_id(self, config_id: str) -> AsyncConfig:
-        """Fetch a config by UUID."""
-        response = await get_config.asyncio_detailed(
-            UUID(config_id),
-            client=self._parent._http_client,
-        )
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            raise SmplNotFoundError(f"Config {config_id} not found")
-        return self._to_model(response.parsed)
+    # ------------------------------------------------------------------
+    # Internal: create / update for AsyncConfig.save()
+    # ------------------------------------------------------------------
 
-    async def _get_by_key(self, key: str) -> AsyncConfig:
-        """Fetch a config by key using the list endpoint with a filter."""
-        response = await list_configs.asyncio_detailed(
-            client=self._parent._http_client,
-            filterkey=key,
-        )
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            raise SmplNotFoundError(f"Config with key '{key}' not found")
-        items = response.parsed.data
-        if not items:
-            raise SmplNotFoundError(f"Config with key '{key}' not found")
-        return self._resource_to_model(items[0])
-
-    async def create(
-        self,
-        *,
-        name: str,
-        key: str | None = None,
-        description: str | None = None,
-        parent: str | None = None,
-        items: dict[str, Any] | None = None,
-    ) -> AsyncConfig:
-        """Create a new config.
-
-        Args:
-            name: Display name for the config.
-            key: Human-readable key. Auto-generated if omitted.
-            description: Optional description.
-            parent: Parent config UUID. Defaults to the account's common
-                config if omitted.
-            items: Initial items in typed shape ``{key: {value, type, desc}}``.
-
-        Returns:
-            The created :class:`AsyncConfig`.
-
-        Raises:
-            SmplValidationError: If the server rejects the request.
-        """
+    async def _create_config(self, config: AsyncConfig) -> AsyncConfig:
+        """Internal: POST a new config from an AsyncConfig model (for AsyncConfig.save)."""
         body = _build_request_body(
-            name=name,
-            key=key,
-            description=description,
-            parent=parent,
-            items=items,
+            name=config.name,
+            key=config.key,
+            description=config.description,
+            parent=config.parent,
+            items=config._items_raw,
         )
         try:
             response = await create_config.asyncio_detailed(
@@ -893,68 +1011,20 @@ class AsyncConfigClient:
             )
         return self._to_model(response.parsed)
 
-    async def list(self) -> list[AsyncConfig]:
-        """List all configs for the account.
-
-        Returns:
-            A list of :class:`AsyncConfig` objects.
-        """
-        try:
-            response = await list_configs.asyncio_detailed(
-                client=self._parent._http_client,
-            )
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [self._resource_to_model(r) for r in response.parsed.data]
-
-    async def delete(self, config_id: str) -> None:
-        """Delete a config by UUID.
-
-        Args:
-            config_id: The UUID of the config to delete.
-
-        Raises:
-            SmplNotFoundError: If the config does not exist.
-            SmplConflictError: If the config has children.
-        """
-        try:
-            response = await delete_config.asyncio_detailed(
-                UUID(config_id),
-                client=self._parent._http_client,
-            )
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-
-    async def _update_config(
-        self,
-        *,
-        config_id: str,
-        name: str,
-        key: str | None = None,
-        description: str | None = None,
-        parent: str | None = None,
-        items: dict[str, Any] | None = None,
-        environments: dict[str, Any] | None = None,
-    ) -> AsyncConfig:
-        """Internal: PUT a full config update and return the updated model."""
+    async def _update_config_from_model(self, config: AsyncConfig) -> AsyncConfig:
+        """Internal: PUT a config update from an AsyncConfig model (for AsyncConfig.save)."""
         body = _build_request_body(
-            config_id=config_id,
-            name=name,
-            key=key,
-            description=description,
-            parent=parent,
-            items=items,
-            environments=environments,
+            config_id=config.id,
+            name=config.name,
+            key=config.key,
+            description=config.description,
+            parent=config.parent,
+            items=config._items_raw,
+            environments=config.environments,
         )
         try:
             response = await update_config.asyncio_detailed(
-                UUID(config_id),
+                UUID(config.id),
                 client=self._parent._http_client,
                 body=body,
             )
@@ -968,6 +1038,10 @@ class AsyncConfigClient:
                 f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
             )
         return self._to_model(response.parsed)
+
+    # ------------------------------------------------------------------
+    # Internal: model conversion
+    # ------------------------------------------------------------------
 
     def _to_model(self, parsed: Any) -> AsyncConfig:
         """Convert a ConfigResponse (single resource) to an AsyncConfig model."""

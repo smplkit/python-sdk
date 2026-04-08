@@ -1,29 +1,42 @@
 """smplkit — Official Python SDK for the smplkit platform."""
 
+import enum
+
 from smplkit.client import AsyncSmplClient, SmplClient
 from smplkit._errors import (
     ApiErrorDetail,
     SmplError,
     SmplConnectionError,
     SmplConflictError,
-    SmplNotConnectedError,
     SmplNotFoundError,
     SmplTimeoutError,
     SmplValidationError,
 )
-from smplkit.flags.types import Context, FlagType, Rule
+from smplkit.flags.types import Context, Rule
+
+
+class LogLevel(str, enum.Enum):
+    """Log severity levels used by the Smpl Logging service."""
+
+    TRACE = "TRACE"
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    WARN = "WARN"
+    ERROR = "ERROR"
+    FATAL = "FATAL"
+    SILENT = "SILENT"
+
 
 __all__ = [
     "ApiErrorDetail",
     "AsyncSmplClient",
     "Context",
-    "FlagType",
+    "LogLevel",
     "Rule",
     "SmplClient",
     "SmplError",
     "SmplConnectionError",
     "SmplConflictError",
-    "SmplNotConnectedError",
     "SmplNotFoundError",
     "SmplTimeoutError",
     "SmplValidationError",

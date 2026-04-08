@@ -1,13 +1,12 @@
-"""Tests for prescriptive config access: typed accessors, refresh, change listeners."""
+"""Tests for prescriptive config access: resolve, subscribe, LiveConfigProxy, change listeners."""
 
 import asyncio
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from smplkit._errors import SmplNotConnectedError
 from smplkit.client import AsyncSmplClient, SmplClient
-from smplkit.config.client import ConfigChangeEvent
+from smplkit.config.client import ConfigChangeEvent, LiveConfigProxy
 
 
 # ---------------------------------------------------------------------------
@@ -15,9 +14,9 @@ from smplkit.config.client import ConfigChangeEvent
 # ---------------------------------------------------------------------------
 
 
-def _make_connected_client(cache: dict | None = None):
+def _make_connected_client(cache=None):
     """Create a SmplClient with a pre-populated config cache."""
-    client = SmplClient(api_key="sk_test", environment="production")
+    client = SmplClient(api_key="sk_test", environment="production", service="svc")
     if cache is None:
         cache = {
             "db": {
@@ -34,9 +33,9 @@ def _make_connected_client(cache: dict | None = None):
     return client
 
 
-def _make_connected_async_client(cache: dict | None = None):
+def _make_connected_async_client(cache=None):
     """Create an AsyncSmplClient with a pre-populated config cache."""
-    client = AsyncSmplClient(api_key="sk_test", environment="production")
+    client = AsyncSmplClient(api_key="sk_test", environment="production", service="svc")
     if cache is None:
         cache = {
             "db": {
@@ -54,132 +53,285 @@ def _make_connected_async_client(cache: dict | None = None):
 
 
 # ===================================================================
-# 1. Typed accessors — sync
+# 1. resolve() — sync
 # ===================================================================
 
 
-class TestTypedAccessorsSync:
-    def test_get_str_returns_string(self):
+class TestResolveSyncPrescriptive:
+    def test_resolve_returns_flat_dict(self):
         client = _make_connected_client()
-        assert client.config.get_str("db", "name") == "test"
+        result = client.config.resolve("db")
+        assert result == {
+            "host": "localhost",
+            "port": 5432,
+            "retries": 3,
+            "enabled": True,
+            "name": "test",
+            "ratio": 0.75,
+        }
 
-    def test_get_str_returns_default_for_non_string(self):
+    def test_resolve_returns_empty_for_missing_config(self):
         client = _make_connected_client()
-        assert client.config.get_str("db", "port", default="nope") == "nope"
+        assert client.config.resolve("nonexistent") == {}
 
-    def test_get_str_returns_default_for_missing(self):
-        client = _make_connected_client()
-        assert client.config.get_str("db", "ghost") is None
+    def test_resolve_with_dataclass_model(self):
+        client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
 
-    def test_get_int_returns_int(self):
-        client = _make_connected_client()
-        assert client.config.get_int("db", "port") == 5432
+        class DbConfig:
+            def __init__(self, host, port):
+                self.host = host
+                self.port = port
 
-    def test_get_int_returns_default_for_non_int(self):
-        client = _make_connected_client()
-        assert client.config.get_int("db", "name", default=0) == 0
+        result = client.config.resolve("db", model=DbConfig)
+        assert isinstance(result, DbConfig)
+        assert result.host == "localhost"
+        assert result.port == 5432
 
-    def test_get_int_returns_default_for_bool(self):
-        client = _make_connected_client()
-        assert client.config.get_int("db", "enabled", default=-1) == -1
+    def test_resolve_with_pydantic_model(self):
+        client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
 
-    def test_get_bool_returns_bool(self):
-        client = _make_connected_client()
-        assert client.config.get_bool("db", "enabled") is True
+        class FakePydantic:
+            @classmethod
+            def model_validate(cls, data):
+                obj = cls()
+                obj.host = data["host"]
+                obj.port = data["port"]
+                return obj
 
-    def test_get_bool_returns_default_for_non_bool(self):
-        client = _make_connected_client()
-        assert client.config.get_bool("db", "port", default=False) is False
+        result = client.config.resolve("db", model=FakePydantic)
+        assert isinstance(result, FakePydantic)
+        assert result.host == "localhost"
 
-    def test_get_float_returns_float(self):
-        client = _make_connected_client()
-        assert client.config.get_float("db", "ratio") == 0.75
+    def test_resolve_unflattens_dot_keys_for_model(self):
+        client = _make_connected_client({
+            "svc": {"database.host": "h", "database.port": 5432, "retries": 3}
+        })
 
-    def test_get_float_promotes_int(self):
-        client = _make_connected_client()
-        assert client.config.get_float("db", "port") == 5432.0
+        class SvcConfig:
+            def __init__(self, database, retries):
+                self.database = database
+                self.retries = retries
 
-    def test_get_float_returns_default_for_bool(self):
-        client = _make_connected_client()
-        assert client.config.get_float("db", "enabled", default=0.0) == 0.0
+        result = client.config.resolve("svc", model=SvcConfig)
+        assert result.database == {"host": "h", "port": 5432}
+        assert result.retries == 3
 
-    def test_get_float_returns_default_for_string(self):
-        client = _make_connected_client()
-        assert client.config.get_float("db", "name", default=1.0) == 1.0
-
-    def test_typed_accessors_require_connect(self):
-        client = SmplClient(api_key="sk_test", environment="test")
-        with pytest.raises(SmplNotConnectedError):
-            client.config.get_str("db", "host")
-        with pytest.raises(SmplNotConnectedError):
-            client.config.get_int("db", "port")
-        with pytest.raises(SmplNotConnectedError):
-            client.config.get_bool("db", "enabled")
+    def test_resolve_triggers_lazy_connect(self):
+        client = SmplClient(api_key="sk_test", environment="production", service="svc")
+        with patch.object(client.config, "_connect_internal") as mock_connect:
+            client.config._config_cache = {"db": {"host": "h"}}
+            client.config.resolve("db")
+        mock_connect.assert_called_once()
 
 
 # ===================================================================
-# 2. Typed accessors — async
+# 2. resolve() — async
 # ===================================================================
 
 
-class TestTypedAccessorsAsync:
-    def test_get_str_returns_string(self):
+class TestResolveAsyncPrescriptive:
+    def test_resolve_returns_flat_dict(self):
         client = _make_connected_async_client()
-        assert asyncio.run(client.config.get_str("db", "name")) == "test"
 
-    def test_get_str_returns_default_for_non_string(self):
-        client = _make_connected_async_client()
-        assert asyncio.run(client.config.get_str("db", "port", default="nope")) == "nope"
+        async def _run():
+            result = await client.config.resolve("db")
+            assert result["host"] == "localhost"
+            assert result["port"] == 5432
 
-    def test_get_int_returns_int(self):
-        client = _make_connected_async_client()
-        assert asyncio.run(client.config.get_int("db", "port")) == 5432
+        asyncio.run(_run())
 
-    def test_get_int_returns_default_for_bool(self):
+    def test_resolve_returns_empty_for_missing_config(self):
         client = _make_connected_async_client()
-        assert asyncio.run(client.config.get_int("db", "enabled", default=-1)) == -1
 
-    def test_get_bool_returns_bool(self):
-        client = _make_connected_async_client()
-        assert asyncio.run(client.config.get_bool("db", "enabled")) is True
+        async def _run():
+            assert await client.config.resolve("nonexistent") == {}
 
-    def test_get_bool_returns_default_for_non_bool(self):
-        client = _make_connected_async_client()
-        assert asyncio.run(client.config.get_bool("db", "port", default=False)) is False
+        asyncio.run(_run())
 
-    def test_get_float_returns_float(self):
-        client = _make_connected_async_client()
-        assert asyncio.run(client.config.get_float("db", "ratio")) == 0.75
+    def test_resolve_with_dataclass_model(self):
+        client = _make_connected_async_client({"db": {"host": "localhost", "port": 5432}})
 
-    def test_get_float_promotes_int(self):
-        client = _make_connected_async_client()
-        assert asyncio.run(client.config.get_float("db", "port")) == 5432.0
+        class DbConfig:
+            def __init__(self, host, port):
+                self.host = host
+                self.port = port
 
-    def test_get_float_returns_default_for_bool(self):
-        client = _make_connected_async_client()
-        assert asyncio.run(client.config.get_float("db", "enabled", default=0.0)) == 0.0
+        async def _run():
+            result = await client.config.resolve("db", model=DbConfig)
+            assert isinstance(result, DbConfig)
+            assert result.host == "localhost"
 
-    def test_get_float_returns_default_for_string(self):
-        client = _make_connected_async_client()
-        assert asyncio.run(client.config.get_float("db", "name", default=1.0)) == 1.0
+        asyncio.run(_run())
+
+    def test_resolve_with_pydantic_model(self):
+        client = _make_connected_async_client({"db": {"host": "localhost", "port": 5432}})
+
+        class FakePydantic:
+            @classmethod
+            def model_validate(cls, data):
+                obj = cls()
+                obj.host = data["host"]
+                return obj
+
+        async def _run():
+            result = await client.config.resolve("db", model=FakePydantic)
+            assert isinstance(result, FakePydantic)
+
+        asyncio.run(_run())
 
 
 # ===================================================================
-# 3. Refresh — sync
+# 3. subscribe() + LiveConfigProxy — sync
+# ===================================================================
+
+
+class TestSubscribeSyncPrescriptive:
+    def test_subscribe_returns_proxy(self):
+        client = _make_connected_client()
+        proxy = client.config.subscribe("db")
+        assert isinstance(proxy, LiveConfigProxy)
+
+    def test_proxy_attribute_access(self):
+        client = _make_connected_client()
+        proxy = client.config.subscribe("db")
+        assert proxy.host == "localhost"
+        assert proxy.port == 5432
+
+    def test_proxy_getitem_access(self):
+        client = _make_connected_client()
+        proxy = client.config.subscribe("db")
+        assert proxy["host"] == "localhost"
+        assert proxy["port"] == 5432
+
+    def test_proxy_reflects_cache_updates(self):
+        client = _make_connected_client()
+        proxy = client.config.subscribe("db")
+        assert proxy.host == "localhost"
+
+        # Simulate cache update (as refresh() would do)
+        client.config._config_cache["db"]["host"] = "new-host"
+        assert proxy.host == "new-host"
+
+    def test_proxy_missing_attribute_raises(self):
+        client = _make_connected_client()
+        proxy = client.config.subscribe("db")
+        with pytest.raises(AttributeError, match="No config item"):
+            _ = proxy.nonexistent
+
+    def test_proxy_missing_getitem_raises(self):
+        client = _make_connected_client()
+        proxy = client.config.subscribe("db")
+        with pytest.raises(KeyError):
+            _ = proxy["nonexistent"]
+
+    def test_proxy_with_model(self):
+        client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
+
+        class DbConfig:
+            def __init__(self, host, port):
+                self.host = host
+                self.port = port
+
+        proxy = client.config.subscribe("db", model=DbConfig)
+        assert proxy.host == "localhost"
+        assert proxy.port == 5432
+
+    def test_proxy_with_pydantic_model(self):
+        client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
+
+        class FakePydantic:
+            @classmethod
+            def model_validate(cls, data):
+                obj = cls()
+                obj.host = data["host"]
+                obj.port = data["port"]
+                return obj
+
+        proxy = client.config.subscribe("db", model=FakePydantic)
+        assert proxy.host == "localhost"
+
+    def test_proxy_repr_without_model(self):
+        client = _make_connected_client()
+        proxy = client.config.subscribe("db")
+        r = repr(proxy)
+        assert "LiveConfigProxy" in r
+        assert "db" in r
+
+    def test_proxy_repr_with_model(self):
+        client = _make_connected_client({"db": {"host": "localhost"}})
+
+        class DbConfig:
+            def __init__(self, host):
+                self.host = host
+
+        proxy = client.config.subscribe("db", model=DbConfig)
+        r = repr(proxy)
+        assert "LiveConfigProxy" in r
+        assert "DbConfig" in r
+
+    def test_proxy_for_missing_config_returns_empty(self):
+        client = _make_connected_client()
+        proxy = client.config.subscribe("nonexistent")
+        # getitem on empty cache
+        with pytest.raises(KeyError):
+            _ = proxy["anything"]
+
+
+# ===================================================================
+# 4. subscribe() + LiveConfigProxy — async
+# ===================================================================
+
+
+class TestSubscribeAsyncPrescriptive:
+    def test_subscribe_returns_proxy(self):
+        client = _make_connected_async_client()
+
+        async def _run():
+            proxy = await client.config.subscribe("db")
+            assert isinstance(proxy, LiveConfigProxy)
+
+        asyncio.run(_run())
+
+    def test_proxy_attribute_access(self):
+        client = _make_connected_async_client()
+
+        async def _run():
+            proxy = await client.config.subscribe("db")
+            assert proxy.host == "localhost"
+
+        asyncio.run(_run())
+
+    def test_proxy_getitem_access(self):
+        client = _make_connected_async_client()
+
+        async def _run():
+            proxy = await client.config.subscribe("db")
+            assert proxy["host"] == "localhost"
+
+        asyncio.run(_run())
+
+    def test_proxy_reflects_cache_updates(self):
+        client = _make_connected_async_client()
+
+        async def _run():
+            proxy = await client.config.subscribe("db")
+            assert proxy.host == "localhost"
+            client.config._config_cache["db"]["host"] = "updated"
+            assert proxy.host == "updated"
+
+        asyncio.run(_run())
+
+
+# ===================================================================
+# 5. Refresh — sync
 # ===================================================================
 
 
 class TestRefreshSync:
-    def test_refresh_requires_connect(self):
-        client = SmplClient(api_key="sk_test", environment="test")
-        with pytest.raises(SmplNotConnectedError):
-            client.config.refresh()
-
     @patch("smplkit.config.client.list_configs.sync_detailed")
     def test_refresh_updates_cache(self, mock_list):
         client = _make_connected_client({"db": {"host": "old"}})
 
-        # Mock the list response to return a config with new values
         mock_attrs = MagicMock()
         mock_attrs.name = "DB"
         mock_attrs.key = "db"
@@ -203,14 +355,13 @@ class TestRefreshSync:
         mock_response.parsed = mock_parsed
         mock_list.return_value = mock_response
 
-        # The Config._build_chain is called during refresh
         with patch(
             "smplkit.config.models.Config._build_chain",
             return_value=[{"id": "cfg-1", "items": {}, "values": {"host": "new-host"}, "environments": {}}],
         ):
             client.config.refresh()
 
-        assert client.config.get("db", "host") == "new-host"
+        assert client.config._config_cache["db"]["host"] == "new-host"
 
     @patch("smplkit.config.client.list_configs.sync_detailed")
     def test_refresh_fires_listeners(self, mock_list):
@@ -257,124 +408,11 @@ class TestRefreshSync:
 
 
 # ===================================================================
-# 4. Change listeners
+# 6. Refresh — async
 # ===================================================================
 
 
-class TestChangeListeners:
-    def test_on_change_registers_listener(self):
-        client = _make_connected_client()
-        client.config.on_change(lambda e: None)
-        assert len(client.config._listeners) == 1
-
-    def test_on_change_with_config_key_filter(self):
-        client = _make_connected_client()
-        client.config.on_change(lambda e: None, config_key="db")
-        assert client.config._listeners[0][1] == "db"
-
-    def test_on_change_with_item_key_filter(self):
-        client = _make_connected_client()
-        client.config.on_change(lambda e: None, item_key="host")
-        assert client.config._listeners[0][2] == "host"
-
-    def test_fire_change_listeners_filters_by_config_key(self):
-        client = _make_connected_client()
-        events = []
-        client.config.on_change(lambda e: events.append(e), config_key="db")
-        client.config._fire_change_listeners(
-            {"db": {"host": "old"}, "other": {"x": 1}},
-            {"db": {"host": "new"}, "other": {"x": 2}},
-            source="manual",
-        )
-        assert len(events) == 1
-        assert events[0].config_key == "db"
-
-    def test_fire_change_listeners_filters_by_item_key(self):
-        client = _make_connected_client()
-        events = []
-        client.config.on_change(lambda e: events.append(e), item_key="host")
-        client.config._fire_change_listeners(
-            {"db": {"host": "old", "port": 1}},
-            {"db": {"host": "new", "port": 2}},
-            source="manual",
-        )
-        assert len(events) == 1
-        assert events[0].item_key == "host"
-
-    def test_no_change_fires_nothing(self):
-        client = _make_connected_client()
-        events = []
-        client.config.on_change(lambda e: events.append(e))
-        client.config._fire_change_listeners(
-            {"db": {"host": "same"}},
-            {"db": {"host": "same"}},
-            source="manual",
-        )
-        assert len(events) == 0
-
-    def test_listener_exception_is_caught(self):
-        client = _make_connected_client()
-        good_events = []
-
-        def bad_listener(event):
-            raise ValueError("boom")
-
-        client.config.on_change(bad_listener)
-        client.config.on_change(lambda e: good_events.append(e))
-
-        client.config._fire_change_listeners(
-            {"db": {"host": "old"}},
-            {"db": {"host": "new"}},
-            source="manual",
-        )
-        assert len(good_events) == 1
-
-
-# ===================================================================
-# 5. ConfigChangeEvent
-# ===================================================================
-
-
-class TestConfigChangeEvent:
-    def test_attributes(self):
-        event = ConfigChangeEvent(
-            config_key="db",
-            item_key="host",
-            old_value="old",
-            new_value="new",
-            source="manual",
-        )
-        assert event.config_key == "db"
-        assert event.item_key == "host"
-        assert event.old_value == "old"
-        assert event.new_value == "new"
-        assert event.source == "manual"
-
-    def test_repr(self):
-        event = ConfigChangeEvent(
-            config_key="db",
-            item_key="host",
-            old_value="old",
-            new_value="new",
-            source="websocket",
-        )
-        r = repr(event)
-        assert "ConfigChangeEvent" in r
-        assert "db" in r
-        assert "host" in r
-
-
-# ===================================================================
-# 6. Async refresh and change listeners
-# ===================================================================
-
-
-class TestAsyncRefresh:
-    def test_refresh_requires_connect(self):
-        client = AsyncSmplClient(api_key="sk_test", environment="test")
-        with pytest.raises(SmplNotConnectedError):
-            asyncio.run(client.config.refresh())
-
+class TestRefreshAsync:
     @patch("smplkit.config.client.list_configs.asyncio_detailed")
     def test_refresh_updates_cache(self, mock_list):
         client = _make_connected_async_client({"db": {"host": "old"}})
@@ -462,67 +500,96 @@ class TestAsyncRefresh:
         assert events[0].source == "manual"
 
 
-class TestAsyncChangeListeners:
-    def test_on_change_registers_listener(self):
-        client = _make_connected_async_client()
-        client.config.on_change(lambda e: None)
-        assert len(client.config._listeners) == 1
+# ===================================================================
+# 7. ConfigChangeEvent
+# ===================================================================
 
-    def test_on_change_with_filters(self):
-        client = _make_connected_async_client()
-        client.config.on_change(lambda e: None, config_key="db", item_key="host")
-        assert client.config._listeners[0][1] == "db"
-        assert client.config._listeners[0][2] == "host"
 
-    def test_fire_change_listeners(self):
-        client = _make_connected_async_client()
-        events = []
-        client.config.on_change(lambda e: events.append(e))
-        client.config._fire_change_listeners(
-            {"db": {"host": "old"}},
-            {"db": {"host": "new"}},
+class TestConfigChangeEvent:
+    def test_attributes(self):
+        event = ConfigChangeEvent(
+            config_key="db",
+            item_key="host",
+            old_value="old",
+            new_value="new",
             source="manual",
         )
-        assert len(events) == 1
-        assert events[0].config_key == "db"
-        assert events[0].item_key == "host"
+        assert event.config_key == "db"
+        assert event.item_key == "host"
+        assert event.old_value == "old"
+        assert event.new_value == "new"
+        assert event.source == "manual"
 
-    def test_fire_change_listeners_filters_work(self):
-        client = _make_connected_async_client()
-        events = []
-        client.config.on_change(lambda e: events.append(e), config_key="db", item_key="host")
-        client.config._fire_change_listeners(
-            {"db": {"host": "old", "port": 1}, "other": {"x": 1}},
-            {"db": {"host": "new", "port": 2}, "other": {"x": 2}},
-            source="manual",
+    def test_repr(self):
+        event = ConfigChangeEvent(
+            config_key="db",
+            item_key="host",
+            old_value="old",
+            new_value="new",
+            source="websocket",
         )
-        assert len(events) == 1
-        assert events[0].item_key == "host"
+        r = repr(event)
+        assert "ConfigChangeEvent" in r
+        assert "db" in r
+        assert "host" in r
 
-    def test_no_change_fires_nothing(self):
-        client = _make_connected_async_client()
-        events = []
-        client.config.on_change(lambda e: events.append(e))
-        client.config._fire_change_listeners(
-            {"db": {"host": "same"}},
-            {"db": {"host": "same"}},
-            source="manual",
-        )
-        assert len(events) == 0
 
-    def test_listener_exception_is_caught(self):
-        client = _make_connected_async_client()
-        good_events = []
+# ===================================================================
+# 8. LiveConfigProxy — direct unit tests
+# ===================================================================
 
-        def bad_listener(event):
-            raise ValueError("boom")
 
-        client.config.on_change(bad_listener)
-        client.config.on_change(lambda e: good_events.append(e))
+class TestLiveConfigProxyDirect:
+    def test_current_values_reads_from_cache(self):
+        client = _make_connected_client({"db": {"host": "h", "port": 5432}})
+        proxy = LiveConfigProxy(client.config, "db")
+        assert proxy._current_values() == {"host": "h", "port": 5432}
 
-        client.config._fire_change_listeners(
-            {"db": {"host": "old"}},
-            {"db": {"host": "new"}},
-            source="manual",
-        )
-        assert len(good_events) == 1
+    def test_current_values_missing_key(self):
+        client = _make_connected_client({})
+        proxy = LiveConfigProxy(client.config, "missing")
+        assert proxy._current_values() == {}
+
+    def test_build_model_without_model(self):
+        client = _make_connected_client({"db": {"host": "h"}})
+        proxy = LiveConfigProxy(client.config, "db")
+        result = proxy._build_model()
+        assert result == {"host": "h"}
+
+    def test_build_model_with_model(self):
+        client = _make_connected_client({"db": {"host": "h", "port": 5432}})
+
+        class DbConfig:
+            def __init__(self, host, port):
+                self.host = host
+                self.port = port
+
+        proxy = LiveConfigProxy(client.config, "db", model=DbConfig)
+        result = proxy._build_model()
+        assert isinstance(result, DbConfig)
+        assert result.host == "h"
+
+    def test_build_model_with_pydantic(self):
+        client = _make_connected_client({"db": {"host": "h"}})
+
+        class FakePydantic:
+            @classmethod
+            def model_validate(cls, data):
+                obj = cls()
+                obj.host = data["host"]
+                return obj
+
+        proxy = LiveConfigProxy(client.config, "db", model=FakePydantic)
+        result = proxy._build_model()
+        assert result.host == "h"
+
+    def test_build_model_unflattens_dot_keys(self):
+        client = _make_connected_client({"db": {"database.host": "h", "database.port": 5432}})
+
+        class DbConfig:
+            def __init__(self, database):
+                self.database = database
+
+        proxy = LiveConfigProxy(client.config, "db", model=DbConfig)
+        result = proxy._build_model()
+        assert result.database == {"host": "h", "port": 5432}
