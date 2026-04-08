@@ -1,40 +1,34 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union, cast
+from typing import Any
+from urllib.parse import quote
 
 import httpx
 
 from ...client import AuthenticatedClient, Client
-from ...types import Response, UNSET
+from ...types import Response
 from ... import errors
 
 from ...models.config_response import ConfigResponse
 from ...models.http_validation_error import HTTPValidationError
 from ...models.response_config import ResponseConfig
-from typing import cast
 from uuid import UUID
-
 
 
 def _get_kwargs(
     id: UUID,
     *,
     body: ResponseConfig,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
-
-    
-
-    
-
     _kwargs: dict[str, Any] = {
         "method": "put",
-        "url": "/api/v1/configs/{id}".format(id=id,),
+        "url": "/api/v1/configs/{id}".format(
+            id=quote(str(id), safe=""),
+        ),
     }
 
     _kwargs["json"] = body.to_dict()
-
 
     headers["Content-Type"] = "application/json"
 
@@ -42,19 +36,16 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[ConfigResponse, HTTPValidationError]]:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ConfigResponse | HTTPValidationError | None:
     if response.status_code == 200:
         response_200 = ConfigResponse.from_dict(response.json())
-
-
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -64,7 +55,9 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[ConfigResponse, HTTPValidationError]]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ConfigResponse | HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -78,9 +71,8 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     body: ResponseConfig,
-
-) -> Response[Union[ConfigResponse, HTTPValidationError]]:
-    """ Update Config
+) -> Response[ConfigResponse | HTTPValidationError]:
+    """Update Config
 
     Args:
         id (UUID):
@@ -91,14 +83,12 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ConfigResponse, HTTPValidationError]]
-     """
-
+        Response[ConfigResponse | HTTPValidationError]
+    """
 
     kwargs = _get_kwargs(
         id=id,
-body=body,
-
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -107,14 +97,14 @@ body=body,
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     id: UUID,
     *,
     client: AuthenticatedClient,
     body: ResponseConfig,
-
-) -> Optional[Union[ConfigResponse, HTTPValidationError]]:
-    """ Update Config
+) -> ConfigResponse | HTTPValidationError | None:
+    """Update Config
 
     Args:
         id (UUID):
@@ -125,25 +115,23 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ConfigResponse, HTTPValidationError]
-     """
-
+        ConfigResponse | HTTPValidationError
+    """
 
     return sync_detailed(
         id=id,
-client=client,
-body=body,
-
+        client=client,
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
     body: ResponseConfig,
-
-) -> Response[Union[ConfigResponse, HTTPValidationError]]:
-    """ Update Config
+) -> Response[ConfigResponse | HTTPValidationError]:
+    """Update Config
 
     Args:
         id (UUID):
@@ -154,30 +142,26 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ConfigResponse, HTTPValidationError]]
-     """
-
+        Response[ConfigResponse | HTTPValidationError]
+    """
 
     kwargs = _get_kwargs(
         id=id,
-body=body,
-
+        body=body,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     id: UUID,
     *,
     client: AuthenticatedClient,
     body: ResponseConfig,
-
-) -> Optional[Union[ConfigResponse, HTTPValidationError]]:
-    """ Update Config
+) -> ConfigResponse | HTTPValidationError | None:
+    """Update Config
 
     Args:
         id (UUID):
@@ -188,13 +172,13 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ConfigResponse, HTTPValidationError]
-     """
+        ConfigResponse | HTTPValidationError
+    """
 
-
-    return (await asyncio_detailed(
-        id=id,
-client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            id=id,
+            client=client,
+            body=body,
+        )
+    ).parsed

@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union, cast
+from typing import Any
 
 import httpx
 
@@ -9,42 +9,32 @@ from ... import errors
 
 from ...models.config_list_response import ConfigListResponse
 from ...models.http_validation_error import HTTPValidationError
-from ...types import UNSET, Unset
-from typing import cast
-from typing import cast, Union
-from typing import Union
-
+from ...types import Unset
 
 
 def _get_kwargs(
     *,
-    filterkey: Union[None, Unset, str] = UNSET,
-    filterparent: Union[None, Unset, str] = UNSET,
-
+    filterkey: None | str | Unset = UNSET,
+    filterparent: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
-    
-
-    
 
     params: dict[str, Any] = {}
 
-    json_filterkey: Union[None, Unset, str]
+    json_filterkey: None | str | Unset
     if isinstance(filterkey, Unset):
         json_filterkey = UNSET
     else:
         json_filterkey = filterkey
     params["filter[key]"] = json_filterkey
 
-    json_filterparent: Union[None, Unset, str]
+    json_filterparent: None | str | Unset
     if isinstance(filterparent, Unset):
         json_filterparent = UNSET
     else:
         json_filterparent = filterparent
     params["filter[parent]"] = json_filterparent
 
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
 
     _kwargs: dict[str, Any] = {
         "method": "get",
@@ -52,23 +42,19 @@ def _get_kwargs(
         "params": params,
     }
 
-
     return _kwargs
 
 
-
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Union[ConfigListResponse, HTTPValidationError]]:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ConfigListResponse | HTTPValidationError | None:
     if response.status_code == 200:
         response_200 = ConfigListResponse.from_dict(response.json())
-
-
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -78,7 +64,9 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Union[ConfigListResponse, HTTPValidationError]]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ConfigListResponse | HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -90,29 +78,26 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    filterkey: Union[None, Unset, str] = UNSET,
-    filterparent: Union[None, Unset, str] = UNSET,
-
-) -> Response[Union[ConfigListResponse, HTTPValidationError]]:
-    """ List Configs
+    filterkey: None | str | Unset = UNSET,
+    filterparent: None | str | Unset = UNSET,
+) -> Response[ConfigListResponse | HTTPValidationError]:
+    """List Configs
 
     Args:
-        filterkey (Union[None, Unset, str]):
-        filterparent (Union[None, Unset, str]):
+        filterkey (None | str | Unset):
+        filterparent (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ConfigListResponse, HTTPValidationError]]
-     """
-
+        Response[ConfigListResponse | HTTPValidationError]
+    """
 
     kwargs = _get_kwargs(
         filterkey=filterkey,
-filterparent=filterparent,
-
+        filterparent=filterparent,
     )
 
     response = client.get_httpx_client().request(
@@ -121,94 +106,88 @@ filterparent=filterparent,
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient,
-    filterkey: Union[None, Unset, str] = UNSET,
-    filterparent: Union[None, Unset, str] = UNSET,
-
-) -> Optional[Union[ConfigListResponse, HTTPValidationError]]:
-    """ List Configs
+    filterkey: None | str | Unset = UNSET,
+    filterparent: None | str | Unset = UNSET,
+) -> ConfigListResponse | HTTPValidationError | None:
+    """List Configs
 
     Args:
-        filterkey (Union[None, Unset, str]):
-        filterparent (Union[None, Unset, str]):
+        filterkey (None | str | Unset):
+        filterparent (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ConfigListResponse, HTTPValidationError]
-     """
-
+        ConfigListResponse | HTTPValidationError
+    """
 
     return sync_detailed(
         client=client,
-filterkey=filterkey,
-filterparent=filterparent,
-
+        filterkey=filterkey,
+        filterparent=filterparent,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    filterkey: Union[None, Unset, str] = UNSET,
-    filterparent: Union[None, Unset, str] = UNSET,
-
-) -> Response[Union[ConfigListResponse, HTTPValidationError]]:
-    """ List Configs
+    filterkey: None | str | Unset = UNSET,
+    filterparent: None | str | Unset = UNSET,
+) -> Response[ConfigListResponse | HTTPValidationError]:
+    """List Configs
 
     Args:
-        filterkey (Union[None, Unset, str]):
-        filterparent (Union[None, Unset, str]):
+        filterkey (None | str | Unset):
+        filterparent (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ConfigListResponse, HTTPValidationError]]
-     """
-
+        Response[ConfigListResponse | HTTPValidationError]
+    """
 
     kwargs = _get_kwargs(
         filterkey=filterkey,
-filterparent=filterparent,
-
+        filterparent=filterparent,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    filterkey: Union[None, Unset, str] = UNSET,
-    filterparent: Union[None, Unset, str] = UNSET,
-
-) -> Optional[Union[ConfigListResponse, HTTPValidationError]]:
-    """ List Configs
+    filterkey: None | str | Unset = UNSET,
+    filterparent: None | str | Unset = UNSET,
+) -> ConfigListResponse | HTTPValidationError | None:
+    """List Configs
 
     Args:
-        filterkey (Union[None, Unset, str]):
-        filterparent (Union[None, Unset, str]):
+        filterkey (None | str | Unset):
+        filterparent (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ConfigListResponse, HTTPValidationError]
-     """
+        ConfigListResponse | HTTPValidationError
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-filterkey=filterkey,
-filterparent=filterparent,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            filterkey=filterkey,
+            filterparent=filterparent,
+        )
+    ).parsed

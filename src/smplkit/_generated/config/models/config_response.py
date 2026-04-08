@@ -1,70 +1,56 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Optional, BinaryIO, TextIO, TYPE_CHECKING, Generator
+from typing import Any, TypeVar, TYPE_CHECKING
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..types import UNSET, Unset
-
-from typing import cast
 
 if TYPE_CHECKING:
-  from ..models.config_resource import ConfigResource
-
-
-
+    from ..models.config_resource import ConfigResource
 
 
 T = TypeVar("T", bound="ConfigResponse")
 
 
-
 @_attrs_define
 class ConfigResponse:
-    """ 
-        Attributes:
-            data (ConfigResource):  Example: {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database
-                configuration', 'environments': {'prod': {'values': {'host': {'value': 'db-prod.internal'}}}}, 'items': {'host':
-                {'description': 'Primary database hostname', 'type': 'STRING', 'value': 'db.internal'}}, 'key': 'database',
-                'name': 'Database', 'updated_at': '2026-03-27T10:00:00Z'}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type':
-                'config'}.
-     """
+    """
+    Attributes:
+        data (ConfigResource):  Example: {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database
+            configuration', 'environments': {'prod': {'values': {'host': {'value': 'db-prod.internal'}}}}, 'items': {'host':
+            {'description': 'Primary database hostname', 'type': 'STRING', 'value': 'db.internal'}}, 'key': 'database',
+            'name': 'Database', 'updated_at': '2026-03-27T10:00:00Z'}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type':
+            'config'}.
+    """
 
-    data: 'ConfigResource'
+    data: ConfigResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        from ..models.config_resource import ConfigResource
         data = self.data.to_dict()
-
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({
-            "data": data,
-        })
+        field_dict.update(
+            {
+                "data": data,
+            }
+        )
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.config_resource import ConfigResource
+
         d = dict(src_dict)
         data = ConfigResource.from_dict(d.pop("data"))
-
-
-
 
         config_response = cls(
             data=data,
         )
-
 
         config_response.additional_properties = d
         return config_response
