@@ -115,12 +115,21 @@ class Config:
         self.created_at = other.created_at
         self.updated_at = other.updated_at
 
-    def _build_chain(self) -> list[dict[str, Any]]:
-        """Walk the parent chain and return config data dicts child-to-root."""
+    def _build_chain(self, configs: list[Config] | None = None) -> list[dict[str, Any]]:
+        """Walk the parent chain and return config data dicts child-to-root.
+
+        Args:
+            configs: Optional pre-fetched list of configs to look up parents
+                by ID, avoiding extra network calls and the key-vs-UUID
+                mismatch with :meth:`ConfigClient.get`.
+        """
         chain = [{"id": self.id, "items": self._items_raw, "environments": self.environments}]
         current = self
+        configs_by_id = {c.id: c for c in configs} if configs else {}
         while current.parent is not None:
-            parent_config = self._client.get(current.parent)
+            parent_config = configs_by_id.get(current.parent)
+            if parent_config is None:
+                parent_config = self._client.get(current.parent)
             chain.append(
                 {
                     "id": parent_config.id,
@@ -227,12 +236,21 @@ class AsyncConfig:
         self.created_at = other.created_at
         self.updated_at = other.updated_at
 
-    async def _build_chain(self) -> list[dict[str, Any]]:
-        """Walk the parent chain and return config data dicts child-to-root."""
+    async def _build_chain(self, configs: list[AsyncConfig] | None = None) -> list[dict[str, Any]]:
+        """Walk the parent chain and return config data dicts child-to-root.
+
+        Args:
+            configs: Optional pre-fetched list of configs to look up parents
+                by ID, avoiding extra network calls and the key-vs-UUID
+                mismatch with :meth:`AsyncConfigClient.get`.
+        """
         chain = [{"id": self.id, "items": self._items_raw, "environments": self.environments}]
         current = self
+        configs_by_id = {c.id: c for c in configs} if configs else {}
         while current.parent is not None:
-            parent_config = await self._client.get(current.parent)
+            parent_config = configs_by_id.get(current.parent)
+            if parent_config is None:
+                parent_config = await self._client.get(current.parent)
             chain.append(
                 {
                     "id": parent_config.id,

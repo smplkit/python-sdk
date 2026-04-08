@@ -356,7 +356,7 @@ class ConfigClient:
         environment = self._parent._environment
         cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
-            chain = cfg._build_chain()
+            chain = cfg._build_chain(configs)
             cache[cfg.key] = resolve(chain, environment)
         with self._cache_lock:
             self._config_cache = cache
@@ -538,7 +538,7 @@ class ConfigClient:
         environment = self._parent._environment
         new_cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
-            chain = cfg._build_chain()
+            chain = cfg._build_chain(configs)
             new_cache[cfg.key] = resolve(chain, environment)
         with self._cache_lock:
             old_cache = self._config_cache
@@ -730,7 +730,7 @@ class AsyncConfigClient:
         environment = self._parent._environment
         cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
-            chain = await cfg._build_chain()
+            chain = await cfg._build_chain(configs)
             cache[cfg.key] = resolve(chain, environment)
         with self._cache_lock:
             self._config_cache = cache
@@ -906,7 +906,7 @@ class AsyncConfigClient:
         environment = self._parent._environment
         new_cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
-            chain = await cfg._build_chain()
+            chain = await cfg._build_chain(configs)
             new_cache[cfg.key] = resolve(chain, environment)
         with self._cache_lock:
             old_cache = self._config_cache

@@ -217,6 +217,34 @@ class TestConfigBuildChain:
         assert chain[1]["id"] == "parent-1"
         mock_client.get.assert_called_once_with("parent-1")
 
+    def test_build_chain_with_configs_list(self):
+        """When a configs list is provided, parents are looked up by ID without calling get()."""
+        parent_cfg = _make_config(
+            id="parent-1",
+            key="parent",
+            name="Parent",
+            parent=None,
+            items={"inherited": {"value": "yes"}},
+            environments={},
+        )
+        mock_client = MagicMock()
+
+        child = Config(
+            mock_client,
+            id="child-1",
+            key="child",
+            name="Child",
+            parent="parent-1",
+            items={"shared": {"value": "child_val"}},
+            environments={},
+        )
+
+        chain = child._build_chain(configs=[parent_cfg, child])
+        assert len(chain) == 2
+        assert chain[0]["id"] == "child-1"
+        assert chain[1]["id"] == "parent-1"
+        mock_client.get.assert_not_called()
+
 
 # ===================================================================
 # AsyncConfig — attributes and basics
@@ -380,6 +408,37 @@ class TestAsyncConfigBuildChain:
 
         asyncio.run(_run())
         mock_client.get.assert_called_once_with("parent-1")
+
+    def test_build_chain_with_configs_list(self):
+        """When a configs list is provided, parents are looked up by ID without calling get()."""
+        parent_cfg = _make_async_config(
+            id="parent-1",
+            key="parent",
+            name="Parent",
+            parent=None,
+            items={"inherited": {"value": "yes"}},
+            environments={},
+        )
+        mock_client = MagicMock()
+
+        child = AsyncConfig(
+            mock_client,
+            id="child-1",
+            key="child",
+            name="Child",
+            parent="parent-1",
+            items={"shared": {"value": "child_val"}},
+            environments={},
+        )
+
+        async def _run():
+            chain = await child._build_chain(configs=[parent_cfg, child])
+            assert len(chain) == 2
+            assert chain[0]["id"] == "child-1"
+            assert chain[1]["id"] == "parent-1"
+
+        asyncio.run(_run())
+        mock_client.get.assert_not_called()
 
     def test_build_chain_no_parent(self):
         cfg = _make_async_config()
