@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, TYPE_CHECKING
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -11,6 +11,9 @@ from ..types import UNSET, Unset
 from dateutil.parser import isoparse
 from typing import cast
 import datetime
+
+if TYPE_CHECKING:
+    from ..models.account_product_subscriptions import AccountProductSubscriptions
 
 
 T = TypeVar("T", bound="Account")
@@ -30,6 +33,7 @@ class Account:
         expires_at (datetime.datetime | None | Unset):
         created_at (datetime.datetime | None | Unset):
         deleted_at (datetime.datetime | None | Unset):
+        product_subscriptions (AccountProductSubscriptions | None | Unset):
     """
 
     name: str
@@ -38,9 +42,12 @@ class Account:
     expires_at: datetime.datetime | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     deleted_at: datetime.datetime | None | Unset = UNSET
+    product_subscriptions: AccountProductSubscriptions | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.account_product_subscriptions import AccountProductSubscriptions
+
         name = self.name
 
         key = self.key
@@ -71,6 +78,14 @@ class Account:
         else:
             deleted_at = self.deleted_at
 
+        product_subscriptions: dict[str, Any] | None | Unset
+        if isinstance(self.product_subscriptions, Unset):
+            product_subscriptions = UNSET
+        elif isinstance(self.product_subscriptions, AccountProductSubscriptions):
+            product_subscriptions = self.product_subscriptions.to_dict()
+        else:
+            product_subscriptions = self.product_subscriptions
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -87,11 +102,15 @@ class Account:
             field_dict["created_at"] = created_at
         if deleted_at is not UNSET:
             field_dict["deleted_at"] = deleted_at
+        if product_subscriptions is not UNSET:
+            field_dict["product_subscriptions"] = product_subscriptions
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.account_product_subscriptions import AccountProductSubscriptions
+
         d = dict(src_dict)
         name = d.pop("name")
 
@@ -150,6 +169,23 @@ class Account:
 
         deleted_at = _parse_deleted_at(d.pop("deleted_at", UNSET))
 
+        def _parse_product_subscriptions(data: object) -> AccountProductSubscriptions | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                product_subscriptions_type_0 = AccountProductSubscriptions.from_dict(data)
+
+                return product_subscriptions_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(AccountProductSubscriptions | None | Unset, data)
+
+        product_subscriptions = _parse_product_subscriptions(d.pop("product_subscriptions", UNSET))
+
         account = cls(
             name=name,
             key=key,
@@ -157,6 +193,7 @@ class Account:
             expires_at=expires_at,
             created_at=created_at,
             deleted_at=deleted_at,
+            product_subscriptions=product_subscriptions,
         )
 
         account.additional_properties = d
