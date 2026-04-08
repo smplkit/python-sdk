@@ -375,13 +375,17 @@ class TestConfigClientErrors:
             },
         )
         from smplkit.client import SmplClient
+        from smplkit.config.models import Config
 
         client = SmplClient(api_key="sk_test", environment="test")
+        cfg = Config(
+            client.config,
+            id="5a0c6be1-0000-0000-0000-000000000001",
+            key="test",
+            name="test",
+        )
         with pytest.raises(SmplValidationError) as exc_info:
-            client.config._update_config(
-                config_id="5a0c6be1-0000-0000-0000-000000000001",
-                name="test",
-            )
+            cfg.save()
         exc = exc_info.value
         assert exc.status_code == 400
         assert "The 'id' field is required." in str(exc)
@@ -412,15 +416,16 @@ class TestConfigClientErrors:
         from smplkit.client import SmplClient
 
         client = SmplClient(api_key="sk_test", environment="test")
+        cfg = client.config.new("test-key", name="test")
         with pytest.raises(SmplValidationError) as exc_info:
-            client.config.create(name="test")
+            cfg.save()
         exc = exc_info.value
         assert len(exc.errors) == 2
         assert "(and 1 more error)" in str(exc)
 
-    @patch("smplkit.config.client.get_config.sync_detailed")
-    def test_get_config_404_surfaces_detail(self, mock_get):
-        mock_get.return_value = _make_error_response(
+    @patch("smplkit.config.client.list_configs.sync_detailed")
+    def test_get_config_404_surfaces_detail(self, mock_list):
+        mock_list.return_value = _make_error_response(
             404,
             {
                 "errors": [
@@ -436,13 +441,38 @@ class TestConfigClientErrors:
 
         client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(SmplNotFoundError) as exc_info:
-            client.config.get(id="5a0c6be1-0000-0000-0000-000000000001")
+            client.config.get("abc")
         exc = exc_info.value
         assert exc.status_code == 404
         assert "Config 'abc' does not exist." in str(exc)
 
+    @patch("smplkit.config.client.list_configs.sync_detailed")
     @patch("smplkit.config.client.delete_config.sync_detailed")
-    def test_delete_config_409_surfaces_detail(self, mock_delete):
+    def test_delete_config_409_surfaces_detail(self, mock_delete, mock_list):
+        # get() must succeed first for delete() to resolve the key
+        config_attrs = MagicMock()
+        config_attrs.key = "test-config"
+        config_attrs.name = "Test Config"
+        config_attrs.description = None
+        config_attrs.parent = MagicMock()
+        config_attrs.parent.__class__.__name__ = "Unset"
+        from smplkit._generated.app.types import UNSET
+
+        config_attrs.parent = UNSET
+        config_attrs.environments = UNSET
+        config_attrs.created_at = UNSET
+        config_attrs.updated_at = UNSET
+        config_resource = MagicMock()
+        config_resource.id = "5a0c6be1-0000-0000-0000-000000000001"
+        config_resource.attributes = config_attrs
+        list_parsed = MagicMock()
+        list_parsed.data = [config_resource]
+        list_resp = MagicMock()
+        list_resp.status_code = HTTPStatus.OK
+        list_resp.content = b""
+        list_resp.parsed = list_parsed
+        mock_list.return_value = list_resp
+
         mock_delete.return_value = _make_error_response(
             409,
             {
@@ -459,7 +489,7 @@ class TestConfigClientErrors:
 
         client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(SmplConflictError) as exc_info:
-            client.config.delete("5a0c6be1-0000-0000-0000-000000000001")
+            client.config.delete("test-config")
         exc = exc_info.value
         assert exc.status_code == 409
         assert "Config has children" in str(exc)
@@ -475,8 +505,9 @@ class TestConfigClientErrors:
         from smplkit.client import SmplClient
 
         client = SmplClient(api_key="sk_test", environment="test")
+        cfg = client.config.new("test-key", name="test")
         with pytest.raises(SmplError) as exc_info:
-            client.config.create(name="test")
+            cfg.save()
         exc = exc_info.value
         assert exc.status_code == 502
         assert "HTTP 502" in str(exc)
@@ -500,17 +531,26 @@ class TestFlagsClientErrors:
             },
         )
         from smplkit.client import SmplClient
+        from smplkit.flags.models import Flag
 
         client = SmplClient(api_key="sk_test", environment="test")
+        flag = Flag(
+            client.flags,
+            id=None,
+            key="test",
+            name="Test",
+            type="boolean",
+            default=True,
+        )
         with pytest.raises(SmplValidationError) as exc_info:
-            client.flags.create(key="test", name="Test", type="boolean", default=True)
+            flag.save()
         exc = exc_info.value
         assert exc.status_code == 400
         assert "The 'key' field is required." in str(exc)
 
-    @patch("smplkit.flags.client.get_flag.sync_detailed")
-    def test_get_flag_404_surfaces_detail(self, mock_get):
-        mock_get.return_value = _make_error_response(
+    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    def test_get_flag_404_surfaces_detail(self, mock_list):
+        mock_list.return_value = _make_error_response(
             404,
             {
                 "errors": [
@@ -526,7 +566,7 @@ class TestFlagsClientErrors:
 
         client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(SmplNotFoundError) as exc_info:
-            client.flags.get("5a0c6be1-0000-0000-0000-000000000001")
+            client.flags.get("test-flag")
         exc = exc_info.value
         assert exc.status_code == 404
         assert "Flag does not exist." in str(exc)
@@ -551,15 +591,16 @@ class TestLoggingClientErrors:
         from smplkit.client import SmplClient
 
         client = SmplClient(api_key="sk_test", environment="test")
+        lg = client.logging.new("test-key", name="Test")
         with pytest.raises(SmplValidationError) as exc_info:
-            client.logging.create("test-key", name="Test")
+            lg.save()
         exc = exc_info.value
         assert exc.status_code == 400
         assert "The 'name' field is required." in str(exc)
 
-    @patch("smplkit.logging.client.get_logger.sync_detailed")
-    def test_get_logger_404_surfaces_detail(self, mock_get):
-        mock_get.return_value = _make_error_response(
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    def test_get_logger_404_surfaces_detail(self, mock_list):
+        mock_list.return_value = _make_error_response(
             404,
             {
                 "errors": [
@@ -575,7 +616,7 @@ class TestLoggingClientErrors:
 
         client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(SmplNotFoundError) as exc_info:
-            client.logging.get("5a0c6be1-0000-0000-0000-000000000001")
+            client.logging.get("test-key")
         exc = exc_info.value
         assert exc.status_code == 404
         assert "Logger does not exist." in str(exc)

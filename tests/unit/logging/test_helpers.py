@@ -2,27 +2,13 @@
 
 from __future__ import annotations
 
+import datetime
+from http import HTTPStatus
 from unittest.mock import MagicMock
 
-from smplkit._generated.logging.models.logger_environments_type_0 import LoggerEnvironmentsType0
-from smplkit._generated.logging.models.log_group_environments_type_0 import LogGroupEnvironmentsType0
-from smplkit._generated.logging.types import UNSET
-from smplkit.logging.client import (
-    _check_response_status,
-    _extract_datetime,
-    _extract_environments,
-    _extract_sources,
-    _make_environments,
-    _make_group_environments,
-    _unset_to_none,
-    _build_logger_body,
-    _build_group_body,
-    _maybe_reraise_network_error,
-    AsyncSmplLogGroup,
-    AsyncSmplLogger,
-    SmplLogger,
-    SmplLogGroup,
-)
+import httpx
+import pytest
+
 from smplkit._errors import (
     SmplConflictError,
     SmplConnectionError,
@@ -30,11 +16,25 @@ from smplkit._errors import (
     SmplTimeoutError,
     SmplValidationError,
 )
-
-import datetime
-import httpx
-import pytest
-from http import HTTPStatus
+from smplkit._generated.logging.models.log_group_environments_type_0 import LogGroupEnvironmentsType0
+from smplkit._generated.logging.models.logger_environments_type_0 import LoggerEnvironmentsType0
+from smplkit._generated.logging.types import UNSET
+from smplkit.logging.client import (
+    AsyncSmplLogGroup,
+    AsyncSmplLogger,
+    SmplLogGroup,
+    SmplLogger,
+    _build_group_body,
+    _build_logger_body,
+    _check_response_status,
+    _extract_datetime,
+    _extract_environments,
+    _extract_sources,
+    _make_environments,
+    _make_group_environments,
+    _maybe_reraise_network_error,
+    _unset_to_none,
+)
 
 
 class TestUnsetToNone:
@@ -181,6 +181,14 @@ class TestBuildLoggerBody:
         body = _build_logger_body(name="Test", key="t", environments={"prod": {"level": "ERROR"}})
         assert body.data.attributes.environments is not None
 
+    def test_with_logger_id(self):
+        body = _build_logger_body(logger_id="abc-123", name="Test", key="t")
+        assert body.data.id == "abc-123"
+
+    def test_without_logger_id(self):
+        body = _build_logger_body(name="Test", key="t")
+        assert body.data.id is None
+
 
 class TestBuildGroupBody:
     def test_basic(self):
@@ -188,17 +196,33 @@ class TestBuildGroupBody:
         assert body.data.attributes.name == "DB Loggers"
         assert body.data.attributes.key == "db"
 
+    def test_with_group_id(self):
+        body = _build_group_body(group_id="grp-1", name="DB", key="db")
+        assert body.data.id == "grp-1"
+
+    def test_without_group_id(self):
+        body = _build_group_body(name="DB", key="db")
+        assert body.data.id is None
+
 
 class TestSmplLoggerRepr:
     def test_repr(self):
         lg = SmplLogger(None, id="1", key="sql", name="SQL Logger")
         assert "sql" in repr(lg)
 
+    def test_repr_none_id(self):
+        lg = SmplLogger(None, id=None, key="sql", name="SQL Logger")
+        assert "None" in repr(lg)
+
 
 class TestSmplLogGroupRepr:
     def test_repr(self):
         grp = SmplLogGroup(None, id="1", key="db", name="DB Loggers")
         assert "db" in repr(grp)
+
+    def test_repr_none_id(self):
+        grp = SmplLogGroup(None, id=None, key="db", name="DB Loggers")
+        assert "None" in repr(grp)
 
 
 class TestAsyncSmplLoggerRepr:

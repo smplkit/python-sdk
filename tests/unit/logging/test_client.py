@@ -1,19 +1,16 @@
-"""Tests for LoggingClient and AsyncLoggingClient management API and integration."""
+"""Tests for LoggingClient (sync) management API, runtime, and integration."""
 
 from __future__ import annotations
 
-import asyncio
 import logging as stdlib_logging
 from http import HTTPStatus
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from smplkit._errors import SmplNotConnectedError, SmplNotFoundError, SmplValidationError
+from smplkit import LogLevel
+from smplkit._errors import SmplNotFoundError, SmplValidationError
 from smplkit.logging.client import (
-    AsyncLoggingClient,
-    AsyncSmplLogGroup,
-    AsyncSmplLogger,
     LoggingClient,
     SmplLogGroup,
     SmplLogger,
@@ -83,48 +80,82 @@ def _ok_response(parsed=None, status=HTTPStatus.OK):
     return resp
 
 
-def _make_logging_client():
+def _make_logging_client(**kwargs):
     """Create a LoggingClient with mocked parent."""
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
-    parent._service = None
+    parent._service = kwargs.get("service", None)
     with patch("smplkit.logging.client.AuthenticatedClient"):
         client = LoggingClient(parent)
     return client
 
 
-def _make_async_logging_client():
-    """Create an AsyncLoggingClient with mocked parent."""
-    parent = MagicMock()
-    parent._api_key = "sk_test"
-    parent._environment = "test"
-    parent._service = None
-    with patch("smplkit.logging.client.AuthenticatedClient"):
-        client = AsyncLoggingClient(parent)
-    return client
-
-
 # ---------------------------------------------------------------------------
-# Logger CRUD
+# new() — factory for unsaved loggers
 # ---------------------------------------------------------------------------
 
 
-class TestLoggerCRUD:
-    @patch("smplkit.logging.client.create_logger.sync_detailed")
-    def test_create(self, mock_create):
-        attrs = _make_logger_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
-
+class TestNew:
+    def test_new_returns_unsaved_logger(self):
         client = _make_logging_client()
-        result = client.create("sql", name="SQL Logger", level="DEBUG")
-        assert isinstance(result, SmplLogger)
-        assert result.key == "sql"
-        assert result.name == "SQL Logger"
-        mock_create.assert_called_once()
+        lg = client.new("sql")
+        assert isinstance(lg, SmplLogger)
+        assert lg.id is None
+        assert lg.key == "sql"
+        assert lg.managed is False
 
+    def test_new_with_name(self):
+        client = _make_logging_client()
+        lg = client.new("sql", name="SQL Logger")
+        assert lg.name == "SQL Logger"
+
+    def test_new_auto_generates_name(self):
+        client = _make_logging_client()
+        lg = client.new("checkout-v2")
+        assert lg.name == "Checkout V2"
+
+    def test_new_with_managed(self):
+        client = _make_logging_client()
+        lg = client.new("sql", managed=True)
+        assert lg.managed is True
+
+
+# ---------------------------------------------------------------------------
+# new_group() — factory for unsaved log groups
+# ---------------------------------------------------------------------------
+
+
+class TestNewGroup:
+    def test_new_group_returns_unsaved(self):
+        client = _make_logging_client()
+        grp = client.new_group("db-loggers")
+        assert isinstance(grp, SmplLogGroup)
+        assert grp.id is None
+        assert grp.key == "db-loggers"
+
+    def test_new_group_with_name(self):
+        client = _make_logging_client()
+        grp = client.new_group("db-loggers", name="DB Loggers")
+        assert grp.name == "DB Loggers"
+
+    def test_new_group_auto_generates_name(self):
+        client = _make_logging_client()
+        grp = client.new_group("db-loggers")
+        assert grp.name == "Db Loggers"
+
+    def test_new_group_with_parent_group(self):
+        client = _make_logging_client()
+        grp = client.new_group("child", group="parent-id")
+        assert grp.group == "parent-id"
+
+
+# ---------------------------------------------------------------------------
+# list()
+# ---------------------------------------------------------------------------
+
+
+class TestList:
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     def test_list(self, mock_list):
         attrs = _make_logger_attrs()
@@ -136,24 +167,74 @@ class TestLoggerCRUD:
         assert len(result) == 1
         assert isinstance(result[0], SmplLogger)
 
-    @patch("smplkit.logging.client.get_logger.sync_detailed")
-    def test_get(self, mock_get):
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    def test_list_empty_parsed(self, mock_list):
+        mock_list.return_value = _ok_response(None)
+        client = _make_logging_client()
+        result = client.list()
+        assert result == []
+
+
+# ---------------------------------------------------------------------------
+# get(key) — key-based lookup via list with filterkey
+# ---------------------------------------------------------------------------
+
+
+class TestGet:
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    def test_get_by_key(self, mock_list):
+        attrs = _make_logger_attrs(key="sql")
+        resource = _make_resource(attrs)
+        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
+
+        client = _make_logging_client()
+        result = client.get("sql")
+        assert isinstance(result, SmplLogger)
+        assert result.key == "sql"
+        mock_list.assert_called_once()
+        assert mock_list.call_args.kwargs["filterkey"] == "sql"
+
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    def test_get_not_found_empty_data(self, mock_list):
+        mock_list.return_value = _ok_response(_make_list_parsed([]))
+        client = _make_logging_client()
+        with pytest.raises(SmplNotFoundError, match="sql"):
+            client.get("sql")
+
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    def test_get_not_found_null_parsed(self, mock_list):
+        mock_list.return_value = _ok_response(None)
+        client = _make_logging_client()
+        with pytest.raises(SmplNotFoundError):
+            client.get("sql")
+
+
+# ---------------------------------------------------------------------------
+# save() — create (id=None) and update (id set)
+# ---------------------------------------------------------------------------
+
+
+class TestSaveLogger:
+    @patch("smplkit.logging.client.create_logger.sync_detailed")
+    def test_save_creates_when_id_is_none(self, mock_create):
         attrs = _make_logger_attrs()
         resource = _make_resource(attrs)
         parsed = _make_parsed(resource)
-        mock_get.return_value = _ok_response(parsed)
+        mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
 
         client = _make_logging_client()
-        result = client.get(_TEST_UUID)
-        assert isinstance(result, SmplLogger)
-        assert result.id == _TEST_UUID
+        lg = client.new("sql", name="SQL Logger")
+        lg.save()
+
+        mock_create.assert_called_once()
+        assert lg.id == _TEST_UUID  # populated from server response
 
     @patch("smplkit.logging.client.update_logger.sync_detailed")
-    def test_save(self, mock_update):
-        updated_attrs = _make_logger_attrs(level="ERROR")
-        updated_resource = _make_resource(updated_attrs)
-        updated_parsed = _make_parsed(updated_resource)
-        mock_update.return_value = _ok_response(updated_parsed)
+    def test_save_updates_when_id_is_set(self, mock_update):
+        attrs = _make_logger_attrs(level="ERROR")
+        resource = _make_resource(attrs)
+        parsed = _make_parsed(resource)
+        mock_update.return_value = _ok_response(parsed)
 
         client = _make_logging_client()
         lg = SmplLogger(
@@ -172,107 +253,10 @@ class TestLoggerCRUD:
         mock_update.assert_called_once()
         body = mock_update.call_args.kwargs["body"]
         body_attrs = body.data.attributes
-        assert body_attrs.name == "SQL Logger"
-        assert body_attrs.key == "sql"
         assert body_attrs.level == "ERROR"
-        assert body_attrs.managed is True
-        assert body_attrs.group is None
 
-    @patch("smplkit.logging.client.delete_logger.sync_detailed")
-    def test_delete(self, mock_delete):
-        mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
-
-        client = _make_logging_client()
-        client.delete(_TEST_UUID)
-        mock_delete.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
-# Log Group CRUD
-# ---------------------------------------------------------------------------
-
-
-class TestLogGroupCRUD:
-    @patch("smplkit.logging.client.create_log_group.sync_detailed")
-    def test_create_group(self, mock_create):
-        attrs = _make_group_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
-
-        client = _make_logging_client()
-        result = client.create_group("db-loggers", name="DB Loggers", level="WARN")
-        assert isinstance(result, SmplLogGroup)
-        assert result.key == "db-loggers"
-
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
-    def test_list_groups(self, mock_list):
-        attrs = _make_group_attrs()
-        resource = _make_resource(attrs)
-        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
-
-        client = _make_logging_client()
-        result = client.list_groups()
-        assert len(result) == 1
-        assert isinstance(result[0], SmplLogGroup)
-
-    @patch("smplkit.logging.client.get_log_group.sync_detailed")
-    def test_get_group(self, mock_get):
-        attrs = _make_group_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_get.return_value = _ok_response(parsed)
-
-        client = _make_logging_client()
-        result = client.get_group(_TEST_UUID)
-        assert isinstance(result, SmplLogGroup)
-
-    @patch("smplkit.logging.client.update_log_group.sync_detailed")
-    def test_save_group(self, mock_update):
-        updated_attrs = _make_group_attrs(level="ERROR")
-        updated_resource = _make_resource(updated_attrs)
-        updated_parsed = _make_parsed(updated_resource)
-        mock_update.return_value = _ok_response(updated_parsed)
-
-        client = _make_logging_client()
-        grp = SmplLogGroup(
-            client,
-            id=_TEST_UUID,
-            key="db-loggers",
-            name="DB Loggers",
-            level="WARN",
-            group=None,
-            environments={},
-        )
-        grp.level = "ERROR"
-        grp.save()
-
-        mock_update.assert_called_once()
-        body = mock_update.call_args.kwargs["body"]
-        body_attrs = body.data.attributes
-        assert body_attrs.name == "DB Loggers"
-        assert body_attrs.key == "db-loggers"
-        assert body_attrs.level == "ERROR"
-        assert body_attrs.group is None
-
-    @patch("smplkit.logging.client.delete_log_group.sync_detailed")
-    def test_delete_group(self, mock_delete):
-        mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
-
-        client = _make_logging_client()
-        client.delete_group(_TEST_UUID)
-        mock_delete.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
-# Logger save() edge cases
-# ---------------------------------------------------------------------------
-
-
-class TestLoggerSave:
     @patch("smplkit.logging.client.update_logger.sync_detailed")
     def test_save_sends_all_fields(self, mock_update):
-        """save() sends a full-replace PUT with every field present."""
         attrs = _make_logger_attrs(key="sql", name="SQL Logger", level="DEBUG", managed=True)
         resource = _make_resource(attrs)
         parsed = _make_parsed(resource)
@@ -301,7 +285,6 @@ class TestLoggerSave:
 
     @patch("smplkit.logging.client.update_logger.sync_detailed")
     def test_save_with_level_none(self, mock_update):
-        """save() with level=None sends null in the PUT body."""
         attrs = _make_logger_attrs(level=None)
         resource = _make_resource(attrs)
         parsed = _make_parsed(resource)
@@ -309,14 +292,7 @@ class TestLoggerSave:
 
         client = _make_logging_client()
         lg = SmplLogger(
-            client,
-            id=_TEST_UUID,
-            key="sql",
-            name="SQL Logger",
-            level=None,
-            managed=True,
-            group=None,
-            environments={},
+            client, id=_TEST_UUID, key="sql", name="SQL Logger", level=None, managed=True, group=None, environments={}
         )
         lg.save()
 
@@ -324,32 +300,7 @@ class TestLoggerSave:
         assert body.data.attributes.level is None
 
     @patch("smplkit.logging.client.update_logger.sync_detailed")
-    def test_save_with_group_none(self, mock_update):
-        """save() with group=None sends null in the PUT body."""
-        attrs = _make_logger_attrs(group=None)
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_update.return_value = _ok_response(parsed)
-
-        client = _make_logging_client()
-        lg = SmplLogger(
-            client,
-            id=_TEST_UUID,
-            key="sql",
-            name="SQL Logger",
-            level="DEBUG",
-            managed=True,
-            group=None,
-            environments={},
-        )
-        lg.save()
-
-        body = mock_update.call_args.kwargs["body"]
-        assert body.data.attributes.group is None
-
-    @patch("smplkit.logging.client.update_logger.sync_detailed")
     def test_save_with_managed_false(self, mock_update):
-        """save() with managed=False sends false in the PUT body."""
         attrs = _make_logger_attrs(managed=False)
         resource = _make_resource(attrs)
         parsed = _make_parsed(resource)
@@ -373,7 +324,6 @@ class TestLoggerSave:
 
     @patch("smplkit.logging.client.update_logger.sync_detailed")
     def test_save_updates_self_in_place(self, mock_update):
-        """After save(), properties on the model reflect the server response."""
         response_attrs = _make_logger_attrs(key="sql", name="SQL Logger v2", level="ERROR", managed=True)
         response_resource = _make_resource(response_attrs)
         response_parsed = _make_parsed(response_resource)
@@ -397,63 +347,141 @@ class TestLoggerSave:
         assert lg.level == "ERROR"
         assert lg.id == _TEST_UUID
 
+    @patch("smplkit.logging.client.update_logger.sync_detailed")
+    def test_save_null_parsed_raises_validation(self, mock_update):
+        mock_update.return_value = _ok_response(None)
+        client = _make_logging_client()
+        lg = SmplLogger(client, id=_TEST_UUID, key="sql", name="SQL Logger")
+        with pytest.raises(SmplValidationError):
+            lg.save()
+
 
 # ---------------------------------------------------------------------------
-# Logger create() managed parameter
+# delete(key) — key-based delete (get-then-delete)
 # ---------------------------------------------------------------------------
 
 
-class TestLoggerCreateManaged:
-    @patch("smplkit.logging.client.create_logger.sync_detailed")
-    def test_create_with_managed_true(self, mock_create):
-        attrs = _make_logger_attrs(managed=True)
+class TestDelete:
+    @patch("smplkit.logging.client.delete_logger.sync_detailed")
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    def test_delete_by_key(self, mock_list, mock_delete):
+        attrs = _make_logger_attrs(key="sql")
+        resource = _make_resource(attrs)
+        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
+        mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
+
+        client = _make_logging_client()
+        client.delete("sql")
+        mock_delete.assert_called_once()
+
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    def test_delete_not_found(self, mock_list):
+        mock_list.return_value = _ok_response(_make_list_parsed([]))
+        client = _make_logging_client()
+        with pytest.raises(SmplNotFoundError):
+            client.delete("nonexistent")
+
+
+# ---------------------------------------------------------------------------
+# list_groups()
+# ---------------------------------------------------------------------------
+
+
+class TestListGroups:
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    def test_list_groups(self, mock_list):
+        attrs = _make_group_attrs()
+        resource = _make_resource(attrs)
+        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
+
+        client = _make_logging_client()
+        result = client.list_groups()
+        assert len(result) == 1
+        assert isinstance(result[0], SmplLogGroup)
+
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    def test_list_groups_empty_parsed(self, mock_list):
+        mock_list.return_value = _ok_response(None)
+        client = _make_logging_client()
+        result = client.list_groups()
+        assert result == []
+
+
+# ---------------------------------------------------------------------------
+# get_group(key) — client-side filter on list_log_groups
+# ---------------------------------------------------------------------------
+
+
+class TestGetGroup:
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    def test_get_group_by_key(self, mock_list):
+        attrs = _make_group_attrs(key="db-loggers")
+        resource = _make_resource(attrs)
+        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
+
+        client = _make_logging_client()
+        result = client.get_group("db-loggers")
+        assert isinstance(result, SmplLogGroup)
+        assert result.key == "db-loggers"
+
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    def test_get_group_not_found_no_match(self, mock_list):
+        attrs = _make_group_attrs(key="other")
+        resource = _make_resource(attrs)
+        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
+
+        client = _make_logging_client()
+        with pytest.raises(SmplNotFoundError, match="db-loggers"):
+            client.get_group("db-loggers")
+
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    def test_get_group_not_found_null_parsed(self, mock_list):
+        mock_list.return_value = _ok_response(None)
+        client = _make_logging_client()
+        with pytest.raises(SmplNotFoundError):
+            client.get_group("db-loggers")
+
+
+# ---------------------------------------------------------------------------
+# Group save() — create and update
+# ---------------------------------------------------------------------------
+
+
+class TestSaveGroup:
+    @patch("smplkit.logging.client.create_log_group.sync_detailed")
+    def test_save_creates_when_id_is_none(self, mock_create):
+        attrs = _make_group_attrs()
         resource = _make_resource(attrs)
         parsed = _make_parsed(resource)
         mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
 
         client = _make_logging_client()
-        client.create("sql", name="SQL Logger", managed=True)
+        grp = client.new_group("db-loggers", name="DB Loggers")
+        grp.save()
 
-        body = mock_create.call_args.kwargs["body"]
-        assert body.data.attributes.managed is True
+        mock_create.assert_called_once()
+        assert grp.id == _TEST_UUID
 
-    @patch("smplkit.logging.client.create_logger.sync_detailed")
-    def test_create_with_managed_false(self, mock_create):
-        attrs = _make_logger_attrs(managed=False)
+    @patch("smplkit.logging.client.update_log_group.sync_detailed")
+    def test_save_updates_when_id_is_set(self, mock_update):
+        attrs = _make_group_attrs(level="ERROR")
         resource = _make_resource(attrs)
         parsed = _make_parsed(resource)
-        mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
+        mock_update.return_value = _ok_response(parsed)
 
         client = _make_logging_client()
-        client.create("sql", name="SQL Logger", managed=False)
+        grp = SmplLogGroup(
+            client, id=_TEST_UUID, key="db-loggers", name="DB Loggers", level="WARN", group=None, environments={}
+        )
+        grp.level = "ERROR"
+        grp.save()
 
-        body = mock_create.call_args.kwargs["body"]
-        assert body.data.attributes.managed is False
+        mock_update.assert_called_once()
+        body = mock_update.call_args.kwargs["body"]
+        assert body.data.attributes.level == "ERROR"
 
-    @patch("smplkit.logging.client.create_logger.sync_detailed")
-    def test_create_default_managed(self, mock_create):
-        """When managed is not specified, it defaults to False."""
-        attrs = _make_logger_attrs(managed=False)
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
-
-        client = _make_logging_client()
-        client.create("sql", name="SQL Logger")
-
-        body = mock_create.call_args.kwargs["body"]
-        assert body.data.attributes.managed is False
-
-
-# ---------------------------------------------------------------------------
-# Group save() edge cases
-# ---------------------------------------------------------------------------
-
-
-class TestGroupSave:
     @patch("smplkit.logging.client.update_log_group.sync_detailed")
     def test_save_sends_all_fields(self, mock_update):
-        """save() sends a full-replace PUT with every field present."""
         attrs = _make_group_attrs(key="db-loggers", name="DB Loggers", level="WARN")
         resource = _make_resource(attrs)
         parsed = _make_parsed(resource)
@@ -480,7 +508,6 @@ class TestGroupSave:
 
     @patch("smplkit.logging.client.update_log_group.sync_detailed")
     def test_save_with_level_none(self, mock_update):
-        """save() with level=None sends null in the PUT body."""
         attrs = _make_group_attrs(level=None)
         resource = _make_resource(attrs)
         parsed = _make_parsed(resource)
@@ -502,31 +529,7 @@ class TestGroupSave:
         assert body.data.attributes.level is None
 
     @patch("smplkit.logging.client.update_log_group.sync_detailed")
-    def test_save_with_group_none(self, mock_update):
-        """save() with group=None sends null in the PUT body."""
-        attrs = _make_group_attrs(group=None)
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_update.return_value = _ok_response(parsed)
-
-        client = _make_logging_client()
-        grp = SmplLogGroup(
-            client,
-            id=_TEST_UUID,
-            key="db-loggers",
-            name="DB Loggers",
-            level="WARN",
-            group=None,
-            environments={},
-        )
-        grp.save()
-
-        body = mock_update.call_args.kwargs["body"]
-        assert body.data.attributes.group is None
-
-    @patch("smplkit.logging.client.update_log_group.sync_detailed")
     def test_save_updates_self_in_place(self, mock_update):
-        """After save(), properties on the model reflect the server response."""
         response_attrs = _make_group_attrs(key="db-loggers", name="DB Loggers v2", level="ERROR")
         response_resource = _make_resource(response_attrs)
         response_parsed = _make_parsed(response_resource)
@@ -534,13 +537,7 @@ class TestGroupSave:
 
         client = _make_logging_client()
         grp = SmplLogGroup(
-            client,
-            id=_TEST_UUID,
-            key="db-loggers",
-            name="DB Loggers",
-            level="WARN",
-            group=None,
-            environments={},
+            client, id=_TEST_UUID, key="db-loggers", name="DB Loggers", level="WARN", group=None, environments={}
         )
         grp.level = "ERROR"
         grp.save()
@@ -548,6 +545,195 @@ class TestGroupSave:
         assert grp.name == "DB Loggers v2"
         assert grp.level == "ERROR"
         assert grp.id == _TEST_UUID
+
+    @patch("smplkit.logging.client.update_log_group.sync_detailed")
+    def test_save_null_parsed_raises_validation(self, mock_update):
+        mock_update.return_value = _ok_response(None)
+        client = _make_logging_client()
+        grp = SmplLogGroup(client, id=_TEST_UUID, key="db-loggers", name="DB Loggers")
+        with pytest.raises(SmplValidationError):
+            grp.save()
+
+
+# ---------------------------------------------------------------------------
+# delete_group(key) — key-based delete (get-then-delete)
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteGroup:
+    @patch("smplkit.logging.client.delete_log_group.sync_detailed")
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    def test_delete_group_by_key(self, mock_list, mock_delete):
+        attrs = _make_group_attrs(key="db-loggers")
+        resource = _make_resource(attrs)
+        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
+        mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
+
+        client = _make_logging_client()
+        client.delete_group("db-loggers")
+        mock_delete.assert_called_once()
+
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    def test_delete_group_not_found(self, mock_list):
+        mock_list.return_value = _ok_response(_make_list_parsed([]))
+        client = _make_logging_client()
+        with pytest.raises(SmplNotFoundError):
+            client.delete_group("nonexistent")
+
+
+# ---------------------------------------------------------------------------
+# Model convenience methods: setLevel, clearLevel, environment methods
+# ---------------------------------------------------------------------------
+
+
+class TestLoggerConvenienceMethods:
+    def test_setLevel(self):
+        lg = SmplLogger(None, key="sql", name="SQL Logger")
+        lg.setLevel(LogLevel.ERROR)
+        assert lg.level == "ERROR"
+
+    def test_clearLevel(self):
+        lg = SmplLogger(None, key="sql", name="SQL Logger", level="DEBUG")
+        lg.clearLevel()
+        assert lg.level is None
+
+    def test_setEnvironmentLevel(self):
+        lg = SmplLogger(None, key="sql", name="SQL Logger")
+        lg.setEnvironmentLevel("prod", LogLevel.WARN)
+        assert lg.environments["prod"] == {"level": "WARN"}
+
+    def test_clearEnvironmentLevel(self):
+        lg = SmplLogger(None, key="sql", name="SQL Logger", environments={"prod": {"level": "WARN"}})
+        lg.clearEnvironmentLevel("prod")
+        assert "prod" not in lg.environments
+
+    def test_clearEnvironmentLevel_missing_key(self):
+        lg = SmplLogger(None, key="sql", name="SQL Logger")
+        lg.clearEnvironmentLevel("nonexistent")  # should not raise
+
+    def test_clearAllEnvironmentLevels(self):
+        lg = SmplLogger(
+            None, key="sql", name="SQL Logger", environments={"prod": {"level": "WARN"}, "dev": {"level": "DEBUG"}}
+        )
+        lg.clearAllEnvironmentLevels()
+        assert lg.environments == {}
+
+
+class TestLogGroupConvenienceMethods:
+    def test_setLevel(self):
+        grp = SmplLogGroup(None, key="db", name="DB")
+        grp.setLevel(LogLevel.ERROR)
+        assert grp.level == "ERROR"
+
+    def test_clearLevel(self):
+        grp = SmplLogGroup(None, key="db", name="DB", level="WARN")
+        grp.clearLevel()
+        assert grp.level is None
+
+    def test_setEnvironmentLevel(self):
+        grp = SmplLogGroup(None, key="db", name="DB")
+        grp.setEnvironmentLevel("staging", LogLevel.DEBUG)
+        assert grp.environments["staging"] == {"level": "DEBUG"}
+
+    def test_clearEnvironmentLevel(self):
+        grp = SmplLogGroup(None, key="db", name="DB", environments={"staging": {"level": "DEBUG"}})
+        grp.clearEnvironmentLevel("staging")
+        assert "staging" not in grp.environments
+
+    def test_clearEnvironmentLevel_missing_key(self):
+        grp = SmplLogGroup(None, key="db", name="DB")
+        grp.clearEnvironmentLevel("nonexistent")
+
+    def test_clearAllEnvironmentLevels(self):
+        grp = SmplLogGroup(None, key="db", name="DB", environments={"a": {"level": "DEBUG"}, "b": {"level": "ERROR"}})
+        grp.clearAllEnvironmentLevels()
+        assert grp.environments == {}
+
+
+# ---------------------------------------------------------------------------
+# start() — public wrapper for _connect_internal()
+# ---------------------------------------------------------------------------
+
+
+class TestStart:
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    @patch("smplkit.logging.client.install_discovery_patch")
+    @patch("smplkit.logging.client.discover_existing_loggers")
+    def test_start_connects(self, mock_discover, mock_patch, mock_bulk, mock_loggers, mock_groups):
+        mock_discover.return_value = []
+        mock_bulk.return_value = _ok_response()
+        mock_loggers.return_value = _ok_response(_make_list_parsed([]))
+        mock_groups.return_value = _ok_response(_make_list_parsed([]))
+
+        client = _make_logging_client()
+        client.start()
+        assert client._connected is True
+        client._close()
+
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    @patch("smplkit.logging.client.install_discovery_patch")
+    @patch("smplkit.logging.client.discover_existing_loggers")
+    def test_start_is_idempotent(self, mock_discover, mock_patch, mock_bulk, mock_loggers, mock_groups):
+        mock_discover.return_value = []
+        mock_bulk.return_value = _ok_response()
+        mock_loggers.return_value = _ok_response(_make_list_parsed([]))
+        mock_groups.return_value = _ok_response(_make_list_parsed([]))
+
+        client = _make_logging_client()
+        client.start()
+        client.start()  # second call should be no-op
+        mock_discover.assert_called_once()
+        client._close()
+
+
+# ---------------------------------------------------------------------------
+# on_change — dual-mode decorator
+# ---------------------------------------------------------------------------
+
+
+class TestOnChange:
+    def test_bare_decorator_global(self):
+        client = _make_logging_client()
+        calls = []
+
+        @client.on_change
+        def handler():
+            calls.append(True)
+
+        assert handler in client._global_listeners
+
+    def test_key_scoped_decorator(self):
+        client = _make_logging_client()
+        calls = []
+
+        @client.on_change("sqlalchemy.engine")
+        def handler():
+            calls.append(True)
+
+        assert handler in client._key_listeners["sqlalchemy.engine"]
+
+    def test_parens_no_args_global(self):
+        client = _make_logging_client()
+        calls = []
+
+        @client.on_change()
+        def handler():
+            calls.append(True)
+
+        assert handler in client._global_listeners
+
+    def test_returns_original_function(self):
+        client = _make_logging_client()
+
+        @client.on_change("key")
+        def my_fn():
+            pass
+
+        assert my_fn.__name__ == "my_fn"
 
 
 # ---------------------------------------------------------------------------
@@ -639,7 +825,6 @@ class TestBulkFlush:
         mock_bulk.side_effect = Exception("network error")
         client = _make_logging_client()
         client._buffer.add("com.test", "INFO", None)
-        # Should not raise
         client._flush_bulk_sync()
 
 
@@ -690,7 +875,6 @@ class TestLevelApplication:
 
     def test_logger_in_server_not_in_runtime(self):
         client = _make_logging_client()
-        # Logger known to server but NOT in name_map (not in this runtime)
         client._loggers_cache = {
             "some.remote.logger": {
                 "key": "some.remote.logger",
@@ -701,7 +885,6 @@ class TestLevelApplication:
             }
         }
         client._groups_cache = {}
-        # Should not raise
         client._apply_levels()
 
 
@@ -711,11 +894,6 @@ class TestLevelApplication:
 
 
 class TestRefresh:
-    def test_refresh_requires_connect(self):
-        client = _make_logging_client()
-        with pytest.raises(SmplNotConnectedError):
-            client.refresh()
-
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     def test_refresh_fetches_and_applies(self, mock_loggers, mock_groups):
@@ -727,6 +905,18 @@ class TestRefresh:
         client.refresh()
         mock_loggers.assert_called_once()
         mock_groups.assert_called_once()
+
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    def test_refresh_without_connect_works(self, mock_loggers, mock_groups):
+        """refresh() no longer raises SmplNotConnectedError."""
+        mock_loggers.return_value = _ok_response(_make_list_parsed([]))
+        mock_groups.return_value = _ok_response(_make_list_parsed([]))
+
+        client = _make_logging_client()
+        assert client._connected is False
+        client.refresh()  # Should not raise
+        mock_loggers.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -755,7 +945,6 @@ class TestConnectFlow:
         mock_bulk.assert_called_once()
         mock_loggers.assert_called_once()
         mock_groups.assert_called_once()
-        # Cleanup timer
         client._close()
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
@@ -770,7 +959,6 @@ class TestConnectFlow:
         mock_discover.return_value = [(test_name, stdlib_logging.DEBUG)]
         mock_bulk.return_value = _ok_response()
 
-        # Server says this logger is managed with level ERROR
         logger_attrs = _make_logger_attrs(key=test_name, level="ERROR", managed=True)
         logger_resource = _make_resource(logger_attrs)
         mock_loggers.return_value = _ok_response(_make_list_parsed([logger_resource]))
@@ -781,6 +969,23 @@ class TestConnectFlow:
 
         lg = stdlib_logging.getLogger(test_name)
         assert lg.level == stdlib_logging.ERROR
+        client._close()
+
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    @patch("smplkit.logging.client.install_discovery_patch")
+    @patch("smplkit.logging.client.discover_existing_loggers")
+    def test_connect_idempotent(self, mock_discover, mock_patch, mock_bulk, mock_loggers, mock_groups):
+        mock_discover.return_value = []
+        mock_bulk.return_value = _ok_response()
+        mock_loggers.return_value = _ok_response(_make_list_parsed([]))
+        mock_groups.return_value = _ok_response(_make_list_parsed([]))
+
+        client = _make_logging_client()
+        client._connect_internal()
+        client._connect_internal()  # second call is no-op
+        mock_discover.assert_called_once()
         client._close()
 
 
@@ -820,80 +1025,3 @@ class TestCheckResponseStatus:
 
     def test_200_no_raise(self):
         _check_response_status(HTTPStatus.OK, b"")
-
-
-# ---------------------------------------------------------------------------
-# Async CRUD (smoke tests)
-# ---------------------------------------------------------------------------
-
-
-class TestAsyncLoggerCRUD:
-    @patch("smplkit.logging.client.create_logger.asyncio_detailed")
-    def test_create(self, mock_create):
-        attrs = _make_logger_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
-
-        client = _make_async_logging_client()
-        result = asyncio.run(client.create("sql", name="SQL Logger"))
-        assert isinstance(result, AsyncSmplLogger)
-
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    def test_list(self, mock_list):
-        attrs = _make_logger_attrs()
-        resource = _make_resource(attrs)
-        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
-
-        client = _make_async_logging_client()
-        result = asyncio.run(client.list())
-        assert len(result) == 1
-
-    @patch("smplkit.logging.client.get_logger.asyncio_detailed")
-    def test_get(self, mock_get):
-        attrs = _make_logger_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_get.return_value = _ok_response(parsed)
-
-        client = _make_async_logging_client()
-        result = asyncio.run(client.get(_TEST_UUID))
-        assert isinstance(result, AsyncSmplLogger)
-
-    @patch("smplkit.logging.client.delete_logger.asyncio_detailed")
-    def test_delete(self, mock_delete):
-        mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
-
-        client = _make_async_logging_client()
-        asyncio.run(client.delete(_TEST_UUID))
-        mock_delete.assert_called_once()
-
-
-class TestAsyncLogGroupCRUD:
-    @patch("smplkit.logging.client.create_log_group.asyncio_detailed")
-    def test_create_group(self, mock_create):
-        attrs = _make_group_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
-
-        client = _make_async_logging_client()
-        result = asyncio.run(client.create_group("db-loggers", name="DB Loggers"))
-        assert isinstance(result, AsyncSmplLogGroup)
-
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
-    def test_list_groups(self, mock_list):
-        attrs = _make_group_attrs()
-        resource = _make_resource(attrs)
-        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
-
-        client = _make_async_logging_client()
-        result = asyncio.run(client.list_groups())
-        assert len(result) == 1
-
-
-class TestAsyncRefresh:
-    def test_refresh_requires_connect(self):
-        client = _make_async_logging_client()
-        with pytest.raises(SmplNotConnectedError):
-            asyncio.run(client.refresh())
