@@ -551,10 +551,7 @@ def _auto_load_adapters() -> list[LoggingAdapter]:
         except Exception:
             logger.warning("Failed to load logging adapter %s", class_name, exc_info=True)
     if not adapters:
-        logger.warning(
-            "No logging framework detected. Runtime logging control "
-            "requires a supported framework."
-        )
+        logger.warning("No logging framework detected. Runtime logging control requires a supported framework.")
     return adapters
 
 
@@ -872,9 +869,7 @@ class LoggingClient:
                     try:
                         adapter.apply_level(name, python_level)
                     except Exception:
-                        logger.debug(
-                            "Adapter %s apply_level() failed for %s", adapter.name, name, exc_info=True
-                        )
+                        logger.debug("Adapter %s apply_level() failed for %s", adapter.name, name, exc_info=True)
 
     def _flush_bulk_sync(self) -> None:
         """Flush the registration buffer to the logging service."""
@@ -961,9 +956,7 @@ class LoggingClient:
                 try:
                     adapter.apply_level(original_name, python_level)
                 except Exception:
-                    logger.debug(
-                        "Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True
-                    )
+                    logger.debug("Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True)
 
     # --- Model conversion ---
 
@@ -1310,9 +1303,7 @@ class AsyncLoggingClient:
                     try:
                         adapter.apply_level(name, python_level)
                     except Exception:
-                        logger.debug(
-                            "Adapter %s apply_level() failed for %s", adapter.name, name, exc_info=True
-                        )
+                        logger.debug("Adapter %s apply_level() failed for %s", adapter.name, name, exc_info=True)
 
     async def _flush_bulk_async(self) -> None:
         """Flush the registration buffer to the logging service."""
@@ -1407,9 +1398,7 @@ class AsyncLoggingClient:
                 try:
                     adapter.apply_level(original_name, python_level)
                 except Exception:
-                    logger.debug(
-                        "Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True
-                    )
+                    logger.debug("Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True)
 
     # --- Model conversion ---
 
