@@ -93,6 +93,8 @@ class TestSyncOnNewLogger:
         client = _make_logging_client()
         client._connected = True
         test_name = "test.sync.on_new.managed_aaa"
+        mock_adapter = MagicMock()
+        client._adapters = [mock_adapter]
         client._loggers_cache = {
             test_name: {
                 "key": test_name,
@@ -104,8 +106,7 @@ class TestSyncOnNewLogger:
         }
         client._groups_cache = {}
         client._on_new_logger(test_name, 20)
-        lg = stdlib_logging.getLogger(test_name)
-        assert lg.level == 40
+        mock_adapter.apply_level.assert_called_once_with(test_name, 40)
 
     @patch("smplkit.logging.client.threading.Thread")
     def test_callback_triggers_flush_at_threshold(self, mock_thread):
@@ -131,10 +132,11 @@ class TestSyncConnectWithService:
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
-    @patch("smplkit.logging.client.install_discovery_patch")
-    @patch("smplkit.logging.client.discover_existing_loggers")
-    def test_connect_with_service(self, mock_discover, mock_patch, mock_bulk, mock_loggers, mock_groups):
-        mock_discover.return_value = [("root", 30)]
+    @patch("smplkit.logging.client._auto_load_adapters")
+    def test_connect_with_service(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
+        mock_adapter = MagicMock()
+        mock_adapter.discover.return_value = [("root", 30)]
+        mock_auto_load.return_value = [mock_adapter]
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
         mock_groups.return_value = _ok_response(_make_list_parsed([]))
@@ -147,10 +149,11 @@ class TestSyncConnectWithService:
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
-    @patch("smplkit.logging.client.install_discovery_patch")
-    @patch("smplkit.logging.client.discover_existing_loggers")
-    def test_connect_fetch_failure_resilient(self, mock_discover, mock_patch, mock_bulk, mock_loggers, mock_groups):
-        mock_discover.return_value = []
+    @patch("smplkit.logging.client._auto_load_adapters")
+    def test_connect_fetch_failure_resilient(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
+        mock_adapter = MagicMock()
+        mock_adapter.discover.return_value = []
+        mock_auto_load.return_value = [mock_adapter]
         mock_bulk.return_value = _ok_response()
         mock_loggers.side_effect = Exception("network error")
 

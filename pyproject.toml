@@ -31,11 +31,13 @@ Documentation = "https://docs.smplkit.com"
 Repository = "https://github.com/smplkit/python-sdk"
 
 [project.optional-dependencies]
+loguru = ["loguru>=0.7.0"]
 dev = [
     "openapi-python-client>=0.21.0",
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "ruff>=0.4.0",
+    "loguru>=0.7.0",
 ]
 
 [tool.hatch.version]

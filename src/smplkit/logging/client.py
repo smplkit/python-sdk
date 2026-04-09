@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import logging as stdlib_logging
 import threading
 from collections import OrderedDict
@@ -44,11 +45,7 @@ from smplkit._generated.logging.models.logger_environments_type_0 import LoggerE
 from smplkit._generated.logging.models.log_group_environments_type_0 import LogGroupEnvironmentsType0
 from smplkit.logging._levels import python_level_to_smpl, smpl_level_to_python
 from smplkit.logging._normalize import normalize_logger_name
-from smplkit.logging._discovery import (
-    discover_existing_loggers,
-    install_discovery_patch,
-    uninstall_discovery_patch,
-)
+from smplkit.logging.adapters.base import LoggingAdapter
 from smplkit.logging._resolution import resolve_level
 
 if TYPE_CHECKING:
@@ -530,6 +527,38 @@ class _LoggerRegistrationBuffer:
 
 
 # ---------------------------------------------------------------------------
+# Adapter auto-loading
+# ---------------------------------------------------------------------------
+
+_BUILTIN_ADAPTERS = [
+    "smplkit.logging.adapters.stdlib_logging.StdlibLoggingAdapter",
+    "smplkit.logging.adapters.loguru_adapter.LoguruAdapter",
+]
+
+
+def _auto_load_adapters() -> list[LoggingAdapter]:
+    """Attempt to load all built-in adapters, skipping those whose dependencies are missing."""
+    adapters: list[LoggingAdapter] = []
+    for fqn in _BUILTIN_ADAPTERS:
+        module_path, class_name = fqn.rsplit(".", 1)
+        try:
+            module = importlib.import_module(module_path)
+            cls = getattr(module, class_name)
+            adapters.append(cls())
+            logger.debug("Loaded logging adapter: %s", class_name)
+        except ImportError:
+            logger.debug("Skipped logging adapter %s (dependency not installed)", class_name)
+        except Exception:
+            logger.warning("Failed to load logging adapter %s", class_name, exc_info=True)
+    if not adapters:
+        logger.warning(
+            "No logging framework detected. Runtime logging control "
+            "requires a supported framework."
+        )
+    return adapters
+
+
+# ---------------------------------------------------------------------------
 # LoggingClient (sync)
 # ---------------------------------------------------------------------------
 
@@ -551,6 +580,8 @@ class LoggingClient:
         self._groups_cache: dict[str, dict[str, Any]] = {}  # id → group data
         self._global_listeners: list[Callable[..., Any]] = []
         self._key_listeners: dict[str, list[Callable[..., Any]]] = {}
+        self._adapters: list[LoggingAdapter] = []
+        self._explicit_adapters = False
 
     # --- Management API: Loggers ---
 
@@ -708,6 +739,19 @@ class LoggingClient:
             raise
         _check_response_status(response.status_code, response.content)
 
+    # --- Adapter registration ---
+
+    def register_adapter(self, adapter: LoggingAdapter) -> None:
+        """Register a logging adapter. Must be called before start().
+
+        If called at least once, auto-loading is disabled — only explicitly
+        registered adapters are used.
+        """
+        if self._connected:
+            raise RuntimeError("Cannot register adapters after start()")
+        self._explicit_adapters = True
+        self._adapters.append(adapter)
+
     # --- Runtime: start & change listeners ---
 
     def start(self) -> None:
@@ -753,16 +797,29 @@ class LoggingClient:
         """Called by ``SmplClient.connect()`` or :meth:`start`."""
         if self._connected:
             return
-        # 1. Discover existing loggers
-        existing = discover_existing_loggers()
-        for name, level in existing:
-            normalized = normalize_logger_name(name)
-            self._name_map[name] = normalized
-            smpl_level = python_level_to_smpl(level)
-            self._buffer.add(normalized, smpl_level, self._parent._service)
 
-        # 2. Install continuous discovery
-        install_discovery_patch(self._on_new_logger)
+        # 0. Load adapters
+        if not self._adapters:
+            self._adapters = _auto_load_adapters()
+
+        # 1. Discover existing loggers from all adapters
+        for adapter in self._adapters:
+            try:
+                existing = adapter.discover()
+                for name, level in existing:
+                    normalized = normalize_logger_name(name)
+                    self._name_map[name] = normalized
+                    smpl_level = python_level_to_smpl(level)
+                    self._buffer.add(normalized, smpl_level, self._parent._service)
+            except Exception:
+                logger.warning("Adapter %s discover() failed", adapter.name, exc_info=True)
+
+        # 2. Install continuous discovery hooks
+        for adapter in self._adapters:
+            try:
+                adapter.install_hook(self._on_new_logger)
+            except Exception:
+                logger.warning("Adapter %s install_hook() failed", adapter.name, exc_info=True)
 
         # 3. Flush initial batch
         self._flush_bulk_sync()
@@ -784,7 +841,11 @@ class LoggingClient:
 
     def _close(self) -> None:
         """Called by ``SmplClient.close()``."""
-        uninstall_discovery_patch()
+        for adapter in self._adapters:
+            try:
+                adapter.uninstall_hook()
+            except Exception:
+                logger.debug("Adapter %s uninstall_hook() failed", adapter.name, exc_info=True)
         if self._flush_timer is not None:
             self._flush_timer.cancel()
             self._flush_timer = None
@@ -792,7 +853,7 @@ class LoggingClient:
     # --- Internal ---
 
     def _on_new_logger(self, name: str, level: int) -> None:
-        """Callback from the monkey-patch when a new logger is created."""
+        """Callback from adapters when a new logger is created."""
         normalized = normalize_logger_name(name)
         self._name_map[name] = normalized
         smpl_level = python_level_to_smpl(level)
@@ -806,7 +867,14 @@ class LoggingClient:
             entry = self._loggers_cache[normalized]
             if entry.get("managed"):
                 resolved = resolve_level(normalized, self._parent._environment, self._loggers_cache, self._groups_cache)
-                stdlib_logging.getLogger(name).setLevel(smpl_level_to_python(resolved))
+                python_level = smpl_level_to_python(resolved)
+                for adapter in self._adapters:
+                    try:
+                        adapter.apply_level(name, python_level)
+                    except Exception:
+                        logger.debug(
+                            "Adapter %s apply_level() failed for %s", adapter.name, name, exc_info=True
+                        )
 
     def _flush_bulk_sync(self) -> None:
         """Flush the registration buffer to the logging service."""
@@ -888,7 +956,14 @@ class LoggingClient:
             if not entry.get("managed"):
                 continue
             resolved = resolve_level(normalized_key, self._parent._environment, self._loggers_cache, self._groups_cache)
-            stdlib_logging.getLogger(original_name).setLevel(smpl_level_to_python(resolved))
+            python_level = smpl_level_to_python(resolved)
+            for adapter in self._adapters:
+                try:
+                    adapter.apply_level(original_name, python_level)
+                except Exception:
+                    logger.debug(
+                        "Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True
+                    )
 
     # --- Model conversion ---
 
@@ -951,6 +1026,8 @@ class AsyncLoggingClient:
         self._groups_cache: dict[str, dict[str, Any]] = {}
         self._global_listeners: list[Callable[..., Any]] = []
         self._key_listeners: dict[str, list[Callable[..., Any]]] = {}
+        self._adapters: list[LoggingAdapter] = []
+        self._explicit_adapters = False
 
     # --- Management API: Loggers ---
 
@@ -1108,6 +1185,19 @@ class AsyncLoggingClient:
             raise
         _check_response_status(response.status_code, response.content)
 
+    # --- Adapter registration ---
+
+    def register_adapter(self, adapter: LoggingAdapter) -> None:
+        """Register a logging adapter. Must be called before start().
+
+        If called at least once, auto-loading is disabled — only explicitly
+        registered adapters are used.
+        """
+        if self._connected:
+            raise RuntimeError("Cannot register adapters after start()")
+        self._explicit_adapters = True
+        self._adapters.append(adapter)
+
     # --- Runtime: start & change listeners ---
 
     async def start(self) -> None:
@@ -1153,14 +1243,29 @@ class AsyncLoggingClient:
         """Called by ``AsyncSmplClient.connect()`` or :meth:`start`."""
         if self._connected:
             return
-        existing = discover_existing_loggers()
-        for name, level in existing:
-            normalized = normalize_logger_name(name)
-            self._name_map[name] = normalized
-            smpl_level = python_level_to_smpl(level)
-            self._buffer.add(normalized, smpl_level, self._parent._service)
 
-        install_discovery_patch(self._on_new_logger)
+        # 0. Load adapters
+        if not self._adapters:
+            self._adapters = _auto_load_adapters()
+
+        # 1. Discover existing loggers from all adapters
+        for adapter in self._adapters:
+            try:
+                existing = adapter.discover()
+                for name, level in existing:
+                    normalized = normalize_logger_name(name)
+                    self._name_map[name] = normalized
+                    smpl_level = python_level_to_smpl(level)
+                    self._buffer.add(normalized, smpl_level, self._parent._service)
+            except Exception:
+                logger.warning("Adapter %s discover() failed", adapter.name, exc_info=True)
+
+        # 2. Install continuous discovery hooks
+        for adapter in self._adapters:
+            try:
+                adapter.install_hook(self._on_new_logger)
+            except Exception:
+                logger.warning("Adapter %s install_hook() failed", adapter.name, exc_info=True)
 
         await self._flush_bulk_async()
 
@@ -1178,7 +1283,11 @@ class AsyncLoggingClient:
 
     def _close(self) -> None:
         """Called by ``AsyncSmplClient.close()``."""
-        uninstall_discovery_patch()
+        for adapter in self._adapters:
+            try:
+                adapter.uninstall_hook()
+            except Exception:
+                logger.debug("Adapter %s uninstall_hook() failed", adapter.name, exc_info=True)
         if self._flush_timer is not None:
             self._flush_timer.cancel()
             self._flush_timer = None
@@ -1186,7 +1295,7 @@ class AsyncLoggingClient:
     # --- Internal ---
 
     def _on_new_logger(self, name: str, level: int) -> None:
-        """Callback from the monkey-patch when a new logger is created."""
+        """Callback from adapters when a new logger is created."""
         normalized = normalize_logger_name(name)
         self._name_map[name] = normalized
         smpl_level = python_level_to_smpl(level)
@@ -1196,7 +1305,14 @@ class AsyncLoggingClient:
             entry = self._loggers_cache[normalized]
             if entry.get("managed"):
                 resolved = resolve_level(normalized, self._parent._environment, self._loggers_cache, self._groups_cache)
-                stdlib_logging.getLogger(name).setLevel(smpl_level_to_python(resolved))
+                python_level = smpl_level_to_python(resolved)
+                for adapter in self._adapters:
+                    try:
+                        adapter.apply_level(name, python_level)
+                    except Exception:
+                        logger.debug(
+                            "Adapter %s apply_level() failed for %s", adapter.name, name, exc_info=True
+                        )
 
     async def _flush_bulk_async(self) -> None:
         """Flush the registration buffer to the logging service."""
@@ -1286,7 +1402,14 @@ class AsyncLoggingClient:
             if not entry.get("managed"):
                 continue
             resolved = resolve_level(normalized_key, self._parent._environment, self._loggers_cache, self._groups_cache)
-            stdlib_logging.getLogger(original_name).setLevel(smpl_level_to_python(resolved))
+            python_level = smpl_level_to_python(resolved)
+            for adapter in self._adapters:
+                try:
+                    adapter.apply_level(original_name, python_level)
+                except Exception:
+                    logger.debug(
+                        "Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True
+                    )
 
     # --- Model conversion ---
 

@@ -659,10 +659,11 @@ class TestStart:
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
-    @patch("smplkit.logging.client.install_discovery_patch")
-    @patch("smplkit.logging.client.discover_existing_loggers")
-    def test_start_connects(self, mock_discover, mock_patch, mock_bulk, mock_loggers, mock_groups):
-        mock_discover.return_value = []
+    @patch("smplkit.logging.client._auto_load_adapters")
+    def test_start_connects(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
+        mock_adapter = MagicMock()
+        mock_adapter.discover.return_value = []
+        mock_auto_load.return_value = [mock_adapter]
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
         mock_groups.return_value = _ok_response(_make_list_parsed([]))
@@ -675,10 +676,11 @@ class TestStart:
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
-    @patch("smplkit.logging.client.install_discovery_patch")
-    @patch("smplkit.logging.client.discover_existing_loggers")
-    def test_start_is_idempotent(self, mock_discover, mock_patch, mock_bulk, mock_loggers, mock_groups):
-        mock_discover.return_value = []
+    @patch("smplkit.logging.client._auto_load_adapters")
+    def test_start_is_idempotent(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
+        mock_adapter = MagicMock()
+        mock_adapter.discover.return_value = []
+        mock_auto_load.return_value = [mock_adapter]
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
         mock_groups.return_value = _ok_response(_make_list_parsed([]))
@@ -686,7 +688,7 @@ class TestStart:
         client = _make_logging_client()
         client.start()
         client.start()  # second call should be no-op
-        mock_discover.assert_called_once()
+        mock_auto_load.assert_called_once()
         client._close()
 
 
@@ -837,6 +839,8 @@ class TestLevelApplication:
     def test_managed_logger_gets_level_applied(self):
         client = _make_logging_client()
         test_name = "test.apply.managed_001"
+        mock_adapter = MagicMock()
+        client._adapters = [mock_adapter]
         client._name_map[test_name] = "test.apply.managed_001"
         client._loggers_cache = {
             "test.apply.managed_001": {
@@ -850,14 +854,13 @@ class TestLevelApplication:
         client._groups_cache = {}
 
         client._apply_levels()
-        lg = stdlib_logging.getLogger(test_name)
-        assert lg.level == 40  # ERROR
+        mock_adapter.apply_level.assert_called_once_with(test_name, 40)
 
     def test_unmanaged_logger_not_touched(self):
         client = _make_logging_client()
         test_name = "test.apply.unmanaged_002"
-        lg = stdlib_logging.getLogger(test_name)
-        lg.setLevel(stdlib_logging.DEBUG)
+        mock_adapter = MagicMock()
+        client._adapters = [mock_adapter]
         client._name_map[test_name] = "test.apply.unmanaged_002"
         client._loggers_cache = {
             "test.apply.unmanaged_002": {
@@ -871,7 +874,7 @@ class TestLevelApplication:
         client._groups_cache = {}
 
         client._apply_levels()
-        assert lg.level == stdlib_logging.DEBUG  # Unchanged
+        mock_adapter.apply_level.assert_not_called()
 
     def test_logger_in_server_not_in_runtime(self):
         client = _make_logging_client()
@@ -928,10 +931,11 @@ class TestConnectFlow:
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
-    @patch("smplkit.logging.client.install_discovery_patch")
-    @patch("smplkit.logging.client.discover_existing_loggers")
-    def test_connect_runs_full_flow(self, mock_discover, mock_patch, mock_bulk, mock_loggers, mock_groups):
-        mock_discover.return_value = [("root", 30), ("myapp.db", 10)]
+    @patch("smplkit.logging.client._auto_load_adapters")
+    def test_connect_runs_full_flow(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
+        mock_adapter = MagicMock()
+        mock_adapter.discover.return_value = [("root", 30), ("myapp.db", 10)]
+        mock_auto_load.return_value = [mock_adapter]
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
         mock_groups.return_value = _ok_response(_make_list_parsed([]))
@@ -940,8 +944,8 @@ class TestConnectFlow:
         client._connect_internal()
 
         assert client._connected is True
-        mock_discover.assert_called_once()
-        mock_patch.assert_called_once()
+        mock_adapter.discover.assert_called_once()
+        mock_adapter.install_hook.assert_called_once()
         mock_bulk.assert_called_once()
         mock_loggers.assert_called_once()
         mock_groups.assert_called_once()
@@ -950,13 +954,14 @@ class TestConnectFlow:
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
-    @patch("smplkit.logging.client.install_discovery_patch")
-    @patch("smplkit.logging.client.discover_existing_loggers")
-    def test_connect_applies_managed_levels(self, mock_discover, mock_patch, mock_bulk, mock_loggers, mock_groups):
+    @patch("smplkit.logging.client._auto_load_adapters")
+    def test_connect_applies_managed_levels(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         test_name = "test.connect.managed_apply_flow"
         stdlib_logging.getLogger(test_name).setLevel(stdlib_logging.DEBUG)
 
-        mock_discover.return_value = [(test_name, stdlib_logging.DEBUG)]
+        mock_adapter = MagicMock()
+        mock_adapter.discover.return_value = [(test_name, stdlib_logging.DEBUG)]
+        mock_auto_load.return_value = [mock_adapter]
         mock_bulk.return_value = _ok_response()
 
         logger_attrs = _make_logger_attrs(key=test_name, level="ERROR", managed=True)
@@ -967,17 +972,18 @@ class TestConnectFlow:
         client = _make_logging_client()
         client._connect_internal()
 
-        lg = stdlib_logging.getLogger(test_name)
-        assert lg.level == stdlib_logging.ERROR
+        # Level is applied via the adapter
+        mock_adapter.apply_level.assert_called()
         client._close()
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
-    @patch("smplkit.logging.client.install_discovery_patch")
-    @patch("smplkit.logging.client.discover_existing_loggers")
-    def test_connect_idempotent(self, mock_discover, mock_patch, mock_bulk, mock_loggers, mock_groups):
-        mock_discover.return_value = []
+    @patch("smplkit.logging.client._auto_load_adapters")
+    def test_connect_idempotent(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
+        mock_adapter = MagicMock()
+        mock_adapter.discover.return_value = []
+        mock_auto_load.return_value = [mock_adapter]
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
         mock_groups.return_value = _ok_response(_make_list_parsed([]))
@@ -985,7 +991,7 @@ class TestConnectFlow:
         client = _make_logging_client()
         client._connect_internal()
         client._connect_internal()  # second call is no-op
-        mock_discover.assert_called_once()
+        mock_auto_load.assert_called_once()
         client._close()
 
 
@@ -995,11 +1001,12 @@ class TestConnectFlow:
 
 
 class TestClose:
-    @patch("smplkit.logging.client.uninstall_discovery_patch")
-    def test_close_uninstalls_patch(self, mock_uninstall):
+    def test_close_uninstalls_adapters(self):
         client = _make_logging_client()
+        adapter = MagicMock()
+        client._adapters = [adapter]
         client._close()
-        mock_uninstall.assert_called_once()
+        adapter.uninstall_hook.assert_called_once()
 
     def test_close_cancels_timer(self):
         client = _make_logging_client()
