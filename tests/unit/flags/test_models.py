@@ -61,11 +61,17 @@ class TestFlag:
         client = MagicMock()
         flag = Flag(client, key="k", name="n", type="BOOLEAN", default=False)
         assert flag.id is None
-        assert flag.values == []
+        assert flag.values is None
         assert flag.description is None
         assert flag.environments == {}
         assert flag.created_at is None
         assert flag.updated_at is None
+
+    def test_unconstrained_values_none(self):
+        client = MagicMock()
+        flag = Flag(client, key="k", name="n", type="STRING", default="hello", values=None)
+        assert flag.values is None
+        assert flag.default == "hello"
 
     def test_repr(self):
         flag = _make_flag()
@@ -338,7 +344,7 @@ class TestAsyncFlag:
         client = MagicMock()
         flag = AsyncFlag(client, key="k", name="n", type="BOOLEAN", default=False)
         assert flag.id is None
-        assert flag.values == []
+        assert flag.values is None
         assert flag.environments == {}
 
     def test_repr(self):

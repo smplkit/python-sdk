@@ -1,6 +1,7 @@
 """Tests for FlagsClient and AsyncFlagsClient — management + runtime."""
 
 import asyncio
+import json
 from http import HTTPStatus
 from unittest.mock import MagicMock, patch
 
@@ -30,8 +31,10 @@ from smplkit.flags.client import (
     _extract_environments,
     _extract_rule,
     _extract_values,
+    _flag_dict_from_json,
     _hash_context,
     _maybe_reraise_network_error,
+    _NullValuesBody,
     _unset_to_none,
 )
 from smplkit.flags.models import (
@@ -96,13 +99,52 @@ def _mock_list_parsed(*, key="test-flag", name="Test Flag", type_="BOOLEAN", def
     return mock_parsed
 
 
-def _ok_response(parsed=None, status=HTTPStatus.OK):
+_UNSET = object()
+
+
+def _flag_json(
+    *,
+    id=_TEST_UUID,
+    key="test-flag",
+    name="Test Flag",
+    type_="BOOLEAN",
+    default=False,
+    values=_UNSET,
+    environments=None,
+):
+    """Build a raw JSON:API flag resource dict."""
+    if values is _UNSET:
+        values = [{"name": "True", "value": True}, {"name": "False", "value": False}]
+    return {
+        "id": id,
+        "type": "flag",
+        "attributes": {
+            "key": key,
+            "name": name,
+            "type": type_,
+            "default": default,
+            "values": values,
+            "environments": environments or {},
+            "description": "",
+            "created_at": None,
+            "updated_at": None,
+        },
+    }
+
+
+def _ok_response(parsed=None, status=HTTPStatus.OK, content=None):
     """Build a mock HTTP response."""
     resp = MagicMock()
     resp.status_code = status
-    resp.content = b""
+    resp.content = content if content is not None else b""
     resp.parsed = parsed
     return resp
+
+
+def _ok_json_response(data, status=HTTPStatus.OK):
+    """Build a mock HTTP response with JSON content (for raw-JSON parsing)."""
+    content = json.dumps(data).encode()
+    return _ok_response(status=status, content=content)
 
 
 def _make_flags_client():
@@ -286,7 +328,9 @@ class TestExtractRule:
 class TestExtractValues:
     def test_empty_returns_empty(self):
         assert _extract_values([]) == []
-        assert _extract_values(None) == []
+
+    def test_none_returns_none(self):
+        assert _extract_values(None) is None
 
     def test_extracts_values(self):
         v1 = MagicMock()
@@ -351,6 +395,46 @@ class TestBuildRequestBody:
         gen_flag = _build_gen_flag(key="test", name="Test", type_="BOOLEAN", default=False, values=[])
         body = _build_request_body(gen_flag, flag_id="abc-123")
         assert body.data.id == "abc-123"
+
+
+class TestNullValuesBody:
+    def test_to_dict_sets_values_null(self):
+        gen_flag = _build_gen_flag(key="test", name="Test", type_="STRING", default="a", values=[])
+        body = _build_request_body(gen_flag)
+        wrapper = _NullValuesBody(body)
+        d = wrapper.to_dict()
+        assert d["data"]["attributes"]["values"] is None
+
+
+class TestFlagDictFromJson:
+    def test_with_environments(self):
+        data = {
+            "id": "abc-123",
+            "type": "flag",
+            "attributes": {
+                "key": "my-flag",
+                "name": "My Flag",
+                "type": "STRING",
+                "default": "hello",
+                "values": None,
+                "description": "A flag",
+                "environments": {
+                    "production": {
+                        "enabled": True,
+                        "default": "world",
+                        "rules": [{"logic": {"op": "eq"}, "value": "x"}],
+                    }
+                },
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-01T00:00:00Z",
+            },
+        }
+        result = _flag_dict_from_json(data)
+        assert result["key"] == "my-flag"
+        assert result["values"] is None
+        assert result["environments"]["production"]["enabled"] is True
+        assert result["environments"]["production"]["default"] == "world"
+        assert len(result["environments"]["production"]["rules"]) == 1
 
 
 class TestContextsToEvalDict:
@@ -736,6 +820,30 @@ class TestFlagsClientFactoryMethods:
         assert flag.type == "JSON"
         assert flag.default == {"mode": "standard"}
 
+    def test_newStringFlag_unconstrained(self):
+        client = _make_flags_client()
+        flag = client.newStringFlag("greeting", default="hello")
+        assert flag.values is None
+        assert flag.default == "hello"
+
+    def test_newNumberFlag_unconstrained(self):
+        client = _make_flags_client()
+        flag = client.newNumberFlag("threshold", default=42)
+        assert flag.values is None
+        assert flag.default == 42
+
+    def test_newJsonFlag_unconstrained(self):
+        client = _make_flags_client()
+        flag = client.newJsonFlag("settings", default={"a": 1})
+        assert flag.values is None
+        assert flag.default == {"a": 1}
+
+    def test_newBooleanFlag_always_constrained(self):
+        client = _make_flags_client()
+        flag = client.newBooleanFlag("toggle", default=True)
+        assert flag.values is not None
+        assert len(flag.values) == 2
+
 
 # ===========================================================================
 # Sync FlagsClient: get(key), list(), delete(key)
@@ -745,7 +853,7 @@ class TestFlagsClientFactoryMethods:
 class TestFlagsClientCRUD:
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_get_by_key(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         client = _make_flags_client()
         flag = client.get("test-flag")
         assert flag.key == "test-flag"
@@ -756,24 +864,21 @@ class TestFlagsClientCRUD:
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_get_not_found_empty_data(self, mock_list):
-        parsed = MagicMock()
-        parsed.data = []
-        mock_list.return_value = _ok_response(parsed=parsed)
+        mock_list.return_value = _ok_json_response({"data": []})
         client = _make_flags_client()
         with pytest.raises(SmplNotFoundError, match="test-flag"):
             client.get("test-flag")
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_get_not_found_parsed_none(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=None)
+        mock_list.return_value = _ok_json_response({"data": []})
         client = _make_flags_client()
         with pytest.raises(SmplNotFoundError):
             client.get("test-flag")
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_get_not_found_no_data_attr(self, mock_list):
-        parsed = MagicMock(spec=[])  # no attributes at all
-        mock_list.return_value = _ok_response(parsed=parsed)
+        mock_list.return_value = _ok_json_response({})
         client = _make_flags_client()
         with pytest.raises(SmplNotFoundError):
             client.get("test-flag")
@@ -801,22 +906,15 @@ class TestFlagsClientCRUD:
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_list(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         client = _make_flags_client()
         flags = client.list()
         assert len(flags) == 1
         assert flags[0].key == "test-flag"
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
-    def test_list_empty_parsed_none(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=None)
-        client = _make_flags_client()
-        assert client.list() == []
-
-    @patch("smplkit.flags.client.list_flags.sync_detailed")
-    def test_list_empty_no_data_attr(self, mock_list):
-        parsed = MagicMock(spec=[])
-        mock_list.return_value = _ok_response(parsed=parsed)
+    def test_list_empty(self, mock_list):
+        mock_list.return_value = _ok_json_response({"data": []})
         client = _make_flags_client()
         assert client.list() == []
 
@@ -837,7 +935,7 @@ class TestFlagsClientCRUD:
     @patch("smplkit.flags.client.delete_flag.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_delete_by_key(self, mock_list, mock_delete):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
         client = _make_flags_client()
         client.delete("test-flag")
@@ -847,7 +945,7 @@ class TestFlagsClientCRUD:
     @patch("smplkit.flags.client.delete_flag.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_delete_network_error(self, mock_list, mock_delete):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         mock_delete.side_effect = httpx.ConnectError("refused")
         client = _make_flags_client()
         with pytest.raises(SmplConnectionError):
@@ -856,7 +954,7 @@ class TestFlagsClientCRUD:
     @patch("smplkit.flags.client.delete_flag.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_delete_generic_exception(self, mock_list, mock_delete):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         mock_delete.side_effect = RuntimeError("unexpected")
         client = _make_flags_client()
         with pytest.raises(RuntimeError):
@@ -871,7 +969,7 @@ class TestFlagsClientCRUD:
 class TestFlagsClientCreateUpdateFlag:
     @patch("smplkit.flags.client.create_flag.sync_detailed")
     def test_create_flag_success(self, mock_create):
-        mock_create.return_value = _ok_response(parsed=_mock_flag_response(), status=HTTPStatus.CREATED)
+        mock_create.return_value = _ok_json_response({"data": _flag_json()}, status=HTTPStatus.CREATED)
         client = _make_flags_client()
         flag = Flag(client, key="new-flag", name="New", type="BOOLEAN", default=False)
         result = client._create_flag(flag)
@@ -879,7 +977,7 @@ class TestFlagsClientCreateUpdateFlag:
 
     @patch("smplkit.flags.client.create_flag.sync_detailed")
     def test_create_flag_with_environments(self, mock_create):
-        mock_create.return_value = _ok_response(parsed=_mock_flag_response(), status=HTTPStatus.CREATED)
+        mock_create.return_value = _ok_json_response({"data": _flag_json()}, status=HTTPStatus.CREATED)
         client = _make_flags_client()
         flag = Flag(
             client,
@@ -893,12 +991,16 @@ class TestFlagsClientCreateUpdateFlag:
         assert result.key == "test-flag"
 
     @patch("smplkit.flags.client.create_flag.sync_detailed")
-    def test_create_flag_parsed_none_raises(self, mock_create):
-        mock_create.return_value = _ok_response(parsed=None, status=HTTPStatus.CREATED)
+    def test_create_flag_unconstrained(self, mock_create):
+        mock_create.return_value = _ok_json_response(
+            {"data": _flag_json(type_="STRING", default="hello", values=None)},
+            status=HTTPStatus.CREATED,
+        )
         client = _make_flags_client()
-        flag = Flag(client, key="new-flag", name="New", type="BOOLEAN", default=False)
-        with pytest.raises(SmplValidationError):
-            client._create_flag(flag)
+        flag = Flag(client, key="greeting", name="Greeting", type="STRING", default="hello", values=None)
+        result = client._create_flag(flag)
+        assert result.values is None
+        assert result.default == "hello"
 
     @patch("smplkit.flags.client.create_flag.sync_detailed")
     def test_create_flag_network_error(self, mock_create):
@@ -918,7 +1020,7 @@ class TestFlagsClientCreateUpdateFlag:
 
     @patch("smplkit.flags.client.update_flag.sync_detailed")
     def test_update_flag_success(self, mock_update):
-        mock_update.return_value = _ok_response(parsed=_mock_flag_response())
+        mock_update.return_value = _ok_json_response({"data": _flag_json()})
         client = _make_flags_client()
         flag = _make_mock_flag(client)
         result = client._update_flag(flag=flag)
@@ -926,20 +1028,12 @@ class TestFlagsClientCreateUpdateFlag:
 
     @patch("smplkit.flags.client.update_flag.sync_detailed")
     def test_update_flag_with_environments(self, mock_update):
-        mock_update.return_value = _ok_response(parsed=_mock_flag_response())
+        mock_update.return_value = _ok_json_response({"data": _flag_json()})
         client = _make_flags_client()
         flag = _make_mock_flag(client)
         flag.environments = {"prod": {"enabled": True, "default": False, "rules": []}}
         result = client._update_flag(flag=flag)
         assert result.key == "test-flag"
-
-    @patch("smplkit.flags.client.update_flag.sync_detailed")
-    def test_update_flag_parsed_none_raises(self, mock_update):
-        mock_update.return_value = _ok_response(parsed=None)
-        client = _make_flags_client()
-        flag = _make_mock_flag(client)
-        with pytest.raises(SmplValidationError):
-            client._update_flag(flag=flag)
 
     @patch("smplkit.flags.client.update_flag.sync_detailed")
     def test_update_flag_network_error(self, mock_update):
@@ -1056,7 +1150,7 @@ class TestFlagsClientContextProvider:
 class TestFlagsClientLifecycle:
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_connect_internal(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         client = _make_flags_client()
         client._parent._environment = "staging"
         mock_ws = MagicMock()
@@ -1072,7 +1166,7 @@ class TestFlagsClientLifecycle:
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_connect_internal_idempotent(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         client = _make_flags_client()
         client._parent._environment = "staging"
         mock_ws = MagicMock()
@@ -1085,7 +1179,7 @@ class TestFlagsClientLifecycle:
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_refresh(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         client = _make_flags_client()
         client._connected = True
         client._flag_store = {"old-flag": {"key": "old-flag"}}
@@ -1174,7 +1268,7 @@ class TestFlagsClientRegisterFlush:
 class TestFlagsClientEvaluateHandle:
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_lazy_connects_on_first_call(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         client = _make_flags_client()
         client._parent._environment = "staging"
         client._parent._service = None
@@ -1338,7 +1432,7 @@ class TestFlagsClientEvaluateHandle:
 class TestFlagsClientEventHandlers:
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_handle_flag_changed(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         client = _make_flags_client()
         listener = MagicMock()
         client._global_listeners.append(listener)
@@ -1355,7 +1449,7 @@ class TestFlagsClientEventHandlers:
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_handle_flag_deleted(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         client = _make_flags_client()
         listener = MagicMock()
         client._global_listeners.append(listener)
@@ -1446,14 +1540,14 @@ class TestFlagsClientModelConversion:
 class TestFlagsClientFetchInternals:
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_fetch_all_flags(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         client = _make_flags_client()
         client._fetch_all_flags()
         assert "test-flag" in client._flag_store
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_fetch_flags_list(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         client = _make_flags_client()
         result = client._fetch_flags_list()
         assert len(result) == 1
@@ -1461,7 +1555,7 @@ class TestFlagsClientFetchInternals:
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_fetch_flags_list_empty(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=None)
+        mock_list.return_value = _ok_json_response({"data": []})
         client = _make_flags_client()
         assert client._fetch_flags_list() == []
 
@@ -1586,6 +1680,22 @@ class TestAsyncFlagsClientFactoryMethods:
         assert isinstance(flag, AsyncJsonFlag)
         assert flag.type == "JSON"
 
+    def test_newStringFlag_unconstrained(self):
+        client = _make_async_flags_client()
+        flag = client.newStringFlag("greeting", default="hello")
+        assert flag.values is None
+
+    def test_newNumberFlag_unconstrained(self):
+        client = _make_async_flags_client()
+        flag = client.newNumberFlag("threshold", default=42)
+        assert flag.values is None
+
+    def test_newBooleanFlag_always_constrained(self):
+        client = _make_async_flags_client()
+        flag = client.newBooleanFlag("toggle", default=True)
+        assert flag.values is not None
+        assert len(flag.values) == 2
+
 
 # ===========================================================================
 # AsyncFlagsClient: get(key), list(), delete(key)
@@ -1595,7 +1705,7 @@ class TestAsyncFlagsClientFactoryMethods:
 class TestAsyncFlagsClientCRUD:
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_get_by_key(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
 
         async def _run():
             client = _make_async_flags_client()
@@ -1609,9 +1719,7 @@ class TestAsyncFlagsClientCRUD:
 
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_get_not_found_empty_data(self, mock_list):
-        parsed = MagicMock()
-        parsed.data = []
-        mock_list.return_value = _ok_response(parsed=parsed)
+        mock_list.return_value = _ok_json_response({"data": []})
 
         async def _run():
             client = _make_async_flags_client()
@@ -1622,7 +1730,7 @@ class TestAsyncFlagsClientCRUD:
 
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_get_not_found_parsed_none(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=None)
+        mock_list.return_value = _ok_json_response({"data": []})
 
         async def _run():
             client = _make_async_flags_client()
@@ -1655,7 +1763,7 @@ class TestAsyncFlagsClientCRUD:
 
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_list(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
 
         async def _run():
             client = _make_async_flags_client()
@@ -1666,7 +1774,7 @@ class TestAsyncFlagsClientCRUD:
 
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_list_empty(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=None)
+        mock_list.return_value = _ok_json_response({"data": []})
 
         async def _run():
             client = _make_async_flags_client()
@@ -1676,8 +1784,7 @@ class TestAsyncFlagsClientCRUD:
 
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_list_empty_no_data_attr(self, mock_list):
-        parsed = MagicMock(spec=[])
-        mock_list.return_value = _ok_response(parsed=parsed)
+        mock_list.return_value = _ok_json_response({"data": []})
 
         async def _run():
             client = _make_async_flags_client()
@@ -1710,7 +1817,7 @@ class TestAsyncFlagsClientCRUD:
     @patch("smplkit.flags.client.delete_flag.asyncio_detailed")
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_delete_by_key(self, mock_list, mock_delete):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
 
         async def _run():
@@ -1724,7 +1831,7 @@ class TestAsyncFlagsClientCRUD:
     @patch("smplkit.flags.client.delete_flag.asyncio_detailed")
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_delete_network_error(self, mock_list, mock_delete):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         mock_delete.side_effect = httpx.ConnectError("refused")
 
         async def _run():
@@ -1737,7 +1844,7 @@ class TestAsyncFlagsClientCRUD:
     @patch("smplkit.flags.client.delete_flag.asyncio_detailed")
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_delete_generic_exception(self, mock_list, mock_delete):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         mock_delete.side_effect = RuntimeError("unexpected")
 
         async def _run():
@@ -1756,25 +1863,13 @@ class TestAsyncFlagsClientCRUD:
 class TestAsyncFlagsClientCreateUpdateFlag:
     @patch("smplkit.flags.client.create_flag.asyncio_detailed")
     def test_create_flag_success(self, mock_create):
-        mock_create.return_value = _ok_response(parsed=_mock_flag_response(), status=HTTPStatus.CREATED)
+        mock_create.return_value = _ok_json_response({"data": _flag_json()}, status=HTTPStatus.CREATED)
 
         async def _run():
             client = _make_async_flags_client()
             flag = AsyncFlag(client, key="new", name="New", type="BOOLEAN", default=False)
             result = await client._create_flag(flag)
             assert result.key == "test-flag"
-
-        asyncio.run(_run())
-
-    @patch("smplkit.flags.client.create_flag.asyncio_detailed")
-    def test_create_flag_parsed_none_raises(self, mock_create):
-        mock_create.return_value = _ok_response(parsed=None, status=HTTPStatus.CREATED)
-
-        async def _run():
-            client = _make_async_flags_client()
-            flag = AsyncFlag(client, key="new", name="New", type="BOOLEAN", default=False)
-            with pytest.raises(SmplValidationError):
-                await client._create_flag(flag)
 
         asyncio.run(_run())
 
@@ -1804,25 +1899,13 @@ class TestAsyncFlagsClientCreateUpdateFlag:
 
     @patch("smplkit.flags.client.update_flag.asyncio_detailed")
     def test_update_flag_success(self, mock_update):
-        mock_update.return_value = _ok_response(parsed=_mock_flag_response())
+        mock_update.return_value = _ok_json_response({"data": _flag_json()})
 
         async def _run():
             client = _make_async_flags_client()
             flag = _make_mock_async_flag(client)
             result = await client._update_flag(flag=flag)
             assert result.key == "test-flag"
-
-        asyncio.run(_run())
-
-    @patch("smplkit.flags.client.update_flag.asyncio_detailed")
-    def test_update_flag_parsed_none_raises(self, mock_update):
-        mock_update.return_value = _ok_response(parsed=None)
-
-        async def _run():
-            client = _make_async_flags_client()
-            flag = _make_mock_async_flag(client)
-            with pytest.raises(SmplValidationError):
-                await client._update_flag(flag=flag)
 
         asyncio.run(_run())
 
@@ -1941,7 +2024,7 @@ class TestAsyncFlagsClientContextProvider:
 class TestAsyncFlagsClientLifecycle:
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_connect_internal(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
 
         async def _run():
             client = _make_async_flags_client()
@@ -1958,7 +2041,7 @@ class TestAsyncFlagsClientLifecycle:
 
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_connect_internal_idempotent(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
 
         async def _run():
             client = _make_async_flags_client()
@@ -1973,7 +2056,7 @@ class TestAsyncFlagsClientLifecycle:
 
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_refresh(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
 
         async def _run():
             client = _make_async_flags_client()
@@ -2073,7 +2156,7 @@ class TestAsyncFlagsClientRegisterFlush:
 class TestAsyncFlagsClientEvaluateHandle:
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_lazy_connects_on_first_call(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         client = _make_async_flags_client()
         client._parent._environment = "staging"
         client._parent._service = None
@@ -2204,7 +2287,7 @@ class TestAsyncFlagsClientEvaluateHandle:
 class TestAsyncFlagsClientEventHandlers:
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_handle_flag_changed(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         client = _make_async_flags_client()
         listener = MagicMock()
         client._global_listeners.append(listener)
@@ -2219,7 +2302,7 @@ class TestAsyncFlagsClientEventHandlers:
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_handle_flag_deleted(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         client = _make_async_flags_client()
         listener = MagicMock()
         client._global_listeners.append(listener)
@@ -2296,7 +2379,7 @@ class TestAsyncFlagsClientInternals:
 
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_fetch_all_flags(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
 
         async def _run():
             client = _make_async_flags_client()
@@ -2307,7 +2390,7 @@ class TestAsyncFlagsClientInternals:
 
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_fetch_flags_list(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
 
         async def _run():
             client = _make_async_flags_client()
@@ -2319,7 +2402,7 @@ class TestAsyncFlagsClientInternals:
 
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_fetch_flags_list_empty(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=None)
+        mock_list.return_value = _ok_json_response({"data": []})
 
         async def _run():
             client = _make_async_flags_client()
@@ -2351,14 +2434,14 @@ class TestAsyncFlagsClientInternals:
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_fetch_all_flags_sync(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=_mock_list_parsed())
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         client = _make_async_flags_client()
         client._fetch_all_flags_sync()
         assert "test-flag" in client._flag_store
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_fetch_all_flags_sync_empty(self, mock_list):
-        mock_list.return_value = _ok_response(parsed=None)
+        mock_list.return_value = _ok_json_response({"data": []})
         client = _make_async_flags_client()
         client._fetch_all_flags_sync()
         assert client._flag_store == {}

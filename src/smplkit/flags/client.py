@@ -132,8 +132,10 @@ def _extract_rule(rule: Any) -> dict[str, Any]:
     return result
 
 
-def _extract_values(values: Any) -> list[dict[str, Any]]:
-    """Extract a list of FlagValue to plain dicts."""
+def _extract_values(values: Any) -> list[dict[str, Any]] | None:
+    """Extract a list of FlagValue to plain dicts, or None for unconstrained."""
+    if values is None:
+        return None
     if not values:
         return []
     result = []
@@ -157,12 +159,12 @@ def _build_gen_flag(
     name: str,
     type_: str,
     default: Any,
-    values: list[dict[str, Any]],
+    values: list[dict[str, Any]] | None,
     description: str | None = None,
     environments: dict[str, Any] | None = None,
 ) -> GenFlag:
     """Build a generated Flag model from plain values."""
-    gen_values = [GenFlagValue(name=v["name"], value=v["value"]) for v in values]
+    gen_values = [GenFlagValue(name=v["name"], value=v["value"]) for v in (values or [])]
 
     gen_envs: GenFlagEnvironments | Any
     if environments:
@@ -202,10 +204,60 @@ def _build_gen_flag(
     )
 
 
-def _build_request_body(gen_flag: GenFlag, *, flag_id: str | None = None) -> ResponseFlag:
+def _build_request_body(gen_flag: GenFlag, *, flag_id: str | None = None, values_null: bool = False) -> ResponseFlag:
     """Wrap a generated Flag in the JSON:API request envelope."""
     resource = ResourceFlag(attributes=gen_flag, id=flag_id, type_="flag")
-    return ResponseFlag(data=resource)
+    body = ResponseFlag(data=resource)
+    if values_null:
+        return _NullValuesBody(body)
+    return body
+
+
+class _NullValuesBody:
+    """Wrapper that serializes values as null (for unconstrained flags).
+
+    The generated Flag model does not support nullable values, so we
+    post-process the serialized dict to set values to null.
+    """
+
+    def __init__(self, inner: ResponseFlag) -> None:
+        self._inner = inner
+
+    def to_dict(self) -> dict[str, Any]:
+        d = self._inner.to_dict()
+        d["data"]["attributes"]["values"] = None
+        return d
+
+
+def _flag_dict_from_json(data: dict[str, Any]) -> dict[str, Any]:
+    """Extract flat flag attributes from a JSON:API response ``data`` block.
+
+    Handles ``values: null`` which the generated parser cannot.
+    """
+    attrs = data["attributes"]
+    values_raw = attrs.get("values")
+    values: list[dict[str, Any]] | None = None
+    if values_raw is not None:
+        values = [{"name": v["name"], "value": v["value"]} for v in values_raw]
+    envs: dict[str, Any] = {}
+    for env_key, env_data in (attrs.get("environments") or {}).items():
+        envs[env_key] = {
+            "enabled": env_data.get("enabled", False),
+            "default": env_data.get("default"),
+            "rules": env_data.get("rules", []),
+        }
+    return {
+        "id": data.get("id", ""),
+        "key": attrs["key"],
+        "name": attrs["name"],
+        "type": attrs["type"],
+        "default": attrs["default"],
+        "values": values,
+        "description": attrs.get("description"),
+        "environments": envs,
+        "created_at": attrs.get("created_at"),
+        "updated_at": attrs.get("updated_at"),
+    }
 
 
 def _contexts_to_eval_dict(contexts: list[Context]) -> dict[str, Any]:
@@ -460,9 +512,11 @@ class FlagsClient:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data") or not response.parsed.data:
+        body = json.loads(response.content)
+        items = body.get("data", [])
+        if not items:
             raise SmplNotFoundError(f"Flag with key '{key}' not found")
-        return self._resource_to_model(response.parsed.data[0])
+        return self._model_from_json(items[0])
 
     def list(self) -> list[Flag]:
         """List all flags."""
@@ -472,9 +526,8 @@ class FlagsClient:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [self._resource_to_model(r) for r in response.parsed.data]
+        body = json.loads(response.content)
+        return [self._model_from_json(r) for r in body.get("data", [])]
 
     def delete(self, key: str) -> None:
         """Delete a flag by key."""
@@ -499,19 +552,15 @@ class FlagsClient:
             description=flag.description,
             environments=flag.environments or None,
         )
-        body = _build_request_body(gen_flag)
+        body = _build_request_body(gen_flag, values_null=flag.values is None)
         try:
             response = create_flag.sync_detailed(client=self._flags_http, body=body)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return self._to_model(response.parsed)
+        resp_body = json.loads(response.content)
+        return self._model_from_json(resp_body["data"])
 
     def _update_flag(self, *, flag: Flag) -> Flag:
         """Internal: PUT a full flag update.  Called by Flag.save() when id is set."""
@@ -526,19 +575,15 @@ class FlagsClient:
             description=flag.description,
             environments=flag.environments or None,
         )
-        body = _build_request_body(gen_flag, flag_id=flag.id)
+        body = _build_request_body(gen_flag, flag_id=flag.id, values_null=flag.values is None)
         try:
             response = update_flag.sync_detailed(UUID(flag.id), client=self._flags_http, body=body)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return self._to_model(response.parsed)
+        resp_body = json.loads(response.content)
+        return self._model_from_json(resp_body["data"])
 
     # ------------------------------------------------------------------
     # Runtime: typed flag handles
@@ -741,20 +786,19 @@ class FlagsClient:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
+        body = json.loads(response.content)
         result = []
-        for r in response.parsed.data:
-            attrs = r.attributes
+        for r in body.get("data", []):
+            d = _flag_dict_from_json(r)
             result.append(
                 {
-                    "key": attrs.key,
-                    "name": attrs.name,
-                    "type": attrs.type_,
-                    "default": attrs.default,
-                    "values": _extract_values(attrs.values),
-                    "description": _unset_to_none(attrs.description),
-                    "environments": _extract_environments(attrs.environments),
+                    "key": d["key"],
+                    "name": d["name"],
+                    "type": d["type"],
+                    "default": d["default"],
+                    "values": d["values"],
+                    "description": d["description"],
+                    "environments": d["environments"],
                 }
             )
         return result
@@ -799,6 +843,11 @@ class FlagsClient:
             created_at=_unset_to_none(getattr(attrs, "created_at", None)),
             updated_at=_unset_to_none(getattr(attrs, "updated_at", None)),
         )
+
+    def _model_from_json(self, data: dict[str, Any]) -> Flag:
+        """Build a Flag from a raw JSON:API resource dict (handles null values)."""
+        d = _flag_dict_from_json(data)
+        return Flag(self, **d)
 
 
 # ---------------------------------------------------------------------------
@@ -925,9 +974,11 @@ class AsyncFlagsClient:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data") or not response.parsed.data:
+        body = json.loads(response.content)
+        items = body.get("data", [])
+        if not items:
             raise SmplNotFoundError(f"Flag with key '{key}' not found")
-        return self._resource_to_model(response.parsed.data[0])
+        return self._model_from_json(items[0])
 
     async def list(self) -> list[AsyncFlag]:
         """List all flags."""
@@ -937,9 +988,8 @@ class AsyncFlagsClient:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [self._resource_to_model(r) for r in response.parsed.data]
+        body = json.loads(response.content)
+        return [self._model_from_json(r) for r in body.get("data", [])]
 
     async def delete(self, key: str) -> None:
         """Delete a flag by key."""
@@ -964,19 +1014,15 @@ class AsyncFlagsClient:
             description=flag.description,
             environments=flag.environments or None,
         )
-        body = _build_request_body(gen_flag)
+        body = _build_request_body(gen_flag, values_null=flag.values is None)
         try:
             response = await create_flag.asyncio_detailed(client=self._flags_http, body=body)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return self._to_model(response.parsed)
+        resp_body = json.loads(response.content)
+        return self._model_from_json(resp_body["data"])
 
     async def _update_flag(self, *, flag: AsyncFlag) -> AsyncFlag:
         """Internal: PUT a full flag update."""
@@ -991,19 +1037,15 @@ class AsyncFlagsClient:
             description=flag.description,
             environments=flag.environments or None,
         )
-        body = _build_request_body(gen_flag, flag_id=flag.id)
+        body = _build_request_body(gen_flag, flag_id=flag.id, values_null=flag.values is None)
         try:
             response = await update_flag.asyncio_detailed(UUID(flag.id), client=self._flags_http, body=body)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return self._to_model(response.parsed)
+        resp_body = json.loads(response.content)
+        return self._model_from_json(resp_body["data"])
 
     # ------------------------------------------------------------------
     # Runtime: typed flag handles
@@ -1190,20 +1232,19 @@ class AsyncFlagsClient:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
+        body = json.loads(response.content)
         result = []
-        for r in response.parsed.data:
-            attrs = r.attributes
+        for r in body.get("data", []):
+            d = _flag_dict_from_json(r)
             result.append(
                 {
-                    "key": attrs.key,
-                    "name": attrs.name,
-                    "type": attrs.type_,
-                    "default": attrs.default,
-                    "values": _extract_values(attrs.values),
-                    "description": _unset_to_none(attrs.description),
-                    "environments": _extract_environments(attrs.environments),
+                    "key": d["key"],
+                    "name": d["name"],
+                    "type": d["type"],
+                    "default": d["default"],
+                    "values": d["values"],
+                    "description": d["description"],
+                    "environments": d["environments"],
                 }
             )
         return result
@@ -1216,20 +1257,18 @@ class AsyncFlagsClient:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            self._flag_store = {}
-            return
+        body = json.loads(response.content)
         store: dict[str, dict[str, Any]] = {}
-        for r in response.parsed.data:
-            attrs = r.attributes
-            store[attrs.key] = {
-                "key": attrs.key,
-                "name": attrs.name,
-                "type": attrs.type_,
-                "default": attrs.default,
-                "values": _extract_values(attrs.values),
-                "description": _unset_to_none(attrs.description),
-                "environments": _extract_environments(attrs.environments),
+        for r in body.get("data", []):
+            d = _flag_dict_from_json(r)
+            store[d["key"]] = {
+                "key": d["key"],
+                "name": d["name"],
+                "type": d["type"],
+                "default": d["default"],
+                "values": d["values"],
+                "description": d["description"],
+                "environments": d["environments"],
             }
         self._flag_store = store
 
@@ -1241,20 +1280,21 @@ class AsyncFlagsClient:
         flag_key = data.get("key")
         try:
             response = list_flags.sync_detailed(client=self._flags_http)
-            if response.parsed and hasattr(response.parsed, "data"):
-                new_store: dict[str, dict[str, Any]] = {}
-                for r in response.parsed.data:
-                    attrs = r.attributes
-                    new_store[attrs.key] = {
-                        "key": attrs.key,
-                        "name": attrs.name,
-                        "type": attrs.type_,
-                        "default": attrs.default,
-                        "values": _extract_values(attrs.values),
-                        "description": _unset_to_none(attrs.description),
-                        "environments": _extract_environments(attrs.environments),
-                    }
-                self._flag_store = new_store
+            _check_response_status(response.status_code, response.content)
+            body = json.loads(response.content)
+            new_store: dict[str, dict[str, Any]] = {}
+            for r in body.get("data", []):
+                d = _flag_dict_from_json(r)
+                new_store[d["key"]] = {
+                    "key": d["key"],
+                    "name": d["name"],
+                    "type": d["type"],
+                    "default": d["default"],
+                    "values": d["values"],
+                    "description": d["description"],
+                    "environments": d["environments"],
+                }
+            self._flag_store = new_store
         except Exception:
             ws_logger.error("Failed to refresh flags after WS event", exc_info=True)
         self._cache.clear()
@@ -1264,20 +1304,21 @@ class AsyncFlagsClient:
         flag_key = data.get("key")
         try:
             response = list_flags.sync_detailed(client=self._flags_http)
-            if response.parsed and hasattr(response.parsed, "data"):
-                new_store: dict[str, dict[str, Any]] = {}
-                for r in response.parsed.data:
-                    attrs = r.attributes
-                    new_store[attrs.key] = {
-                        "key": attrs.key,
-                        "name": attrs.name,
-                        "type": attrs.type_,
-                        "default": attrs.default,
-                        "values": _extract_values(attrs.values),
-                        "description": _unset_to_none(attrs.description),
-                        "environments": _extract_environments(attrs.environments),
-                    }
-                self._flag_store = new_store
+            _check_response_status(response.status_code, response.content)
+            body = json.loads(response.content)
+            new_store: dict[str, dict[str, Any]] = {}
+            for r in body.get("data", []):
+                d = _flag_dict_from_json(r)
+                new_store[d["key"]] = {
+                    "key": d["key"],
+                    "name": d["name"],
+                    "type": d["type"],
+                    "default": d["default"],
+                    "values": d["values"],
+                    "description": d["description"],
+                    "environments": d["environments"],
+                }
+            self._flag_store = new_store
         except Exception:
             ws_logger.error("Failed to refresh flags after WS event", exc_info=True)
         self._cache.clear()
@@ -1323,6 +1364,11 @@ class AsyncFlagsClient:
             created_at=_unset_to_none(getattr(attrs, "created_at", None)),
             updated_at=_unset_to_none(getattr(attrs, "updated_at", None)),
         )
+
+    def _model_from_json(self, data: dict[str, Any]) -> AsyncFlag:
+        """Build an AsyncFlag from a raw JSON:API resource dict (handles null values)."""
+        d = _flag_dict_from_json(data)
+        return AsyncFlag(self, **d)
 
 
 # ---------------------------------------------------------------------------

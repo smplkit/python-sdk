@@ -39,7 +39,7 @@ class Flag:
         self.name = name
         self.type = type
         self.default = default
-        self.values = values or []
+        self.values = values
         self.description = description
         self.environments = environments if environments is not None else {}
         self.created_at = created_at
@@ -205,7 +205,7 @@ class AsyncFlag:
         self.name = name
         self.type = type
         self.default = default
-        self.values = values or []
+        self.values = values
         self.description = description
         self.environments = environments if environments is not None else {}
         self.created_at = created_at
