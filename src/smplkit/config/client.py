@@ -630,6 +630,7 @@ class ConfigClient:
             description=config.description,
             parent=config.parent,
             items=config._items_raw,
+            environments=config.environments,
         )
         try:
             response = create_config.sync_detailed(
@@ -998,6 +999,7 @@ class AsyncConfigClient:
             description=config.description,
             parent=config.parent,
             items=config._items_raw,
+            environments=config.environments,
         )
         try:
             response = await create_config.asyncio_detailed(

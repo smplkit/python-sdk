@@ -6,7 +6,7 @@ Demonstrates the smplkit Python SDK's runtime experience for Smpl Config:
 
 - Lazy initialization — first resolve() fetches configs and opens WebSocket
 - resolve(key) → plain dict of resolved values
-- resolve(key, Model) → typed dataclass or Pydantic model
+- resolve(key, Model) → typed Pydantic model
 - subscribe() → live proxy that updates automatically
 - Config inheritance (common → service / module)
 - Environment-specific override resolution
@@ -31,7 +31,8 @@ Usage::
 """
 
 import asyncio
-from dataclasses import dataclass
+
+from pydantic import BaseModel
 
 from smplkit import AsyncSmplClient
 
@@ -62,16 +63,14 @@ def step(description: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class Database:
+class Database(BaseModel):
     host: str
     port: int
     name: str
     pool_size: int
 
 
-@dataclass
-class UserServiceConfig:
+class UserServiceConfig(BaseModel):
     database: Database
     cache_ttl_seconds: int
     enable_signup: bool
@@ -117,7 +116,7 @@ async def main() -> None:
 
         section("2. Resolve — Plain Dict")
 
-        config_dict = client.config.resolve("user_service")
+        config_dict = await client.config.resolve("user_service")
         step(f"Total resolved keys: {len(config_dict)}")
 
         step(f"database.host = {config_dict.get('database.host')}")
@@ -147,13 +146,14 @@ async def main() -> None:
         #   "database.host" + "database.port" → {"database": {"host": ..., "port": ...}}
         #   → UserServiceConfig(database=Database(host=..., port=...))
         #
-        # Works with dataclasses, Pydantic models, or any class whose
+        # Works with Pydantic models (which handle nested coercion
+        # automatically via model_validate) or any class whose
         # constructor accepts keyword arguments.
         # ==================================================================
 
         section("3. Resolve — Typed Model")
 
-        cfg = client.config.resolve("user_service", UserServiceConfig)
+        cfg = await client.config.resolve("user_service", UserServiceConfig)
         step(f"cfg.database.host = {cfg.database.host}")
         step(f"cfg.database.pool_size = {cfg.database.pool_size}")
         step(f"cfg.cache_ttl_seconds = {cfg.cache_ttl_seconds}")
@@ -175,7 +175,7 @@ async def main() -> None:
 
         section("4. Inheritance (auth_module)")
 
-        auth_dict = client.config.resolve("auth_module")
+        auth_dict = await client.config.resolve("auth_module")
         step(f"session_ttl_minutes = {auth_dict.get('session_ttl_minutes')}")
         # Expected: 30 (auth_module production override)
 
@@ -196,7 +196,7 @@ async def main() -> None:
 
         section("5. Subscribe — Live Proxy")
 
-        live = client.config.subscribe("user_service", UserServiceConfig)
+        live = await client.config.subscribe("user_service", UserServiceConfig)
         step(f"live.database.host = {live.database.host}")
         step(f"live.cache_ttl_seconds = {live.cache_ttl_seconds}")
         step("This proxy will reflect new values after server-side changes")
@@ -246,7 +246,7 @@ async def main() -> None:
         await asyncio.sleep(2)
 
         # Read the updated value — should reflect the change.
-        new_retries = client.config.resolve("user_service").get("max_retries")
+        new_retries = (await client.config.resolve("user_service")).get("max_retries")
         step(f"max_retries after WebSocket update = {new_retries}")
         # Expected: 7
 
