@@ -95,7 +95,7 @@ class TestInstallHook:
         stdlib_logging.getLogger(test_name)
 
         discovered = []
-        self.adapter.install_hook(lambda n, l: discovered.append(n))
+        self.adapter.install_hook(lambda n, _lv: discovered.append(n))
         stdlib_logging.getLogger(test_name)
         assert test_name not in discovered
 

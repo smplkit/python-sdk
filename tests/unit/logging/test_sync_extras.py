@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging as stdlib_logging
 from http import HTTPStatus
 from unittest.mock import MagicMock, patch
 

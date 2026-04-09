@@ -12,7 +12,6 @@ from __future__ import annotations
 import logging as stdlib_logging
 from collections.abc import Callable
 
-import loguru as _loguru_mod
 from loguru import logger as _loguru_logger
 
 from smplkit.logging.adapters.base import LoggingAdapter

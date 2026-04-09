@@ -8,8 +8,7 @@ import pytest
 
 loguru = pytest.importorskip("loguru")
 
-
-from smplkit.logging.adapters.loguru_adapter import LoguruAdapter
+from smplkit.logging.adapters.loguru_adapter import LoguruAdapter  # noqa: E402
 
 
 class TestDiscover:
