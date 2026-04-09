@@ -122,6 +122,9 @@ async def main() -> None:
         # ------------------------------------------------------------------
         section("2b. Create a String Flag")
 
+        # The values parameter defines a closed set — this flag can only
+        # serve "red", "green", or "blue". This makes it a constrained
+        # flag. The Console UI shows dropdowns for value selection.
         banner_flag = client.flags.newStringFlag(
             "banner-color",
             default="red",
@@ -140,18 +143,18 @@ async def main() -> None:
         # ------------------------------------------------------------------
         # 2c. NUMERIC flag
         # ------------------------------------------------------------------
-        section("2c. Create a Numeric Flag")
+        section("2c. Create a Numeric Flag — Unconstrained")
 
+        # Unlike banner-color above, this flag has no predefined values.
+        # Any number is valid as a default or rule serve-value. This is
+        # useful for tunables like thresholds, retry counts, and timeouts
+        # where the value space is open-ended.
+        #
+        # Omitting the values parameter creates an unconstrained flag.
         retry_flag = client.flags.newNumberFlag(
             "max-retries",
             default=3,
             description="Maximum number of API retries before failing.",
-            values=[
-                {"name": "Low (1)", "value": 1},
-                {"name": "Standard (3)", "value": 3},
-                {"name": "High (5)", "value": 5},
-                {"name": "Aggressive (10)", "value": 10},
-            ],
         )
         await retry_flag.save()
         step(f"Created and saved: key={retry_flag.key}, type={retry_flag.type}")
@@ -161,6 +164,8 @@ async def main() -> None:
         # ------------------------------------------------------------------
         section("2d. Create a JSON Flag")
 
+        # Like banner-color, this JSON flag is constrained — only the
+        # three declared theme objects can be served.
         theme_flag = client.flags.newJsonFlag(
             "ui-theme",
             default={"mode": "light", "accent": "#0066cc"},

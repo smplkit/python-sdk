@@ -126,12 +126,15 @@ class Flag:
 
         default = d.pop("default")
 
-        values = []
+        values: list[FlagValue] | None = []
         _values = d.pop("values")
-        for values_item_data in _values:
-            values_item = FlagValue.from_dict(values_item_data)
+        if _values is not None:
+            for values_item_data in _values:
+                values_item = FlagValue.from_dict(values_item_data)
 
-            values.append(values_item)
+                values.append(values_item)
+        else:
+            values = None
 
         description = d.pop("description", UNSET)
 

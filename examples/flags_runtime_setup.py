@@ -80,15 +80,9 @@ async def setup_demo_flags(client: AsyncSmplClient) -> list[str]:
     banner.setEnvironmentDefault("production", "blue")
     await banner.save()
 
-    # 3. max-retries — numeric
+    # 3. max-retries — numeric (unconstrained)
     retries = client.flags.newNumberFlag("max-retries", default=3,
-        description="Maximum number of API retries before failing.",
-        values=[
-            {"name": "Low (1)", "value": 1},
-            {"name": "Standard (3)", "value": 3},
-            {"name": "High (5)", "value": 5},
-            {"name": "Aggressive (10)", "value": 10},
-        ])
+        description="Maximum number of API retries before failing.")
     retries.setEnvironmentEnabled("staging", True)
     retries.addRule(
         Rule("High retries for large accounts")
