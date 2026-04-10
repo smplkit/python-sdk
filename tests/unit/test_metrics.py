@@ -5,8 +5,6 @@ import json
 import threading
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from smplkit._metrics import _AsyncMetricsReporter, _Counter, _MetricsReporter
 
 
