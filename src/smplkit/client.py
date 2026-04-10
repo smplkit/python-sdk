@@ -12,6 +12,7 @@ from smplkit._generated.app.models.context_bulk_item import ContextBulkItem
 from smplkit._generated.app.models.context_bulk_item_attributes import ContextBulkItemAttributes
 from smplkit._generated.app.models.context_bulk_register import ContextBulkRegister
 from smplkit._generated.config.client import AuthenticatedClient
+from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
 from smplkit._resolve import _resolve_api_key
 from smplkit._ws import SharedWebSocket
 from smplkit.config.client import AsyncConfigClient, ConfigClient
@@ -81,6 +82,7 @@ class SmplClient:
         *,
         environment: str | None = None,
         service: str | None = None,
+        disable_telemetry: bool = False,
     ) -> None:
         # 1. Resolve environment
         resolved_env = environment or os.environ.get("SMPLKIT_ENVIRONMENT")
@@ -108,6 +110,17 @@ class SmplClient:
             base_url=_APP_BASE_URL,
             token=resolved,
         )
+
+        # 4. Metrics reporter
+        if disable_telemetry:
+            self._metrics: _MetricsReporter | None = None
+        else:
+            self._metrics = _MetricsReporter(
+                http_client=self._app_http,
+                environment=self._environment,
+                service=self._service,
+            )
+
         self._ws_manager: SharedWebSocket | None = None
         self.config = ConfigClient(self)
         self.flags = FlagsClient(self)
@@ -133,12 +146,15 @@ class SmplClient:
             self._ws_manager = SharedWebSocket(
                 app_base_url=_APP_BASE_URL,
                 api_key=self._api_key,
+                metrics=self._metrics,
             )
             self._ws_manager.start()
         return self._ws_manager
 
     def close(self) -> None:
         """Release all resources held by this client."""
+        if self._metrics is not None:
+            self._metrics.close()
         self.logging._close()
         if self._ws_manager is not None:
             self._ws_manager.stop()
@@ -189,6 +205,7 @@ class AsyncSmplClient:
         *,
         environment: str | None = None,
         service: str | None = None,
+        disable_telemetry: bool = False,
     ) -> None:
         # 1. Resolve environment
         resolved_env = environment or os.environ.get("SMPLKIT_ENVIRONMENT")
@@ -216,6 +233,17 @@ class AsyncSmplClient:
             base_url=_APP_BASE_URL,
             token=resolved,
         )
+
+        # 4. Metrics reporter
+        if disable_telemetry:
+            self._metrics: _AsyncMetricsReporter | None = None
+        else:
+            self._metrics = _AsyncMetricsReporter(
+                http_client=self._app_http,
+                environment=self._environment,
+                service=self._service,
+            )
+
         self._ws_manager: SharedWebSocket | None = None
         self.config = AsyncConfigClient(self)
         self.flags = AsyncFlagsClient(self)
@@ -252,12 +280,15 @@ class AsyncSmplClient:
             self._ws_manager = SharedWebSocket(
                 app_base_url=_APP_BASE_URL,
                 api_key=self._api_key,
+                metrics=self._metrics,
             )
             self._ws_manager.start()
         return self._ws_manager
 
     async def close(self) -> None:
         """Release all resources held by this client."""
+        if self._metrics is not None:
+            await self._metrics.close()
         self.logging._close()
         if self._ws_manager is not None:
             self._ws_manager.stop()

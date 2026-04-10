@@ -610,3 +610,62 @@ class TestNoSubscribe:
         asyncio.run(_run())
         # No subscribe or any other message should be sent
         mock_ws_conn.send.assert_not_called()
+
+
+# ===================================================================
+# Metrics instrumentation
+# ===================================================================
+
+
+class TestWebSocketMetrics:
+    def test_connect_records_gauge(self):
+        """_connect records platform.websocket_connections=1 on success."""
+        metrics = MagicMock()
+        ws = SharedWebSocket(app_base_url="https://app.smplkit.com", api_key="sk_test", metrics=metrics)
+
+        mock_ws_conn = AsyncMock()
+        connected_msg = json.dumps({"type": "connected"})
+        mock_ws_conn.recv = AsyncMock(return_value=connected_msg)
+
+        async def _run():
+            with patch(
+                "smplkit._ws.websockets.asyncio.client.connect", new_callable=AsyncMock, return_value=mock_ws_conn
+            ):
+                ws._closed = True
+                await ws._connect()
+
+        asyncio.run(_run())
+        metrics.record_gauge.assert_called_once_with("platform.websocket_connections", 1, unit="connections")
+
+    def test_connection_closed_records_gauge_zero(self):
+        """ConnectionClosed records platform.websocket_connections=0."""
+        metrics = MagicMock()
+        ws = SharedWebSocket(app_base_url="https://app.smplkit.com", api_key="sk_test", metrics=metrics)
+
+        mock_ws_conn = AsyncMock()
+        exc = websockets.ConnectionClosed(websockets.frames.Close(1006, "abnormal"), None)
+        mock_ws_conn.recv = AsyncMock(side_effect=exc)
+        ws._ws = mock_ws_conn
+
+        async def _run():
+            with patch.object(ws, "_reconnect", new_callable=AsyncMock):
+                await ws._receive_loop()
+
+        asyncio.run(_run())
+        metrics.record_gauge.assert_called_with("platform.websocket_connections", 0, unit="connections")
+
+    def test_unexpected_error_records_gauge_zero(self):
+        """Unexpected error records platform.websocket_connections=0."""
+        metrics = MagicMock()
+        ws = SharedWebSocket(app_base_url="https://app.smplkit.com", api_key="sk_test", metrics=metrics)
+
+        mock_ws_conn = AsyncMock()
+        mock_ws_conn.recv = AsyncMock(side_effect=RuntimeError("unexpected"))
+        ws._ws = mock_ws_conn
+
+        async def _run():
+            with patch.object(ws, "_reconnect", new_callable=AsyncMock):
+                await ws._receive_loop()
+
+        asyncio.run(_run())
+        metrics.record_gauge.assert_called_with("platform.websocket_connections", 0, unit="connections")

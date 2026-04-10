@@ -35,9 +35,10 @@ class SharedWebSocket:
     - Heartbeat: server sends ``b"ping"``, client responds with ``"pong"``
     """
 
-    def __init__(self, *, app_base_url: str, api_key: str) -> None:
+    def __init__(self, *, app_base_url: str, api_key: str, metrics: Any = None) -> None:
         self._app_base_url = app_base_url
         self._api_key = api_key
+        self._metrics = metrics
 
         self._listeners: dict[str, list[Callable[[dict[str, Any]], None]]] = defaultdict(list)
         self._listeners_lock = threading.Lock()
@@ -181,6 +182,8 @@ class SharedWebSocket:
             raise RuntimeError(f"Connection error: {data.get('message')}")
 
         self._connection_status = "connected"
+        if self._metrics is not None:
+            self._metrics.record_gauge("platform.websocket_connections", 1, unit="connections")
         logger.debug("Shared WebSocket connection confirmed")
         await self._receive_loop()
 
@@ -208,6 +211,8 @@ class SharedWebSocket:
                     close_code,
                 )
                 self._connection_status = "reconnecting"
+                if self._metrics is not None:
+                    self._metrics.record_gauge("platform.websocket_connections", 0, unit="connections")
                 await self._reconnect()
                 break
             except Exception:
@@ -218,6 +223,8 @@ class SharedWebSocket:
                     exc_info=True,
                 )
                 self._connection_status = "reconnecting"
+                if self._metrics is not None:
+                    self._metrics.record_gauge("platform.websocket_connections", 0, unit="connections")
                 await self._reconnect()
                 break
 

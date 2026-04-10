@@ -916,6 +916,9 @@ class LoggingClient:
         body = LoggerBulkRequest(loggers=items)
         try:
             bulk_register_loggers.sync_detailed(client=self._logging_http, body=body)
+            metrics = self._parent._metrics
+            if metrics is not None:
+                metrics.record("logging.loggers_discovered", len(items), unit="loggers")
         except Exception:
             logger.debug("Bulk logger registration failed", exc_info=True)
 
@@ -993,6 +996,9 @@ class LoggingClient:
                     adapter.apply_level(original_name, python_level)
                 except Exception:
                     logger.debug("Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True)
+            metrics = self._parent._metrics
+            if metrics is not None:
+                metrics.record("logging.level_changes", unit="changes", dimensions={"logger_key": normalized_key})
 
     # --- Model conversion ---
 
@@ -1350,6 +1356,9 @@ class AsyncLoggingClient:
         body = LoggerBulkRequest(loggers=items)
         try:
             await bulk_register_loggers.asyncio_detailed(client=self._logging_http, body=body)
+            metrics = self._parent._metrics
+            if metrics is not None:
+                metrics.record("logging.loggers_discovered", len(items), unit="loggers")
         except Exception:
             logger.debug("Bulk logger registration failed", exc_info=True)
 
@@ -1362,6 +1371,9 @@ class AsyncLoggingClient:
         body = LoggerBulkRequest(loggers=items)
         try:
             bulk_register_loggers.sync_detailed(client=self._logging_http, body=body)
+            metrics = self._parent._metrics
+            if metrics is not None:
+                metrics.record("logging.loggers_discovered", len(items), unit="loggers")
         except Exception:
             logger.debug("Bulk logger registration failed", exc_info=True)
 
@@ -1435,6 +1447,9 @@ class AsyncLoggingClient:
                     adapter.apply_level(original_name, python_level)
                 except Exception:
                     logger.debug("Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True)
+            metrics = self._parent._metrics
+            if metrics is not None:
+                metrics.record("logging.level_changes", unit="changes", dimensions={"logger_key": normalized_key})
 
     # --- Model conversion ---
 

@@ -487,6 +487,9 @@ class ConfigClient:
         """
         self._connect_internal()
         values = dict(self._config_cache.get(key, {}))
+        metrics = self._parent._metrics
+        if metrics is not None:
+            metrics.record("config.resolutions", unit="resolutions", dimensions={"config_key": key})
         if model is None:
             return values
         nested = _unflatten(values)
@@ -584,6 +587,9 @@ class ConfigClient:
                 new_val = new_items.get(i_key)
                 if old_val == new_val:
                     continue
+                metrics = self._parent._metrics
+                if metrics is not None:
+                    metrics.record("config.changes", unit="changes", dimensions={"config_key": cfg_key})
                 event = ConfigChangeEvent(
                     config_key=cfg_key,
                     item_key=i_key,
@@ -844,6 +850,9 @@ class AsyncConfigClient:
         """
         await self._connect_internal()
         values = dict(self._config_cache.get(key, {}))
+        metrics = self._parent._metrics
+        if metrics is not None:
+            metrics.record("config.resolutions", unit="resolutions", dimensions={"config_key": key})
         if model is None:
             return values
         nested = _unflatten(values)
@@ -940,6 +949,9 @@ class AsyncConfigClient:
                 new_val = new_items.get(i_key)
                 if old_val == new_val:
                     continue
+                metrics = self._parent._metrics
+                if metrics is not None:
+                    metrics.record("config.changes", unit="changes", dimensions={"config_key": cfg_key})
                 event = ConfigChangeEvent(
                     config_key=cfg_key,
                     item_key=i_key,
