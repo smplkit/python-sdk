@@ -72,6 +72,10 @@ class SmplClient:
             loggers and service context registration.
     """
 
+    config: ConfigClient
+    flags: FlagsClient
+    logging: LoggingClient
+
     def __init__(
         self,
         api_key: str | None = None,
@@ -176,6 +180,10 @@ class AsyncSmplClient:
             from ``SMPLKIT_SERVICE`` if not provided. Used for auto-discovered
             loggers and service context registration.
     """
+
+    config: AsyncConfigClient
+    flags: AsyncFlagsClient
+    logging: AsyncLoggingClient
 
     def __init__(
         self,

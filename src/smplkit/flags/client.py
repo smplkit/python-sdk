@@ -283,6 +283,9 @@ def _hash_context(eval_dict: dict[str, Any]) -> str:
 class FlagChangeEvent:
     """Describes a flag definition change."""
 
+    key: str
+    source: str
+
     def __init__(self, *, key: str, source: str) -> None:
         self.key = key
         self.source = source
@@ -333,6 +336,9 @@ class _ResolutionCache:
 
 class FlagStats:
     """Cache statistics for the flags runtime."""
+
+    cache_hits: int
+    cache_misses: int
 
     def __init__(self, *, cache_hits: int, cache_misses: int) -> None:
         self.cache_hits = cache_hits

@@ -19,6 +19,11 @@ class Context:
         Context("account", "acme-corp", {"region": "us"}, employee_count=500)
     """
 
+    type: str
+    key: str
+    name: str | None
+    attributes: dict[str, Any]
+
     def __init__(
         self,
         type: str,

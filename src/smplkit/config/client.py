@@ -241,6 +241,12 @@ class ConfigChangeEvent:
         source: How the change was delivered (``"websocket"`` or ``"manual"``).
     """
 
+    config_key: str
+    item_key: str
+    old_value: Any
+    new_value: Any
+    source: str
+
     def __init__(
         self,
         *,

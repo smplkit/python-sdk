@@ -18,6 +18,17 @@ class Flag:
     .get() to return a typed value.
     """
 
+    id: str | None
+    key: str
+    name: str
+    type: str
+    default: Any
+    values: list[dict[str, Any]] | None
+    description: str | None
+    environments: dict[str, Any]
+    created_at: Any
+    updated_at: Any
+
     def __init__(
         self,
         client: FlagsClient,
@@ -183,6 +194,17 @@ class AsyncFlag:
     Local mutations (addRule, setEnvironmentEnabled, etc.) and
     evaluation (.get()) are synchronous.
     """
+
+    id: str | None
+    key: str
+    name: str
+    type: str
+    default: Any
+    values: list[dict[str, Any]] | None
+    description: str | None
+    environments: dict[str, Any]
+    created_at: Any
+    updated_at: Any
 
     def __init__(
         self,

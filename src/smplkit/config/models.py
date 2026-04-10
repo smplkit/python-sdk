@@ -33,6 +33,15 @@ class Config:
         updated_at: Last-modified timestamp.
     """
 
+    id: str | None
+    key: str
+    name: str
+    description: str | None
+    parent: str | None
+    environments: dict[str, Any]
+    created_at: datetime.datetime | None
+    updated_at: datetime.datetime | None
+
     def __init__(
         self,
         client: ConfigClient,
@@ -161,6 +170,15 @@ class AsyncConfig:
         created_at: Creation timestamp.
         updated_at: Last-modified timestamp.
     """
+
+    id: str | None
+    key: str
+    name: str
+    description: str | None
+    parent: str | None
+    environments: dict[str, Any]
+    created_at: datetime.datetime | None
+    updated_at: datetime.datetime | None
 
     def __init__(
         self,

@@ -205,6 +205,17 @@ class SmplLogger:
     to PUT the full object back to the server.
     """
 
+    id: str | None
+    key: str
+    name: str
+    level: str | None
+    group: str | None
+    managed: bool | None
+    sources: list[dict[str, Any]]
+    environments: dict[str, Any]
+    created_at: Any
+    updated_at: Any
+
     def __init__(
         self,
         client: LoggingClient | None = None,
@@ -280,6 +291,17 @@ class AsyncSmplLogger:
     Supports GET-mutate-save: modify properties, then call :meth:`save`
     to PUT the full object back to the server.
     """
+
+    id: str | None
+    key: str
+    name: str
+    level: str | None
+    group: str | None
+    managed: bool | None
+    sources: list[dict[str, Any]]
+    environments: dict[str, Any]
+    created_at: Any
+    updated_at: Any
 
     def __init__(
         self,
@@ -357,6 +379,15 @@ class SmplLogGroup:
     to PUT the full object back to the server.
     """
 
+    id: str | None
+    key: str
+    name: str
+    level: str | None
+    group: str | None
+    environments: dict[str, Any]
+    created_at: Any
+    updated_at: Any
+
     def __init__(
         self,
         client: LoggingClient | None = None,
@@ -426,6 +457,15 @@ class AsyncSmplLogGroup:
     Supports GET-mutate-save: modify properties, then call :meth:`save`
     to PUT the full object back to the server.
     """
+
+    id: str | None
+    key: str
+    name: str
+    level: str | None
+    group: str | None
+    environments: dict[str, Any]
+    created_at: Any
+    updated_at: Any
 
     def __init__(
         self,
