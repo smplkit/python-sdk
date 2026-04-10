@@ -47,6 +47,16 @@ from .invitation_resource_type import InvitationResourceType
 from .invitation_response import InvitationResponse
 from .limit_definition import LimitDefinition
 from .login_request import LoginRequest
+from .metric_attributes import MetricAttributes
+from .metric_attributes_dimensions import MetricAttributesDimensions
+from .metric_bulk_request import MetricBulkRequest
+from .metric_list_response import MetricListResponse
+from .metric_resource import MetricResource
+from .metric_resource_type import MetricResourceType
+from .metric_rollup_attributes import MetricRollupAttributes
+from .metric_rollup_list_response import MetricRollupListResponse
+from .metric_rollup_resource import MetricRollupResource
+from .metric_rollup_resource_type import MetricRollupResourceType
 from .oidc_provider import OidcProvider
 from .plan import Plan
 from .plan_definition import PlanDefinition
@@ -121,6 +131,16 @@ __all__ = (
     "InvitationResponse",
     "LimitDefinition",
     "LoginRequest",
+    "MetricAttributes",
+    "MetricAttributesDimensions",
+    "MetricBulkRequest",
+    "MetricListResponse",
+    "MetricResource",
+    "MetricResourceType",
+    "MetricRollupAttributes",
+    "MetricRollupListResponse",
+    "MetricRollupResource",
+    "MetricRollupResourceType",
     "OidcProvider",
     "Plan",
     "PlanDefinition",
