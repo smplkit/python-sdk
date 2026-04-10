@@ -99,8 +99,7 @@ class Config:
     def save(self) -> None:
         """Persist this config to the server.
 
-        If ``self.id`` is ``None``, creates a new config via POST.
-        Otherwise, updates the existing config via PUT.
+        Creates a new config if unsaved, or updates the existing one.
 
         Raises:
             SmplNotFoundError: If the config no longer exists (update).
@@ -229,8 +228,7 @@ class AsyncConfig:
     async def save(self) -> None:
         """Persist this config to the server.
 
-        If ``self.id`` is ``None``, creates a new config via POST.
-        Otherwise, updates the existing config via PUT.
+        Creates a new config if unsaved, or updates the existing one.
 
         Raises:
             SmplNotFoundError: If the config no longer exists (update).

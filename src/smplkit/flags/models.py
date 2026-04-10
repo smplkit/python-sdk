@@ -11,11 +11,11 @@ if TYPE_CHECKING:
 class Flag:
     """A flag resource (sync).
 
-    Serves as both a management model (save, addRule, convenience methods)
-    and a runtime handle (.get() for evaluation).
+    Provides management operations (save, addRule, environment settings)
+    and runtime evaluation via :meth:`get`.
 
-    Subclasses (BooleanFlag, StringFlag, NumberFlag, JsonFlag) override
-    .get() to return a typed value.
+    Use typed variants (BooleanFlag, StringFlag, NumberFlag, JsonFlag)
+    for type-safe :meth:`get` return values.
     """
 
     id: str | None
@@ -63,8 +63,8 @@ class Flag:
     def save(self) -> None:
         """Persist this flag to the server.
 
-        POST if ``id is None`` (create), PUT if ``id`` is set (update).
-        Applies the server response back to this instance.
+        Creates a new flag if unsaved, or updates the existing one.
+        Updates this instance with the server response.
         """
         if self.id is None:
             created = self._client._create_flag(self)
@@ -116,8 +116,7 @@ class Flag:
     def get(self, context: list | None = None) -> Any:
         """Evaluate this flag and return its current value.
 
-        Evaluation is local (no I/O).  On the first call, the client
-        lazily initializes its flag store and WebSocket connection.
+        Connects automatically if not already connected.
         """
         return self._client._evaluate_handle(self.key, self.default, context)
 
@@ -240,7 +239,7 @@ class AsyncFlag:
     async def save(self) -> None:
         """Persist this flag to the server (async).
 
-        POST if ``id is None`` (create), PUT if ``id`` is set (update).
+        Creates a new flag if unsaved, or updates the existing one.
         """
         if self.id is None:
             created = await self._client._create_flag(self)

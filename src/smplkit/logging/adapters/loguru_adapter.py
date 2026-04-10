@@ -1,11 +1,4 @@
-"""LoguruAdapter — bridges smplkit logging runtime to loguru (experimental).
-
-This adapter is experimental. Loguru's architecture (single global logger,
-no named-logger registry) makes full parity with stdlib difficult. The current
-implementation uses ``loguru.logger.enable()`` / ``loguru.logger.disable()``
-for module-prefix level control, and monkey-patches ``loguru.logger.bind()``
-to intercept named loggers.
-"""
+"""LoguruAdapter — bridges smplkit logging runtime to loguru (experimental)."""
 
 from __future__ import annotations
 
@@ -31,10 +24,10 @@ _LOGURU_LEVEL_MAP: dict[str, int] = {
 class LoguruAdapter(LoggingAdapter):
     """Adapter for the `loguru <https://github.com/Delgan/loguru>`_ library.
 
-    **Experimental** — loguru does not have named loggers or a global registry.
-    This adapter uses ``logger.enable()`` / ``logger.disable()`` for
-    module-prefix level control and monkey-patches ``logger.bind()`` to
-    intercept loggers created with a ``name`` key.
+    **Experimental** — loguru does not have named loggers or a global registry,
+    so full parity with stdlib is limited. Level control works at the
+    module-prefix granularity, and named loggers are discovered via
+    ``logger.bind()``.
 
     Args:
         name_field: The key in ``logger.bind(...)`` that represents

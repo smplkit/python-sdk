@@ -270,14 +270,14 @@ class ConfigChangeEvent:
 
 
 class LiveConfigProxy:
-    """A live proxy that reads from the config cache on every access.
+    """A live proxy that always reflects the latest resolved config values.
 
     Returned by :meth:`ConfigClient.subscribe` and
     :meth:`AsyncConfigClient.subscribe`.
 
     Attribute access returns the current resolved value for the given
-    item key. If a *model* was provided, attributes are unflattened and
-    the model is reconstructed lazily on access.
+    item key. If a *model* was provided, the model is reconstructed
+    from the latest values on each access.
 
     Supports both ``proxy.attr`` and ``proxy["key"]`` access styles.
     """
@@ -405,9 +405,6 @@ class ConfigClient:
     def get(self, key: str) -> Config:
         """Fetch a config by key.
 
-        Uses the list endpoint with a ``filterkey`` to look up the
-        config by its human-readable key.
-
         Args:
             key: The human-readable config key.
 
@@ -454,8 +451,6 @@ class ConfigClient:
     def delete(self, key: str) -> None:
         """Delete a config by key.
 
-        Resolves the key to a UUID via :meth:`get`, then deletes by UUID.
-
         Args:
             key: The human-readable config key.
 
@@ -481,17 +476,14 @@ class ConfigClient:
     def resolve(self, key: str, model: type | None = None) -> Any:
         """Return resolved config values for *key*.
 
-        Triggers lazy init via :meth:`_connect_internal` on first call.
+        Connects automatically if not already connected.
 
         If *model* is ``None``, returns a flat ``dict[str, Any]`` of
         resolved values.
 
         If *model* is provided, dot-notation keys are unflattened into a
-        nested dict and the model is constructed:
-
-        - If the model has a ``model_validate`` classmethod (Pydantic),
-          ``model.model_validate(nested)`` is called.
-        - Otherwise, ``model(**nested)`` is called (dataclasses, etc.).
+        nested dict and the model is constructed (supports Pydantic
+        models, dataclasses, or any class accepting keyword arguments).
 
         Args:
             key: The config key to resolve.
@@ -512,15 +504,15 @@ class ConfigClient:
     def subscribe(self, key: str, model: type | None = None) -> LiveConfigProxy:
         """Return a :class:`LiveConfigProxy` for *key*.
 
-        The proxy delegates to the latest cache state on every access,
+        The proxy reflects the latest values on every access,
         so values update automatically after :meth:`refresh`.
 
-        Triggers lazy init via :meth:`_connect_internal` on first call.
+        Connects automatically if not already connected.
 
         Args:
             key: The config key to subscribe to.
             model: Optional model class — if provided, attribute access
-                reconstructs the model from the latest cache values.
+                returns a model instance built from the latest values.
 
         Returns:
             A :class:`LiveConfigProxy`.
@@ -533,12 +525,12 @@ class ConfigClient:
     # ------------------------------------------------------------------
 
     def refresh(self) -> None:
-        """Re-fetch all configs, re-resolve for the environment, and update the cache.
+        """Re-fetch all configs and update resolved values.
 
-        Fires change listeners for any values that differ from the previous cache.
+        Fires change listeners for any values that differ from the previous state.
 
         Raises:
-            SmplConnectionError: If the HTTP fetch fails.
+            SmplConnectionError: If the fetch fails.
         """
         configs = self.list()
         environment = self._parent._environment
@@ -780,9 +772,6 @@ class AsyncConfigClient:
     async def get(self, key: str) -> AsyncConfig:
         """Fetch a config by key.
 
-        Uses the list endpoint with a ``filterkey`` to look up the
-        config by its human-readable key.
-
         Args:
             key: The human-readable config key.
 
@@ -829,8 +818,6 @@ class AsyncConfigClient:
     async def delete(self, key: str) -> None:
         """Delete a config by key.
 
-        Resolves the key to a UUID via :meth:`get`, then deletes by UUID.
-
         Args:
             key: The human-readable config key.
 
@@ -856,13 +843,14 @@ class AsyncConfigClient:
     async def resolve(self, key: str, model: type | None = None) -> Any:
         """Return resolved config values for *key*.
 
-        Triggers lazy init via :meth:`_connect_internal` on first call.
+        Connects automatically if not already connected.
 
         If *model* is ``None``, returns a flat ``dict[str, Any]`` of
         resolved values.
 
         If *model* is provided, dot-notation keys are unflattened into a
-        nested dict and the model is constructed.
+        nested dict and the model is constructed (supports Pydantic
+        models, dataclasses, or any class accepting keyword arguments).
 
         Args:
             key: The config key to resolve.
@@ -883,9 +871,9 @@ class AsyncConfigClient:
     async def subscribe(self, key: str, model: type | None = None) -> LiveConfigProxy:
         """Return a :class:`LiveConfigProxy` for *key*.
 
-        The proxy delegates to the latest cache state on every access.
+        The proxy reflects the latest values on every access.
 
-        Triggers lazy init via :meth:`_connect_internal` on first call.
+        Connects automatically if not already connected.
 
         Args:
             key: The config key to subscribe to.
@@ -902,12 +890,12 @@ class AsyncConfigClient:
     # ------------------------------------------------------------------
 
     async def refresh(self) -> None:
-        """Re-fetch all configs, re-resolve for the environment, and update the cache.
+        """Re-fetch all configs and update resolved values.
 
-        Fires change listeners for any values that differ from the previous cache.
+        Fires change listeners for any values that differ from the previous state.
 
         Raises:
-            SmplConnectionError: If the HTTP fetch fails.
+            SmplConnectionError: If the fetch fails.
         """
         configs = await self.list()
         environment = self._parent._environment

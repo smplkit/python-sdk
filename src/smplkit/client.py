@@ -139,7 +139,7 @@ class SmplClient:
         return self._ws_manager
 
     def close(self) -> None:
-        """Close the underlying HTTP connection pool and shared WebSocket."""
+        """Release all resources held by this client."""
         self.logging._close()
         if self._ws_manager is not None:
             self._ws_manager.stop()
@@ -259,7 +259,7 @@ class AsyncSmplClient:
         return self._ws_manager
 
     async def close(self) -> None:
-        """Close the underlying HTTP connection pool and shared WebSocket."""
+        """Release all resources held by this client."""
         self.logging._close()
         if self._ws_manager is not None:
             self._ws_manager.stop()

@@ -9,11 +9,9 @@ from typing import Callable
 class LoggingAdapter(abc.ABC):
     """Contract for pluggable logging framework integration.
 
-    Adapters bridge the smplkit logging runtime to a specific logging framework.
-    The core LoggingClient delegates all framework-specific work through this interface.
-
-    Adapters are NOT responsible for: key normalization, caching, bulk registration,
-    level resolution, or WebSocket handling. Those remain in the core client.
+    Adapters bridge the smplkit logging runtime to a specific logging
+    framework (e.g., stdlib ``logging``, loguru). Implement this
+    interface to add support for a new logging framework.
     """
 
     @property
@@ -26,7 +24,6 @@ class LoggingAdapter(abc.ABC):
         """Scan the runtime for existing loggers.
 
         Returns a list of (logger_name, python_numeric_level) tuples.
-        The core client handles normalization of names after receiving them.
         """
 
     @abc.abstractmethod
@@ -42,9 +39,8 @@ class LoggingAdapter(abc.ABC):
     def install_hook(self, on_new_logger: Callable[[str, int], None]) -> None:
         """Install continuous discovery hook.
 
-        The callback receives (original_name, python_numeric_level) whenever
-        a new logger is created in the framework. The core client handles
-        normalization and registration.
+        The callback should be invoked with (logger_name, python_numeric_level)
+        whenever a new logger is created in the framework.
 
         May be a no-op if the framework doesn't support creation interception.
         """

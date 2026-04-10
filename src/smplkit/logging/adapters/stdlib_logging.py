@@ -11,9 +11,8 @@ from smplkit.logging.adapters.base import LoggingAdapter
 class StdlibLoggingAdapter(LoggingAdapter):
     """Adapter for Python's built-in :mod:`logging` module.
 
-    Discovers loggers from the stdlib registry, monkey-patches
-    ``logging.Manager.getLogger`` for continuous discovery, and applies
-    levels via ``Logger.setLevel()``.
+    Discovers existing loggers, intercepts new logger creation for
+    continuous discovery, and applies log levels at runtime.
     """
 
     def __init__(
