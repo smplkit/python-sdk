@@ -116,9 +116,7 @@ class _MetricsReporter:
     # Internal
     # ------------------------------------------------------------------
 
-    def _make_key(
-        self, name: str, dimensions: dict[str, str] | None
-    ) -> tuple[str, frozenset[tuple[str, str]]]:
+    def _make_key(self, name: str, dimensions: dict[str, str] | None) -> tuple[str, frozenset[tuple[str, str]]]:
         merged: dict[str, str] = {
             "environment": self._environment,
             "service": self._service,
@@ -289,9 +287,7 @@ class _AsyncMetricsReporter:
     # Internal
     # ------------------------------------------------------------------
 
-    def _make_key(
-        self, name: str, dimensions: dict[str, str] | None
-    ) -> tuple[str, frozenset[tuple[str, str]]]:
+    def _make_key(self, name: str, dimensions: dict[str, str] | None) -> tuple[str, frozenset[tuple[str, str]]]:
         merged: dict[str, str] = {
             "environment": self._environment,
             "service": self._service,
