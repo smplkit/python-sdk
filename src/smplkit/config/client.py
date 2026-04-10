@@ -476,8 +476,6 @@ class ConfigClient:
     def resolve(self, key: str, model: type | None = None) -> Any:
         """Return resolved config values for *key*.
 
-        Connects automatically if not already connected.
-
         If *model* is ``None``, returns a flat ``dict[str, Any]`` of
         resolved values.
 
@@ -506,8 +504,6 @@ class ConfigClient:
 
         The proxy reflects the latest values on every access,
         so values update automatically after :meth:`refresh`.
-
-        Connects automatically if not already connected.
 
         Args:
             key: The config key to subscribe to.
@@ -843,8 +839,6 @@ class AsyncConfigClient:
     async def resolve(self, key: str, model: type | None = None) -> Any:
         """Return resolved config values for *key*.
 
-        Connects automatically if not already connected.
-
         If *model* is ``None``, returns a flat ``dict[str, Any]`` of
         resolved values.
 
@@ -872,8 +866,6 @@ class AsyncConfigClient:
         """Return a :class:`LiveConfigProxy` for *key*.
 
         The proxy reflects the latest values on every access.
-
-        Connects automatically if not already connected.
 
         Args:
             key: The config key to subscribe to.

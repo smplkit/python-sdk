@@ -114,10 +114,7 @@ class Flag:
     # ------------------------------------------------------------------
 
     def get(self, context: list | None = None) -> Any:
-        """Evaluate this flag and return its current value.
-
-        Connects automatically if not already connected.
-        """
+        """Evaluate this flag and return its current value."""
         return self._client._evaluate_handle(self.key, self.default, context)
 
     # ------------------------------------------------------------------
