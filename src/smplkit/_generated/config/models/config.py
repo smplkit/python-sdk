@@ -27,12 +27,12 @@ class Config:
         {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database configuration', 'environments': {'prod':
             {'values': {'host': {'value': 'db-prod.internal'}, 'pool_size': {'value': 20}}}}, 'items': {'host':
             {'description': 'Primary database hostname', 'type': 'STRING', 'value': 'db.internal'}, 'pool_size':
-            {'description': 'Connection pool size', 'type': 'NUMBER', 'value': 10}}, 'key': 'database', 'name': 'Database',
-            'updated_at': '2026-03-27T10:00:00Z'}
+            {'description': 'Connection pool size', 'type': 'NUMBER', 'value': 10}}, 'name': 'Database', 'updated_at':
+            '2026-03-27T10:00:00Z'}
 
     Attributes:
         name (str):
-        key (None | str | Unset):
+        id (None | str | Unset):
         description (None | str | Unset):
         parent (None | str | Unset):
         items (ConfigItemsType0 | None | Unset):
@@ -42,7 +42,7 @@ class Config:
     """
 
     name: str
-    key: None | str | Unset = UNSET
+    id: None | str | Unset = UNSET
     description: None | str | Unset = UNSET
     parent: None | str | Unset = UNSET
     items: ConfigItemsType0 | None | Unset = UNSET
@@ -57,11 +57,11 @@ class Config:
 
         name = self.name
 
-        key: None | str | Unset
-        if isinstance(self.key, Unset):
-            key = UNSET
+        id: None | str | Unset
+        if isinstance(self.id, Unset):
+            id = UNSET
         else:
-            key = self.key
+            id = self.id
 
         description: None | str | Unset
         if isinstance(self.description, Unset):
@@ -114,8 +114,8 @@ class Config:
                 "name": name,
             }
         )
-        if key is not UNSET:
-            field_dict["key"] = key
+        if id is not UNSET:
+            field_dict["id"] = id
         if description is not UNSET:
             field_dict["description"] = description
         if parent is not UNSET:
@@ -139,14 +139,14 @@ class Config:
         d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_key(data: object) -> None | str | Unset:
+        def _parse_id(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             return cast(None | str | Unset, data)
 
-        key = _parse_key(d.pop("key", UNSET))
+        id = _parse_id(d.pop("id", UNSET))
 
         def _parse_description(data: object) -> None | str | Unset:
             if data is None:
@@ -236,7 +236,7 @@ class Config:
 
         config = cls(
             name=name,
-            key=key,
+            id=id,
             description=description,
             parent=parent,
             items=items,

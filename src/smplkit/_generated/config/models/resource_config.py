@@ -24,8 +24,8 @@ class ResourceConfig:
         attributes (Config):  Example: {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database configuration',
             'environments': {'prod': {'values': {'host': {'value': 'db-prod.internal'}, 'pool_size': {'value': 20}}}},
             'items': {'host': {'description': 'Primary database hostname', 'type': 'STRING', 'value': 'db.internal'},
-            'pool_size': {'description': 'Connection pool size', 'type': 'NUMBER', 'value': 10}}, 'key': 'database', 'name':
-            'Database', 'updated_at': '2026-03-27T10:00:00Z'}.
+            'pool_size': {'description': 'Connection pool size', 'type': 'NUMBER', 'value': 10}}, 'name': 'Database',
+            'updated_at': '2026-03-27T10:00:00Z'}.
         id (None | str | Unset):
         type_ (str | Unset):  Default: ''.
     """

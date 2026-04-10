@@ -11,11 +11,10 @@ from ... import errors
 from ...models.config_response import ConfigResponse
 from ...models.http_validation_error import HTTPValidationError
 from ...models.response_config import ResponseConfig
-from uuid import UUID
 
 
 def _get_kwargs(
-    id: UUID,
+    id: str,
     *,
     body: ResponseConfig,
 ) -> dict[str, Any]:
@@ -67,7 +66,7 @@ def _build_response(
 
 
 def sync_detailed(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
     body: ResponseConfig,
@@ -75,7 +74,7 @@ def sync_detailed(
     """Update Config
 
     Args:
-        id (UUID):
+        id (str):
         body (ResponseConfig):
 
     Raises:
@@ -99,7 +98,7 @@ def sync_detailed(
 
 
 def sync(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
     body: ResponseConfig,
@@ -107,7 +106,7 @@ def sync(
     """Update Config
 
     Args:
-        id (UUID):
+        id (str):
         body (ResponseConfig):
 
     Raises:
@@ -126,7 +125,7 @@ def sync(
 
 
 async def asyncio_detailed(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
     body: ResponseConfig,
@@ -134,7 +133,7 @@ async def asyncio_detailed(
     """Update Config
 
     Args:
-        id (UUID):
+        id (str):
         body (ResponseConfig):
 
     Raises:
@@ -156,7 +155,7 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
     body: ResponseConfig,
@@ -164,7 +163,7 @@ async def asyncio(
     """Update Config
 
     Args:
-        id (UUID):
+        id (str):
         body (ResponseConfig):
 
     Raises:
