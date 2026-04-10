@@ -14,18 +14,10 @@ from ...types import Unset
 
 def _get_kwargs(
     *,
-    filterkey: None | str | Unset = UNSET,
     filtertype: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
-
-    json_filterkey: None | str | Unset
-    if isinstance(filterkey, Unset):
-        json_filterkey = UNSET
-    else:
-        json_filterkey = filterkey
-    params["filter[key]"] = json_filterkey
 
     json_filtertype: None | str | Unset
     if isinstance(filtertype, Unset):
@@ -78,13 +70,11 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    filterkey: None | str | Unset = UNSET,
     filtertype: None | str | Unset = UNSET,
 ) -> Response[FlagListResponse | HTTPValidationError]:
     """List Flags
 
     Args:
-        filterkey (None | str | Unset):
         filtertype (None | str | Unset):
 
     Raises:
@@ -96,7 +86,6 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
-        filterkey=filterkey,
         filtertype=filtertype,
     )
 
@@ -110,13 +99,11 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    filterkey: None | str | Unset = UNSET,
     filtertype: None | str | Unset = UNSET,
 ) -> FlagListResponse | HTTPValidationError | None:
     """List Flags
 
     Args:
-        filterkey (None | str | Unset):
         filtertype (None | str | Unset):
 
     Raises:
@@ -129,7 +116,6 @@ def sync(
 
     return sync_detailed(
         client=client,
-        filterkey=filterkey,
         filtertype=filtertype,
     ).parsed
 
@@ -137,13 +123,11 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    filterkey: None | str | Unset = UNSET,
     filtertype: None | str | Unset = UNSET,
 ) -> Response[FlagListResponse | HTTPValidationError]:
     """List Flags
 
     Args:
-        filterkey (None | str | Unset):
         filtertype (None | str | Unset):
 
     Raises:
@@ -155,7 +139,6 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
-        filterkey=filterkey,
         filtertype=filtertype,
     )
 
@@ -167,13 +150,11 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    filterkey: None | str | Unset = UNSET,
     filtertype: None | str | Unset = UNSET,
 ) -> FlagListResponse | HTTPValidationError | None:
     """List Flags
 
     Args:
-        filterkey (None | str | Unset):
         filtertype (None | str | Unset):
 
     Raises:
@@ -187,7 +168,6 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
-            filterkey=filterkey,
             filtertype=filtertype,
         )
     ).parsed

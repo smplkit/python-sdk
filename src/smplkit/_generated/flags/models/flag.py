@@ -27,48 +27,59 @@ class Flag:
         {'created_at': '2026-03-27T10:00:00Z', 'default': False, 'description': 'Enable dark mode for the application
             UI', 'environments': {'production': {'default': False, 'enabled': True, 'rules': [{'description': 'Beta users
             get dark mode', 'logic': {'attribute': 'beta', 'op': 'eq', 'value': True}, 'value': True}]}, 'staging':
-            {'default': True, 'enabled': True, 'rules': []}}, 'key': 'dark_mode', 'name': 'Dark Mode', 'type': 'BOOLEAN',
-            'updated_at': '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value':
-            False}]}
+            {'default': True, 'enabled': True, 'rules': []}}, 'name': 'Dark Mode', 'type': 'BOOLEAN', 'updated_at':
+            '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value': False}]}
 
     Attributes:
-        key (str): Unique key within account
         name (str): Human-readable display name
         type_ (str): Value type: STRING, BOOLEAN, NUMERIC, or JSON
-        default (Any): Default value; must reference a value in the values array
-        values (list[FlagValue]): Closed set of possible values
+        default (Any): Default value; must reference a value in the values array (constrained) or match the flag type
+            (unconstrained)
+        id (None | str | Unset):
         description (str | Unset):  Default: ''.
+        values (list[FlagValue] | None | Unset): Ordered set of allowed values (constrained), or null (unconstrained)
         environments (FlagEnvironments | Unset):
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
     """
 
-    key: str
     name: str
     type_: str
     default: Any
-    values: list[FlagValue]
+    id: None | str | Unset = UNSET
     description: str | Unset = ""
+    values: list[FlagValue] | None | Unset = UNSET
     environments: FlagEnvironments | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        key = self.key
-
         name = self.name
 
         type_ = self.type_
 
         default = self.default
 
-        values = []
-        for values_item_data in self.values:
-            values_item = values_item_data.to_dict()
-            values.append(values_item)
+        id: None | str | Unset
+        if isinstance(self.id, Unset):
+            id = UNSET
+        else:
+            id = self.id
 
         description = self.description
+
+        values: list[dict[str, Any]] | None | Unset
+        if isinstance(self.values, Unset):
+            values = UNSET
+        elif isinstance(self.values, list):
+            values = []
+            for values_type_0_item_data in self.values:
+                values_type_0_item = values_type_0_item_data.to_dict()
+                values.append(values_type_0_item)
+
+        else:
+            values = self.values
 
         environments: dict[str, Any] | Unset = UNSET
         if not isinstance(self.environments, Unset):
@@ -94,15 +105,17 @@ class Flag:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "key": key,
                 "name": name,
                 "type": type_,
                 "default": default,
-                "values": values,
             }
         )
+        if id is not UNSET:
+            field_dict["id"] = id
         if description is not UNSET:
             field_dict["description"] = description
+        if values is not UNSET:
+            field_dict["values"] = values
         if environments is not UNSET:
             field_dict["environments"] = environments
         if created_at is not UNSET:
@@ -118,22 +131,44 @@ class Flag:
         from ..models.flag_value import FlagValue
 
         d = dict(src_dict)
-        key = d.pop("key")
-
         name = d.pop("name")
 
         type_ = d.pop("type")
 
         default = d.pop("default")
 
-        values = []
-        _values = d.pop("values")
-        for values_item_data in _values:
-            values_item = FlagValue.from_dict(values_item_data)
+        def _parse_id(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
 
-            values.append(values_item)
+        id = _parse_id(d.pop("id", UNSET))
 
         description = d.pop("description", UNSET)
+
+        def _parse_values(data: object) -> list[FlagValue] | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                values_type_0 = []
+                _values_type_0 = data
+                for values_type_0_item_data in _values_type_0:
+                    values_type_0_item = FlagValue.from_dict(values_type_0_item_data)
+
+                    values_type_0.append(values_type_0_item)
+
+                return values_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[FlagValue] | None | Unset, data)
+
+        values = _parse_values(d.pop("values", UNSET))
 
         _environments = d.pop("environments", UNSET)
         environments: FlagEnvironments | Unset
@@ -177,12 +212,12 @@ class Flag:
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 
         flag = cls(
-            key=key,
             name=name,
             type_=type_,
             default=default,
-            values=values,
+            id=id,
             description=description,
+            values=values,
             environments=environments,
             created_at=created_at,
             updated_at=updated_at,
