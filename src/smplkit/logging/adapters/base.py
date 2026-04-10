@@ -31,7 +31,7 @@ class LoggingAdapter(abc.ABC):
         """Set the level on a specific logger.
 
         Args:
-            logger_name: The original (non-normalized) logger name.
+            logger_name: The logger name.
             level: Python numeric level (e.g., 10=DEBUG, 20=INFO, 30=WARNING).
         """
 

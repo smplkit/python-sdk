@@ -11,7 +11,7 @@ class Context:
     Represents a single entity (user, account, device, etc.) in the
     evaluation context.  The *type* and *key* identify the entity;
     *attributes* (provided as a dict and/or keyword arguments) carry the
-    data that JSON Logic rules target.
+    data that targeting rules evaluate against.
 
     Examples::
 
@@ -43,7 +43,7 @@ class Context:
 
 
 class Rule:
-    """Fluent builder for JSON Logic rule dicts.
+    """Fluent builder for flag targeting rules.
 
     Usage::
 
@@ -52,8 +52,8 @@ class Rule:
             .serve(True)
             .build()
 
-    Multiple ``.when()`` calls are AND'd.  ``.environment()`` tags the
-    built dict with an environment key for use with ``Flag.addRule()``.
+    Multiple ``.when()`` calls are AND'd.  Use ``.environment()`` to
+    scope the rule to a specific environment for ``Flag.addRule()``.
     """
 
     def __init__(self, description: str) -> None:

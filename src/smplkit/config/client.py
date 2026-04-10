@@ -333,15 +333,9 @@ class LiveConfigProxy:
 
 
 class ConfigClient:
-    """Synchronous management and runtime client for Smpl Config.
+    """Synchronous client for Smpl Config.
 
-    Provides CRUD operations on config resources and runtime value
-    resolution via :meth:`resolve` and :meth:`subscribe`.  Obtained via
-    ``SmplClient(...).config``.
-
-    Raises:
-        SmplConnectionError: If a network request fails.
-        SmplTimeoutError: If an operation exceeds its timeout.
+    Obtained via ``SmplClient(...).config``.
     """
 
     def __init__(self, parent: SmplClient) -> None:
@@ -380,7 +374,7 @@ class ConfigClient:
         description: str | None = None,
         parent: str | None = None,
     ) -> Config:
-        """Return an unsaved :class:`Config` with ``id=None``.
+        """Return a new unsaved :class:`Config`.
 
         Call :meth:`Config.save` to persist it.
 
@@ -479,9 +473,10 @@ class ConfigClient:
         If *model* is ``None``, returns a flat ``dict[str, Any]`` of
         resolved values.
 
-        If *model* is provided, dot-notation keys are unflattened into a
-        nested dict and the model is constructed (supports Pydantic
-        models, dataclasses, or any class accepting keyword arguments).
+        If *model* is provided, dot-notation keys (e.g. ``"database.host"``)
+        are expanded into nested structures and the model is constructed.
+        Supports Pydantic models, dataclasses, or any class accepting
+        keyword arguments.
 
         Args:
             key: The config key to resolve.
@@ -502,8 +497,7 @@ class ConfigClient:
     def subscribe(self, key: str, model: type | None = None) -> LiveConfigProxy:
         """Return a :class:`LiveConfigProxy` for *key*.
 
-        The proxy reflects the latest values on every access,
-        so values update automatically after :meth:`refresh`.
+        Values update automatically after :meth:`refresh`.
 
         Args:
             key: The config key to subscribe to.
@@ -542,7 +536,7 @@ class ConfigClient:
     def on_change(
         self, fn_or_key: Callable[[ConfigChangeEvent], None] | str | None = None, *, item_key: str | None = None
     ) -> Any:
-        """Register a change listener (dual-mode decorator).
+        """Register a change listener.
 
         Supports three forms:
 
@@ -696,15 +690,9 @@ class ConfigClient:
 
 
 class AsyncConfigClient:
-    """Asynchronous management and runtime client for Smpl Config.
+    """Asynchronous client for Smpl Config.
 
-    Provides CRUD operations on config resources and runtime value
-    resolution via :meth:`resolve` and :meth:`subscribe`.  Obtained via
-    ``AsyncSmplClient(...).config``.
-
-    Raises:
-        SmplConnectionError: If a network request fails.
-        SmplTimeoutError: If an operation exceeds its timeout.
+    Obtained via ``AsyncSmplClient(...).config``.
     """
 
     def __init__(self, parent: AsyncSmplClient) -> None:
@@ -743,7 +731,7 @@ class AsyncConfigClient:
         description: str | None = None,
         parent: str | None = None,
     ) -> AsyncConfig:
-        """Return an unsaved :class:`AsyncConfig` with ``id=None``.
+        """Return a new unsaved :class:`AsyncConfig`.
 
         Call :meth:`AsyncConfig.save` to persist it.
 
@@ -842,9 +830,10 @@ class AsyncConfigClient:
         If *model* is ``None``, returns a flat ``dict[str, Any]`` of
         resolved values.
 
-        If *model* is provided, dot-notation keys are unflattened into a
-        nested dict and the model is constructed (supports Pydantic
-        models, dataclasses, or any class accepting keyword arguments).
+        If *model* is provided, dot-notation keys (e.g. ``"database.host"``)
+        are expanded into nested structures and the model is constructed.
+        Supports Pydantic models, dataclasses, or any class accepting
+        keyword arguments.
 
         Args:
             key: The config key to resolve.
@@ -865,7 +854,7 @@ class AsyncConfigClient:
     async def subscribe(self, key: str, model: type | None = None) -> LiveConfigProxy:
         """Return a :class:`LiveConfigProxy` for *key*.
 
-        The proxy reflects the latest values on every access.
+        Values update automatically after :meth:`refresh`.
 
         Args:
             key: The config key to subscribe to.
@@ -903,7 +892,7 @@ class AsyncConfigClient:
     def on_change(
         self, fn_or_key: Callable[[ConfigChangeEvent], None] | str | None = None, *, item_key: str | None = None
     ) -> Any:
-        """Register a change listener (dual-mode decorator).
+        """Register a change listener.
 
         Supports three forms:
 

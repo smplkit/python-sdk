@@ -335,7 +335,7 @@ class _ResolutionCache:
 
 
 class FlagStats:
-    """Cache statistics for the flags runtime."""
+    """Evaluation statistics for the flags runtime."""
 
     cache_hits: int
     cache_misses: int
@@ -435,7 +435,7 @@ class FlagsClient:
         name: str | None = None,
         description: str | None = None,
     ) -> BooleanFlag:
-        """Create an unsaved boolean flag (id=None).  Call .save() to persist."""
+        """Create an unsaved boolean flag .  Call ``.save()`` to persist."""
         return BooleanFlag(
             self,
             key=key,
@@ -455,7 +455,7 @@ class FlagsClient:
         description: str | None = None,
         values: list[dict[str, Any]] | None = None,
     ) -> StringFlag:
-        """Create an unsaved string flag (id=None).  Call .save() to persist."""
+        """Create an unsaved string flag .  Call ``.save()`` to persist."""
         return StringFlag(
             self,
             key=key,
@@ -475,7 +475,7 @@ class FlagsClient:
         description: str | None = None,
         values: list[dict[str, Any]] | None = None,
     ) -> NumberFlag:
-        """Create an unsaved numeric flag (id=None).  Call .save() to persist."""
+        """Create an unsaved numeric flag .  Call ``.save()`` to persist."""
         return NumberFlag(
             self,
             key=key,
@@ -495,7 +495,7 @@ class FlagsClient:
         description: str | None = None,
         values: list[dict[str, Any]] | None = None,
     ) -> JsonFlag:
-        """Create an unsaved JSON flag (id=None).  Call .save() to persist."""
+        """Create an unsaved JSON flag .  Call ``.save()`` to persist."""
         return JsonFlag(
             self,
             key=key,

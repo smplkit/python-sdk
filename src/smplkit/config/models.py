@@ -15,11 +15,6 @@ logger = logging.getLogger("smplkit")
 class Config:
     """A configuration resource fetched from the Smpl Config service.
 
-    Instances are returned by :class:`ConfigClient` methods and provide
-    a :meth:`save` method that creates or updates the resource on the
-    server, as well as the :meth:`connect` entry point for runtime
-    value resolution.
-
     Attributes:
         id: Unique identifier (UUID), or ``None`` for unsaved configs.
         key: Human-readable key (e.g. ``"user_service"``).
@@ -69,20 +64,12 @@ class Config:
 
     @property
     def items(self) -> dict[str, Any]:
-        """Return base values as a plain dict ``{key: raw_value}``.
-
-        Extracts ``.value`` from each item definition for backward
-        compatibility with runtime resolution.
-        """
+        """Return base values as a plain dict ``{key: raw_value}``."""
         return {k: v["value"] if isinstance(v, dict) and "value" in v else v for k, v in self._items_raw.items()}
 
     @items.setter
     def items(self, value: dict[str, Any]) -> None:
-        """Set base items from a plain ``{key: raw_value}`` dict.
-
-        Values are auto-wrapped into the typed shape
-        ``{key: {value: raw_value}}``.
-        """
+        """Set base items from a plain ``{key: raw_value}`` dict."""
         wrapped: dict[str, Any] = {}
         for k, v in value.items():
             if isinstance(v, dict) and "value" in v:
@@ -154,8 +141,6 @@ class Config:
 
 class AsyncConfig:
     """Async variant of :class:`Config`.
-
-    All management-plane methods are ``async``.
 
     Attributes:
         id: Unique identifier (UUID), or ``None`` for unsaved configs.

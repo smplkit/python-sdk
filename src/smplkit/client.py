@@ -68,8 +68,7 @@ class SmplClient:
         environment: The environment to connect to (e.g. ``"production"``).
             Required — resolved from ``SMPLKIT_ENVIRONMENT`` if not provided.
         service: Service name (e.g. ``"user-service"``). Required — resolved
-            from ``SMPLKIT_SERVICE`` if not provided. Used for auto-discovered
-            loggers and service context registration.
+            from ``SMPLKIT_SERVICE`` if not provided.
     """
 
     config: ConfigClient
@@ -177,8 +176,7 @@ class AsyncSmplClient:
         environment: The environment to connect to (e.g. ``"production"``).
             Required — resolved from ``SMPLKIT_ENVIRONMENT`` if not provided.
         service: Service name (e.g. ``"user-service"``). Required — resolved
-            from ``SMPLKIT_SERVICE`` if not provided. Used for auto-discovered
-            loggers and service context registration.
+            from ``SMPLKIT_SERVICE`` if not provided.
     """
 
     config: AsyncConfigClient

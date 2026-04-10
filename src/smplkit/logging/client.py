@@ -201,8 +201,7 @@ def _build_group_body(
 class SmplLogger:
     """SDK model for a logger resource.
 
-    Supports GET-mutate-save: modify properties, then call :meth:`save`
-    to PUT the full object back to the server.
+    Modify properties locally, then call :meth:`save` to persist.
     """
 
     id: str | None
@@ -288,8 +287,7 @@ class SmplLogger:
 class AsyncSmplLogger:
     """Async SDK model for a logger resource.
 
-    Supports GET-mutate-save: modify properties, then call :meth:`save`
-    to PUT the full object back to the server.
+    Modify properties locally, then call :meth:`save` to persist.
     """
 
     id: str | None
@@ -375,8 +373,7 @@ class AsyncSmplLogger:
 class SmplLogGroup:
     """SDK model for a log group resource.
 
-    Supports GET-mutate-save: modify properties, then call :meth:`save`
-    to PUT the full object back to the server.
+    Modify properties locally, then call :meth:`save` to persist.
     """
 
     id: str | None
@@ -454,8 +451,7 @@ class SmplLogGroup:
 class AsyncSmplLogGroup:
     """Async SDK model for a log group resource.
 
-    Supports GET-mutate-save: modify properties, then call :meth:`save`
-    to PUT the full object back to the server.
+    Modify properties locally, then call :meth:`save` to persist.
     """
 
     id: str | None
@@ -623,7 +619,7 @@ class LoggingClient:
     # --- Management API: Loggers ---
 
     def new(self, key: str, *, name: str | None = None, managed: bool = False) -> SmplLogger:
-        """Return an unsaved :class:`SmplLogger` with ``id=None``.
+        """Return a new unsaved :class:`SmplLogger`.
 
         Call :meth:`SmplLogger.save` to persist it.
         """
@@ -699,7 +695,7 @@ class LoggingClient:
     # --- Management API: Log Groups ---
 
     def new_group(self, key: str, *, name: str | None = None, group: str | None = None) -> SmplLogGroup:
-        """Return an unsaved :class:`SmplLogGroup` with ``id=None``.
+        """Return a new unsaved :class:`SmplLogGroup`.
 
         Call :meth:`SmplLogGroup.save` to persist it.
         """
@@ -873,7 +869,7 @@ class LoggingClient:
         self._connected = True
 
     def refresh(self) -> None:
-        """Re-fetch all loggers and groups, re-resolve, re-apply."""
+        """Re-fetch all loggers and groups and update log levels."""
         self._fetch_and_apply()
 
     def _close(self) -> None:
@@ -1065,7 +1061,7 @@ class AsyncLoggingClient:
     # --- Management API: Loggers ---
 
     def new(self, key: str, *, name: str | None = None, managed: bool = False) -> AsyncSmplLogger:
-        """Return an unsaved :class:`AsyncSmplLogger` with ``id=None``.
+        """Return a new unsaved :class:`AsyncSmplLogger`.
 
         Call :meth:`AsyncSmplLogger.save` to persist it.
         """
@@ -1141,7 +1137,7 @@ class AsyncLoggingClient:
     # --- Management API: Log Groups ---
 
     def new_group(self, key: str, *, name: str | None = None, group: str | None = None) -> AsyncSmplLogGroup:
-        """Return an unsaved :class:`AsyncSmplLogGroup` with ``id=None``.
+        """Return a new unsaved :class:`AsyncSmplLogGroup`.
 
         Call :meth:`AsyncSmplLogGroup.save` to persist it.
         """
@@ -1311,7 +1307,7 @@ class AsyncLoggingClient:
         self._connected = True
 
     async def refresh(self) -> None:
-        """Re-fetch all loggers and groups, re-resolve, re-apply."""
+        """Re-fetch all loggers and groups and update log levels."""
         await self._fetch_and_apply()
 
     def _close(self) -> None:

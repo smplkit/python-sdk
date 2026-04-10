@@ -1,4 +1,4 @@
-"""Unified flag model hierarchy — management + runtime in a single class tree."""
+"""Flag model classes."""
 
 from __future__ import annotations
 
@@ -64,7 +64,6 @@ class Flag:
         """Persist this flag to the server.
 
         Creates a new flag if unsaved, or updates the existing one.
-        Updates this instance with the server response.
         """
         if self.id is None:
             created = self._client._create_flag(self)
@@ -78,11 +77,10 @@ class Flag:
     # ------------------------------------------------------------------
 
     def addRule(self, built_rule: dict[str, Any]) -> Flag:
-        """Append a rule to a specific environment (local mutation, no HTTP).
+        """Append a rule to a specific environment.
 
-        The *built_rule* dict must include an ``"environment"`` key.  The
-        rule (without the ``environment`` key) is appended to that
-        environment's rules list.  Call :meth:`save` to persist.
+        The *built_rule* dict must include an ``"environment"`` key.
+        Call :meth:`save` to persist.
 
         Returns *self* for chaining.
         """
@@ -98,15 +96,15 @@ class Flag:
         return self
 
     def setEnvironmentEnabled(self, env_key: str, enabled: bool) -> None:
-        """Set whether the flag is enabled in *env_key* (local mutation)."""
+        """Set whether the flag is enabled in *env_key*. Call :meth:`save` to persist."""
         self.environments.setdefault(env_key, {})["enabled"] = enabled
 
     def setEnvironmentDefault(self, env_key: str, default: Any) -> None:
-        """Set the environment-specific default (local mutation)."""
+        """Set the environment-specific default. Call :meth:`save` to persist."""
         self.environments.setdefault(env_key, {})["default"] = default
 
     def clearRules(self, env_key: str) -> None:
-        """Remove all rules from *env_key* (local mutation)."""
+        """Remove all rules from *env_key*. Call :meth:`save` to persist."""
         self.environments.setdefault(env_key, {})["rules"] = []
 
     # ------------------------------------------------------------------
@@ -187,8 +185,6 @@ class AsyncFlag:
     """A flag resource (async).
 
     Same interface as :class:`Flag` but :meth:`save` is async.
-    Local mutations (addRule, setEnvironmentEnabled, etc.) and
-    evaluation (.get()) are synchronous.
     """
 
     id: str | None
@@ -271,7 +267,7 @@ class AsyncFlag:
         self.environments.setdefault(env_key, {})["rules"] = []
 
     # ------------------------------------------------------------------
-    # Runtime: evaluation (sync — evaluation is local, no I/O)
+    # Runtime: evaluation
     # ------------------------------------------------------------------
 
     def get(self, context: list | None = None) -> Any:
