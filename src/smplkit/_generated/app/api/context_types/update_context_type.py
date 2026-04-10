@@ -10,11 +10,10 @@ from ... import errors
 
 from ...models.context_type_response import ContextTypeResponse
 from ...models.error_response import ErrorResponse
-from uuid import UUID
 
 
 def _get_kwargs(
-    id: UUID,
+    id: str,
     *,
     body: ContextTypeResponse,
 ) -> dict[str, Any]:
@@ -81,7 +80,7 @@ def _build_response(
 
 
 def sync_detailed(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
     body: ContextTypeResponse,
@@ -89,7 +88,7 @@ def sync_detailed(
     """Update Context Type
 
     Args:
-        id (UUID):
+        id (str):
         body (ContextTypeResponse):
 
     Raises:
@@ -113,7 +112,7 @@ def sync_detailed(
 
 
 def sync(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
     body: ContextTypeResponse,
@@ -121,7 +120,7 @@ def sync(
     """Update Context Type
 
     Args:
-        id (UUID):
+        id (str):
         body (ContextTypeResponse):
 
     Raises:
@@ -140,7 +139,7 @@ def sync(
 
 
 async def asyncio_detailed(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
     body: ContextTypeResponse,
@@ -148,7 +147,7 @@ async def asyncio_detailed(
     """Update Context Type
 
     Args:
-        id (UUID):
+        id (str):
         body (ContextTypeResponse):
 
     Raises:
@@ -170,7 +169,7 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
     body: ContextTypeResponse,
@@ -178,7 +177,7 @@ async def asyncio(
     """Update Context Type
 
     Args:
-        id (UUID):
+        id (str):
         body (ContextTypeResponse):
 
     Raises:

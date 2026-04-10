@@ -14,17 +14,17 @@ from ...types import Unset
 
 def _get_kwargs(
     *,
-    filtercontext_type_id: None | str | Unset = UNSET,
+    filtercontext_type: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
-    json_filtercontext_type_id: None | str | Unset
-    if isinstance(filtercontext_type_id, Unset):
-        json_filtercontext_type_id = UNSET
+    json_filtercontext_type: None | str | Unset
+    if isinstance(filtercontext_type, Unset):
+        json_filtercontext_type = UNSET
     else:
-        json_filtercontext_type_id = filtercontext_type_id
-    params["filter[context_type_id]"] = json_filtercontext_type_id
+        json_filtercontext_type = filtercontext_type
+    params["filter[context_type]"] = json_filtercontext_type
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -85,12 +85,12 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    filtercontext_type_id: None | str | Unset = UNSET,
+    filtercontext_type: None | str | Unset = UNSET,
 ) -> Response[ContextListResponse | ErrorResponse]:
     """List Contexts
 
     Args:
-        filtercontext_type_id (None | str | Unset):
+        filtercontext_type (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -101,7 +101,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
-        filtercontext_type_id=filtercontext_type_id,
+        filtercontext_type=filtercontext_type,
     )
 
     response = client.get_httpx_client().request(
@@ -114,12 +114,12 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    filtercontext_type_id: None | str | Unset = UNSET,
+    filtercontext_type: None | str | Unset = UNSET,
 ) -> ContextListResponse | ErrorResponse | None:
     """List Contexts
 
     Args:
-        filtercontext_type_id (None | str | Unset):
+        filtercontext_type (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -131,19 +131,19 @@ def sync(
 
     return sync_detailed(
         client=client,
-        filtercontext_type_id=filtercontext_type_id,
+        filtercontext_type=filtercontext_type,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    filtercontext_type_id: None | str | Unset = UNSET,
+    filtercontext_type: None | str | Unset = UNSET,
 ) -> Response[ContextListResponse | ErrorResponse]:
     """List Contexts
 
     Args:
-        filtercontext_type_id (None | str | Unset):
+        filtercontext_type (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -154,7 +154,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
-        filtercontext_type_id=filtercontext_type_id,
+        filtercontext_type=filtercontext_type,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -165,12 +165,12 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    filtercontext_type_id: None | str | Unset = UNSET,
+    filtercontext_type: None | str | Unset = UNSET,
 ) -> ContextListResponse | ErrorResponse | None:
     """List Contexts
 
     Args:
-        filtercontext_type_id (None | str | Unset):
+        filtercontext_type (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -183,6 +183,6 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
-            filtercontext_type_id=filtercontext_type_id,
+            filtercontext_type=filtercontext_type,
         )
     ).parsed

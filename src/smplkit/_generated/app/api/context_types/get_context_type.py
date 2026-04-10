@@ -10,11 +10,10 @@ from ... import errors
 
 from ...models.context_type_response import ContextTypeResponse
 from ...models.error_response import ErrorResponse
-from uuid import UUID
 
 
 def _get_kwargs(
-    id: UUID,
+    id: str,
 ) -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
@@ -73,14 +72,14 @@ def _build_response(
 
 
 def sync_detailed(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
 ) -> Response[ContextTypeResponse | ErrorResponse]:
     """Get Context Type
 
     Args:
-        id (UUID):
+        id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -102,14 +101,14 @@ def sync_detailed(
 
 
 def sync(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
 ) -> ContextTypeResponse | ErrorResponse | None:
     """Get Context Type
 
     Args:
-        id (UUID):
+        id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -126,14 +125,14 @@ def sync(
 
 
 async def asyncio_detailed(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
 ) -> Response[ContextTypeResponse | ErrorResponse]:
     """Get Context Type
 
     Args:
-        id (UUID):
+        id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -153,14 +152,14 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
 ) -> ContextTypeResponse | ErrorResponse | None:
     """Get Context Type
 
     Args:
-        id (UUID):
+        id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
