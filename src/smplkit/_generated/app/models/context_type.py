@@ -23,28 +23,32 @@ T = TypeVar("T", bound="ContextType")
 class ContextType:
     """
     Example:
-        {'attributes': {'beta_tester': {}, 'first_name': {}, 'plan': {}}, 'created_at': '2026-03-31T10:00:00Z', 'key':
-            'user', 'name': 'User', 'updated_at': '2026-03-31T10:00:00Z'}
+        {'attributes': {'beta_tester': {}, 'first_name': {}, 'plan': {}}, 'created_at': '2026-03-31T10:00:00Z', 'name':
+            'User', 'updated_at': '2026-03-31T10:00:00Z'}
 
     Attributes:
-        key (str): Programmatic identifier: user, account, device
         name (str): Display label: User, Account, Device
+        id (None | str | Unset):
         attributes (ContextTypeAttributes | Unset): Known attribute keys with metadata objects
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
     """
 
-    key: str
     name: str
+    id: None | str | Unset = UNSET
     attributes: ContextTypeAttributes | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        key = self.key
-
         name = self.name
+
+        id: None | str | Unset
+        if isinstance(self.id, Unset):
+            id = UNSET
+        else:
+            id = self.id
 
         attributes: dict[str, Any] | Unset = UNSET
         if not isinstance(self.attributes, Unset):
@@ -70,10 +74,11 @@ class ContextType:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "key": key,
                 "name": name,
             }
         )
+        if id is not UNSET:
+            field_dict["id"] = id
         if attributes is not UNSET:
             field_dict["attributes"] = attributes
         if created_at is not UNSET:
@@ -88,9 +93,16 @@ class ContextType:
         from ..models.context_type_attributes import ContextTypeAttributes
 
         d = dict(src_dict)
-        key = d.pop("key")
-
         name = d.pop("name")
+
+        def _parse_id(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        id = _parse_id(d.pop("id", UNSET))
 
         _attributes = d.pop("attributes", UNSET)
         attributes: ContextTypeAttributes | Unset
@@ -134,8 +146,8 @@ class ContextType:
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 
         context_type = cls(
-            key=key,
             name=name,
+            id=id,
             attributes=attributes,
             created_at=created_at,
             updated_at=updated_at,
