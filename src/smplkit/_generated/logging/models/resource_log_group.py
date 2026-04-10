@@ -22,7 +22,7 @@ class ResourceLogGroup:
     """
     Attributes:
         attributes (LogGroup):  Example: {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level':
-            'ERROR'}}, 'key': 'database-loggers', 'level': 'WARN', 'name': 'Database Loggers', 'updated_at':
+            'ERROR'}}, 'id': 'database-loggers', 'level': 'WARN', 'name': 'Database Loggers', 'updated_at':
             '2026-04-01T10:00:00Z'}.
         id (None | str | Unset):
         type_ (str | Unset):  Default: ''.

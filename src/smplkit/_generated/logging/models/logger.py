@@ -25,13 +25,13 @@ class Logger:
     """
     Example:
         {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'WARN'}, 'staging': {'level':
-            'DEBUG'}}, 'group': '550e8400-e29b-41d4-a716-446655440000', 'key': 'com.example.sql', 'level': 'DEBUG',
-            'managed': True, 'name': 'SQL Logger', 'sources': [{'first_observed': '2026-04-01T10:00:00Z', 'service': 'api-
-            gateway'}], 'updated_at': '2026-04-01T10:00:00Z'}
+            'DEBUG'}}, 'group': 'database-loggers', 'id': 'com.example.sql', 'level': 'DEBUG', 'managed': True, 'name': 'SQL
+            Logger', 'sources': [{'first_observed': '2026-04-01T10:00:00Z', 'service': 'api-gateway'}], 'updated_at':
+            '2026-04-01T10:00:00Z'}
 
     Attributes:
         name (str):
-        key (None | str | Unset):
+        id (None | str | Unset):
         level (None | str | Unset):
         group (None | str | Unset):
         managed (bool | None | Unset):
@@ -42,7 +42,7 @@ class Logger:
     """
 
     name: str
-    key: None | str | Unset = UNSET
+    id: None | str | Unset = UNSET
     level: None | str | Unset = UNSET
     group: None | str | Unset = UNSET
     managed: bool | None | Unset = UNSET
@@ -57,11 +57,11 @@ class Logger:
 
         name = self.name
 
-        key: None | str | Unset
-        if isinstance(self.key, Unset):
-            key = UNSET
+        id: None | str | Unset
+        if isinstance(self.id, Unset):
+            id = UNSET
         else:
-            key = self.key
+            id = self.id
 
         level: None | str | Unset
         if isinstance(self.level, Unset):
@@ -124,8 +124,8 @@ class Logger:
                 "name": name,
             }
         )
-        if key is not UNSET:
-            field_dict["key"] = key
+        if id is not UNSET:
+            field_dict["id"] = id
         if level is not UNSET:
             field_dict["level"] = level
         if group is not UNSET:
@@ -151,14 +151,14 @@ class Logger:
         d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_key(data: object) -> None | str | Unset:
+        def _parse_id(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             return cast(None | str | Unset, data)
 
-        key = _parse_key(d.pop("key", UNSET))
+        id = _parse_id(d.pop("id", UNSET))
 
         def _parse_level(data: object) -> None | str | Unset:
             if data is None:
@@ -262,7 +262,7 @@ class Logger:
 
         logger = cls(
             name=name,
-            key=key,
+            id=id,
             level=level,
             group=group,
             managed=managed,

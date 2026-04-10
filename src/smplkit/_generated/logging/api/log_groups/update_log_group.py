@@ -12,11 +12,10 @@ from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
 from ...models.log_group_response import LogGroupResponse
 from ...models.response_log_group import ResponseLogGroup
-from uuid import UUID
 
 
 def _get_kwargs(
-    id: UUID,
+    id: str,
     *,
     body: ResponseLogGroup,
 ) -> dict[str, Any]:
@@ -88,7 +87,7 @@ def _build_response(
 
 
 def sync_detailed(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
     body: ResponseLogGroup,
@@ -96,7 +95,7 @@ def sync_detailed(
     """Update Log Group
 
     Args:
-        id (UUID):
+        id (str):
         body (ResponseLogGroup):
 
     Raises:
@@ -120,7 +119,7 @@ def sync_detailed(
 
 
 def sync(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
     body: ResponseLogGroup,
@@ -128,7 +127,7 @@ def sync(
     """Update Log Group
 
     Args:
-        id (UUID):
+        id (str):
         body (ResponseLogGroup):
 
     Raises:
@@ -147,7 +146,7 @@ def sync(
 
 
 async def asyncio_detailed(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
     body: ResponseLogGroup,
@@ -155,7 +154,7 @@ async def asyncio_detailed(
     """Update Log Group
 
     Args:
-        id (UUID):
+        id (str):
         body (ResponseLogGroup):
 
     Raises:
@@ -177,7 +176,7 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
     body: ResponseLogGroup,
@@ -185,7 +184,7 @@ async def asyncio(
     """Update Log Group
 
     Args:
-        id (UUID):
+        id (str):
         body (ResponseLogGroup):
 
     Raises:

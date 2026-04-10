@@ -15,18 +15,10 @@ from ...types import Unset
 
 def _get_kwargs(
     *,
-    filterkey: None | str | Unset = UNSET,
     filtermanaged: bool | None | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
-
-    json_filterkey: None | str | Unset
-    if isinstance(filterkey, Unset):
-        json_filterkey = UNSET
-    else:
-        json_filterkey = filterkey
-    params["filter[key]"] = json_filterkey
 
     json_filtermanaged: bool | None | Unset
     if isinstance(filtermanaged, Unset):
@@ -99,13 +91,11 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    filterkey: None | str | Unset = UNSET,
     filtermanaged: bool | None | Unset = UNSET,
 ) -> Response[ErrorResponse | HTTPValidationError | LoggerListResponse]:
     """List Loggers
 
     Args:
-        filterkey (None | str | Unset):
         filtermanaged (bool | None | Unset):
 
     Raises:
@@ -117,7 +107,6 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
-        filterkey=filterkey,
         filtermanaged=filtermanaged,
     )
 
@@ -131,13 +120,11 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    filterkey: None | str | Unset = UNSET,
     filtermanaged: bool | None | Unset = UNSET,
 ) -> ErrorResponse | HTTPValidationError | LoggerListResponse | None:
     """List Loggers
 
     Args:
-        filterkey (None | str | Unset):
         filtermanaged (bool | None | Unset):
 
     Raises:
@@ -150,7 +137,6 @@ def sync(
 
     return sync_detailed(
         client=client,
-        filterkey=filterkey,
         filtermanaged=filtermanaged,
     ).parsed
 
@@ -158,13 +144,11 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    filterkey: None | str | Unset = UNSET,
     filtermanaged: bool | None | Unset = UNSET,
 ) -> Response[ErrorResponse | HTTPValidationError | LoggerListResponse]:
     """List Loggers
 
     Args:
-        filterkey (None | str | Unset):
         filtermanaged (bool | None | Unset):
 
     Raises:
@@ -176,7 +160,6 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
-        filterkey=filterkey,
         filtermanaged=filtermanaged,
     )
 
@@ -188,13 +171,11 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    filterkey: None | str | Unset = UNSET,
     filtermanaged: bool | None | Unset = UNSET,
 ) -> ErrorResponse | HTTPValidationError | LoggerListResponse | None:
     """List Loggers
 
     Args:
-        filterkey (None | str | Unset):
         filtermanaged (bool | None | Unset):
 
     Raises:
@@ -208,7 +189,6 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
-            filterkey=filterkey,
             filtermanaged=filtermanaged,
         )
     ).parsed

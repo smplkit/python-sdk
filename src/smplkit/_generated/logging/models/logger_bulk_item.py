@@ -18,18 +18,18 @@ T = TypeVar("T", bound="LoggerBulkItem")
 class LoggerBulkItem:
     """
     Attributes:
-        key (str): Normalized logger name
+        id (str): Normalized logger name
         level (str): Observed log level in smplkit canonical format
         service (None | str | Unset): Service name that discovered this logger
     """
 
-    key: str
+    id: str
     level: str
     service: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        key = self.key
+        id = self.id
 
         level = self.level
 
@@ -43,7 +43,7 @@ class LoggerBulkItem:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "key": key,
+                "id": id,
                 "level": level,
             }
         )
@@ -55,7 +55,7 @@ class LoggerBulkItem:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        key = d.pop("key")
+        id = d.pop("id")
 
         level = d.pop("level")
 
@@ -69,7 +69,7 @@ class LoggerBulkItem:
         service = _parse_service(d.pop("service", UNSET))
 
         logger_bulk_item = cls(
-            key=key,
+            id=id,
             level=level,
             service=service,
         )
