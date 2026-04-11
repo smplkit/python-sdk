@@ -22,9 +22,9 @@ class ResourceLogger:
     """
     Attributes:
         attributes (Logger):  Example: {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level':
-            'WARN'}, 'staging': {'level': 'DEBUG'}}, 'group': '550e8400-e29b-41d4-a716-446655440000', 'level': 'DEBUG',
-            'managed': True, 'name': 'SQL Logger', 'sources': [{'first_observed': '2026-04-01T10:00:00Z', 'service': 'api-
-            gateway'}], 'updated_at': '2026-04-01T10:00:00Z'}.
+            'WARN'}, 'staging': {'level': 'DEBUG'}}, 'group': 'database-loggers', 'level': 'DEBUG', 'managed': True, 'name':
+            'SQL Logger', 'sources': [{'first_observed': '2026-04-01T10:00:00Z', 'service': 'api-gateway'}], 'updated_at':
+            '2026-04-01T10:00:00Z'}.
         id (None | str | Unset):
         type_ (str | Unset):  Default: ''.
     """
