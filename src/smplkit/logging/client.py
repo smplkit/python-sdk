@@ -966,7 +966,7 @@ class LoggingClient:
                     logger.debug("Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True)
             metrics = self._parent._metrics
             if metrics is not None:
-                metrics.record("logging.level_changes", unit="changes", dimensions={"logger_id": normalized_id})
+                metrics.record("logging.level_changes", unit="changes", dimensions={"logger": normalized_id})
 
     # --- Model conversion ---
 
@@ -1402,7 +1402,7 @@ class AsyncLoggingClient:
                     logger.debug("Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True)
             metrics = self._parent._metrics
             if metrics is not None:
-                metrics.record("logging.level_changes", unit="changes", dimensions={"logger_id": normalized_id})
+                metrics.record("logging.level_changes", unit="changes", dimensions={"logger": normalized_id})
 
     # --- Model conversion ---
 

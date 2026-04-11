@@ -738,7 +738,7 @@ class FlagsClient:
             metrics = self._parent._metrics
             if metrics is not None:
                 metrics.record("flags.cache_hits", unit="hits")
-                metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag_id": flag_id})
+                metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag": flag_id})
             return cached_value
 
         flag_def = self._flag_store.get(flag_id)
@@ -754,7 +754,7 @@ class FlagsClient:
         metrics = self._parent._metrics
         if metrics is not None:
             metrics.record("flags.cache_misses", unit="misses")
-            metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag_id": flag_id})
+            metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag": flag_id})
         return value
 
     # ------------------------------------------------------------------
@@ -1187,7 +1187,7 @@ class AsyncFlagsClient:
             metrics = self._parent._metrics
             if metrics is not None:
                 metrics.record("flags.cache_hits", unit="hits")
-                metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag_id": flag_id})
+                metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag": flag_id})
             return cached_value
 
         flag_def = self._flag_store.get(flag_id)
@@ -1203,7 +1203,7 @@ class AsyncFlagsClient:
         metrics = self._parent._metrics
         if metrics is not None:
             metrics.record("flags.cache_misses", unit="misses")
-            metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag_id": flag_id})
+            metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag": flag_id})
         return value
 
     def _flush_contexts_bg(self) -> None:
