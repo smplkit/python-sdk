@@ -32,7 +32,7 @@ class SharedWebSocket:
     - Receive ``{"type": "connected"}`` on success
     - Receive events: ``{"event": "config_changed", ...}``, ``{"event": "flag_changed", ...}``
     - No subscribe message — the API key determines the account
-    - Heartbeat: server sends ``b"ping"``, client responds with ``"pong"``
+    - Heartbeat: server sends ``"ping"`` (text), client responds with ``"pong"``
     """
 
     def __init__(self, *, app_base_url: str, api_key: str, metrics: Any = None) -> None:
@@ -193,8 +193,8 @@ class SharedWebSocket:
             try:
                 message = await self._ws.recv()
 
-                # Heartbeat: server sends b"ping", we respond with "pong"
-                if isinstance(message, bytes) and message == b"ping":
+                # Heartbeat: server sends "ping" (text), we respond with "pong"
+                if message == "ping":
                     await self._ws.send("pong")
                     continue
 

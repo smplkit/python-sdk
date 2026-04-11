@@ -212,7 +212,7 @@ class TestReceiveLoop:
         assert events_received[0]["config_id"] == "abc"
 
     def test_heartbeat_pong_response(self):
-        """Receive loop responds to b'ping' with 'pong'."""
+        """Receive loop responds to text 'ping' with 'pong'."""
         ws = _make_ws()
 
         mock_ws_conn = AsyncMock()
@@ -224,7 +224,7 @@ class TestReceiveLoop:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                return b"ping"
+                return "ping"
             ws._closed = True
             raise websockets.ConnectionClosed(None, None)
 
