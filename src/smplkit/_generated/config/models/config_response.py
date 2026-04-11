@@ -21,7 +21,7 @@ class ConfigResponse:
         data (ConfigResource):  Example: {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database
             configuration', 'environments': {'prod': {'values': {'host': {'value': 'db-prod.internal'}}}}, 'items': {'host':
             {'description': 'Primary database hostname', 'type': 'STRING', 'value': 'db.internal'}}, 'name': 'Database',
-            'updated_at': '2026-03-27T10:00:00Z'}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type': 'config'}.
+            'parent': 'common', 'updated_at': '2026-03-27T10:00:00Z'}, 'id': 'database', 'type': 'config'}.
     """
 
     data: ConfigResource
