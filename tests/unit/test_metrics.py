@@ -81,15 +81,15 @@ class TestMetricsReporterAccumulation:
 
     def test_different_dimensions_separate_counters(self):
         reporter = _make_reporter()
-        reporter.record("flags.evaluations", dimensions={"flag_key": "checkout-v2"})
-        reporter.record("flags.evaluations", dimensions={"flag_key": "dark-mode"})
+        reporter.record("flags.evaluations", dimensions={"flag_id": "checkout-v2"})
+        reporter.record("flags.evaluations", dimensions={"flag_id": "dark-mode"})
         assert len(reporter._counters) == 2
         reporter.close()
 
     def test_same_dimensions_accumulate(self):
         reporter = _make_reporter()
-        reporter.record("flags.evaluations", dimensions={"flag_key": "checkout-v2"})
-        reporter.record("flags.evaluations", dimensions={"flag_key": "checkout-v2"})
+        reporter.record("flags.evaluations", dimensions={"flag_id": "checkout-v2"})
+        reporter.record("flags.evaluations", dimensions={"flag_id": "checkout-v2"})
         assert len(reporter._counters) == 1
         key = next(iter(reporter._counters))
         assert reporter._counters[key].value == 2
@@ -97,12 +97,12 @@ class TestMetricsReporterAccumulation:
 
     def test_base_dimensions_injected(self):
         reporter = _make_reporter(environment="prod", service="user-svc")
-        reporter.record("flags.evaluations", dimensions={"flag_key": "x"})
+        reporter.record("flags.evaluations", dimensions={"flag_id": "x"})
         key = next(iter(reporter._counters))
         dims = dict(key[1])
         assert dims["environment"] == "prod"
         assert dims["service"] == "user-svc"
-        assert dims["flag_key"] == "x"
+        assert dims["flag_id"] == "x"
         reporter.close()
 
     def test_unit_first_write_wins(self):
@@ -172,7 +172,7 @@ class TestMetricsReporterFlush:
         mock_httpx = MagicMock()
         reporter._http_client.get_httpx_client.return_value = mock_httpx
 
-        reporter.record("flags.evaluations", 3, unit="evaluations", dimensions={"flag_key": "x"})
+        reporter.record("flags.evaluations", 3, unit="evaluations", dimensions={"flag_id": "x"})
         reporter._flush()
 
         mock_httpx.post.assert_called_once()
@@ -191,7 +191,7 @@ class TestMetricsReporterFlush:
         dims = entry["attributes"]["dimensions"]
         assert dims["environment"] == "test"
         assert dims["service"] == "test-service"
-        assert dims["flag_key"] == "x"
+        assert dims["flag_id"] == "x"
         reporter.close()
 
     def test_flush_includes_gauges(self):
@@ -417,8 +417,8 @@ class TestAsyncMetricsReporterAccumulation:
 
     def test_different_dimensions(self):
         reporter = _make_async_reporter()
-        reporter.record("flags.evaluations", dimensions={"flag_key": "a"})
-        reporter.record("flags.evaluations", dimensions={"flag_key": "b"})
+        reporter.record("flags.evaluations", dimensions={"flag_id": "a"})
+        reporter.record("flags.evaluations", dimensions={"flag_id": "b"})
         assert len(reporter._counters) == 2
         asyncio.run(reporter.close())
 
@@ -680,7 +680,7 @@ class TestFlagsInstrumentation:
         client._connected = True
         client._environment = "test"
         client._flag_store["checkout-v2"] = {
-            "key": "checkout-v2",
+            "id": "checkout-v2",
             "type": "boolean",
             "default": False,
             "environments": {},
@@ -702,7 +702,7 @@ class TestFlagsInstrumentation:
         client._connected = True
         client._environment = "test"
         client._flag_store["checkout-v2"] = {
-            "key": "checkout-v2",
+            "id": "checkout-v2",
             "type": "boolean",
             "default": False,
             "environments": {},
@@ -735,7 +735,7 @@ class TestFlagsInstrumentation:
         client._connected = True
         client._environment = "test"
         client._flag_store["checkout-v2"] = {
-            "key": "checkout-v2",
+            "id": "checkout-v2",
             "type": "boolean",
             "default": False,
             "environments": {},
@@ -787,7 +787,7 @@ class TestConfigInstrumentation:
         for key, counter in counters.items():
             if key[0] == "config.resolutions":
                 dims = dict(key[1])
-                assert dims["config_key"] == "my-config"
+                assert dims["config_id"] == "my-config"
         metrics.close()
 
     def test_resolve_no_metrics_when_disabled(self):
@@ -855,7 +855,7 @@ class TestPayloadFormat:
         mock_httpx = MagicMock()
         reporter._http_client.get_httpx_client.return_value = mock_httpx
 
-        reporter.record("flags.evaluations", 42, unit="evaluations", dimensions={"flag_key": "x"})
+        reporter.record("flags.evaluations", 42, unit="evaluations", dimensions={"flag_id": "x"})
         reporter.record_gauge("platform.websocket_connections", 1, unit="connections")
         reporter._flush()
 

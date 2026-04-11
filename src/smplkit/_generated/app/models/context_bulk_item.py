@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -8,6 +6,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from typing import Union
 
 if TYPE_CHECKING:
     from ..models.context_bulk_item_attributes import ContextBulkItemAttributes
@@ -22,12 +21,12 @@ class ContextBulkItem:
     Attributes:
         type_ (str): Context type key: 'user', 'account', 'device'
         key (str): Entity identifier: 'user-123', 'acme-corp'
-        attributes (ContextBulkItemAttributes | Unset):
+        attributes (Union[Unset, ContextBulkItemAttributes]):
     """
 
     type_: str
     key: str
-    attributes: ContextBulkItemAttributes | Unset = UNSET
+    attributes: Union[Unset, "ContextBulkItemAttributes"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -35,7 +34,7 @@ class ContextBulkItem:
 
         key = self.key
 
-        attributes: dict[str, Any] | Unset = UNSET
+        attributes: Union[Unset, dict[str, Any]] = UNSET
         if not isinstance(self.attributes, Unset):
             attributes = self.attributes.to_dict()
 
@@ -62,7 +61,7 @@ class ContextBulkItem:
         key = d.pop("key")
 
         _attributes = d.pop("attributes", UNSET)
-        attributes: ContextBulkItemAttributes | Unset
+        attributes: Union[Unset, ContextBulkItemAttributes]
         if isinstance(_attributes, Unset):
             attributes = UNSET
         else:

@@ -8,7 +8,7 @@ _FALLBACK_LEVEL = "INFO"
 
 
 def resolve_level(
-    logger_key: str,
+    logger_id: str,
     environment: str,
     loggers: dict[str, dict[str, Any]],
     groups: dict[str, dict[str, Any]],
@@ -25,23 +25,23 @@ def resolve_level(
     5. System fallback: ``"INFO"``
 
     Args:
-        logger_key: The normalized logger key.
+        logger_id: The normalized logger id (slug).
         environment: The current environment name.
-        loggers: Dict of all loggers keyed by ``key``.
+        loggers: Dict of all loggers keyed by ``id``.
         groups: Dict of all log groups keyed by ``id``.
 
     Returns:
         The resolved smplkit level string.
     """
-    result = _resolve_for_entry(logger_key, environment, loggers, groups)
+    result = _resolve_for_entry(logger_id, environment, loggers, groups)
     if result is not None:
         return result
 
     # Dot-notation ancestry: walk up the hierarchy
-    parts = logger_key.split(".")
+    parts = logger_id.split(".")
     for i in range(len(parts) - 1, 0, -1):
-        ancestor_key = ".".join(parts[:i])
-        result = _resolve_for_entry(ancestor_key, environment, loggers, groups)
+        ancestor_id = ".".join(parts[:i])
+        result = _resolve_for_entry(ancestor_id, environment, loggers, groups)
         if result is not None:
             return result
 
@@ -49,13 +49,13 @@ def resolve_level(
 
 
 def _resolve_for_entry(
-    key: str,
+    logger_id: str,
     environment: str,
     loggers: dict[str, dict[str, Any]],
     groups: dict[str, dict[str, Any]],
 ) -> str | None:
     """Try to resolve a level for a single entry (logger or ancestor)."""
-    entry = loggers.get(key)
+    entry = loggers.get(logger_id)
     if entry is None:
         return None
 

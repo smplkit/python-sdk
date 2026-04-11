@@ -16,11 +16,10 @@ class Config:
     """A configuration resource fetched from the Smpl Config service.
 
     Attributes:
-        id: Unique identifier (UUID), or ``None`` for unsaved configs.
-        key: Human-readable key (e.g. ``"user_service"``).
+        id: The config identifier (slug), or ``None`` for unsaved configs.
         name: Display name.
         description: Optional description.
-        parent: Parent config UUID, or ``None`` for root configs.
+        parent: Parent config id (slug), or ``None`` for root configs.
         items: Base values dict (``{key: raw_value}``), settable.
         items_raw: Full typed items (``{key: {value, type, description}}``).
         environments: Dict mapping environment names to their overrides.
@@ -29,7 +28,6 @@ class Config:
     """
 
     id: str | None
-    key: str
     name: str
     description: str | None
     parent: str | None
@@ -42,7 +40,6 @@ class Config:
         client: ConfigClient,
         *,
         id: str | None = None,
-        key: str,
         name: str,
         description: str | None = None,
         parent: str | None = None,
@@ -53,7 +50,6 @@ class Config:
     ) -> None:
         self._client = client
         self.id = id
-        self.key = key
         self.name = name
         self.description = description
         self.parent = parent
@@ -92,7 +88,7 @@ class Config:
             SmplNotFoundError: If the config no longer exists (update).
             SmplValidationError: If the server rejects the request.
         """
-        if self.id is None:
+        if self.created_at is None:
             other = self._client._create_config(self)
         else:
             other = self._client._update_config_from_model(self)
@@ -101,7 +97,6 @@ class Config:
     def _apply(self, other: Config) -> None:
         """Copy all properties from *other* into this instance."""
         self.id = other.id
-        self.key = other.key
         self.name = other.name
         self.description = other.description
         self.parent = other.parent
@@ -115,8 +110,7 @@ class Config:
 
         Args:
             configs: Optional pre-fetched list of configs to look up parents
-                by ID, avoiding extra network calls and the key-vs-UUID
-                mismatch with :meth:`ConfigClient.get`.
+                by ID, avoiding extra network calls.
         """
         chain = [{"id": self.id, "items": self._items_raw, "environments": self.environments}]
         current = self
@@ -136,18 +130,17 @@ class Config:
         return chain
 
     def __repr__(self) -> str:
-        return f"Config(id={self.id!r}, key={self.key!r}, name={self.name!r})"
+        return f"Config(id={self.id!r}, name={self.name!r})"
 
 
 class AsyncConfig:
     """Async variant of :class:`Config`.
 
     Attributes:
-        id: Unique identifier (UUID), or ``None`` for unsaved configs.
-        key: Human-readable key (e.g. ``"user_service"``).
+        id: The config identifier (slug), or ``None`` for unsaved configs.
         name: Display name.
         description: Optional description.
-        parent: Parent config UUID, or ``None`` for root configs.
+        parent: Parent config id (slug), or ``None`` for root configs.
         items: Base values dict (``{key: raw_value}``), settable.
         items_raw: Full typed items (``{key: {value, type, description}}``).
         environments: Dict mapping environment names to their overrides.
@@ -156,7 +149,6 @@ class AsyncConfig:
     """
 
     id: str | None
-    key: str
     name: str
     description: str | None
     parent: str | None
@@ -169,7 +161,6 @@ class AsyncConfig:
         client: AsyncConfigClient,
         *,
         id: str | None = None,
-        key: str,
         name: str,
         description: str | None = None,
         parent: str | None = None,
@@ -180,7 +171,6 @@ class AsyncConfig:
     ) -> None:
         self._client = client
         self.id = id
-        self.key = key
         self.name = name
         self.description = description
         self.parent = parent
@@ -219,7 +209,7 @@ class AsyncConfig:
             SmplNotFoundError: If the config no longer exists (update).
             SmplValidationError: If the server rejects the request.
         """
-        if self.id is None:
+        if self.created_at is None:
             other = await self._client._create_config(self)
         else:
             other = await self._client._update_config_from_model(self)
@@ -228,7 +218,6 @@ class AsyncConfig:
     def _apply(self, other: AsyncConfig) -> None:
         """Copy all properties from *other* into this instance."""
         self.id = other.id
-        self.key = other.key
         self.name = other.name
         self.description = other.description
         self.parent = other.parent
@@ -242,8 +231,7 @@ class AsyncConfig:
 
         Args:
             configs: Optional pre-fetched list of configs to look up parents
-                by ID, avoiding extra network calls and the key-vs-UUID
-                mismatch with :meth:`AsyncConfigClient.get`.
+                by ID, avoiding extra network calls.
         """
         chain = [{"id": self.id, "items": self._items_raw, "environments": self.environments}]
         current = self
@@ -263,4 +251,4 @@ class AsyncConfig:
         return chain
 
     def __repr__(self) -> str:
-        return f"AsyncConfig(id={self.id!r}, key={self.key!r}, name={self.name!r})"
+        return f"AsyncConfig(id={self.id!r}, name={self.name!r})"

@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any
-from urllib.parse import quote
+from typing import Any, Optional, Union
 
 import httpx
 
@@ -10,17 +9,16 @@ from ... import errors
 
 from ...models.config_response import ConfigResponse
 from ...models.http_validation_error import HTTPValidationError
-from uuid import UUID
 
 
 def _get_kwargs(
-    id: UUID,
+    id: str,
 ) -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/api/v1/configs/{id}".format(
-            id=quote(str(id), safe=""),
+            id=id,
         ),
     }
 
@@ -28,8 +26,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ConfigResponse | HTTPValidationError | None:
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[ConfigResponse, HTTPValidationError]]:
     if response.status_code == 200:
         response_200 = ConfigResponse.from_dict(response.json())
 
@@ -47,8 +45,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ConfigResponse | HTTPValidationError]:
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[ConfigResponse, HTTPValidationError]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -58,21 +56,21 @@ def _build_response(
 
 
 def sync_detailed(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
-) -> Response[ConfigResponse | HTTPValidationError]:
+) -> Response[Union[ConfigResponse, HTTPValidationError]]:
     """Get Config
 
     Args:
-        id (UUID):
+        id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ConfigResponse | HTTPValidationError]
+        Response[Union[ConfigResponse, HTTPValidationError]]
     """
 
     kwargs = _get_kwargs(
@@ -87,21 +85,21 @@ def sync_detailed(
 
 
 def sync(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
-) -> ConfigResponse | HTTPValidationError | None:
+) -> Optional[Union[ConfigResponse, HTTPValidationError]]:
     """Get Config
 
     Args:
-        id (UUID):
+        id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ConfigResponse | HTTPValidationError
+        Union[ConfigResponse, HTTPValidationError]
     """
 
     return sync_detailed(
@@ -111,21 +109,21 @@ def sync(
 
 
 async def asyncio_detailed(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
-) -> Response[ConfigResponse | HTTPValidationError]:
+) -> Response[Union[ConfigResponse, HTTPValidationError]]:
     """Get Config
 
     Args:
-        id (UUID):
+        id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ConfigResponse | HTTPValidationError]
+        Response[Union[ConfigResponse, HTTPValidationError]]
     """
 
     kwargs = _get_kwargs(
@@ -138,21 +136,21 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
-) -> ConfigResponse | HTTPValidationError | None:
+) -> Optional[Union[ConfigResponse, HTTPValidationError]]:
     """Get Config
 
     Args:
-        id (UUID):
+        id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ConfigResponse | HTTPValidationError
+        Union[ConfigResponse, HTTPValidationError]
     """
 
     return (

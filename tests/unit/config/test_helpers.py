@@ -198,13 +198,13 @@ class TestBuildRequestBody:
     def test_builds_valid_body(self):
         body = _build_request_body(
             name="Test",
-            key="test",
+            config_id="test",
             description="A test",
             items={"a": {"value": 1, "type": "NUMBER"}},
         )
         d = body.to_dict()
         assert d["data"]["attributes"]["name"] == "Test"
-        assert d["data"]["attributes"]["key"] == "test"
+        assert d["data"]["id"] == "test"
         assert d["data"]["attributes"]["items"]["a"]["value"] == 1
 
 

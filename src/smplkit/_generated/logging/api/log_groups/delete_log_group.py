@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any, cast
-from urllib.parse import quote
+from typing import Any, Optional, Union, cast
 
 import httpx
 
@@ -10,17 +9,16 @@ from ... import errors
 
 from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
-from uuid import UUID
 
 
 def _get_kwargs(
-    id: UUID,
+    id: str,
 ) -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
         "method": "delete",
         "url": "/api/v1/log_groups/{id}".format(
-            id=quote(str(id), safe=""),
+            id=id,
         ),
     }
 
@@ -28,8 +26,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Any | ErrorResponse | HTTPValidationError | None:
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[Any, ErrorResponse, HTTPValidationError]]:
     if response.status_code == 204:
         response_204 = cast(Any, None)
         return response_204
@@ -66,8 +64,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[Any | ErrorResponse | HTTPValidationError]:
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[Any, ErrorResponse, HTTPValidationError]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -77,21 +75,21 @@ def _build_response(
 
 
 def sync_detailed(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
-) -> Response[Any | ErrorResponse | HTTPValidationError]:
+) -> Response[Union[Any, ErrorResponse, HTTPValidationError]]:
     """Delete Log Group
 
     Args:
-        id (UUID):
+        id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse | HTTPValidationError]
+        Response[Union[Any, ErrorResponse, HTTPValidationError]]
     """
 
     kwargs = _get_kwargs(
@@ -106,21 +104,21 @@ def sync_detailed(
 
 
 def sync(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
-) -> Any | ErrorResponse | HTTPValidationError | None:
+) -> Optional[Union[Any, ErrorResponse, HTTPValidationError]]:
     """Delete Log Group
 
     Args:
-        id (UUID):
+        id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse | HTTPValidationError
+        Union[Any, ErrorResponse, HTTPValidationError]
     """
 
     return sync_detailed(
@@ -130,21 +128,21 @@ def sync(
 
 
 async def asyncio_detailed(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
-) -> Response[Any | ErrorResponse | HTTPValidationError]:
+) -> Response[Union[Any, ErrorResponse, HTTPValidationError]]:
     """Delete Log Group
 
     Args:
-        id (UUID):
+        id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse | HTTPValidationError]
+        Response[Union[Any, ErrorResponse, HTTPValidationError]]
     """
 
     kwargs = _get_kwargs(
@@ -157,21 +155,21 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
-) -> Any | ErrorResponse | HTTPValidationError | None:
+) -> Optional[Union[Any, ErrorResponse, HTTPValidationError]]:
     """Delete Log Group
 
     Args:
-        id (UUID):
+        id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse | HTTPValidationError
+        Union[Any, ErrorResponse, HTTPValidationError]
     """
 
     return (

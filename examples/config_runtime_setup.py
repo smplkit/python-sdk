@@ -13,7 +13,7 @@ from smplkit import AsyncSmplClient
 
 
 async def setup_demo_configs(client: AsyncSmplClient) -> dict:
-    """Create demo configs. Returns a dict of keys for cleanup.
+    """Create demo configs. Returns a dict of ids for cleanup.
 
     Creates:
       - Updates "common" config with org-wide defaults + env overrides
@@ -101,22 +101,22 @@ async def setup_demo_configs(client: AsyncSmplClient) -> dict:
     await auth_module.save()
 
     return {
-        "config_keys": ["user_service", "auth_module"],
-        "common_key": "common",
+        "config_ids": ["user_service", "auth_module"],
+        "common_id": "common",
     }
 
 
 async def teardown_demo_configs(client: AsyncSmplClient, demo: dict) -> None:
     """Delete demo configs and reset common."""
-    for key in demo.get("config_keys", []):
+    for id in demo.get("config_ids", []):
         try:
-            await client.config.delete(key)
+            await client.config.delete(id)
         except Exception:
             pass
 
     # Reset common config to empty.
     try:
-        common = await client.config.get(demo["common_key"])
+        common = await client.config.get(demo["common_id"])
         common.description = ""
         common.items = {}
         common.environments = {}

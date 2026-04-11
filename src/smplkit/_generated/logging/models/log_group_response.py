@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -19,11 +17,11 @@ class LogGroupResponse:
     """
     Attributes:
         data (LogGroupResource):  Example: {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments':
-            {'production': {'level': 'ERROR'}}, 'key': 'database-loggers', 'level': 'WARN', 'name': 'Database Loggers',
-            'updated_at': '2026-04-01T10:00:00Z'}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type': 'log_group'}.
+            {'production': {'level': 'ERROR'}}, 'level': 'WARN', 'name': 'Database Loggers', 'updated_at':
+            '2026-04-01T10:00:00Z'}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type': 'log_group'}.
     """
 
-    data: LogGroupResource
+    data: "LogGroupResource"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

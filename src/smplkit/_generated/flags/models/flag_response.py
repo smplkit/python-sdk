@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -21,12 +19,12 @@ class FlagResponse:
         data (FlagResource):  Example: {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'default': False,
             'description': 'Enable dark mode for the application UI', 'environments': {'production': {'default': False,
             'enabled': True, 'rules': [{'description': 'Beta users get dark mode', 'logic': {'attribute': 'beta', 'op':
-            'eq', 'value': True}, 'value': True}]}}, 'key': 'dark_mode', 'name': 'Dark Mode', 'type': 'BOOLEAN',
-            'updated_at': '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value':
-            False}]}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type': 'flag'}.
+            'eq', 'value': True}, 'value': True}]}}, 'name': 'Dark Mode', 'type': 'BOOLEAN', 'updated_at':
+            '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value': False}]}, 'id':
+            '550e8400-e29b-41d4-a716-446655440000', 'type': 'flag'}.
     """
 
-    data: FlagResource
+    data: "FlagResource"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -11,6 +9,7 @@ from ..types import UNSET, Unset
 from ..models.user_resource_type import check_user_resource_type
 from ..models.user_resource_type import UserResourceType
 from typing import cast
+from typing import Union
 
 if TYPE_CHECKING:
     from ..models.user import User
@@ -33,12 +32,12 @@ class UserResource:
         attributes (User):  Example: {'account': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'auth_provider': 'GOOGLE',
             'created_at': '2026-03-20T11:02:16.616Z', 'display_name': 'Jane Smith', 'email': 'jane@example.com',
             'email_verified': True, 'profile_pic': 'https://lh3.googleusercontent.com/a/example', 'role': 'OWNER'}.
-        id (None | str | Unset):
+        id (Union[None, Unset, str]):
     """
 
     type_: UserResourceType
-    attributes: User
-    id: None | str | Unset = UNSET
+    attributes: "User"
+    id: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -46,7 +45,7 @@ class UserResource:
 
         attributes = self.attributes.to_dict()
 
-        id: None | str | Unset
+        id: Union[None, Unset, str]
         if isinstance(self.id, Unset):
             id = UNSET
         else:
@@ -74,12 +73,12 @@ class UserResource:
 
         attributes = User.from_dict(d.pop("attributes"))
 
-        def _parse_id(data: object) -> None | str | Unset:
+        def _parse_id(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         id = _parse_id(d.pop("id", UNSET))
 

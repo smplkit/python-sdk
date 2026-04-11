@@ -11,8 +11,8 @@ Demonstrates the smplkit Python SDK's management plane for Smpl Flags:
 - Rule builder: fluent API for constructing JSON Logic rules
 - addRule() as local mutation, save() to persist
 - Environment convenience methods: setEnvironmentEnabled, setEnvironmentDefault
-- Listing and inspecting flags via get(key) and list()
-- Deleting flags by key
+- Listing and inspecting flags via get(id) and list()
+- Deleting flags by id
 
 Most customers will create and configure flags via the Console UI.
 This showcase demonstrates the programmatic equivalent — useful for
@@ -72,12 +72,12 @@ async def main() -> None:
         step("AsyncSmplClient initialized (environment=staging, service=showcase-service)")
 
         # Clean up leftover flags from previous runs.
-        demo_flag_keys = {"checkout-v2", "banner-color", "max-retries", "ui-theme"}
+        demo_flag_ids = {"checkout-v2", "banner-color", "max-retries", "ui-theme"}
         try:
             existing_flags = await client.flags.list()
             for flag in existing_flags:
-                if flag.key in demo_flag_keys:
-                    await client.flags.delete(flag.key)
+                if flag.id in demo_flag_ids:
+                    await client.flags.delete(flag.id)
         except Exception:
             pass
 
@@ -87,17 +87,17 @@ async def main() -> None:
         #
         # Flags are created via typed factory methods on the FlagsClient:
         #
-        #   newBooleanFlag(key, *, default, name=None, description=None)
-        #   newStringFlag(key, *, default, name=None, description=None, values=None)
-        #   newNumberFlag(key, *, default, name=None, description=None, values=None)
-        #   newJsonFlag(key, *, default, name=None, description=None, values=None)
+        #   newBooleanFlag(id, *, default, name=None, description=None)
+        #   newStringFlag(id, *, default, name=None, description=None, values=None)
+        #   newNumberFlag(id, *, default, name=None, description=None, values=None)
+        #   newJsonFlag(id, *, default, name=None, description=None, values=None)
         #
-        # These return an unsaved Flag instance (id=None). Nothing is sent
-        # to the server until .save() is called. The flag type is implicit
-        # in the factory method name — no FlagType enum needed.
+        # These return an unsaved Flag instance. Nothing is sent to the
+        # server until .save() is called. The flag type is implicit in the
+        # factory method name — no FlagType enum needed.
         #
         # When name is omitted, the SDK generates a display name from the
-        # key (e.g., "checkout-v2" → "Checkout V2").
+        # id (e.g., "checkout-v2" → "Checkout V2").
         # ==================================================================
 
         # ------------------------------------------------------------------
@@ -110,12 +110,11 @@ async def main() -> None:
             default=False,
             description="Controls rollout of the new checkout experience.",
         )
-        step(f"Created locally: key={checkout_flag.key}, type={checkout_flag.type}")
-        step(f"  id={checkout_flag.id}  (None — not yet saved)")
+        step(f"Created locally: id={checkout_flag.id}, type={checkout_flag.type}")
         step(f"  default={checkout_flag.default}")
 
         await checkout_flag.save()
-        step(f"  Saved → id={checkout_flag.id}")
+        step(f"  Saved")
 
         # ------------------------------------------------------------------
         # 2b. STRING flag
@@ -137,7 +136,7 @@ async def main() -> None:
             ],
         )
         await banner_flag.save()
-        step(f"Created and saved: key={banner_flag.key}, type={banner_flag.type}")
+        step(f"Created and saved: id={banner_flag.id}, type={banner_flag.type}")
         step(f"  values={banner_flag.values}")
 
         # ------------------------------------------------------------------
@@ -157,7 +156,7 @@ async def main() -> None:
             description="Maximum number of API retries before failing.",
         )
         await retry_flag.save()
-        step(f"Created and saved: key={retry_flag.key}, type={retry_flag.type}")
+        step(f"Created and saved: id={retry_flag.id}, type={retry_flag.type}")
 
         # ------------------------------------------------------------------
         # 2d. JSON flag
@@ -177,7 +176,7 @@ async def main() -> None:
             ],
         )
         await theme_flag.save()
-        step(f"Created and saved: key={theme_flag.key}, type={theme_flag.type}")
+        step(f"Created and saved: id={theme_flag.id}, type={theme_flag.type}")
 
         # ==================================================================
         # 3. CONFIGURE ENVIRONMENTS AND RULES
@@ -294,11 +293,11 @@ async def main() -> None:
         step(f"Total flags: {len(flags)}")
         for f in flags:
             env_keys = list(f.environments.keys()) if f.environments else []
-            step(f"  {f.key} ({f.type}) — default={f.default}, environments={env_keys}")
+            step(f"  {f.id} ({f.type}) — default={f.default}, environments={env_keys}")
 
-        # Fetch a single flag by key — always an HTTP request.
+        # Fetch a single flag by id — always an HTTP request.
         fetched = await client.flags.get("checkout-v2")
-        step(f"\nFetched by key: {fetched.key}")
+        step(f"\nFetched by id: {fetched.id}")
         step(f"  staging rules: {len(fetched.environments.get('staging', {}).get('rules', []))}")
         step(f"  production enabled: {fetched.environments.get('production', {}).get('enabled')}")
 
@@ -404,9 +403,9 @@ async def main() -> None:
         # ==================================================================
         section("8. Cleanup")
 
-        for key in ["checkout-v2", "banner-color", "max-retries", "ui-theme"]:
-            await client.flags.delete(key)
-            step(f"Deleted flag: {key}")
+        for flag_id in ["checkout-v2", "banner-color", "max-retries", "ui-theme"]:
+            await client.flags.delete(flag_id)
+            step(f"Deleted flag: {flag_id}")
 
         # ==================================================================
         # DONE

@@ -23,11 +23,10 @@ from smplkit.logging.client import (
 _TEST_UUID = "550e8400-e29b-41d4-a716-446655440000"
 
 
-def _make_logger_attrs(*, key="sql", name="SQL Logger", level="DEBUG", group=None, managed=True):
+def _make_logger_attrs(*, name="SQL Logger", level="DEBUG", group=None, managed=True):
     from smplkit._generated.logging.types import UNSET
 
     attrs = MagicMock()
-    attrs.key = key
     attrs.name = name
     attrs.level = level
     attrs.group = group if group is not None else UNSET
@@ -39,11 +38,10 @@ def _make_logger_attrs(*, key="sql", name="SQL Logger", level="DEBUG", group=Non
     return attrs
 
 
-def _make_group_attrs(*, key="db", name="DB", level="WARN", group=None):
+def _make_group_attrs(*, name="DB", level="WARN", group=None):
     from smplkit._generated.logging.types import UNSET
 
     attrs = MagicMock()
-    attrs.key = key
     attrs.name = name
     attrs.level = level
     attrs.group = group if group is not None else UNSET
@@ -113,7 +111,7 @@ class TestSyncBareRaise:
         with pytest.raises(RuntimeError, match="boom"):
             client.list()
 
-    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    @patch("smplkit.logging.client.get_logger.sync_detailed")
     def test_get_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
         client = _make_sync_client()
@@ -124,7 +122,7 @@ class TestSyncBareRaise:
     def test_save_logger_unknown_error(self, mock_update):
         mock_update.side_effect = RuntimeError("boom")
         client = _make_sync_client()
-        lg = SmplLogger(client, id=_TEST_UUID, key="sql", name="SQL Logger")
+        lg = SmplLogger(client, id=_TEST_UUID, name="SQL Logger", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(RuntimeError, match="boom"):
             client._save_logger(lg)
 
@@ -132,25 +130,13 @@ class TestSyncBareRaise:
     def test_save_logger_create_unknown_error(self, mock_create):
         mock_create.side_effect = RuntimeError("boom")
         client = _make_sync_client()
-        lg = SmplLogger(client, id=None, key="sql", name="SQL Logger")
+        lg = SmplLogger(client, id=None, name="SQL Logger")
         with pytest.raises(RuntimeError, match="boom"):
             client._save_logger(lg)
 
-    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    @patch("smplkit.logging.client.delete_logger.sync_detailed")
     def test_delete_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
-        client = _make_sync_client()
-        with pytest.raises(RuntimeError, match="boom"):
-            client.delete("sql")
-
-    @patch("smplkit.logging.client.delete_logger.sync_detailed")
-    @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    def test_delete_api_unknown_error(self, mock_list, mock_delete):
-        """Cover the bare raise in the delete_logger call path."""
-        attrs = _make_logger_attrs(key="sql")
-        resource = _make_resource(attrs)
-        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
-        mock_delete.side_effect = RuntimeError("boom")
         client = _make_sync_client()
         with pytest.raises(RuntimeError, match="boom"):
             client.delete("sql")
@@ -162,7 +148,7 @@ class TestSyncBareRaise:
         with pytest.raises(RuntimeError, match="boom"):
             client.list_groups()
 
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.client.get_log_group.sync_detailed")
     def test_get_group_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
         client = _make_sync_client()
@@ -173,7 +159,7 @@ class TestSyncBareRaise:
     def test_save_group_unknown_error(self, mock_update):
         mock_update.side_effect = RuntimeError("boom")
         client = _make_sync_client()
-        grp = SmplLogGroup(client, id=_TEST_UUID, key="db", name="DB")
+        grp = SmplLogGroup(client, id=_TEST_UUID, name="DB", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(RuntimeError, match="boom"):
             client._save_group(grp)
 
@@ -181,25 +167,13 @@ class TestSyncBareRaise:
     def test_save_group_create_unknown_error(self, mock_create):
         mock_create.side_effect = RuntimeError("boom")
         client = _make_sync_client()
-        grp = SmplLogGroup(client, id=None, key="db", name="DB")
+        grp = SmplLogGroup(client, id=None, name="DB")
         with pytest.raises(RuntimeError, match="boom"):
             client._save_group(grp)
 
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.client.delete_log_group.sync_detailed")
     def test_delete_group_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
-        client = _make_sync_client()
-        with pytest.raises(RuntimeError, match="boom"):
-            client.delete_group("db")
-
-    @patch("smplkit.logging.client.delete_log_group.sync_detailed")
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
-    def test_delete_group_api_unknown_error(self, mock_list, mock_delete):
-        """Cover the bare raise in the delete_log_group call path."""
-        attrs = _make_group_attrs(key="db")
-        resource = _make_resource(attrs)
-        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
-        mock_delete.side_effect = RuntimeError("boom")
         client = _make_sync_client()
         with pytest.raises(RuntimeError, match="boom"):
             client.delete_group("db")
@@ -215,27 +189,16 @@ class TestAsyncBareRaise:
         with pytest.raises(RuntimeError, match="boom"):
             asyncio.run(client.list())
 
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
+    @patch("smplkit.logging.client.get_logger.asyncio_detailed")
     def test_get_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
         client = _make_async_client()
         with pytest.raises(RuntimeError, match="boom"):
             asyncio.run(client.get("sql"))
 
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
+    @patch("smplkit.logging.client.delete_logger.asyncio_detailed")
     def test_delete_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
-        client = _make_async_client()
-        with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(client.delete("sql"))
-
-    @patch("smplkit.logging.client.delete_logger.asyncio_detailed")
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    def test_delete_api_unknown_error(self, mock_list, mock_delete):
-        attrs = _make_logger_attrs(key="sql")
-        resource = _make_resource(attrs)
-        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
-        mock_delete.side_effect = RuntimeError("boom")
         client = _make_async_client()
         with pytest.raises(RuntimeError, match="boom"):
             asyncio.run(client.delete("sql"))
@@ -247,27 +210,16 @@ class TestAsyncBareRaise:
         with pytest.raises(RuntimeError, match="boom"):
             asyncio.run(client.list_groups())
 
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
+    @patch("smplkit.logging.client.get_log_group.asyncio_detailed")
     def test_get_group_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
         client = _make_async_client()
         with pytest.raises(RuntimeError, match="boom"):
             asyncio.run(client.get_group("db"))
 
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
+    @patch("smplkit.logging.client.delete_log_group.asyncio_detailed")
     def test_delete_group_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
-        client = _make_async_client()
-        with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(client.delete_group("db"))
-
-    @patch("smplkit.logging.client.delete_log_group.asyncio_detailed")
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
-    def test_delete_group_api_unknown_error(self, mock_list, mock_delete):
-        attrs = _make_group_attrs(key="db")
-        resource = _make_resource(attrs)
-        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
-        mock_delete.side_effect = RuntimeError("boom")
         client = _make_async_client()
         with pytest.raises(RuntimeError, match="boom"):
             asyncio.run(client.delete_group("db"))
@@ -276,7 +228,7 @@ class TestAsyncBareRaise:
     def test_save_logger_unknown_error(self, mock_update):
         mock_update.side_effect = RuntimeError("boom")
         client = _make_async_client()
-        lg = AsyncSmplLogger(client, id=_TEST_UUID, key="sql", name="SQL Logger")
+        lg = AsyncSmplLogger(client, id=_TEST_UUID, name="SQL Logger", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(RuntimeError, match="boom"):
             asyncio.run(client._save_logger(lg))
 
@@ -284,7 +236,7 @@ class TestAsyncBareRaise:
     def test_save_logger_create_unknown_error(self, mock_create):
         mock_create.side_effect = RuntimeError("boom")
         client = _make_async_client()
-        lg = AsyncSmplLogger(client, id=None, key="sql", name="SQL Logger")
+        lg = AsyncSmplLogger(client, id=None, name="SQL Logger")
         with pytest.raises(RuntimeError, match="boom"):
             asyncio.run(client._save_logger(lg))
 
@@ -292,7 +244,7 @@ class TestAsyncBareRaise:
     def test_save_group_unknown_error(self, mock_update):
         mock_update.side_effect = RuntimeError("boom")
         client = _make_async_client()
-        grp = AsyncSmplLogGroup(client, id=_TEST_UUID, key="db", name="DB")
+        grp = AsyncSmplLogGroup(client, id=_TEST_UUID, name="DB", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(RuntimeError, match="boom"):
             asyncio.run(client._save_group(grp))
 
@@ -300,7 +252,7 @@ class TestAsyncBareRaise:
     def test_save_group_create_unknown_error(self, mock_create):
         mock_create.side_effect = RuntimeError("boom")
         client = _make_async_client()
-        grp = AsyncSmplLogGroup(client, id=None, key="db", name="DB")
+        grp = AsyncSmplLogGroup(client, id=None, name="DB")
         with pytest.raises(RuntimeError, match="boom"):
             asyncio.run(client._save_group(grp))
 
@@ -396,27 +348,16 @@ class TestAsyncNetworkErrors:
         with pytest.raises(SmplConnectionError):
             asyncio.run(client.list())
 
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
+    @patch("smplkit.logging.client.get_logger.asyncio_detailed")
     def test_get_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
         client = _make_async_client()
         with pytest.raises(SmplConnectionError):
             asyncio.run(client.get("sql"))
 
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
+    @patch("smplkit.logging.client.delete_logger.asyncio_detailed")
     def test_delete_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_async_client()
-        with pytest.raises(SmplConnectionError):
-            asyncio.run(client.delete("sql"))
-
-    @patch("smplkit.logging.client.delete_logger.asyncio_detailed")
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    def test_delete_api_network_error(self, mock_list, mock_delete):
-        attrs = _make_logger_attrs(key="sql")
-        resource = _make_resource(attrs)
-        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
-        mock_delete.side_effect = httpx.ConnectError("refused")
         client = _make_async_client()
         with pytest.raises(SmplConnectionError):
             asyncio.run(client.delete("sql"))
@@ -425,7 +366,7 @@ class TestAsyncNetworkErrors:
     def test_save_logger_create_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
         client = _make_async_client()
-        lg = AsyncSmplLogger(client, id=None, key="sql", name="SQL Logger")
+        lg = AsyncSmplLogger(client, id=None, name="SQL Logger")
         with pytest.raises(SmplConnectionError):
             asyncio.run(client._save_logger(lg))
 
@@ -433,7 +374,7 @@ class TestAsyncNetworkErrors:
     def test_save_logger_update_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
         client = _make_async_client()
-        lg = AsyncSmplLogger(client, id=_TEST_UUID, key="sql", name="SQL Logger")
+        lg = AsyncSmplLogger(client, id=_TEST_UUID, name="SQL Logger", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(SmplConnectionError):
             asyncio.run(client._save_logger(lg))
 
@@ -444,27 +385,16 @@ class TestAsyncNetworkErrors:
         with pytest.raises(SmplConnectionError):
             asyncio.run(client.list_groups())
 
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
+    @patch("smplkit.logging.client.get_log_group.asyncio_detailed")
     def test_get_group_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
         client = _make_async_client()
         with pytest.raises(SmplConnectionError):
             asyncio.run(client.get_group("db"))
 
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
+    @patch("smplkit.logging.client.delete_log_group.asyncio_detailed")
     def test_delete_group_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_async_client()
-        with pytest.raises(SmplConnectionError):
-            asyncio.run(client.delete_group("db"))
-
-    @patch("smplkit.logging.client.delete_log_group.asyncio_detailed")
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
-    def test_delete_group_api_network_error(self, mock_list, mock_delete):
-        attrs = _make_group_attrs(key="db")
-        resource = _make_resource(attrs)
-        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
-        mock_delete.side_effect = httpx.ConnectError("refused")
         client = _make_async_client()
         with pytest.raises(SmplConnectionError):
             asyncio.run(client.delete_group("db"))
@@ -473,7 +403,7 @@ class TestAsyncNetworkErrors:
     def test_save_group_create_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
         client = _make_async_client()
-        grp = AsyncSmplLogGroup(client, id=None, key="db", name="DB")
+        grp = AsyncSmplLogGroup(client, id=None, name="DB")
         with pytest.raises(SmplConnectionError):
             asyncio.run(client._save_group(grp))
 
@@ -481,7 +411,7 @@ class TestAsyncNetworkErrors:
     def test_save_group_update_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
         client = _make_async_client()
-        grp = AsyncSmplLogGroup(client, id=_TEST_UUID, key="db", name="DB")
+        grp = AsyncSmplLogGroup(client, id=_TEST_UUID, name="DB", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(SmplConnectionError):
             asyncio.run(client._save_group(grp))
 
@@ -499,27 +429,16 @@ class TestSyncNetworkErrors:
         with pytest.raises(SmplConnectionError):
             client.list()
 
-    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    @patch("smplkit.logging.client.get_logger.sync_detailed")
     def test_get_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
         client = _make_sync_client()
         with pytest.raises(SmplConnectionError):
             client.get("sql")
 
-    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    @patch("smplkit.logging.client.delete_logger.sync_detailed")
     def test_delete_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_sync_client()
-        with pytest.raises(SmplConnectionError):
-            client.delete("sql")
-
-    @patch("smplkit.logging.client.delete_logger.sync_detailed")
-    @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    def test_delete_api_network_error(self, mock_list, mock_delete):
-        attrs = _make_logger_attrs(key="sql")
-        resource = _make_resource(attrs)
-        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
-        mock_delete.side_effect = httpx.ConnectError("refused")
         client = _make_sync_client()
         with pytest.raises(SmplConnectionError):
             client.delete("sql")
@@ -528,7 +447,7 @@ class TestSyncNetworkErrors:
     def test_save_logger_create_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
         client = _make_sync_client()
-        lg = SmplLogger(client, id=None, key="sql", name="SQL Logger")
+        lg = SmplLogger(client, id=None, name="SQL Logger")
         with pytest.raises(SmplConnectionError):
             client._save_logger(lg)
 
@@ -536,7 +455,7 @@ class TestSyncNetworkErrors:
     def test_save_logger_update_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
         client = _make_sync_client()
-        lg = SmplLogger(client, id=_TEST_UUID, key="sql", name="SQL Logger")
+        lg = SmplLogger(client, id=_TEST_UUID, name="SQL Logger", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(SmplConnectionError):
             client._save_logger(lg)
 
@@ -547,27 +466,16 @@ class TestSyncNetworkErrors:
         with pytest.raises(SmplConnectionError):
             client.list_groups()
 
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.client.get_log_group.sync_detailed")
     def test_get_group_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
         client = _make_sync_client()
         with pytest.raises(SmplConnectionError):
             client.get_group("db")
 
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.client.delete_log_group.sync_detailed")
     def test_delete_group_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_sync_client()
-        with pytest.raises(SmplConnectionError):
-            client.delete_group("db")
-
-    @patch("smplkit.logging.client.delete_log_group.sync_detailed")
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
-    def test_delete_group_api_network_error(self, mock_list, mock_delete):
-        attrs = _make_group_attrs(key="db")
-        resource = _make_resource(attrs)
-        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
-        mock_delete.side_effect = httpx.ConnectError("refused")
         client = _make_sync_client()
         with pytest.raises(SmplConnectionError):
             client.delete_group("db")
@@ -576,7 +484,7 @@ class TestSyncNetworkErrors:
     def test_save_group_create_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
         client = _make_sync_client()
-        grp = SmplLogGroup(client, id=None, key="db", name="DB")
+        grp = SmplLogGroup(client, id=None, name="DB")
         with pytest.raises(SmplConnectionError):
             client._save_group(grp)
 
@@ -584,6 +492,6 @@ class TestSyncNetworkErrors:
     def test_save_group_update_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
         client = _make_sync_client()
-        grp = SmplLogGroup(client, id=_TEST_UUID, key="db", name="DB")
+        grp = SmplLogGroup(client, id=_TEST_UUID, name="DB", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(SmplConnectionError):
             client._save_group(grp)

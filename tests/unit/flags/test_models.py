@@ -26,8 +26,7 @@ from smplkit.flags.models import (
 
 def _make_flag(cls=Flag, client=None, **overrides):
     defaults = {
-        "id": "flag-id-1",
-        "key": "test-flag",
+        "id": "test-flag",
         "name": "Test Flag",
         "type": "BOOLEAN",
         "default": False,
@@ -48,8 +47,7 @@ def _make_flag(cls=Flag, client=None, **overrides):
 class TestFlag:
     def test_properties(self):
         flag = _make_flag()
-        assert flag.id == "flag-id-1"
-        assert flag.key == "test-flag"
+        assert flag.id == "test-flag"
         assert flag.name == "Test Flag"
         assert flag.type == "BOOLEAN"
         assert flag.default is False
@@ -59,8 +57,7 @@ class TestFlag:
 
     def test_defaults(self):
         client = MagicMock()
-        flag = Flag(client, key="k", name="n", type="BOOLEAN", default=False)
-        assert flag.id is None
+        flag = Flag(client, id="k", name="n", type="BOOLEAN", default=False)
         assert flag.values is None
         assert flag.description is None
         assert flag.environments == {}
@@ -69,7 +66,7 @@ class TestFlag:
 
     def test_unconstrained_values_none(self):
         client = MagicMock()
-        flag = Flag(client, key="k", name="n", type="STRING", default="hello", values=None)
+        flag = Flag(client, id="k", name="n", type="STRING", default="hello", values=None)
         assert flag.values is None
         assert flag.default == "hello"
 
@@ -80,28 +77,34 @@ class TestFlag:
         assert "BOOLEAN" in r
 
     # ------------------------------------------------------------------
-    # save() — create path (id is None)
+    # save() — create path (created_at is None)
     # ------------------------------------------------------------------
 
-    def test_save_creates_when_id_is_none(self):
+    def test_save_creates_when_created_at_is_none(self):
         client = MagicMock()
-        flag = Flag(client, key="new-flag", name="New", type="BOOLEAN", default=False)
-        created = Flag(client, id="new-id", key="new-flag", name="New", type="BOOLEAN", default=False)
+        flag = Flag(client, id="new-flag", name="New", type="BOOLEAN", default=False)
+        created = Flag(
+            client, id="new-flag", name="New", type="BOOLEAN", default=False, created_at="2024-01-01"
+        )
         client._create_flag.return_value = created
 
         flag.save()
 
         client._create_flag.assert_called_once_with(flag)
-        assert flag.id == "new-id"
+        assert flag.created_at == "2024-01-01"
 
     # ------------------------------------------------------------------
-    # save() — update path (id is set)
+    # save() — update path (created_at is set)
     # ------------------------------------------------------------------
 
-    def test_save_updates_when_id_is_set(self):
+    def test_save_updates_when_created_at_is_set(self):
         client = MagicMock()
-        flag = Flag(client, id="existing-id", key="flag", name="Old", type="BOOLEAN", default=False)
-        updated = Flag(client, id="existing-id", key="flag", name="Updated", type="BOOLEAN", default=True)
+        flag = Flag(
+            client, id="existing-id", name="Old", type="BOOLEAN", default=False, created_at="2024-01-01"
+        )
+        updated = Flag(
+            client, id="existing-id", name="Updated", type="BOOLEAN", default=True, created_at="2024-01-01"
+        )
         client._update_flag.return_value = updated
 
         flag.save()
@@ -116,11 +119,10 @@ class TestFlag:
 
     def test_apply_copies_all_fields(self):
         client = MagicMock()
-        flag = Flag(client, key="k", name="n", type="BOOLEAN", default=False)
+        flag = Flag(client, id="k", name="n", type="BOOLEAN", default=False)
         other = Flag(
             client,
             id="new-id",
-            key="new-key",
             name="new-name",
             type="STRING",
             default="hello",
@@ -132,7 +134,6 @@ class TestFlag:
         )
         flag._apply(other)
         assert flag.id == "new-id"
-        assert flag.key == "new-key"
         assert flag.name == "new-name"
         assert flag.type == "STRING"
         assert flag.default == "hello"
@@ -228,7 +229,7 @@ class TestFlag:
     def test_get_delegates_to_client(self):
         client = MagicMock()
         client._evaluate_handle.return_value = True
-        flag = Flag(client, key="k", name="n", type="BOOLEAN", default=False)
+        flag = Flag(client, id="k", name="n", type="BOOLEAN", default=False)
         result = flag.get()
         client._evaluate_handle.assert_called_once_with("k", False, None)
         assert result is True
@@ -236,7 +237,7 @@ class TestFlag:
     def test_get_with_context(self):
         client = MagicMock()
         client._evaluate_handle.return_value = "matched"
-        flag = Flag(client, key="k", name="n", type="STRING", default="off")
+        flag = Flag(client, id="k", name="n", type="STRING", default="off")
         ctx = [MagicMock()]
         result = flag.get(context=ctx)
         client._evaluate_handle.assert_called_once_with("k", "off", ctx)
@@ -252,13 +253,13 @@ class TestBooleanFlag:
     def test_returns_bool(self):
         client = MagicMock()
         client._evaluate_handle.return_value = True
-        flag = BooleanFlag(client, key="k", name="n", type="BOOLEAN", default=False)
+        flag = BooleanFlag(client, id="k", name="n", type="BOOLEAN", default=False)
         assert flag.get() is True
 
     def test_returns_default_on_non_bool(self):
         client = MagicMock()
         client._evaluate_handle.return_value = "not a bool"
-        flag = BooleanFlag(client, key="k", name="n", type="BOOLEAN", default=False)
+        flag = BooleanFlag(client, id="k", name="n", type="BOOLEAN", default=False)
         assert flag.get() is False
 
 
@@ -266,13 +267,13 @@ class TestStringFlag:
     def test_returns_string(self):
         client = MagicMock()
         client._evaluate_handle.return_value = "blue"
-        flag = StringFlag(client, key="color", name="Color", type="STRING", default="red")
+        flag = StringFlag(client, id="color", name="Color", type="STRING", default="red")
         assert flag.get() == "blue"
 
     def test_returns_default_on_non_string(self):
         client = MagicMock()
         client._evaluate_handle.return_value = 42
-        flag = StringFlag(client, key="color", name="Color", type="STRING", default="red")
+        flag = StringFlag(client, id="color", name="Color", type="STRING", default="red")
         assert flag.get() == "red"
 
 
@@ -280,25 +281,25 @@ class TestNumberFlag:
     def test_returns_int(self):
         client = MagicMock()
         client._evaluate_handle.return_value = 5
-        flag = NumberFlag(client, key="retries", name="Retries", type="NUMERIC", default=3)
+        flag = NumberFlag(client, id="retries", name="Retries", type="NUMERIC", default=3)
         assert flag.get() == 5
 
     def test_returns_float(self):
         client = MagicMock()
         client._evaluate_handle.return_value = 3.14
-        flag = NumberFlag(client, key="rate", name="Rate", type="NUMERIC", default=1.0)
+        flag = NumberFlag(client, id="rate", name="Rate", type="NUMERIC", default=1.0)
         assert flag.get() == 3.14
 
     def test_rejects_bool(self):
         client = MagicMock()
         client._evaluate_handle.return_value = True
-        flag = NumberFlag(client, key="retries", name="Retries", type="NUMERIC", default=3)
+        flag = NumberFlag(client, id="retries", name="Retries", type="NUMERIC", default=3)
         assert flag.get() == 3
 
     def test_returns_default_on_string(self):
         client = MagicMock()
         client._evaluate_handle.return_value = "not a number"
-        flag = NumberFlag(client, key="retries", name="Retries", type="NUMERIC", default=3)
+        flag = NumberFlag(client, id="retries", name="Retries", type="NUMERIC", default=3)
         assert flag.get() == 3
 
 
@@ -306,13 +307,13 @@ class TestJsonFlag:
     def test_returns_dict(self):
         client = MagicMock()
         client._evaluate_handle.return_value = {"mode": "dark"}
-        flag = JsonFlag(client, key="theme", name="Theme", type="JSON", default={"mode": "light"})
+        flag = JsonFlag(client, id="theme", name="Theme", type="JSON", default={"mode": "light"})
         assert flag.get() == {"mode": "dark"}
 
     def test_returns_default_on_non_dict(self):
         client = MagicMock()
         client._evaluate_handle.return_value = "not a dict"
-        flag = JsonFlag(client, key="theme", name="Theme", type="JSON", default={"mode": "light"})
+        flag = JsonFlag(client, id="theme", name="Theme", type="JSON", default={"mode": "light"})
         assert flag.get() == {"mode": "light"}
 
 
@@ -326,8 +327,7 @@ class TestAsyncFlag:
         client = MagicMock()
         flag = AsyncFlag(
             client,
-            id="af-1",
-            key="async-flag",
+            id="async-flag",
             name="Async Flag",
             type="BOOLEAN",
             default=True,
@@ -335,15 +335,13 @@ class TestAsyncFlag:
             description="async desc",
             environments={"prod": {"enabled": True}},
         )
-        assert flag.id == "af-1"
-        assert flag.key == "async-flag"
+        assert flag.id == "async-flag"
         assert flag.name == "Async Flag"
         assert flag.description == "async desc"
 
     def test_defaults(self):
         client = MagicMock()
-        flag = AsyncFlag(client, key="k", name="n", type="BOOLEAN", default=False)
-        assert flag.id is None
+        flag = AsyncFlag(client, id="k", name="n", type="BOOLEAN", default=False)
         assert flag.values is None
         assert flag.environments == {}
 
@@ -354,29 +352,35 @@ class TestAsyncFlag:
         assert "test-flag" in r
 
     # ------------------------------------------------------------------
-    # save() — create path (async)
+    # save() — create path (created_at is None, async)
     # ------------------------------------------------------------------
 
-    def test_save_creates_when_id_is_none(self):
+    def test_save_creates_when_created_at_is_none(self):
         client = AsyncMock()
-        flag = AsyncFlag(client, key="new-flag", name="New", type="BOOLEAN", default=False)
-        created = AsyncFlag(client, id="new-id", key="new-flag", name="New", type="BOOLEAN", default=False)
+        flag = AsyncFlag(client, id="new-flag", name="New", type="BOOLEAN", default=False)
+        created = AsyncFlag(
+            client, id="new-flag", name="New", type="BOOLEAN", default=False, created_at="2024-01-01"
+        )
         client._create_flag.return_value = created
 
         async def _run():
             await flag.save()
-            assert flag.id == "new-id"
+            assert flag.created_at == "2024-01-01"
 
         asyncio.run(_run())
 
     # ------------------------------------------------------------------
-    # save() — update path (async)
+    # save() — update path (created_at is set, async)
     # ------------------------------------------------------------------
 
-    def test_save_updates_when_id_is_set(self):
+    def test_save_updates_when_created_at_is_set(self):
         client = AsyncMock()
-        flag = AsyncFlag(client, id="existing-id", key="flag", name="Old", type="BOOLEAN", default=False)
-        updated = AsyncFlag(client, id="existing-id", key="flag", name="Updated", type="BOOLEAN", default=True)
+        flag = AsyncFlag(
+            client, id="existing-id", name="Old", type="BOOLEAN", default=False, created_at="2024-01-01"
+        )
+        updated = AsyncFlag(
+            client, id="existing-id", name="Updated", type="BOOLEAN", default=True, created_at="2024-01-01"
+        )
         client._update_flag.return_value = updated
 
         async def _run():
@@ -392,11 +396,10 @@ class TestAsyncFlag:
 
     def test_apply_copies_all_fields(self):
         client = MagicMock()
-        flag = AsyncFlag(client, key="k", name="n", type="BOOLEAN", default=False)
+        flag = AsyncFlag(client, id="k", name="n", type="BOOLEAN", default=False)
         other = AsyncFlag(
             client,
             id="new-id",
-            key="new-key",
             name="new-name",
             type="STRING",
             default="hello",
@@ -408,7 +411,6 @@ class TestAsyncFlag:
         )
         flag._apply(other)
         assert flag.id == "new-id"
-        assert flag.key == "new-key"
         assert flag.type == "STRING"
         assert flag.default == "hello"
 
@@ -462,14 +464,14 @@ class TestAsyncFlag:
     def test_get_delegates_to_client(self):
         client = MagicMock()
         client._evaluate_handle.return_value = True
-        flag = AsyncFlag(client, key="k", name="n", type="BOOLEAN", default=False)
+        flag = AsyncFlag(client, id="k", name="n", type="BOOLEAN", default=False)
         assert flag.get() is True
         client._evaluate_handle.assert_called_once_with("k", False, None)
 
     def test_get_with_context(self):
         client = MagicMock()
         client._evaluate_handle.return_value = "val"
-        flag = AsyncFlag(client, key="k", name="n", type="STRING", default="off")
+        flag = AsyncFlag(client, id="k", name="n", type="STRING", default="off")
         ctx = [MagicMock()]
         assert flag.get(context=ctx) == "val"
 
@@ -483,13 +485,13 @@ class TestAsyncBooleanFlag:
     def test_returns_bool(self):
         client = MagicMock()
         client._evaluate_handle.return_value = True
-        flag = AsyncBooleanFlag(client, key="k", name="n", type="BOOLEAN", default=False)
+        flag = AsyncBooleanFlag(client, id="k", name="n", type="BOOLEAN", default=False)
         assert flag.get() is True
 
     def test_returns_default_on_non_bool(self):
         client = MagicMock()
         client._evaluate_handle.return_value = "not a bool"
-        flag = AsyncBooleanFlag(client, key="k", name="n", type="BOOLEAN", default=False)
+        flag = AsyncBooleanFlag(client, id="k", name="n", type="BOOLEAN", default=False)
         assert flag.get() is False
 
 
@@ -497,13 +499,13 @@ class TestAsyncStringFlag:
     def test_returns_string(self):
         client = MagicMock()
         client._evaluate_handle.return_value = "blue"
-        flag = AsyncStringFlag(client, key="color", name="Color", type="STRING", default="red")
+        flag = AsyncStringFlag(client, id="color", name="Color", type="STRING", default="red")
         assert flag.get() == "blue"
 
     def test_returns_default_on_non_string(self):
         client = MagicMock()
         client._evaluate_handle.return_value = 42
-        flag = AsyncStringFlag(client, key="color", name="Color", type="STRING", default="red")
+        flag = AsyncStringFlag(client, id="color", name="Color", type="STRING", default="red")
         assert flag.get() == "red"
 
 
@@ -511,25 +513,25 @@ class TestAsyncNumberFlag:
     def test_returns_int(self):
         client = MagicMock()
         client._evaluate_handle.return_value = 5
-        flag = AsyncNumberFlag(client, key="retries", name="Retries", type="NUMERIC", default=3)
+        flag = AsyncNumberFlag(client, id="retries", name="Retries", type="NUMERIC", default=3)
         assert flag.get() == 5
 
     def test_returns_float(self):
         client = MagicMock()
         client._evaluate_handle.return_value = 3.14
-        flag = AsyncNumberFlag(client, key="rate", name="Rate", type="NUMERIC", default=1.0)
+        flag = AsyncNumberFlag(client, id="rate", name="Rate", type="NUMERIC", default=1.0)
         assert flag.get() == 3.14
 
     def test_rejects_bool(self):
         client = MagicMock()
         client._evaluate_handle.return_value = True
-        flag = AsyncNumberFlag(client, key="retries", name="Retries", type="NUMERIC", default=3)
+        flag = AsyncNumberFlag(client, id="retries", name="Retries", type="NUMERIC", default=3)
         assert flag.get() == 3
 
     def test_returns_default_on_string(self):
         client = MagicMock()
         client._evaluate_handle.return_value = "nope"
-        flag = AsyncNumberFlag(client, key="retries", name="Retries", type="NUMERIC", default=3)
+        flag = AsyncNumberFlag(client, id="retries", name="Retries", type="NUMERIC", default=3)
         assert flag.get() == 3
 
 
@@ -537,11 +539,11 @@ class TestAsyncJsonFlag:
     def test_returns_dict(self):
         client = MagicMock()
         client._evaluate_handle.return_value = {"mode": "dark"}
-        flag = AsyncJsonFlag(client, key="theme", name="Theme", type="JSON", default={"mode": "light"})
+        flag = AsyncJsonFlag(client, id="theme", name="Theme", type="JSON", default={"mode": "light"})
         assert flag.get() == {"mode": "dark"}
 
     def test_returns_default_on_non_dict(self):
         client = MagicMock()
         client._evaluate_handle.return_value = "not a dict"
-        flag = AsyncJsonFlag(client, key="theme", name="Theme", type="JSON", default={"mode": "light"})
+        flag = AsyncJsonFlag(client, id="theme", name="Theme", type="JSON", default={"mode": "light"})
         assert flag.get() == {"mode": "light"}

@@ -9,8 +9,7 @@ from smplkit.config.models import AsyncConfig, Config
 def _make_config(**overrides) -> Config:
     """Create a Config with sensible defaults."""
     defaults = {
-        "id": "abc-123",
-        "key": "test_config",
+        "id": "test_config",
         "name": "Test Config",
         "description": "A test config",
         "parent": None,
@@ -25,8 +24,7 @@ def _make_config(**overrides) -> Config:
 def _make_async_config(**overrides) -> AsyncConfig:
     """Create an AsyncConfig with sensible defaults."""
     defaults = {
-        "id": "abc-123",
-        "key": "test_config",
+        "id": "test_config",
         "name": "Test Config",
         "description": "A test config",
         "parent": None,
@@ -46,8 +44,7 @@ def _make_async_config(**overrides) -> AsyncConfig:
 class TestConfigAttributes:
     def test_attributes(self):
         cfg = _make_config()
-        assert cfg.id == "abc-123"
-        assert cfg.key == "test_config"
+        assert cfg.id == "test_config"
         assert cfg.name == "Test Config"
         assert cfg.description == "A test config"
         assert cfg.parent is None
@@ -59,19 +56,18 @@ class TestConfigAttributes:
         cfg = _make_config()
         r = repr(cfg)
         assert "Config(" in r
-        assert "abc-123" in r
         assert "test_config" in r
         assert "Test Config" in r
 
     def test_items_default_to_empty_dict(self):
         client = MagicMock()
-        cfg = Config(client, id="x", key="k", name="n")
+        cfg = Config(client, id="x", name="n")
         assert cfg.items == {}
         assert cfg.environments == {}
 
     def test_id_can_be_none(self):
         client = MagicMock()
-        cfg = Config(client, id=None, key="k", name="n")
+        cfg = Config(client, id=None, name="n")
         assert cfg.id is None
 
 
@@ -112,24 +108,27 @@ class TestConfigSettableItems:
 
 
 class TestConfigSave:
-    def test_save_creates_when_id_is_none(self):
+    def test_save_creates_when_created_at_is_none(self):
         mock_client = MagicMock()
         created = _make_config(id="new-id", name="Created Config")
         mock_client._create_config.return_value = created
 
-        cfg = Config(mock_client, id=None, key="test", name="Test")
+        cfg = Config(mock_client, id="test", name="Test")
         cfg.save()
 
         mock_client._create_config.assert_called_once_with(cfg)
         assert cfg.id == "new-id"
         assert cfg.name == "Created Config"
 
-    def test_save_updates_when_id_is_set(self):
+    def test_save_updates_when_created_at_is_set(self):
+        import datetime
+
         mock_client = MagicMock()
-        updated = _make_config(id="abc-123", name="Updated Config")
+        updated = _make_config(id="test_config", name="Updated Config")
         mock_client._update_config_from_model.return_value = updated
 
-        cfg = Config(mock_client, id="abc-123", key="test", name="Old Name")
+        cfg = Config(mock_client, id="test_config", name="Old Name")
+        cfg.created_at = datetime.datetime(2025, 1, 1)
         cfg.save()
 
         mock_client._update_config_from_model.assert_called_once_with(cfg)
@@ -145,10 +144,9 @@ class TestConfigApply:
     def test_apply_copies_all_fields(self):
         import datetime
 
-        cfg = _make_config(id="old-id", key="old-key", name="Old")
+        cfg = _make_config(id="old-id", name="Old")
         other = _make_config(
             id="new-id",
-            key="new-key",
             name="New",
             description="New desc",
             parent="parent-id",
@@ -161,7 +159,6 @@ class TestConfigApply:
         cfg._apply(other)
 
         assert cfg.id == "new-id"
-        assert cfg.key == "new-key"
         assert cfg.name == "New"
         assert cfg.description == "New desc"
         assert cfg.parent == "parent-id"
@@ -187,12 +184,11 @@ class TestConfigBuildChain:
         cfg = _make_config()
         chain = cfg._build_chain()
         assert len(chain) == 1
-        assert chain[0]["id"] == "abc-123"
+        assert chain[0]["id"] == "test_config"
 
     def test_build_chain_with_parent(self):
         parent_cfg = _make_config(
             id="parent-1",
-            key="parent",
             name="Parent",
             parent=None,
             items={"inherited": {"value": "yes"}, "shared": {"value": "parent_val"}},
@@ -204,7 +200,6 @@ class TestConfigBuildChain:
         child = Config(
             mock_client,
             id="child-1",
-            key="child",
             name="Child",
             parent="parent-1",
             items={"shared": {"value": "child_val"}},
@@ -221,7 +216,6 @@ class TestConfigBuildChain:
         """When a configs list is provided, parents are looked up by ID without calling get()."""
         parent_cfg = _make_config(
             id="parent-1",
-            key="parent",
             name="Parent",
             parent=None,
             items={"inherited": {"value": "yes"}},
@@ -232,7 +226,6 @@ class TestConfigBuildChain:
         child = Config(
             mock_client,
             id="child-1",
-            key="child",
             name="Child",
             parent="parent-1",
             items={"shared": {"value": "child_val"}},
@@ -254,8 +247,7 @@ class TestConfigBuildChain:
 class TestAsyncConfigAttributes:
     def test_attributes(self):
         cfg = _make_async_config()
-        assert cfg.id == "abc-123"
-        assert cfg.key == "test_config"
+        assert cfg.id == "test_config"
         assert cfg.items == {"retries": 3}
         assert cfg.items_raw == {"retries": {"value": 3, "type": "NUMBER"}}
 
@@ -263,11 +255,11 @@ class TestAsyncConfigAttributes:
         cfg = _make_async_config()
         r = repr(cfg)
         assert "AsyncConfig(" in r
-        assert "abc-123" in r
+        assert "test_config" in r
 
     def test_id_can_be_none(self):
         client = MagicMock()
-        cfg = AsyncConfig(client, id=None, key="k", name="n")
+        cfg = AsyncConfig(client, id=None, name="n")
         assert cfg.id is None
 
 
@@ -307,24 +299,27 @@ class TestAsyncConfigSettableItems:
 
 
 class TestAsyncConfigSave:
-    def test_save_creates_when_id_is_none(self):
+    def test_save_creates_when_created_at_is_none(self):
         mock_client = MagicMock()
         created = _make_async_config(id="new-id", name="Created Config")
         mock_client._create_config = AsyncMock(return_value=created)
 
-        cfg = AsyncConfig(mock_client, id=None, key="test", name="Test")
+        cfg = AsyncConfig(mock_client, id="test", name="Test")
         asyncio.run(cfg.save())
 
         mock_client._create_config.assert_called_once_with(cfg)
         assert cfg.id == "new-id"
         assert cfg.name == "Created Config"
 
-    def test_save_updates_when_id_is_set(self):
+    def test_save_updates_when_created_at_is_set(self):
+        import datetime
+
         mock_client = MagicMock()
-        updated = _make_async_config(id="abc-123", name="Updated Config")
+        updated = _make_async_config(id="test_config", name="Updated Config")
         mock_client._update_config_from_model = AsyncMock(return_value=updated)
 
-        cfg = AsyncConfig(mock_client, id="abc-123", key="test", name="Old Name")
+        cfg = AsyncConfig(mock_client, id="test_config", name="Old Name")
+        cfg.created_at = datetime.datetime(2025, 1, 1)
         asyncio.run(cfg.save())
 
         mock_client._update_config_from_model.assert_called_once_with(cfg)
@@ -340,10 +335,9 @@ class TestAsyncConfigApply:
     def test_apply_copies_all_fields(self):
         import datetime
 
-        cfg = _make_async_config(id="old-id", key="old-key", name="Old")
+        cfg = _make_async_config(id="old-id", name="Old")
         other = _make_async_config(
             id="new-id",
-            key="new-key",
             name="New",
             description="New desc",
             parent="parent-id",
@@ -356,7 +350,6 @@ class TestAsyncConfigApply:
         cfg._apply(other)
 
         assert cfg.id == "new-id"
-        assert cfg.key == "new-key"
         assert cfg.name == "New"
         assert cfg.description == "New desc"
         assert cfg.parent == "parent-id"
@@ -381,7 +374,6 @@ class TestAsyncConfigBuildChain:
     def test_build_chain_with_parent(self):
         parent_cfg = _make_async_config(
             id="parent-1",
-            key="parent",
             name="Parent",
             parent=None,
             items={"inherited": {"value": "yes"}},
@@ -393,7 +385,6 @@ class TestAsyncConfigBuildChain:
         child = AsyncConfig(
             mock_client,
             id="child-1",
-            key="child",
             name="Child",
             parent="parent-1",
             items={"shared": {"value": "child_val"}},
@@ -413,7 +404,6 @@ class TestAsyncConfigBuildChain:
         """When a configs list is provided, parents are looked up by ID without calling get()."""
         parent_cfg = _make_async_config(
             id="parent-1",
-            key="parent",
             name="Parent",
             parent=None,
             items={"inherited": {"value": "yes"}},
@@ -424,7 +414,6 @@ class TestAsyncConfigBuildChain:
         child = AsyncConfig(
             mock_client,
             id="child-1",
-            key="child",
             name="Child",
             parent="parent-1",
             items={"shared": {"value": "child_val"}},
@@ -446,6 +435,6 @@ class TestAsyncConfigBuildChain:
         async def _run():
             chain = await cfg._build_chain()
             assert len(chain) == 1
-            assert chain[0]["id"] == "abc-123"
+            assert chain[0]["id"] == "test_config"
 
         asyncio.run(_run())

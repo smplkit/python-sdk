@@ -20,11 +20,10 @@ from smplkit.logging.client import (
 _TEST_UUID = "550e8400-e29b-41d4-a716-446655440000"
 
 
-def _make_logger_attrs(*, key="sql", name="SQL Logger", level="DEBUG", group=None, managed=True):
+def _make_logger_attrs(*, name="SQL Logger", level="DEBUG", group=None, managed=True):
     from smplkit._generated.logging.types import UNSET
 
     attrs = MagicMock()
-    attrs.key = key
     attrs.name = name
     attrs.level = level
     attrs.group = group if group is not None else UNSET
@@ -36,11 +35,10 @@ def _make_logger_attrs(*, key="sql", name="SQL Logger", level="DEBUG", group=Non
     return attrs
 
 
-def _make_group_attrs(*, key="db-loggers", name="DB Loggers", level="WARN", group=None):
+def _make_group_attrs(*, name="DB Loggers", level="WARN", group=None):
     from smplkit._generated.logging.types import UNSET
 
     attrs = MagicMock()
-    attrs.key = key
     attrs.name = name
     attrs.level = level
     attrs.group = group if group is not None else UNSET
@@ -97,8 +95,7 @@ class TestAsyncNew:
         client = _make_async_logging_client()
         lg = client.new("sql")
         assert isinstance(lg, AsyncSmplLogger)
-        assert lg.id is None
-        assert lg.key == "sql"
+        assert lg.id == "sql"
         assert lg.managed is False
 
     def test_new_with_name(self):
@@ -127,8 +124,7 @@ class TestAsyncNewGroup:
         client = _make_async_logging_client()
         grp = client.new_group("db-loggers")
         assert isinstance(grp, AsyncSmplLogGroup)
-        assert grp.id is None
-        assert grp.key == "db-loggers"
+        assert grp.id == "db-loggers"
 
     def test_new_group_with_name(self):
         client = _make_async_logging_client()
@@ -172,33 +168,32 @@ class TestAsyncList:
 
 
 # ---------------------------------------------------------------------------
-# get(key) — key-based lookup via list with filterkey
+# get(id) — direct lookup via get_logger
 # ---------------------------------------------------------------------------
 
 
 class TestAsyncGet:
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    def test_get_by_key(self, mock_list):
-        attrs = _make_logger_attrs(key="sql")
+    @patch("smplkit.logging.client.get_logger.asyncio_detailed")
+    def test_get_by_id(self, mock_get):
+        attrs = _make_logger_attrs()
         resource = _make_resource(attrs)
-        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
+        mock_get.return_value = _ok_response(_make_parsed(resource))
 
         client = _make_async_logging_client()
         result = asyncio.run(client.get("sql"))
         assert isinstance(result, AsyncSmplLogger)
-        assert result.key == "sql"
-        assert mock_list.call_args.kwargs["filterkey"] == "sql"
+        assert mock_get.call_args.args[0] == "sql"
 
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    def test_get_not_found_empty_data(self, mock_list):
-        mock_list.return_value = _ok_response(_make_list_parsed([]))
+    @patch("smplkit.logging.client.get_logger.asyncio_detailed")
+    def test_get_not_found_404(self, mock_get):
+        mock_get.return_value = _ok_response(None, HTTPStatus.NOT_FOUND)
         client = _make_async_logging_client()
-        with pytest.raises(SmplNotFoundError, match="sql"):
+        with pytest.raises(SmplNotFoundError):
             asyncio.run(client.get("sql"))
 
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    def test_get_not_found_null_parsed(self, mock_list):
-        mock_list.return_value = _ok_response(None)
+    @patch("smplkit.logging.client.get_logger.asyncio_detailed")
+    def test_get_not_found_null_parsed(self, mock_get):
+        mock_get.return_value = _ok_response(None)
         client = _make_async_logging_client()
         with pytest.raises(SmplNotFoundError):
             asyncio.run(client.get("sql"))
@@ -235,10 +230,10 @@ class TestAsyncSaveLogger:
         logger = AsyncSmplLogger(
             client,
             id=_TEST_UUID,
-            key="sql",
             name="SQL Logger",
             level="DEBUG",
             managed=True,
+            created_at="2026-01-01T00:00:00Z",
         )
         logger.level = "ERROR"
         asyncio.run(logger.save())
@@ -253,36 +248,33 @@ class TestAsyncSaveLogger:
         logger = AsyncSmplLogger(
             client,
             id=_TEST_UUID,
-            key="sql",
             name="SQL Logger",
             level="ERROR",
             managed=True,
+            created_at="2026-01-01T00:00:00Z",
         )
         with pytest.raises(SmplValidationError):
             asyncio.run(logger.save())
 
 
 # ---------------------------------------------------------------------------
-# delete(key) — key-based delete
+# delete(id) — direct delete via delete_logger
 # ---------------------------------------------------------------------------
 
 
 class TestAsyncDelete:
     @patch("smplkit.logging.client.delete_logger.asyncio_detailed")
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    def test_delete_by_key(self, mock_list, mock_delete):
-        attrs = _make_logger_attrs(key="sql")
-        resource = _make_resource(attrs)
-        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
+    def test_delete_by_id(self, mock_delete):
         mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
 
         client = _make_async_logging_client()
         asyncio.run(client.delete("sql"))
         mock_delete.assert_called_once()
+        assert mock_delete.call_args.args[0] == "sql"
 
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    def test_delete_not_found(self, mock_list):
-        mock_list.return_value = _ok_response(_make_list_parsed([]))
+    @patch("smplkit.logging.client.delete_logger.asyncio_detailed")
+    def test_delete_not_found(self, mock_delete):
+        mock_delete.return_value = _ok_response(status=HTTPStatus.NOT_FOUND)
         client = _make_async_logging_client()
         with pytest.raises(SmplNotFoundError):
             asyncio.run(client.delete("nonexistent"))
@@ -314,35 +306,33 @@ class TestAsyncListGroups:
 
 
 # ---------------------------------------------------------------------------
-# get_group(key) — client-side filter on list_log_groups
+# get_group(id) — direct lookup via get_log_group
 # ---------------------------------------------------------------------------
 
 
 class TestAsyncGetGroup:
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
-    def test_get_group_by_key(self, mock_list):
-        attrs = _make_group_attrs(key="db-loggers")
+    @patch("smplkit.logging.client.get_log_group.asyncio_detailed")
+    def test_get_group_by_id(self, mock_get):
+        attrs = _make_group_attrs()
         resource = _make_resource(attrs)
-        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
+        mock_get.return_value = _ok_response(_make_parsed(resource))
 
         client = _make_async_logging_client()
         result = asyncio.run(client.get_group("db-loggers"))
         assert isinstance(result, AsyncSmplLogGroup)
-        assert result.key == "db-loggers"
+        assert mock_get.call_args.args[0] == "db-loggers"
 
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
-    def test_get_group_not_found_no_match(self, mock_list):
-        attrs = _make_group_attrs(key="other")
-        resource = _make_resource(attrs)
-        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
+    @patch("smplkit.logging.client.get_log_group.asyncio_detailed")
+    def test_get_group_not_found_404(self, mock_get):
+        mock_get.return_value = _ok_response(None, HTTPStatus.NOT_FOUND)
 
         client = _make_async_logging_client()
-        with pytest.raises(SmplNotFoundError, match="db-loggers"):
+        with pytest.raises(SmplNotFoundError):
             asyncio.run(client.get_group("db-loggers"))
 
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
-    def test_get_group_not_found_null_parsed(self, mock_list):
-        mock_list.return_value = _ok_response(None)
+    @patch("smplkit.logging.client.get_log_group.asyncio_detailed")
+    def test_get_group_not_found_null_parsed(self, mock_get):
+        mock_get.return_value = _ok_response(None)
         client = _make_async_logging_client()
         with pytest.raises(SmplNotFoundError):
             asyncio.run(client.get_group("db-loggers"))
@@ -379,9 +369,9 @@ class TestAsyncSaveGroup:
         group = AsyncSmplLogGroup(
             client,
             id=_TEST_UUID,
-            key="db-loggers",
             name="DB Loggers",
             level="WARN",
+            created_at="2026-01-01T00:00:00Z",
         )
         group.level = "ERROR"
         asyncio.run(group.save())
@@ -396,35 +386,32 @@ class TestAsyncSaveGroup:
         group = AsyncSmplLogGroup(
             client,
             id=_TEST_UUID,
-            key="db-loggers",
             name="DB Loggers",
             level="ERROR",
+            created_at="2026-01-01T00:00:00Z",
         )
         with pytest.raises(SmplValidationError):
             asyncio.run(group.save())
 
 
 # ---------------------------------------------------------------------------
-# delete_group(key) — key-based delete
+# delete_group(id) — direct delete via delete_log_group
 # ---------------------------------------------------------------------------
 
 
 class TestAsyncDeleteGroup:
     @patch("smplkit.logging.client.delete_log_group.asyncio_detailed")
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
-    def test_delete_group_by_key(self, mock_list, mock_delete):
-        attrs = _make_group_attrs(key="db-loggers")
-        resource = _make_resource(attrs)
-        mock_list.return_value = _ok_response(_make_list_parsed([resource]))
+    def test_delete_group_by_id(self, mock_delete):
         mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
 
         client = _make_async_logging_client()
         asyncio.run(client.delete_group("db-loggers"))
         mock_delete.assert_called_once()
+        assert mock_delete.call_args.args[0] == "db-loggers"
 
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
-    def test_delete_group_not_found(self, mock_list):
-        mock_list.return_value = _ok_response(_make_list_parsed([]))
+    @patch("smplkit.logging.client.delete_log_group.asyncio_detailed")
+    def test_delete_group_not_found(self, mock_delete):
+        mock_delete.return_value = _ok_response(status=HTTPStatus.NOT_FOUND)
         client = _make_async_logging_client()
         with pytest.raises(SmplNotFoundError):
             asyncio.run(client.delete_group("nonexistent"))
@@ -437,32 +424,32 @@ class TestAsyncDeleteGroup:
 
 class TestAsyncLoggerConvenienceMethods:
     def test_setLevel(self):
-        lg = AsyncSmplLogger(None, key="sql", name="SQL Logger")
+        lg = AsyncSmplLogger(None, id="sql", name="SQL Logger")
         lg.setLevel(LogLevel.ERROR)
         assert lg.level == "ERROR"
 
     def test_clearLevel(self):
-        lg = AsyncSmplLogger(None, key="sql", name="SQL Logger", level="DEBUG")
+        lg = AsyncSmplLogger(None, id="sql", name="SQL Logger", level="DEBUG")
         lg.clearLevel()
         assert lg.level is None
 
     def test_setEnvironmentLevel(self):
-        lg = AsyncSmplLogger(None, key="sql", name="SQL Logger")
+        lg = AsyncSmplLogger(None, id="sql", name="SQL Logger")
         lg.setEnvironmentLevel("prod", LogLevel.WARN)
         assert lg.environments["prod"] == {"level": "WARN"}
 
     def test_clearEnvironmentLevel(self):
-        lg = AsyncSmplLogger(None, key="sql", name="SQL Logger", environments={"prod": {"level": "WARN"}})
+        lg = AsyncSmplLogger(None, id="sql", name="SQL Logger", environments={"prod": {"level": "WARN"}})
         lg.clearEnvironmentLevel("prod")
         assert "prod" not in lg.environments
 
     def test_clearEnvironmentLevel_missing_key(self):
-        lg = AsyncSmplLogger(None, key="sql", name="SQL Logger")
+        lg = AsyncSmplLogger(None, id="sql", name="SQL Logger")
         lg.clearEnvironmentLevel("nonexistent")
 
     def test_clearAllEnvironmentLevels(self):
         lg = AsyncSmplLogger(
-            None, key="sql", name="SQL Logger", environments={"prod": {"level": "WARN"}, "dev": {"level": "DEBUG"}}
+            None, id="sql", name="SQL Logger", environments={"prod": {"level": "WARN"}, "dev": {"level": "DEBUG"}}
         )
         lg.clearAllEnvironmentLevels()
         assert lg.environments == {}
@@ -470,31 +457,31 @@ class TestAsyncLoggerConvenienceMethods:
 
 class TestAsyncLogGroupConvenienceMethods:
     def test_setLevel(self):
-        grp = AsyncSmplLogGroup(None, key="db", name="DB")
+        grp = AsyncSmplLogGroup(None, id="db", name="DB")
         grp.setLevel(LogLevel.ERROR)
         assert grp.level == "ERROR"
 
     def test_clearLevel(self):
-        grp = AsyncSmplLogGroup(None, key="db", name="DB", level="WARN")
+        grp = AsyncSmplLogGroup(None, id="db", name="DB", level="WARN")
         grp.clearLevel()
         assert grp.level is None
 
     def test_setEnvironmentLevel(self):
-        grp = AsyncSmplLogGroup(None, key="db", name="DB")
+        grp = AsyncSmplLogGroup(None, id="db", name="DB")
         grp.setEnvironmentLevel("staging", LogLevel.DEBUG)
         assert grp.environments["staging"] == {"level": "DEBUG"}
 
     def test_clearEnvironmentLevel(self):
-        grp = AsyncSmplLogGroup(None, key="db", name="DB", environments={"staging": {"level": "DEBUG"}})
+        grp = AsyncSmplLogGroup(None, id="db", name="DB", environments={"staging": {"level": "DEBUG"}})
         grp.clearEnvironmentLevel("staging")
         assert "staging" not in grp.environments
 
     def test_clearEnvironmentLevel_missing_key(self):
-        grp = AsyncSmplLogGroup(None, key="db", name="DB")
+        grp = AsyncSmplLogGroup(None, id="db", name="DB")
         grp.clearEnvironmentLevel("nonexistent")
 
     def test_clearAllEnvironmentLevels(self):
-        grp = AsyncSmplLogGroup(None, key="db", name="DB", environments={"a": {}, "b": {}})
+        grp = AsyncSmplLogGroup(None, id="db", name="DB", environments={"a": {}, "b": {}})
         grp.clearAllEnvironmentLevels()
         assert grp.environments == {}
 
@@ -764,7 +751,6 @@ class TestAsyncOnNewLogger:
         client._adapters = [mock_adapter]
         client._loggers_cache = {
             test_name: {
-                "key": test_name,
                 "level": "ERROR",
                 "group": None,
                 "managed": True,
@@ -790,7 +776,6 @@ class TestAsyncLevelApplication:
         client._name_map[test_name] = test_name
         client._loggers_cache = {
             test_name: {
-                "key": test_name,
                 "level": "WARN",
                 "group": None,
                 "managed": True,
@@ -809,7 +794,6 @@ class TestAsyncLevelApplication:
         client._name_map[test_name] = test_name
         client._loggers_cache = {
             test_name: {
-                "key": test_name,
                 "level": "ERROR",
                 "group": None,
                 "managed": False,
@@ -824,7 +808,6 @@ class TestAsyncLevelApplication:
         client = _make_async_logging_client()
         client._loggers_cache = {
             "some.remote": {
-                "key": "some.remote",
                 "level": "ERROR",
                 "group": None,
                 "managed": True,
@@ -879,8 +862,8 @@ class TestAsyncFetchAndApply:
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
     def test_fetches_and_caches(self, mock_loggers, mock_groups):
-        logger_attrs = _make_logger_attrs(key="com.test", managed=True)
-        logger_resource = _make_resource(logger_attrs)
+        logger_attrs = _make_logger_attrs(managed=True)
+        logger_resource = _make_resource(logger_attrs, id="com.test")
         mock_loggers.return_value = _ok_response(_make_list_parsed([logger_resource]))
 
         group_attrs = _make_group_attrs()

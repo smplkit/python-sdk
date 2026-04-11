@@ -104,22 +104,6 @@
         ],
         "parameters": [
           {
-            "name": "filter[key]",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Filter[Key]"
-            }
-          },
-          {
             "name": "filter[managed]",
             "in": "query",
             "required": false,
@@ -219,7 +203,6 @@
             "required": true,
             "schema": {
               "type": "string",
-              "format": "uuid",
               "title": "Id"
             }
           }
@@ -305,7 +288,6 @@
             "required": true,
             "schema": {
               "type": "string",
-              "format": "uuid",
               "title": "Id"
             }
           }
@@ -401,7 +383,6 @@
             "required": true,
             "schema": {
               "type": "string",
-              "format": "uuid",
               "title": "Id"
             }
           }
@@ -718,7 +699,6 @@
             "required": true,
             "schema": {
               "type": "string",
-              "format": "uuid",
               "title": "Id"
             }
           }
@@ -804,7 +784,6 @@
             "required": true,
             "schema": {
               "type": "string",
-              "format": "uuid",
               "title": "Id"
             }
           }
@@ -900,7 +879,6 @@
             "required": true,
             "schema": {
               "type": "string",
-              "format": "uuid",
               "title": "Id"
             }
           }
@@ -1039,18 +1017,6 @@
       },
       "LogGroup": {
         "properties": {
-          "key": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Key"
-          },
           "name": {
             "type": "string",
             "maxLength": 255,
@@ -1130,7 +1096,6 @@
               "level": "ERROR"
             }
           },
-          "key": "database-loggers",
           "level": "WARN",
           "name": "Database Loggers",
           "updated_at": "2026-04-01T10:00:00Z"
@@ -1188,7 +1153,6 @@
                 "level": "ERROR"
               }
             },
-            "key": "database-loggers",
             "level": "WARN",
             "name": "Database Loggers",
             "updated_at": "2026-04-01T10:00:00Z"
@@ -1211,18 +1175,6 @@
       },
       "Logger": {
         "properties": {
-          "key": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Key"
-          },
           "name": {
             "type": "string",
             "maxLength": 255,
@@ -1333,7 +1285,6 @@
             }
           },
           "group": "550e8400-e29b-41d4-a716-446655440000",
-          "key": "com.example.sql",
           "level": "DEBUG",
           "managed": true,
           "name": "SQL Logger",
@@ -1348,10 +1299,10 @@
       },
       "LoggerBulkItem": {
         "properties": {
-          "key": {
+          "id": {
             "type": "string",
-            "title": "Key",
-            "description": "Normalized logger name"
+            "title": "Id",
+            "description": "Logger identifier (slug)"
           },
           "level": {
             "type": "string",
@@ -1373,7 +1324,7 @@
         },
         "type": "object",
         "required": [
-          "key",
+          "id",
           "level"
         ],
         "title": "LoggerBulkItem"
@@ -1463,7 +1414,6 @@
               }
             },
             "group": "660e8400-e29b-41d4-a716-446655440000",
-            "key": "com.example.sql",
             "level": "DEBUG",
             "managed": true,
             "name": "SQL Logger",

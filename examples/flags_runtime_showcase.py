@@ -12,7 +12,7 @@ Demonstrates the smplkit Python SDK's runtime evaluation for Smpl Flags:
 - Resolution caching and cache stats
 - Explicit context overrides
 - Real-time updates via WebSocket and change listeners
-- @client.flags.on_change decorator with optional key scoping
+- @client.flags.on_change decorator with optional id scoping
 
 This is the SDK experience that 99%% of customers will use. Flags are
 created and configured via the Console UI (or the management API shown
@@ -112,10 +112,10 @@ async def main() -> None:
         # represents "what should this code path do if we can't reach
         # smplkit?" — typically the safe/conservative value.
         #
-        # booleanFlag(key, *, default) → BooleanFlag
-        # stringFlag(key, *, default)  → StringFlag
-        # numberFlag(key, *, default)  → NumberFlag
-        # jsonFlag(key, *, default)    → JsonFlag
+        # booleanFlag(id, *, default) → BooleanFlag
+        # stringFlag(id, *, default)  → StringFlag
+        # numberFlag(id, *, default)  → NumberFlag
+        # jsonFlag(id, *, default)    → JsonFlag
         # ==================================================================
 
         section("1. Declare Typed Flag Handles")
@@ -127,10 +127,10 @@ async def main() -> None:
         # This flag doesn't exist on the server — code default will be used.
         nonexistent = client.flags.booleanFlag("feature-that-doesnt-exist", default=False)
 
-        step(f"checkout_v2:    key={checkout_v2.key}, code_default={checkout_v2.default}")
-        step(f"banner_color:   key={banner_color.key}, code_default={banner_color.default}")
-        step(f"max_retries:    key={max_retries.key}, code_default={max_retries.default}")
-        step(f"nonexistent:    key={nonexistent.key}, code_default={nonexistent.default}")
+        step(f"checkout_v2:    id={checkout_v2.id}, code_default={checkout_v2.default}")
+        step(f"banner_color:   id={banner_color.id}, code_default={banner_color.default}")
+        step(f"max_retries:    id={max_retries.id}, code_default={max_retries.default}")
+        step(f"nonexistent:    id={nonexistent.id}, code_default={nonexistent.default}")
 
         # ==================================================================
         # 2. CONTEXT PROVIDER
@@ -353,8 +353,8 @@ async def main() -> None:
 
         @client.flags.on_change
         def on_any_change(event):
-            all_changes.append({"key": event.key, "source": event.source})
-            print(f"    [GLOBAL] Flag '{event.key}' updated via {event.source}")
+            all_changes.append({"id": event.id, "source": event.source})
+            print(f"    [GLOBAL] Flag '{event.id}' updated via {event.source}")
 
         step("Global change listener registered (fires for any flag)")
 

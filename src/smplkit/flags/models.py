@@ -19,7 +19,6 @@ class Flag:
     """
 
     id: str | None
-    key: str
     name: str
     type: str
     default: Any
@@ -34,7 +33,6 @@ class Flag:
         client: FlagsClient,
         *,
         id: str | None = None,
-        key: str,
         name: str,
         type: str,
         default: Any,
@@ -46,7 +44,6 @@ class Flag:
     ) -> None:
         self._client = client
         self.id = id
-        self.key = key
         self.name = name
         self.type = type
         self.default = default
@@ -65,7 +62,7 @@ class Flag:
 
         Creates a new flag if unsaved, or updates the existing one.
         """
-        if self.id is None:
+        if self.created_at is None:
             created = self._client._create_flag(self)
             self._apply(created)
         else:
@@ -113,7 +110,7 @@ class Flag:
 
     def get(self, context: list | None = None) -> Any:
         """Evaluate this flag and return its current value."""
-        return self._client._evaluate_handle(self.key, self.default, context)
+        return self._client._evaluate_handle(self.id, self.default, context)
 
     # ------------------------------------------------------------------
     # Internal
@@ -122,7 +119,6 @@ class Flag:
     def _apply(self, other: Flag) -> None:
         """Copy properties from *other* into this instance."""
         self.id = other.id
-        self.key = other.key
         self.name = other.name
         self.type = other.type
         self.default = other.default
@@ -133,14 +129,14 @@ class Flag:
         self.updated_at = other.updated_at
 
     def __repr__(self) -> str:
-        return f"Flag(key={self.key!r}, type={self.type!r}, default={self.default!r})"
+        return f"Flag(id={self.id!r}, type={self.type!r}, default={self.default!r})"
 
 
 class BooleanFlag(Flag):
     """A boolean flag — .get() returns bool."""
 
     def get(self, context: list | None = None) -> bool:
-        value = self._client._evaluate_handle(self.key, self.default, context)
+        value = self._client._evaluate_handle(self.id, self.default, context)
         if isinstance(value, bool):
             return value
         return self.default
@@ -150,7 +146,7 @@ class StringFlag(Flag):
     """A string flag — .get() returns str."""
 
     def get(self, context: list | None = None) -> str:
-        value = self._client._evaluate_handle(self.key, self.default, context)
+        value = self._client._evaluate_handle(self.id, self.default, context)
         if isinstance(value, str):
             return value
         return self.default
@@ -160,7 +156,7 @@ class NumberFlag(Flag):
     """A numeric flag — .get() returns int | float."""
 
     def get(self, context: list | None = None) -> int | float:
-        value = self._client._evaluate_handle(self.key, self.default, context)
+        value = self._client._evaluate_handle(self.id, self.default, context)
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             return value
         return self.default
@@ -170,7 +166,7 @@ class JsonFlag(Flag):
     """A JSON flag — .get() returns dict."""
 
     def get(self, context: list | None = None) -> dict[str, Any]:
-        value = self._client._evaluate_handle(self.key, self.default, context)
+        value = self._client._evaluate_handle(self.id, self.default, context)
         if isinstance(value, dict):
             return value
         return self.default
@@ -188,7 +184,6 @@ class AsyncFlag:
     """
 
     id: str | None
-    key: str
     name: str
     type: str
     default: Any
@@ -203,7 +198,6 @@ class AsyncFlag:
         client: AsyncFlagsClient,
         *,
         id: str | None = None,
-        key: str,
         name: str,
         type: str,
         default: Any,
@@ -215,7 +209,6 @@ class AsyncFlag:
     ) -> None:
         self._client = client
         self.id = id
-        self.key = key
         self.name = name
         self.type = type
         self.default = default
@@ -234,7 +227,7 @@ class AsyncFlag:
 
         Creates a new flag if unsaved, or updates the existing one.
         """
-        if self.id is None:
+        if self.created_at is None:
             created = await self._client._create_flag(self)
             self._apply(created)
         else:
@@ -271,7 +264,7 @@ class AsyncFlag:
     # ------------------------------------------------------------------
 
     def get(self, context: list | None = None) -> Any:
-        return self._client._evaluate_handle(self.key, self.default, context)
+        return self._client._evaluate_handle(self.id, self.default, context)
 
     # ------------------------------------------------------------------
     # Internal
@@ -279,7 +272,6 @@ class AsyncFlag:
 
     def _apply(self, other: AsyncFlag) -> None:
         self.id = other.id
-        self.key = other.key
         self.name = other.name
         self.type = other.type
         self.default = other.default
@@ -290,12 +282,12 @@ class AsyncFlag:
         self.updated_at = other.updated_at
 
     def __repr__(self) -> str:
-        return f"AsyncFlag(key={self.key!r}, type={self.type!r}, default={self.default!r})"
+        return f"AsyncFlag(id={self.id!r}, type={self.type!r}, default={self.default!r})"
 
 
 class AsyncBooleanFlag(AsyncFlag):
     def get(self, context: list | None = None) -> bool:
-        value = self._client._evaluate_handle(self.key, self.default, context)
+        value = self._client._evaluate_handle(self.id, self.default, context)
         if isinstance(value, bool):
             return value
         return self.default
@@ -303,7 +295,7 @@ class AsyncBooleanFlag(AsyncFlag):
 
 class AsyncStringFlag(AsyncFlag):
     def get(self, context: list | None = None) -> str:
-        value = self._client._evaluate_handle(self.key, self.default, context)
+        value = self._client._evaluate_handle(self.id, self.default, context)
         if isinstance(value, str):
             return value
         return self.default
@@ -311,7 +303,7 @@ class AsyncStringFlag(AsyncFlag):
 
 class AsyncNumberFlag(AsyncFlag):
     def get(self, context: list | None = None) -> int | float:
-        value = self._client._evaluate_handle(self.key, self.default, context)
+        value = self._client._evaluate_handle(self.id, self.default, context)
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             return value
         return self.default
@@ -319,7 +311,7 @@ class AsyncNumberFlag(AsyncFlag):
 
 class AsyncJsonFlag(AsyncFlag):
     def get(self, context: list | None = None) -> dict[str, Any]:
-        value = self._client._evaluate_handle(self.key, self.default, context)
+        value = self._client._evaluate_handle(self.id, self.default, context)
         if isinstance(value, dict):
             return value
         return self.default

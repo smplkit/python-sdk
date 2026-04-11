@@ -8,7 +8,6 @@ import threading
 from collections.abc import Callable
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
-from uuid import UUID
 
 from smplkit._errors import (
     SmplConflictError,
@@ -23,6 +22,7 @@ from smplkit._resolver import resolve
 from smplkit._generated.config.api.configs import (
     create_config,
     delete_config,
+    get_config,
     list_configs,
     update_config,
 )
@@ -195,7 +195,6 @@ def _build_request_body(
     *,
     config_id: str | None = None,
     name: str,
-    key: str | None = None,
     description: str | None = None,
     parent: str | None = None,
     items: dict[str, Any] | None = None,
@@ -204,7 +203,6 @@ def _build_request_body(
     """Build a JSON:API request body for create/update operations."""
     attrs = GenConfig(
         name=name,
-        key=key,
         description=description,
         parent=parent,
         items=_make_items(items),
@@ -234,14 +232,14 @@ class ConfigChangeEvent:
     """Describes a single config value change.
 
     Attributes:
-        config_key: The config key that changed.
+        config_id: The config id that changed.
         item_key: The item key within the config that changed.
         old_value: The previous value.
         new_value: The updated value.
         source: How the change was delivered (``"websocket"`` or ``"manual"``).
     """
 
-    config_key: str
+    config_id: str
     item_key: str
     old_value: Any
     new_value: Any
@@ -250,13 +248,13 @@ class ConfigChangeEvent:
     def __init__(
         self,
         *,
-        config_key: str,
+        config_id: str,
         item_key: str,
         old_value: Any,
         new_value: Any,
         source: str,
     ) -> None:
-        self.config_key = config_key
+        self.config_id = config_id
         self.item_key = item_key
         self.old_value = old_value
         self.new_value = new_value
@@ -264,7 +262,7 @@ class ConfigChangeEvent:
 
     def __repr__(self) -> str:
         return (
-            f"ConfigChangeEvent(config_key={self.config_key!r}, item_key={self.item_key!r}, "
+            f"ConfigChangeEvent(config_id={self.config_id!r}, item_key={self.item_key!r}, "
             f"old_value={self.old_value!r}, new_value={self.new_value!r}, source={self.source!r})"
         )
 
@@ -285,18 +283,18 @@ class LiveConfigProxy:
     def __init__(
         self,
         client: ConfigClient | AsyncConfigClient,
-        config_key: str,
+        config_id: str,
         model: type | None = None,
     ) -> None:
         object.__setattr__(self, "_client", client)
-        object.__setattr__(self, "_config_key", config_key)
+        object.__setattr__(self, "_config_id", config_id)
         object.__setattr__(self, "_model", model)
 
     def _current_values(self) -> dict[str, Any]:
         """Read the current resolved values from the client cache."""
         client = object.__getattribute__(self, "_client")
-        config_key = object.__getattribute__(self, "_config_key")
-        return dict(client._config_cache.get(config_key, {}))
+        config_id = object.__getattribute__(self, "_config_id")
+        return dict(client._config_cache.get(config_id, {}))
 
     def _build_model(self) -> Any:
         """Build a model instance from current values, if a model was given."""
@@ -325,11 +323,11 @@ class LiveConfigProxy:
         return values[key]
 
     def __repr__(self) -> str:
-        config_key = object.__getattribute__(self, "_config_key")
+        config_id = object.__getattribute__(self, "_config_id")
         model = object.__getattribute__(self, "_model")
         if model is not None:
-            return f"LiveConfigProxy(config_key={config_key!r}, model={model.__name__})"
-        return f"LiveConfigProxy(config_key={config_key!r})"
+            return f"LiveConfigProxy(config_id={config_id!r}, model={model.__name__})"
+        return f"LiveConfigProxy(config_id={config_id!r})"
 
 
 class ConfigClient:
@@ -357,7 +355,7 @@ class ConfigClient:
         cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
             chain = cfg._build_chain(configs)
-            cache[cfg.key] = resolve(chain, environment)
+            cache[cfg.id] = resolve(chain, environment)
         with self._cache_lock:
             self._config_cache = cache
         self._connected = True
@@ -368,7 +366,7 @@ class ConfigClient:
 
     def new(
         self,
-        key: str,
+        id: str,
         *,
         name: str | None = None,
         description: str | None = None,
@@ -379,28 +377,27 @@ class ConfigClient:
         Call :meth:`Config.save` to persist it.
 
         Args:
-            key: Human-readable key.
-            name: Display name. Auto-generated from *key* if omitted.
+            id: Config identifier (slug).
+            name: Display name. Auto-generated from *id* if omitted.
             description: Optional description.
-            parent: Parent config UUID, or ``None``.
+            parent: Parent config id (slug), or ``None``.
 
         Returns:
             A new :class:`Config` that has not yet been saved.
         """
         return Config(
             self,
-            id=None,
-            key=key,
-            name=name or key_to_display_name(key),
+            id=id,
+            name=name or key_to_display_name(id),
             description=description,
             parent=parent,
         )
 
-    def get(self, key: str) -> Config:
-        """Fetch a config by key.
+    def get(self, id: str) -> Config:
+        """Fetch a config by id.
 
         Args:
-            key: The human-readable config key.
+            id: The config identifier (slug).
 
         Returns:
             The matching :class:`Config`.
@@ -409,20 +406,17 @@ class ConfigClient:
             SmplNotFoundError: If no matching config exists.
         """
         try:
-            response = list_configs.sync_detailed(
+            response = get_config.sync_detailed(
+                id,
                 client=self._parent._http_client,
-                filterkey=key,
             )
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
-            raise SmplNotFoundError(f"Config with key '{key}' not found")
-        items = response.parsed.data
-        if not items:
-            raise SmplNotFoundError(f"Config with key '{key}' not found")
-        return self._resource_to_model(items[0])
+            raise SmplNotFoundError(f"Config with id '{id}' not found", status_code=404)
+        return self._resource_to_model(response.parsed.data)
 
     def list(self) -> list[Config]:
         """List all configs for the account.
@@ -442,20 +436,19 @@ class ConfigClient:
             return []
         return [self._resource_to_model(r) for r in response.parsed.data]
 
-    def delete(self, key: str) -> None:
-        """Delete a config by key.
+    def delete(self, id: str) -> None:
+        """Delete a config by id.
 
         Args:
-            key: The human-readable config key.
+            id: The config identifier (slug).
 
         Raises:
             SmplNotFoundError: If the config does not exist.
             SmplConflictError: If the config has children.
         """
-        config = self.get(key)
         try:
             response = delete_config.sync_detailed(
-                UUID(config.id),
+                id,
                 client=self._parent._http_client,
             )
         except Exception as exc:
@@ -467,8 +460,8 @@ class ConfigClient:
     # Runtime: resolve / subscribe
     # ------------------------------------------------------------------
 
-    def resolve(self, key: str, model: type | None = None) -> Any:
-        """Return resolved config values for *key*.
+    def resolve(self, id: str, model: type | None = None) -> Any:
+        """Return resolved config values for *id*.
 
         If *model* is ``None``, returns a flat ``dict[str, Any]`` of
         resolved values.
@@ -479,17 +472,17 @@ class ConfigClient:
         keyword arguments.
 
         Args:
-            key: The config key to resolve.
+            id: The config id to resolve.
             model: Optional model class to construct from resolved values.
 
         Returns:
             A flat dict, or an instance of *model*.
         """
         self._connect_internal()
-        values = dict(self._config_cache.get(key, {}))
+        values = dict(self._config_cache.get(id, {}))
         metrics = self._parent._metrics
         if metrics is not None:
-            metrics.record("config.resolutions", unit="resolutions", dimensions={"config_key": key})
+            metrics.record("config.resolutions", unit="resolutions", dimensions={"config_id": id})
         if model is None:
             return values
         nested = _unflatten(values)
@@ -497,13 +490,13 @@ class ConfigClient:
             return model.model_validate(nested)
         return model(**nested)
 
-    def subscribe(self, key: str, model: type | None = None) -> LiveConfigProxy:
-        """Return a :class:`LiveConfigProxy` for *key*.
+    def subscribe(self, id: str, model: type | None = None) -> LiveConfigProxy:
+        """Return a :class:`LiveConfigProxy` for *id*.
 
         Values update automatically after :meth:`refresh`.
 
         Args:
-            key: The config key to subscribe to.
+            id: The config id to subscribe to.
             model: Optional model class — if provided, attribute access
                 returns a model instance built from the latest values.
 
@@ -511,7 +504,7 @@ class ConfigClient:
             A :class:`LiveConfigProxy`.
         """
         self._connect_internal()
-        return LiveConfigProxy(self, key, model)
+        return LiveConfigProxy(self, id, model)
 
     # ------------------------------------------------------------------
     # Runtime: refresh / change listeners
@@ -530,33 +523,33 @@ class ConfigClient:
         new_cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
             chain = cfg._build_chain(configs)
-            new_cache[cfg.key] = resolve(chain, environment)
+            new_cache[cfg.id] = resolve(chain, environment)
         with self._cache_lock:
             old_cache = self._config_cache
             self._config_cache = new_cache
         self._fire_change_listeners(old_cache, new_cache, source="manual")
 
     def on_change(
-        self, fn_or_key: Callable[[ConfigChangeEvent], None] | str | None = None, *, item_key: str | None = None
+        self, fn_or_id: Callable[[ConfigChangeEvent], None] | str | None = None, *, item_key: str | None = None
     ) -> Any:
         """Register a change listener.
 
         Supports three forms:
 
         - ``@client.config.on_change`` — global listener (bare decorator).
-        - ``@client.config.on_change("key")`` — config-scoped listener.
-        - ``@client.config.on_change("key", item_key="field")`` — item-scoped.
+        - ``@client.config.on_change("id")`` — config-scoped listener.
+        - ``@client.config.on_change("id", item_key="field")`` — item-scoped.
         """
-        if callable(fn_or_key):
+        if callable(fn_or_id):
             # @on_change (bare decorator)
-            self._listeners.append((fn_or_key, None, None))
-            return fn_or_key
-        elif isinstance(fn_or_key, str):
-            # @on_change("key") or @on_change("key", item_key="field")
-            config_key = fn_or_key
+            self._listeners.append((fn_or_id, None, None))
+            return fn_or_id
+        elif isinstance(fn_or_id, str):
+            # @on_change("id") or @on_change("id", item_key="field")
+            config_id = fn_or_id
 
             def decorator(fn: Callable[[ConfigChangeEvent], None]) -> Callable[[ConfigChangeEvent], None]:
-                self._listeners.append((fn, config_key, item_key))
+                self._listeners.append((fn, config_id, item_key))
                 return fn
 
             return decorator
@@ -577,10 +570,10 @@ class ConfigClient:
         source: str,
     ) -> None:
         """Diff two caches and fire listeners for any changed values."""
-        all_config_keys = set(old_cache.keys()) | set(new_cache.keys())
-        for cfg_key in all_config_keys:
-            old_items = old_cache.get(cfg_key, {})
-            new_items = new_cache.get(cfg_key, {})
+        all_config_ids = set(old_cache.keys()) | set(new_cache.keys())
+        for cfg_id in all_config_ids:
+            old_items = old_cache.get(cfg_id, {})
+            new_items = new_cache.get(cfg_id, {})
             all_item_keys = set(old_items.keys()) | set(new_items.keys())
             for i_key in all_item_keys:
                 old_val = old_items.get(i_key)
@@ -589,16 +582,16 @@ class ConfigClient:
                     continue
                 metrics = self._parent._metrics
                 if metrics is not None:
-                    metrics.record("config.changes", unit="changes", dimensions={"config_key": cfg_key})
+                    metrics.record("config.changes", unit="changes", dimensions={"config_id": cfg_id})
                 event = ConfigChangeEvent(
-                    config_key=cfg_key,
+                    config_id=cfg_id,
                     item_key=i_key,
                     old_value=old_val,
                     new_value=new_val,
                     source=source,
                 )
                 for callback, ck_filter, ik_filter in self._listeners:
-                    if ck_filter is not None and ck_filter != cfg_key:
+                    if ck_filter is not None and ck_filter != cfg_id:
                         continue
                     if ik_filter is not None and ik_filter != i_key:
                         continue
@@ -607,7 +600,7 @@ class ConfigClient:
                     except Exception:
                         logger.error(
                             "Exception in on_change listener for %s.%s",
-                            cfg_key,
+                            cfg_id,
                             i_key,
                             exc_info=True,
                         )
@@ -619,8 +612,8 @@ class ConfigClient:
     def _create_config(self, config: Config) -> Config:
         """Internal: POST a new config from a Config model (for Config.save)."""
         body = _build_request_body(
+            config_id=config.id,
             name=config.name,
-            key=config.key,
             description=config.description,
             parent=config.parent,
             items=config._items_raw,
@@ -647,7 +640,6 @@ class ConfigClient:
         body = _build_request_body(
             config_id=config.id,
             name=config.name,
-            key=config.key,
             description=config.description,
             parent=config.parent,
             items=config._items_raw,
@@ -655,7 +647,7 @@ class ConfigClient:
         )
         try:
             response = update_config.sync_detailed(
-                UUID(config.id),
+                config.id,
                 client=self._parent._http_client,
                 body=body,
             )
@@ -684,7 +676,6 @@ class ConfigClient:
         return Config(
             self,
             id=_unset_to_none(resource.id) or "",
-            key=_unset_to_none(attrs.key) or "",
             name=attrs.name,
             description=_unset_to_none(attrs.description),
             parent=_unset_to_none(attrs.parent),
@@ -720,7 +711,7 @@ class AsyncConfigClient:
         cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
             chain = await cfg._build_chain(configs)
-            cache[cfg.key] = resolve(chain, environment)
+            cache[cfg.id] = resolve(chain, environment)
         with self._cache_lock:
             self._config_cache = cache
         self._connected = True
@@ -731,7 +722,7 @@ class AsyncConfigClient:
 
     def new(
         self,
-        key: str,
+        id: str,
         *,
         name: str | None = None,
         description: str | None = None,
@@ -742,28 +733,27 @@ class AsyncConfigClient:
         Call :meth:`AsyncConfig.save` to persist it.
 
         Args:
-            key: Human-readable key.
-            name: Display name. Auto-generated from *key* if omitted.
+            id: Config identifier (slug).
+            name: Display name. Auto-generated from *id* if omitted.
             description: Optional description.
-            parent: Parent config UUID, or ``None``.
+            parent: Parent config id (slug), or ``None``.
 
         Returns:
             A new :class:`AsyncConfig` that has not yet been saved.
         """
         return AsyncConfig(
             self,
-            id=None,
-            key=key,
-            name=name or key_to_display_name(key),
+            id=id,
+            name=name or key_to_display_name(id),
             description=description,
             parent=parent,
         )
 
-    async def get(self, key: str) -> AsyncConfig:
-        """Fetch a config by key.
+    async def get(self, id: str) -> AsyncConfig:
+        """Fetch a config by id.
 
         Args:
-            key: The human-readable config key.
+            id: The config identifier (slug).
 
         Returns:
             The matching :class:`AsyncConfig`.
@@ -772,20 +762,17 @@ class AsyncConfigClient:
             SmplNotFoundError: If no matching config exists.
         """
         try:
-            response = await list_configs.asyncio_detailed(
+            response = await get_config.asyncio_detailed(
+                id,
                 client=self._parent._http_client,
-                filterkey=key,
             )
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
-            raise SmplNotFoundError(f"Config with key '{key}' not found")
-        items = response.parsed.data
-        if not items:
-            raise SmplNotFoundError(f"Config with key '{key}' not found")
-        return self._resource_to_model(items[0])
+            raise SmplNotFoundError(f"Config with id '{id}' not found", status_code=404)
+        return self._resource_to_model(response.parsed.data)
 
     async def list(self) -> list[AsyncConfig]:
         """List all configs for the account.
@@ -805,20 +792,19 @@ class AsyncConfigClient:
             return []
         return [self._resource_to_model(r) for r in response.parsed.data]
 
-    async def delete(self, key: str) -> None:
-        """Delete a config by key.
+    async def delete(self, id: str) -> None:
+        """Delete a config by id.
 
         Args:
-            key: The human-readable config key.
+            id: The config identifier (slug).
 
         Raises:
             SmplNotFoundError: If the config does not exist.
             SmplConflictError: If the config has children.
         """
-        config = await self.get(key)
         try:
             response = await delete_config.asyncio_detailed(
-                UUID(config.id),
+                id,
                 client=self._parent._http_client,
             )
         except Exception as exc:
@@ -830,8 +816,8 @@ class AsyncConfigClient:
     # Runtime: resolve / subscribe
     # ------------------------------------------------------------------
 
-    async def resolve(self, key: str, model: type | None = None) -> Any:
-        """Return resolved config values for *key*.
+    async def resolve(self, id: str, model: type | None = None) -> Any:
+        """Return resolved config values for *id*.
 
         If *model* is ``None``, returns a flat ``dict[str, Any]`` of
         resolved values.
@@ -842,17 +828,17 @@ class AsyncConfigClient:
         keyword arguments.
 
         Args:
-            key: The config key to resolve.
+            id: The config id to resolve.
             model: Optional model class to construct from resolved values.
 
         Returns:
             A flat dict, or an instance of *model*.
         """
         await self._connect_internal()
-        values = dict(self._config_cache.get(key, {}))
+        values = dict(self._config_cache.get(id, {}))
         metrics = self._parent._metrics
         if metrics is not None:
-            metrics.record("config.resolutions", unit="resolutions", dimensions={"config_key": key})
+            metrics.record("config.resolutions", unit="resolutions", dimensions={"config_id": id})
         if model is None:
             return values
         nested = _unflatten(values)
@@ -860,20 +846,20 @@ class AsyncConfigClient:
             return model.model_validate(nested)
         return model(**nested)
 
-    async def subscribe(self, key: str, model: type | None = None) -> LiveConfigProxy:
-        """Return a :class:`LiveConfigProxy` for *key*.
+    async def subscribe(self, id: str, model: type | None = None) -> LiveConfigProxy:
+        """Return a :class:`LiveConfigProxy` for *id*.
 
         Values update automatically after :meth:`refresh`.
 
         Args:
-            key: The config key to subscribe to.
+            id: The config id to subscribe to.
             model: Optional model class.
 
         Returns:
             A :class:`LiveConfigProxy`.
         """
         await self._connect_internal()
-        return LiveConfigProxy(self, key, model)
+        return LiveConfigProxy(self, id, model)
 
     # ------------------------------------------------------------------
     # Runtime: refresh / change listeners
@@ -892,33 +878,33 @@ class AsyncConfigClient:
         new_cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
             chain = await cfg._build_chain(configs)
-            new_cache[cfg.key] = resolve(chain, environment)
+            new_cache[cfg.id] = resolve(chain, environment)
         with self._cache_lock:
             old_cache = self._config_cache
             self._config_cache = new_cache
         self._fire_change_listeners(old_cache, new_cache, source="manual")
 
     def on_change(
-        self, fn_or_key: Callable[[ConfigChangeEvent], None] | str | None = None, *, item_key: str | None = None
+        self, fn_or_id: Callable[[ConfigChangeEvent], None] | str | None = None, *, item_key: str | None = None
     ) -> Any:
         """Register a change listener.
 
         Supports three forms:
 
         - ``@client.config.on_change`` — global listener (bare decorator).
-        - ``@client.config.on_change("key")`` — config-scoped listener.
-        - ``@client.config.on_change("key", item_key="field")`` — item-scoped.
+        - ``@client.config.on_change("id")`` — config-scoped listener.
+        - ``@client.config.on_change("id", item_key="field")`` — item-scoped.
         """
-        if callable(fn_or_key):
+        if callable(fn_or_id):
             # @on_change (bare decorator)
-            self._listeners.append((fn_or_key, None, None))
-            return fn_or_key
-        elif isinstance(fn_or_key, str):
-            # @on_change("key") or @on_change("key", item_key="field")
-            config_key = fn_or_key
+            self._listeners.append((fn_or_id, None, None))
+            return fn_or_id
+        elif isinstance(fn_or_id, str):
+            # @on_change("id") or @on_change("id", item_key="field")
+            config_id = fn_or_id
 
             def decorator(fn: Callable[[ConfigChangeEvent], None]) -> Callable[[ConfigChangeEvent], None]:
-                self._listeners.append((fn, config_key, item_key))
+                self._listeners.append((fn, config_id, item_key))
                 return fn
 
             return decorator
@@ -939,10 +925,10 @@ class AsyncConfigClient:
         source: str,
     ) -> None:
         """Diff two caches and fire listeners for any changed values."""
-        all_config_keys = set(old_cache.keys()) | set(new_cache.keys())
-        for cfg_key in all_config_keys:
-            old_items = old_cache.get(cfg_key, {})
-            new_items = new_cache.get(cfg_key, {})
+        all_config_ids = set(old_cache.keys()) | set(new_cache.keys())
+        for cfg_id in all_config_ids:
+            old_items = old_cache.get(cfg_id, {})
+            new_items = new_cache.get(cfg_id, {})
             all_item_keys = set(old_items.keys()) | set(new_items.keys())
             for i_key in all_item_keys:
                 old_val = old_items.get(i_key)
@@ -951,16 +937,16 @@ class AsyncConfigClient:
                     continue
                 metrics = self._parent._metrics
                 if metrics is not None:
-                    metrics.record("config.changes", unit="changes", dimensions={"config_key": cfg_key})
+                    metrics.record("config.changes", unit="changes", dimensions={"config_id": cfg_id})
                 event = ConfigChangeEvent(
-                    config_key=cfg_key,
+                    config_id=cfg_id,
                     item_key=i_key,
                     old_value=old_val,
                     new_value=new_val,
                     source=source,
                 )
                 for callback, ck_filter, ik_filter in self._listeners:
-                    if ck_filter is not None and ck_filter != cfg_key:
+                    if ck_filter is not None and ck_filter != cfg_id:
                         continue
                     if ik_filter is not None and ik_filter != i_key:
                         continue
@@ -969,7 +955,7 @@ class AsyncConfigClient:
                     except Exception:
                         logger.error(
                             "Exception in on_change listener for %s.%s",
-                            cfg_key,
+                            cfg_id,
                             i_key,
                             exc_info=True,
                         )
@@ -981,8 +967,8 @@ class AsyncConfigClient:
     async def _create_config(self, config: AsyncConfig) -> AsyncConfig:
         """Internal: POST a new config from an AsyncConfig model (for AsyncConfig.save)."""
         body = _build_request_body(
+            config_id=config.id,
             name=config.name,
-            key=config.key,
             description=config.description,
             parent=config.parent,
             items=config._items_raw,
@@ -1009,7 +995,6 @@ class AsyncConfigClient:
         body = _build_request_body(
             config_id=config.id,
             name=config.name,
-            key=config.key,
             description=config.description,
             parent=config.parent,
             items=config._items_raw,
@@ -1017,7 +1002,7 @@ class AsyncConfigClient:
         )
         try:
             response = await update_config.asyncio_detailed(
-                UUID(config.id),
+                config.id,
                 client=self._parent._http_client,
                 body=body,
             )
@@ -1046,7 +1031,6 @@ class AsyncConfigClient:
         return AsyncConfig(
             self,
             id=_unset_to_none(resource.id) or "",
-            key=_unset_to_none(attrs.key) or "",
             name=attrs.name,
             description=_unset_to_none(attrs.description),
             parent=_unset_to_none(attrs.parent),

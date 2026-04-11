@@ -13,7 +13,7 @@ from smplkit import AsyncSmplClient, LogLevel
 
 
 async def setup_demo_loggers(client: AsyncSmplClient) -> dict:
-    """Create demo loggers and groups. Returns a dict of keys for cleanup.
+    """Create demo loggers and groups. Returns a dict of ids for cleanup.
 
     Creates:
       - "databases" group: base=ERROR, production=WARN
@@ -24,20 +24,20 @@ async def setup_demo_loggers(client: AsyncSmplClient) -> dict:
     environment = client._environment
 
     # Clean up leftover loggers and groups from previous runs.
-    demo_logger_keys = {"app", "app.payments", "sqlalchemy.engine"}
-    demo_group_keys = {"databases"}
+    demo_logger_ids = {"app", "app.payments", "sqlalchemy.engine"}
+    demo_group_ids = {"databases"}
     try:
         existing = await client.logging.list()
         for lg in existing:
-            if lg.key in demo_logger_keys:
-                await client.logging.delete(lg.key)
+            if lg.id in demo_logger_ids:
+                await client.logging.delete(lg.id)
     except Exception:
         pass
     try:
         existing_groups = await client.logging.list_groups()
         for g in existing_groups:
-            if g.key in demo_group_keys:
-                await client.logging.delete_group(g.key)
+            if g.id in demo_group_ids:
+                await client.logging.delete_group(g.id)
     except Exception:
         pass
 
@@ -61,22 +61,22 @@ async def setup_demo_loggers(client: AsyncSmplClient) -> dict:
     await sqla_lg.save()
 
     return {
-        "logger_keys": ["app", "app.payments", "sqlalchemy.engine"],
-        "group_keys": ["databases"],
+        "logger_ids": ["app", "app.payments", "sqlalchemy.engine"],
+        "group_ids": ["databases"],
     }
 
 
 async def teardown_demo_loggers(client: AsyncSmplClient, demo: dict) -> None:
     """Delete demo loggers and groups."""
-    for key in demo.get("logger_keys", []):
+    for id in demo.get("logger_ids", []):
         try:
-            await client.logging.delete(key)
+            await client.logging.delete(id)
         except Exception:
             pass
 
-    for key in demo.get("group_keys", []):
+    for id in demo.get("group_ids", []):
         try:
-            await client.logging.delete_group(key)
+            await client.logging.delete_group(id)
         except Exception:
             pass
 
@@ -85,6 +85,6 @@ async def teardown_demo_loggers(client: AsyncSmplClient, demo: dict) -> None:
     try:
         remaining = await client.logging.list()
         for lg in remaining:
-            await client.logging.delete(lg.key)
+            await client.logging.delete(lg.id)
     except Exception:
         pass

@@ -63,22 +63,6 @@
         ],
         "parameters": [
           {
-            "name": "filter[key]",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Filter[Key]"
-            }
-          },
-          {
             "name": "filter[type]",
             "in": "query",
             "required": false,
@@ -138,7 +122,6 @@
             "required": true,
             "schema": {
               "type": "string",
-              "format": "uuid",
               "title": "Id"
             }
           }
@@ -184,7 +167,6 @@
             "required": true,
             "schema": {
               "type": "string",
-              "format": "uuid",
               "title": "Id"
             }
           }
@@ -240,7 +222,6 @@
             "required": true,
             "schema": {
               "type": "string",
-              "format": "uuid",
               "title": "Id"
             }
           }
@@ -267,11 +248,6 @@
     "schemas": {
       "Flag": {
         "properties": {
-          "key": {
-            "type": "string",
-            "title": "Key",
-            "description": "Unique key within account"
-          },
           "name": {
             "type": "string",
             "title": "Name",
@@ -336,7 +312,6 @@
         },
         "type": "object",
         "required": [
-          "key",
           "name",
           "type",
           "default",
@@ -369,7 +344,6 @@
               "rules": []
             }
           },
-          "key": "dark_mode",
           "name": "Dark Mode",
           "type": "BOOLEAN",
           "updated_at": "2026-03-27T10:00:00Z",
@@ -478,7 +452,6 @@
                 ]
               }
             },
-            "key": "dark_mode",
             "name": "Dark Mode",
             "type": "BOOLEAN",
             "updated_at": "2026-03-27T10:00:00Z",

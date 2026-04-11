@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -20,12 +18,12 @@ class LoggerResponse:
     Attributes:
         data (LoggerResource):  Example: {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments':
             {'production': {'level': 'WARN'}, 'staging': {'level': 'DEBUG'}}, 'group':
-            '660e8400-e29b-41d4-a716-446655440000', 'key': 'com.example.sql', 'level': 'DEBUG', 'managed': True, 'name':
-            'SQL Logger', 'sources': [{'first_observed': '2026-04-01T10:00:00Z', 'service': 'api-gateway'}], 'updated_at':
-            '2026-04-01T10:00:00Z'}, 'id': '550e8400-e29b-41d4-a716-446655440000', 'type': 'logger'}.
+            '660e8400-e29b-41d4-a716-446655440000', 'level': 'DEBUG', 'managed': True, 'name': 'SQL Logger', 'sources':
+            [{'first_observed': '2026-04-01T10:00:00Z', 'service': 'api-gateway'}], 'updated_at': '2026-04-01T10:00:00Z'},
+            'id': '550e8400-e29b-41d4-a716-446655440000', 'type': 'logger'}.
     """
 
-    data: LoggerResource
+    data: "LoggerResource"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

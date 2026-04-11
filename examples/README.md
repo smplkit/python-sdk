@@ -27,7 +27,7 @@ Each product has two showcases — **management** and **runtime** — plus a set
 | **Config** | `config_management_showcase.py` | `config_runtime_showcase.py` | `config_runtime_setup.py` |
 | **Logging** | `logging_management_showcase.py` | `logging_runtime_showcase.py` | `logging_runtime_setup.py` |
 
-**Management showcases** demonstrate the programmatic CRUD API: creating resources with `new*()` + `save()`, fetching with `get(key)`, listing, mutating, and deleting. No `connect()` or `start()` needed — management methods are stateless HTTP calls.
+**Management showcases** demonstrate the programmatic CRUD API: creating resources with `new*()` + `save()`, fetching with `get(id)`, listing, mutating, and deleting. No `connect()` or `start()` needed — management methods are stateless HTTP calls.
 
 **Runtime showcases** demonstrate the developer experience: lazy initialization (Flags/Config) or explicit `start()` (Logging), local evaluation, live updates via WebSocket, and change listeners. Each runtime showcase imports its setup helper to create server-side state, then cleans up after itself.
 

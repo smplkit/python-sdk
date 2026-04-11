@@ -253,7 +253,7 @@ class TestAdapterErrorResilience:
         adapter = FailingAdapter()
         client._adapters = [adapter]
         client._loggers_cache = {
-            "test.key": {"key": "test.key", "level": "ERROR", "group": None, "managed": True, "environments": {}},
+            "test.key": {"level": "ERROR", "group": None, "managed": True, "environments": {}},
         }
         client._groups_cache = {}
         client._name_map = {"test.key": "test.key"}
@@ -270,7 +270,7 @@ class TestAdapterErrorResilience:
         client._connected = True
         test_name = "test.on_new.fail_sync"
         client._loggers_cache = {
-            test_name: {"key": test_name, "level": "ERROR", "group": None, "managed": True, "environments": {}},
+            test_name: {"level": "ERROR", "group": None, "managed": True, "environments": {}},
         }
         client._groups_cache = {}
         client._on_new_logger(test_name, 20)  # Should not raise
@@ -334,7 +334,7 @@ class TestAsyncAdapterErrorResilience:
         adapter = FailingAdapter()
         client._adapters = [adapter]
         client._loggers_cache = {
-            "test.key": {"key": "test.key", "level": "ERROR", "group": None, "managed": True, "environments": {}},
+            "test.key": {"level": "ERROR", "group": None, "managed": True, "environments": {}},
         }
         client._groups_cache = {}
         client._name_map = {"test.key": "test.key"}
@@ -351,7 +351,7 @@ class TestAsyncAdapterErrorResilience:
         client._connected = True
         test_name = "test.on_new.fail_async"
         client._loggers_cache = {
-            test_name: {"key": test_name, "level": "ERROR", "group": None, "managed": True, "environments": {}},
+            test_name: {"level": "ERROR", "group": None, "managed": True, "environments": {}},
         }
         client._groups_cache = {}
         client._on_new_logger(test_name, 20)  # Should not raise

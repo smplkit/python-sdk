@@ -4,11 +4,11 @@ Smpl Logging SDK Showcase — Management API
 
 Demonstrates the smplkit Python SDK's management plane for Smpl Logging:
 
-- Logger CRUD: new() + save(), get(key), list(), delete(key)
+- Logger CRUD: new() + save(), get(id), list(), delete(id)
 - Active record pattern: fetch → mutate → save()
 - LogLevel enum for type-safe level management
 - Convenience methods: setLevel, clearLevel, setEnvironmentLevel, etc.
-- Log group CRUD: new_group() + save(), get_group(key), list_groups(), delete_group(key)
+- Log group CRUD: new_group() + save(), get_group(id), list_groups(), delete_group(id)
 - Group assignment
 - Promote / release: toggling managed status
 
@@ -66,20 +66,20 @@ async def main() -> None:
         step("AsyncSmplClient initialized (environment=production, service=showcase-service)")
 
         # Clean up leftover loggers and groups from previous runs.
-        demo_logger_keys = {"app", "app.payments", "sqlalchemy.engine", "app.internal.debug"}
-        demo_group_keys = {"databases", "http_clients"}
+        demo_logger_ids = {"app", "app.payments", "sqlalchemy.engine", "app.internal.debug"}
+        demo_group_ids = {"databases", "http_clients"}
         try:
             existing = await client.logging.list()
             for lg in existing:
-                if lg.key in demo_logger_keys:
-                    await client.logging.delete(lg.key)
+                if lg.id in demo_logger_ids:
+                    await client.logging.delete(lg.id)
         except Exception:
             pass
         try:
             existing_groups = await client.logging.list_groups()
             for g in existing_groups:
-                if g.key in demo_group_keys:
-                    await client.logging.delete_group(g.key)
+                if g.id in demo_group_ids:
+                    await client.logging.delete_group(g.id)
         except Exception:
             pass
 
@@ -87,7 +87,7 @@ async def main() -> None:
         # 2. CREATE LOGGERS — new() + save()
         # ==================================================================
         #
-        # client.logging.new(key, *, name=None, managed=False) creates a
+        # client.logging.new(id, *, name=None, managed=False) creates a
         # local Logger instance. Nothing hits the server until save().
         #
         # Convenience methods (setLevel, setEnvironmentLevel) accept
@@ -99,22 +99,22 @@ async def main() -> None:
         app_lg = client.logging.new("app", name="app", managed=True)
         app_lg.setLevel(LogLevel.WARN)
         await app_lg.save()
-        step(f"Created: key={app_lg.key}, managed={app_lg.managed}, level={app_lg.level}")
+        step(f"Created: id={app_lg.id}, managed={app_lg.managed}, level={app_lg.level}")
 
         payments_lg = client.logging.new("app.payments", name="app.payments", managed=True)
         # No level — will inherit via dot-notation from "app"
         await payments_lg.save()
-        step(f"Created: key={payments_lg.key}, managed={payments_lg.managed}, level={payments_lg.level or '(null)'}")
+        step(f"Created: id={payments_lg.id}, managed={payments_lg.managed}, level={payments_lg.level or '(null)'}")
 
         sqla_lg = client.logging.new("sqlalchemy.engine", name="sqlalchemy.engine", managed=True)
         await sqla_lg.save()
-        step(f"Created: key={sqla_lg.key}, managed={sqla_lg.managed}, level={sqla_lg.level or '(null)'}")
+        step(f"Created: id={sqla_lg.id}, managed={sqla_lg.managed}, level={sqla_lg.level or '(null)'}")
 
         section("2b. Create an Unmanaged Logger")
 
         unmanaged_lg = client.logging.new("app.internal.debug", name="app.internal.debug", managed=False)
         await unmanaged_lg.save()
-        step(f"Created: key={unmanaged_lg.key}, managed={unmanaged_lg.managed}")
+        step(f"Created: id={unmanaged_lg.id}, managed={unmanaged_lg.managed}")
         step("  Unmanaged loggers do not consume managed-logger slots")
 
         # ==================================================================
@@ -126,12 +126,12 @@ async def main() -> None:
         loggers = await client.logging.list()
         step(f"Total loggers: {len(loggers)}")
         for lg in loggers:
-            step(f"  {lg.key} (managed={lg.managed}, level={lg.level or '(null)'})")
+            step(f"  {lg.id} (managed={lg.managed}, level={lg.level or '(null)'})")
 
-        section("3b. Get a Logger by Key")
+        section("3b. Get a Logger by ID")
 
         fetched = await client.logging.get("app")
-        step(f"Fetched: key={fetched.key}, name={fetched.name}")
+        step(f"Fetched: id={fetched.id}, name={fetched.name}")
         step(f"  managed={fetched.managed}")
         step(f"  level={fetched.level}")
         step(f"  environments={fetched.environments}")
@@ -184,13 +184,13 @@ async def main() -> None:
         db_group.setLevel(LogLevel.ERROR)
         db_group.setEnvironmentLevel("production", LogLevel.WARN)
         await db_group.save()
-        step(f"Created group: key={db_group.key}, id={db_group.id}")
+        step(f"Created group: id={db_group.id}")
         step(f"  level=ERROR, production override=WARN")
 
         http_group = client.logging.new_group("http_clients", name="HTTP Clients")
         http_group.setLevel(LogLevel.INFO)
         await http_group.save()
-        step(f"Created group: key={http_group.key}, id={http_group.id}")
+        step(f"Created group: id={http_group.id}")
 
         section("5b. List Log Groups")
 
@@ -198,12 +198,12 @@ async def main() -> None:
         step(f"Total groups: {len(groups)}")
         for g in groups:
             env_str = f", envs={g.environments}" if g.environments else ""
-            step(f"  {g.key}: level={g.level}{env_str}")
+            step(f"  {g.id}: level={g.level}{env_str}")
 
-        section("5c. Get a Log Group by Key")
+        section("5c. Get a Log Group by ID")
 
         fetched_group = await client.logging.get_group("databases")
-        step(f"Fetched: key={fetched_group.key}, name={fetched_group.name}")
+        step(f"Fetched: id={fetched_group.id}, name={fetched_group.name}")
         step(f"  level={fetched_group.level}")
         step(f"  environments={fetched_group.environments}")
 
@@ -212,7 +212,7 @@ async def main() -> None:
         http_group.setLevel(LogLevel.DEBUG)
         http_group.setEnvironmentLevel("production", LogLevel.WARN)
         await http_group.save()
-        step(f"Updated {http_group.key}: level={http_group.level}, envs={http_group.environments}")
+        step(f"Updated {http_group.id}: level={http_group.level}, envs={http_group.environments}")
 
         # ==================================================================
         # 6. GROUP ASSIGNMENT
@@ -221,7 +221,7 @@ async def main() -> None:
 
         sqla_lg.group = db_group.id
         await sqla_lg.save()
-        step(f"Assigned sqlalchemy.engine → group '{db_group.key}'")
+        step(f"Assigned sqlalchemy.engine → group '{db_group.id}'")
 
         sqla_lg.group = None
         await sqla_lg.save()
@@ -229,7 +229,7 @@ async def main() -> None:
 
         sqla_lg.group = db_group.id
         await sqla_lg.save()
-        step(f"Re-assigned sqlalchemy.engine → group '{db_group.key}'")
+        step(f"Re-assigned sqlalchemy.engine → group '{db_group.id}'")
 
         # ==================================================================
         # 7. PROMOTE / RELEASE
@@ -237,7 +237,7 @@ async def main() -> None:
 
         section("7a. Release a Managed Logger")
 
-        step(f"Before: key={sqla_lg.key}, managed={sqla_lg.managed}, "
+        step(f"Before: id={sqla_lg.id}, managed={sqla_lg.managed}, "
              f"level={sqla_lg.level or '(null)'}, group={sqla_lg.group}")
 
         sqla_lg.managed = False
@@ -298,9 +298,9 @@ async def main() -> None:
         await client.logging.delete_group("http_clients")
         step("Deleted group: http_clients")
 
-        for key in ["app", "app.payments", "sqlalchemy.engine", "app.internal.debug"]:
-            await client.logging.delete(key)
-            step(f"Deleted logger: {key}")
+        for logger_id in ["app", "app.payments", "sqlalchemy.engine", "app.internal.debug"]:
+            await client.logging.delete(logger_id)
+            step(f"Deleted logger: {logger_id}")
 
         # ==================================================================
         # DONE

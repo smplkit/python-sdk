@@ -16,16 +16,16 @@ from smplkit import AsyncSmplClient, Rule
 async def setup_demo_flags(client: AsyncSmplClient) -> list[str]:
     """Create and configure three demo flags for the runtime showcase.
 
-    Returns a list of flag keys for cleanup.
+    Returns a list of flag ids for cleanup.
     """
-    demo_keys = ["checkout-v2", "banner-color", "max-retries"]
+    demo_ids = ["checkout-v2", "banner-color", "max-retries"]
 
     # Clean up leftover flags from previous runs.
     try:
         existing = await client.flags.list()
         for flag in existing:
-            if flag.key in demo_keys:
-                await client.flags.delete(flag.key)
+            if flag.id in demo_ids:
+                await client.flags.delete(flag.id)
     except Exception:
         pass
 
@@ -94,13 +94,13 @@ async def setup_demo_flags(client: AsyncSmplClient) -> list[str]:
     retries.setEnvironmentEnabled("production", True)
     await retries.save()
 
-    return demo_keys
+    return demo_ids
 
 
-async def teardown_demo_flags(client: AsyncSmplClient, keys: list[str]) -> None:
+async def teardown_demo_flags(client: AsyncSmplClient, ids: list[str]) -> None:
     """Delete the demo flags created by setup_demo_flags."""
-    for key in keys:
+    for id in ids:
         try:
-            await client.flags.delete(key)
+            await client.flags.delete(id)
         except Exception:
             pass

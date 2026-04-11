@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -10,6 +8,7 @@ from ..types import UNSET, Unset
 
 from dateutil.parser import isoparse
 from typing import cast
+from typing import Union
 import datetime
 
 if TYPE_CHECKING:
@@ -24,44 +23,44 @@ class MetricAttributes:
     """
     Attributes:
         name (str):
-        value (float | str):
+        value (Union[float, str]):
         period_seconds (int):
         recorded_at (datetime.datetime):
-        unit (None | str | Unset):
-        dimensions (MetricAttributesDimensions | Unset):
-        created_at (datetime.datetime | None | Unset):
+        unit (Union[None, Unset, str]):
+        dimensions (Union[Unset, MetricAttributesDimensions]):
+        created_at (Union[None, Unset, datetime.datetime]):
     """
 
     name: str
-    value: float | str
+    value: Union[float, str]
     period_seconds: int
     recorded_at: datetime.datetime
-    unit: None | str | Unset = UNSET
-    dimensions: MetricAttributesDimensions | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
+    unit: Union[None, Unset, str] = UNSET
+    dimensions: Union[Unset, "MetricAttributesDimensions"] = UNSET
+    created_at: Union[None, Unset, datetime.datetime] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         name = self.name
 
-        value: float | str
+        value: Union[float, str]
         value = self.value
 
         period_seconds = self.period_seconds
 
         recorded_at = self.recorded_at.isoformat()
 
-        unit: None | str | Unset
+        unit: Union[None, Unset, str]
         if isinstance(self.unit, Unset):
             unit = UNSET
         else:
             unit = self.unit
 
-        dimensions: dict[str, Any] | Unset = UNSET
+        dimensions: Union[Unset, dict[str, Any]] = UNSET
         if not isinstance(self.dimensions, Unset):
             dimensions = self.dimensions.to_dict()
 
-        created_at: None | str | Unset
+        created_at: Union[None, Unset, str]
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -95,8 +94,8 @@ class MetricAttributes:
         d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_value(data: object) -> float | str:
-            return cast(float | str, data)
+        def _parse_value(data: object) -> Union[float, str]:
+            return cast(Union[float, str], data)
 
         value = _parse_value(d.pop("value"))
 
@@ -104,23 +103,23 @@ class MetricAttributes:
 
         recorded_at = isoparse(d.pop("recorded_at"))
 
-        def _parse_unit(data: object) -> None | str | Unset:
+        def _parse_unit(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         unit = _parse_unit(d.pop("unit", UNSET))
 
         _dimensions = d.pop("dimensions", UNSET)
-        dimensions: MetricAttributesDimensions | Unset
+        dimensions: Union[Unset, MetricAttributesDimensions]
         if isinstance(_dimensions, Unset):
             dimensions = UNSET
         else:
             dimensions = MetricAttributesDimensions.from_dict(_dimensions)
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> Union[None, Unset, datetime.datetime]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -131,9 +130,9 @@ class MetricAttributes:
                 created_at_type_0 = isoparse(data)
 
                 return created_at_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except:  # noqa: E722
                 pass
-            return cast(datetime.datetime | None | Unset, data)
+            return cast(Union[None, Unset, datetime.datetime], data)
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 

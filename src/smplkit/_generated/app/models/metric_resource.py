@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -11,6 +9,7 @@ from ..types import UNSET, Unset
 from ..models.metric_resource_type import check_metric_resource_type
 from ..models.metric_resource_type import MetricResourceType
 from typing import cast
+from typing import Union
 
 if TYPE_CHECKING:
     from ..models.metric_attributes import MetricAttributes
@@ -25,12 +24,12 @@ class MetricResource:
     Attributes:
         type_ (MetricResourceType):
         attributes (MetricAttributes):
-        id (None | str | Unset):
+        id (Union[None, Unset, str]):
     """
 
     type_: MetricResourceType
-    attributes: MetricAttributes
-    id: None | str | Unset = UNSET
+    attributes: "MetricAttributes"
+    id: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -38,7 +37,7 @@ class MetricResource:
 
         attributes = self.attributes.to_dict()
 
-        id: None | str | Unset
+        id: Union[None, Unset, str]
         if isinstance(self.id, Unset):
             id = UNSET
         else:
@@ -66,12 +65,12 @@ class MetricResource:
 
         attributes = MetricAttributes.from_dict(d.pop("attributes"))
 
-        def _parse_id(data: object) -> None | str | Unset:
+        def _parse_id(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         id = _parse_id(d.pop("id", UNSET))
 

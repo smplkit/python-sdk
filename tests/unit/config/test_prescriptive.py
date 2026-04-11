@@ -332,7 +332,6 @@ class TestRefreshSync:
 
         mock_attrs = MagicMock()
         mock_attrs.name = "DB"
-        mock_attrs.key = "db"
         mock_attrs.description = None
         mock_attrs.parent = None
         mock_attrs.items = None
@@ -341,7 +340,7 @@ class TestRefreshSync:
         mock_attrs.updated_at = None
 
         mock_resource = MagicMock()
-        mock_resource.id = "cfg-1"
+        mock_resource.id = "db"
         mock_resource.attributes = mock_attrs
 
         mock_parsed = MagicMock()
@@ -355,7 +354,7 @@ class TestRefreshSync:
 
         with patch(
             "smplkit.config.models.Config._build_chain",
-            return_value=[{"id": "cfg-1", "items": {}, "values": {"host": "new-host"}, "environments": {}}],
+            return_value=[{"id": "db", "items": {}, "values": {"host": "new-host"}, "environments": {}}],
         ):
             client.config.refresh()
 
@@ -370,7 +369,6 @@ class TestRefreshSync:
 
         mock_attrs = MagicMock()
         mock_attrs.name = "DB"
-        mock_attrs.key = "db"
         mock_attrs.description = None
         mock_attrs.parent = None
         mock_attrs.items = None
@@ -379,7 +377,7 @@ class TestRefreshSync:
         mock_attrs.updated_at = None
 
         mock_resource = MagicMock()
-        mock_resource.id = "cfg-1"
+        mock_resource.id = "db"
         mock_resource.attributes = mock_attrs
 
         mock_parsed = MagicMock()
@@ -393,12 +391,12 @@ class TestRefreshSync:
 
         with patch(
             "smplkit.config.models.Config._build_chain",
-            return_value=[{"id": "cfg-1", "values": {"host": "new-host"}, "environments": {}}],
+            return_value=[{"id": "db", "values": {"host": "new-host"}, "environments": {}}],
         ):
             client.config.refresh()
 
         assert len(events) == 1
-        assert events[0].config_key == "db"
+        assert events[0].config_id == "db"
         assert events[0].item_key == "host"
         assert events[0].old_value == "old"
         assert events[0].new_value == "new-host"
@@ -417,7 +415,6 @@ class TestRefreshAsync:
 
         mock_attrs = MagicMock()
         mock_attrs.name = "DB"
-        mock_attrs.key = "db"
         mock_attrs.description = None
         mock_attrs.parent = None
         mock_attrs.items = None
@@ -426,7 +423,7 @@ class TestRefreshAsync:
         mock_attrs.updated_at = None
 
         mock_resource = MagicMock()
-        mock_resource.id = "cfg-1"
+        mock_resource.id = "db"
         mock_resource.attributes = mock_attrs
 
         mock_parsed = MagicMock()
@@ -445,7 +442,7 @@ class TestRefreshAsync:
         async def run():
             with patch(
                 "smplkit.config.models.AsyncConfig._build_chain",
-                return_value=[{"id": "cfg-1", "values": {"host": "new-host"}, "environments": {}}],
+                return_value=[{"id": "db", "values": {"host": "new-host"}, "environments": {}}],
             ):
                 await client.config.refresh()
 
@@ -461,7 +458,6 @@ class TestRefreshAsync:
 
         mock_attrs = MagicMock()
         mock_attrs.name = "DB"
-        mock_attrs.key = "db"
         mock_attrs.description = None
         mock_attrs.parent = None
         mock_attrs.items = None
@@ -470,7 +466,7 @@ class TestRefreshAsync:
         mock_attrs.updated_at = None
 
         mock_resource = MagicMock()
-        mock_resource.id = "cfg-1"
+        mock_resource.id = "db"
         mock_resource.attributes = mock_attrs
 
         mock_parsed = MagicMock()
@@ -489,7 +485,7 @@ class TestRefreshAsync:
         async def run():
             with patch(
                 "smplkit.config.models.AsyncConfig._build_chain",
-                return_value=[{"id": "cfg-1", "values": {"host": "new-host"}, "environments": {}}],
+                return_value=[{"id": "db", "values": {"host": "new-host"}, "environments": {}}],
             ):
                 await client.config.refresh()
 
@@ -506,13 +502,13 @@ class TestRefreshAsync:
 class TestConfigChangeEvent:
     def test_attributes(self):
         event = ConfigChangeEvent(
-            config_key="db",
+            config_id="db",
             item_key="host",
             old_value="old",
             new_value="new",
             source="manual",
         )
-        assert event.config_key == "db"
+        assert event.config_id == "db"
         assert event.item_key == "host"
         assert event.old_value == "old"
         assert event.new_value == "new"
@@ -520,7 +516,7 @@ class TestConfigChangeEvent:
 
     def test_repr(self):
         event = ConfigChangeEvent(
-            config_key="db",
+            config_id="db",
             item_key="host",
             old_value="old",
             new_value="new",

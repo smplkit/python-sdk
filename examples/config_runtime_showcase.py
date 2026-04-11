@@ -5,12 +5,12 @@ Smpl Config SDK Showcase — Runtime
 Demonstrates the smplkit Python SDK's runtime experience for Smpl Config:
 
 - Lazy initialization — first resolve() fetches configs and opens WebSocket
-- resolve(key) → plain dict of resolved values
-- resolve(key, Model) → typed Pydantic model
+- resolve(id) → plain dict of resolved values
+- resolve(id, Model) → typed Pydantic model
 - subscribe() → live proxy that updates automatically
 - Config inheritance (common → service / module)
 - Environment-specific override resolution
-- @client.config.on_change decorator with optional key/item scoping
+- @client.config.on_change decorator with optional id/item scoping
 
 This is the SDK experience that 99%% of customers will use. Configs are
 created and maintained via the Console UI (or the management API shown
@@ -102,7 +102,7 @@ async def main() -> None:
         # 2. RESOLVE — Plain Dict
         # ==================================================================
         #
-        # resolve(key) returns a flat dict of resolved values for the
+        # resolve(id) returns a flat dict of resolved values for the
         # current environment. Inheritance is walked, environment overrides
         # applied, values unwrapped from their typed definitions.
         #
@@ -141,7 +141,7 @@ async def main() -> None:
         # 3. RESOLVE — Typed Model
         # ==================================================================
         #
-        # resolve(key, Model) builds a nested dict from flat dot-notation
+        # resolve(id, Model) builds a nested dict from flat dot-notation
         # keys and constructs the model from it:
         #   "database.host" + "database.port" → {"database": {"host": ..., "port": ...}}
         #   → UserServiceConfig(database=Database(host=..., port=...))
@@ -207,7 +207,7 @@ async def main() -> None:
         # ==================================================================
         #
         # @client.config.on_change — fires when ANY config changes
-        # @client.config.on_change("user-service") — scoped to a config
+        # @client.config.on_change("user-service") — scoped to a config id
         # @client.config.on_change("user-service", item_key="database.host")
         #     — scoped to a specific item
         # ==================================================================
@@ -219,7 +219,7 @@ async def main() -> None:
         @client.config.on_change
         def on_any_change(event):
             changes.append(event)
-            print(f"    [CHANGE] {event.config_key}.{event.item_key}: "
+            print(f"    [CHANGE] {event.config_id}.{event.item_key}: "
                   f"{event.old_value!r} -> {event.new_value!r}")
 
         step("Global change listener registered")

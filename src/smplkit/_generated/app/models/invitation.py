@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar
 
@@ -10,6 +8,7 @@ from ..types import UNSET, Unset
 
 from dateutil.parser import isoparse
 from typing import cast
+from typing import Union
 import datetime
 
 
@@ -25,22 +24,22 @@ class Invitation:
             'PENDING', 'updated_at': '2026-03-20T11:02:16.616Z'}
 
     Attributes:
-        email (str | Unset):  Default: ''.
-        role (str | Unset):  Default: ''.
-        status (str | Unset):  Default: ''.
-        invited_by (str | Unset):  Default: ''.
-        expires_at (datetime.datetime | None | Unset):
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
+        email (Union[Unset, str]):  Default: ''.
+        role (Union[Unset, str]):  Default: ''.
+        status (Union[Unset, str]):  Default: ''.
+        invited_by (Union[Unset, str]):  Default: ''.
+        expires_at (Union[None, Unset, datetime.datetime]):
+        created_at (Union[None, Unset, datetime.datetime]):
+        updated_at (Union[None, Unset, datetime.datetime]):
     """
 
-    email: str | Unset = ""
-    role: str | Unset = ""
-    status: str | Unset = ""
-    invited_by: str | Unset = ""
-    expires_at: datetime.datetime | None | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
+    email: Union[Unset, str] = ""
+    role: Union[Unset, str] = ""
+    status: Union[Unset, str] = ""
+    invited_by: Union[Unset, str] = ""
+    expires_at: Union[None, Unset, datetime.datetime] = UNSET
+    created_at: Union[None, Unset, datetime.datetime] = UNSET
+    updated_at: Union[None, Unset, datetime.datetime] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -52,7 +51,7 @@ class Invitation:
 
         invited_by = self.invited_by
 
-        expires_at: None | str | Unset
+        expires_at: Union[None, Unset, str]
         if isinstance(self.expires_at, Unset):
             expires_at = UNSET
         elif isinstance(self.expires_at, datetime.datetime):
@@ -60,7 +59,7 @@ class Invitation:
         else:
             expires_at = self.expires_at
 
-        created_at: None | str | Unset
+        created_at: Union[None, Unset, str]
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -68,7 +67,7 @@ class Invitation:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: Union[None, Unset, str]
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -107,7 +106,7 @@ class Invitation:
 
         invited_by = d.pop("invited_by", UNSET)
 
-        def _parse_expires_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_expires_at(data: object) -> Union[None, Unset, datetime.datetime]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -118,13 +117,13 @@ class Invitation:
                 expires_at_type_0 = isoparse(data)
 
                 return expires_at_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except:  # noqa: E722
                 pass
-            return cast(datetime.datetime | None | Unset, data)
+            return cast(Union[None, Unset, datetime.datetime], data)
 
         expires_at = _parse_expires_at(d.pop("expires_at", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> Union[None, Unset, datetime.datetime]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -135,13 +134,13 @@ class Invitation:
                 created_at_type_0 = isoparse(data)
 
                 return created_at_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except:  # noqa: E722
                 pass
-            return cast(datetime.datetime | None | Unset, data)
+            return cast(Union[None, Unset, datetime.datetime], data)
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> Union[None, Unset, datetime.datetime]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -152,9 +151,9 @@ class Invitation:
                 updated_at_type_0 = isoparse(data)
 
                 return updated_at_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except:  # noqa: E722
                 pass
-            return cast(datetime.datetime | None | Unset, data)
+            return cast(Union[None, Unset, datetime.datetime], data)
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 

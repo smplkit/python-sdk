@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any
-from urllib.parse import quote
+from typing import Any, Optional, Union
 
 import httpx
 
@@ -11,17 +10,16 @@ from ... import errors
 from ...models.error_response import ErrorResponse
 from ...models.http_validation_error import HTTPValidationError
 from ...models.log_group_response import LogGroupResponse
-from uuid import UUID
 
 
 def _get_kwargs(
-    id: UUID,
+    id: str,
 ) -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/api/v1/log_groups/{id}".format(
-            id=quote(str(id), safe=""),
+            id=id,
         ),
     }
 
@@ -29,8 +27,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse | HTTPValidationError | LogGroupResponse | None:
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[ErrorResponse, HTTPValidationError, LogGroupResponse]]:
     if response.status_code == 200:
         response_200 = LogGroupResponse.from_dict(response.json())
 
@@ -68,8 +66,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse | HTTPValidationError | LogGroupResponse]:
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[ErrorResponse, HTTPValidationError, LogGroupResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -79,21 +77,21 @@ def _build_response(
 
 
 def sync_detailed(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
-) -> Response[ErrorResponse | HTTPValidationError | LogGroupResponse]:
+) -> Response[Union[ErrorResponse, HTTPValidationError, LogGroupResponse]]:
     """Get Log Group
 
     Args:
-        id (UUID):
+        id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | LogGroupResponse]
+        Response[Union[ErrorResponse, HTTPValidationError, LogGroupResponse]]
     """
 
     kwargs = _get_kwargs(
@@ -108,21 +106,21 @@ def sync_detailed(
 
 
 def sync(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
-) -> ErrorResponse | HTTPValidationError | LogGroupResponse | None:
+) -> Optional[Union[ErrorResponse, HTTPValidationError, LogGroupResponse]]:
     """Get Log Group
 
     Args:
-        id (UUID):
+        id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | LogGroupResponse
+        Union[ErrorResponse, HTTPValidationError, LogGroupResponse]
     """
 
     return sync_detailed(
@@ -132,21 +130,21 @@ def sync(
 
 
 async def asyncio_detailed(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
-) -> Response[ErrorResponse | HTTPValidationError | LogGroupResponse]:
+) -> Response[Union[ErrorResponse, HTTPValidationError, LogGroupResponse]]:
     """Get Log Group
 
     Args:
-        id (UUID):
+        id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | LogGroupResponse]
+        Response[Union[ErrorResponse, HTTPValidationError, LogGroupResponse]]
     """
 
     kwargs = _get_kwargs(
@@ -159,21 +157,21 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    id: UUID,
+    id: str,
     *,
     client: AuthenticatedClient,
-) -> ErrorResponse | HTTPValidationError | LogGroupResponse | None:
+) -> Optional[Union[ErrorResponse, HTTPValidationError, LogGroupResponse]]:
     """Get Log Group
 
     Args:
-        id (UUID):
+        id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | LogGroupResponse
+        Union[ErrorResponse, HTTPValidationError, LogGroupResponse]
     """
 
     return (

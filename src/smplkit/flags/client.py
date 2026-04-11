@@ -27,6 +27,7 @@ from smplkit._generated.app.models.context_bulk_register import ContextBulkRegis
 from smplkit._generated.flags.api.flags import (
     create_flag,
     delete_flag,
+    get_flag,
     list_flags,
     update_flag,
 )
@@ -155,7 +156,6 @@ def _unset_to_none(value: Any) -> Any:
 
 def _build_gen_flag(
     *,
-    key: str,
     name: str,
     type_: str,
     default: Any,
@@ -194,7 +194,6 @@ def _build_gen_flag(
         gen_envs = UNSET
 
     return GenFlag(
-        key=key,
         name=name,
         type_=type_,
         default=default,
@@ -248,7 +247,6 @@ def _flag_dict_from_json(data: dict[str, Any]) -> dict[str, Any]:
         }
     return {
         "id": data.get("id", ""),
-        "key": attrs["key"],
         "name": attrs["name"],
         "type": attrs["type"],
         "default": attrs["default"],
@@ -283,15 +281,15 @@ def _hash_context(eval_dict: dict[str, Any]) -> str:
 class FlagChangeEvent:
     """Describes a flag definition change."""
 
-    key: str
+    id: str
     source: str
 
-    def __init__(self, *, key: str, source: str) -> None:
-        self.key = key
+    def __init__(self, *, id: str, source: str) -> None:
+        self.id = id
         self.source = source
 
     def __repr__(self) -> str:
-        return f"FlagChangeEvent(key={self.key!r}, source={self.source!r})"
+        return f"FlagChangeEvent(id={self.id!r}, source={self.source!r})"
 
 
 # ---------------------------------------------------------------------------
@@ -424,12 +422,12 @@ class FlagsClient:
         self._ws_manager: SharedWebSocket | None = None
 
     # ------------------------------------------------------------------
-    # Management: factory methods (return unsaved Flag with id=None)
+    # Management: factory methods (return unsaved Flag with created_at=None)
     # ------------------------------------------------------------------
 
     def newBooleanFlag(
         self,
-        key: str,
+        id: str,
         *,
         default: bool,
         name: str | None = None,
@@ -438,8 +436,8 @@ class FlagsClient:
         """Create an unsaved boolean flag .  Call ``.save()`` to persist."""
         return BooleanFlag(
             self,
-            key=key,
-            name=name or key_to_display_name(key),
+            id=id,
+            name=name or key_to_display_name(id),
             type="BOOLEAN",
             default=default,
             values=[{"name": "True", "value": True}, {"name": "False", "value": False}],
@@ -448,7 +446,7 @@ class FlagsClient:
 
     def newStringFlag(
         self,
-        key: str,
+        id: str,
         *,
         default: str,
         name: str | None = None,
@@ -458,8 +456,8 @@ class FlagsClient:
         """Create an unsaved string flag .  Call ``.save()`` to persist."""
         return StringFlag(
             self,
-            key=key,
-            name=name or key_to_display_name(key),
+            id=id,
+            name=name or key_to_display_name(id),
             type="STRING",
             default=default,
             values=values,
@@ -468,7 +466,7 @@ class FlagsClient:
 
     def newNumberFlag(
         self,
-        key: str,
+        id: str,
         *,
         default: int | float,
         name: str | None = None,
@@ -478,8 +476,8 @@ class FlagsClient:
         """Create an unsaved numeric flag .  Call ``.save()`` to persist."""
         return NumberFlag(
             self,
-            key=key,
-            name=name or key_to_display_name(key),
+            id=id,
+            name=name or key_to_display_name(id),
             type="NUMERIC",
             default=default,
             values=values,
@@ -488,7 +486,7 @@ class FlagsClient:
 
     def newJsonFlag(
         self,
-        key: str,
+        id: str,
         *,
         default: dict[str, Any],
         name: str | None = None,
@@ -498,8 +496,8 @@ class FlagsClient:
         """Create an unsaved JSON flag .  Call ``.save()`` to persist."""
         return JsonFlag(
             self,
-            key=key,
-            name=name or key_to_display_name(key),
+            id=id,
+            name=name or key_to_display_name(id),
             type="JSON",
             default=default,
             values=values,
@@ -510,19 +508,16 @@ class FlagsClient:
     # Management: CRUD
     # ------------------------------------------------------------------
 
-    def get(self, key: str) -> Flag:
-        """Fetch a flag by key."""
+    def get(self, id: str) -> Flag:
+        """Fetch a flag by id."""
         try:
-            response = list_flags.sync_detailed(client=self._flags_http, filterkey=key)
+            response = get_flag.sync_detailed(id, client=self._flags_http)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
         body = json.loads(response.content)
-        items = body.get("data", [])
-        if not items:
-            raise SmplNotFoundError(f"Flag with key '{key}' not found")
-        return self._model_from_json(items[0])
+        return self._model_from_json(body["data"])
 
     def list(self) -> list[Flag]:
         """List all flags."""
@@ -535,22 +530,18 @@ class FlagsClient:
         body = json.loads(response.content)
         return [self._model_from_json(r) for r in body.get("data", [])]
 
-    def delete(self, key: str) -> None:
-        """Delete a flag by key."""
-        from uuid import UUID
-
-        flag = self.get(key)
+    def delete(self, id: str) -> None:
+        """Delete a flag by id."""
         try:
-            response = delete_flag.sync_detailed(UUID(flag.id), client=self._flags_http)
+            response = delete_flag.sync_detailed(id, client=self._flags_http)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
 
     def _create_flag(self, flag: Flag) -> Flag:
-        """Internal: POST a new flag.  Called by Flag.save() when id is None."""
+        """Internal: POST a new flag.  Called by Flag.save() when created_at is None."""
         gen_flag = _build_gen_flag(
-            key=flag.key,
             name=flag.name,
             type_=flag.type,
             default=flag.default,
@@ -558,7 +549,7 @@ class FlagsClient:
             description=flag.description,
             environments=flag.environments or None,
         )
-        body = _build_request_body(gen_flag, values_null=flag.values is None)
+        body = _build_request_body(gen_flag, flag_id=flag.id, values_null=flag.values is None)
         try:
             response = create_flag.sync_detailed(client=self._flags_http, body=body)
         except Exception as exc:
@@ -569,11 +560,8 @@ class FlagsClient:
         return self._model_from_json(resp_body["data"])
 
     def _update_flag(self, *, flag: Flag) -> Flag:
-        """Internal: PUT a full flag update.  Called by Flag.save() when id is set."""
-        from uuid import UUID
-
+        """Internal: PUT a full flag update.  Called by Flag.save() when created_at is set."""
         gen_flag = _build_gen_flag(
-            key=flag.key,
             name=flag.name,
             type_=flag.type,
             default=flag.default,
@@ -583,7 +571,7 @@ class FlagsClient:
         )
         body = _build_request_body(gen_flag, flag_id=flag.id, values_null=flag.values is None)
         try:
-            response = update_flag.sync_detailed(UUID(flag.id), client=self._flags_http, body=body)
+            response = update_flag.sync_detailed(flag.id, client=self._flags_http, body=body)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
@@ -595,28 +583,28 @@ class FlagsClient:
     # Runtime: typed flag handles
     # ------------------------------------------------------------------
 
-    def booleanFlag(self, key: str, *, default: bool) -> BooleanFlag:
+    def booleanFlag(self, id: str, *, default: bool) -> BooleanFlag:
         """Declare a boolean flag handle for runtime evaluation."""
-        handle = BooleanFlag(self, key=key, name=key, type="BOOLEAN", default=default)
-        self._handles[key] = handle
+        handle = BooleanFlag(self, id=id, name=id, type="BOOLEAN", default=default)
+        self._handles[id] = handle
         return handle
 
-    def stringFlag(self, key: str, *, default: str) -> StringFlag:
+    def stringFlag(self, id: str, *, default: str) -> StringFlag:
         """Declare a string flag handle for runtime evaluation."""
-        handle = StringFlag(self, key=key, name=key, type="STRING", default=default)
-        self._handles[key] = handle
+        handle = StringFlag(self, id=id, name=id, type="STRING", default=default)
+        self._handles[id] = handle
         return handle
 
-    def numberFlag(self, key: str, *, default: int | float) -> NumberFlag:
+    def numberFlag(self, id: str, *, default: int | float) -> NumberFlag:
         """Declare a numeric flag handle for runtime evaluation."""
-        handle = NumberFlag(self, key=key, name=key, type="NUMERIC", default=default)
-        self._handles[key] = handle
+        handle = NumberFlag(self, id=id, name=id, type="NUMERIC", default=default)
+        self._handles[id] = handle
         return handle
 
-    def jsonFlag(self, key: str, *, default: dict[str, Any]) -> JsonFlag:
+    def jsonFlag(self, id: str, *, default: dict[str, Any]) -> JsonFlag:
         """Declare a JSON flag handle for runtime evaluation."""
-        handle = JsonFlag(self, key=key, name=key, type="JSON", default=default)
-        self._handles[key] = handle
+        handle = JsonFlag(self, id=id, name=id, type="JSON", default=default)
+        self._handles[id] = handle
         return handle
 
     # ------------------------------------------------------------------
@@ -662,24 +650,24 @@ class FlagsClient:
     # Runtime: change listeners (dual-mode decorator)
     # ------------------------------------------------------------------
 
-    def on_change(self, fn_or_key: Callable[[FlagChangeEvent], None] | str | None = None) -> Any:
+    def on_change(self, fn_or_id: Callable[[FlagChangeEvent], None] | str | None = None) -> Any:
         """Register a change listener.
 
         Supports two forms:
 
         - ``@client.flags.on_change`` — registers a global listener.
-        - ``@client.flags.on_change("flag-key")`` — registers a key-scoped listener.
+        - ``@client.flags.on_change("flag-id")`` — registers an id-scoped listener.
         """
-        if callable(fn_or_key):
+        if callable(fn_or_id):
             # @on_change (bare decorator)
-            self._global_listeners.append(fn_or_key)
-            return fn_or_key
-        elif isinstance(fn_or_key, str):
-            # @on_change("key")
-            key = fn_or_key
+            self._global_listeners.append(fn_or_id)
+            return fn_or_id
+        elif isinstance(fn_or_id, str):
+            # @on_change("id")
+            flag_id = fn_or_id
 
             def decorator(fn: Callable[[FlagChangeEvent], None]) -> Callable[[FlagChangeEvent], None]:
-                self._key_listeners.setdefault(key, []).append(fn)
+                self._key_listeners.setdefault(flag_id, []).append(fn)
                 return fn
 
             return decorator
@@ -721,7 +709,7 @@ class FlagsClient:
     # Internal: evaluation
     # ------------------------------------------------------------------
 
-    def _evaluate_handle(self, key: str, default: Any, context: list[Context] | None) -> Any:
+    def _evaluate_handle(self, flag_id: str, default: Any, context: list[Context] | None) -> Any:
         """Core evaluation used by flag handles.  Lazily connects on first call."""
         if not self._connected:
             self._connect_internal()
@@ -743,17 +731,17 @@ class FlagsClient:
             eval_dict["service"] = {"key": self._parent._service}
 
         ctx_hash = _hash_context(eval_dict)
-        cache_key = f"{key}:{ctx_hash}"
+        cache_key = f"{flag_id}:{ctx_hash}"
 
         hit, cached_value = self._cache.get(cache_key)
         if hit:
             metrics = self._parent._metrics
             if metrics is not None:
                 metrics.record("flags.cache_hits", unit="hits")
-                metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag_key": key})
+                metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag_id": flag_id})
             return cached_value
 
-        flag_def = self._flag_store.get(key)
+        flag_def = self._flag_store.get(flag_id)
         if flag_def is None:
             self._cache.put(cache_key, default)
             return default
@@ -766,7 +754,7 @@ class FlagsClient:
         metrics = self._parent._metrics
         if metrics is not None:
             metrics.record("flags.cache_misses", unit="misses")
-            metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag_key": key})
+            metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag_id": flag_id})
         return value
 
     # ------------------------------------------------------------------
@@ -774,16 +762,16 @@ class FlagsClient:
     # ------------------------------------------------------------------
 
     def _handle_flag_changed(self, data: dict[str, Any]) -> None:
-        flag_key = data.get("key")
+        flag_id = data.get("id")
         self._fetch_all_flags()
         self._cache.clear()
-        self._fire_change_listeners(flag_key, "websocket")
+        self._fire_change_listeners(flag_id, "websocket")
 
     def _handle_flag_deleted(self, data: dict[str, Any]) -> None:
-        flag_key = data.get("key")
+        flag_id = data.get("id")
         self._fetch_all_flags()
         self._cache.clear()
-        self._fire_change_listeners(flag_key, "websocket")
+        self._fire_change_listeners(flag_id, "websocket")
 
     # ------------------------------------------------------------------
     # Internal: flag store
@@ -791,7 +779,7 @@ class FlagsClient:
 
     def _fetch_all_flags(self) -> None:
         flags = self._fetch_flags_list()
-        self._flag_store = {f["key"]: f for f in flags}
+        self._flag_store = {f["id"]: f for f in flags}
 
     def _fetch_flags_list(self) -> list[dict[str, Any]]:
         try:
@@ -806,7 +794,7 @@ class FlagsClient:
             d = _flag_dict_from_json(r)
             result.append(
                 {
-                    "key": d["key"],
+                    "id": d["id"],
                     "name": d["name"],
                     "type": d["type"],
                     "default": d["default"],
@@ -817,23 +805,23 @@ class FlagsClient:
             )
         return result
 
-    def _fire_change_listeners(self, flag_key: str | None, source: str) -> None:
-        if flag_key:
-            event = FlagChangeEvent(key=flag_key, source=source)
+    def _fire_change_listeners(self, flag_id: str | None, source: str) -> None:
+        if flag_id:
+            event = FlagChangeEvent(id=flag_id, source=source)
             for cb in self._global_listeners:
                 try:
                     cb(event)
                 except Exception:
                     logger.error("Exception in global flags on_change listener", exc_info=True)
-            for cb in self._key_listeners.get(flag_key, []):
+            for cb in self._key_listeners.get(flag_id, []):
                 try:
                     cb(event)
                 except Exception:
-                    logger.error("Exception in key-scoped flags on_change listener", exc_info=True)
+                    logger.error("Exception in id-scoped flags on_change listener", exc_info=True)
 
     def _fire_change_listeners_all(self, source: str) -> None:
-        for flag_key in self._flag_store:
-            self._fire_change_listeners(flag_key, source)
+        for flag_id in self._flag_store:
+            self._fire_change_listeners(flag_id, source)
 
     # ------------------------------------------------------------------
     # Model conversion
@@ -847,7 +835,6 @@ class FlagsClient:
         return Flag(
             self,
             id=_unset_to_none(resource.id) or "",
-            key=attrs.key,
             name=attrs.name,
             type=attrs.type_,
             default=attrs.default,
@@ -898,12 +885,12 @@ class AsyncFlagsClient:
         self._ws_manager: SharedWebSocket | None = None
 
     # ------------------------------------------------------------------
-    # Management: factory methods (return unsaved AsyncFlag with id=None)
+    # Management: factory methods (return unsaved AsyncFlag with created_at=None)
     # ------------------------------------------------------------------
 
     def newBooleanFlag(
         self,
-        key: str,
+        id: str,
         *,
         default: bool,
         name: str | None = None,
@@ -911,8 +898,8 @@ class AsyncFlagsClient:
     ) -> AsyncBooleanFlag:
         return AsyncBooleanFlag(
             self,
-            key=key,
-            name=name or key_to_display_name(key),
+            id=id,
+            name=name or key_to_display_name(id),
             type="BOOLEAN",
             default=default,
             values=[{"name": "True", "value": True}, {"name": "False", "value": False}],
@@ -921,7 +908,7 @@ class AsyncFlagsClient:
 
     def newStringFlag(
         self,
-        key: str,
+        id: str,
         *,
         default: str,
         name: str | None = None,
@@ -930,8 +917,8 @@ class AsyncFlagsClient:
     ) -> AsyncStringFlag:
         return AsyncStringFlag(
             self,
-            key=key,
-            name=name or key_to_display_name(key),
+            id=id,
+            name=name or key_to_display_name(id),
             type="STRING",
             default=default,
             values=values,
@@ -940,7 +927,7 @@ class AsyncFlagsClient:
 
     def newNumberFlag(
         self,
-        key: str,
+        id: str,
         *,
         default: int | float,
         name: str | None = None,
@@ -949,8 +936,8 @@ class AsyncFlagsClient:
     ) -> AsyncNumberFlag:
         return AsyncNumberFlag(
             self,
-            key=key,
-            name=name or key_to_display_name(key),
+            id=id,
+            name=name or key_to_display_name(id),
             type="NUMERIC",
             default=default,
             values=values,
@@ -959,7 +946,7 @@ class AsyncFlagsClient:
 
     def newJsonFlag(
         self,
-        key: str,
+        id: str,
         *,
         default: dict[str, Any],
         name: str | None = None,
@@ -968,8 +955,8 @@ class AsyncFlagsClient:
     ) -> AsyncJsonFlag:
         return AsyncJsonFlag(
             self,
-            key=key,
-            name=name or key_to_display_name(key),
+            id=id,
+            name=name or key_to_display_name(id),
             type="JSON",
             default=default,
             values=values,
@@ -980,19 +967,16 @@ class AsyncFlagsClient:
     # Management: CRUD (async)
     # ------------------------------------------------------------------
 
-    async def get(self, key: str) -> AsyncFlag:
-        """Fetch a flag by key."""
+    async def get(self, id: str) -> AsyncFlag:
+        """Fetch a flag by id."""
         try:
-            response = await list_flags.asyncio_detailed(client=self._flags_http, filterkey=key)
+            response = await get_flag.asyncio_detailed(id, client=self._flags_http)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
         body = json.loads(response.content)
-        items = body.get("data", [])
-        if not items:
-            raise SmplNotFoundError(f"Flag with key '{key}' not found")
-        return self._model_from_json(items[0])
+        return self._model_from_json(body["data"])
 
     async def list(self) -> list[AsyncFlag]:
         """List all flags."""
@@ -1005,13 +989,10 @@ class AsyncFlagsClient:
         body = json.loads(response.content)
         return [self._model_from_json(r) for r in body.get("data", [])]
 
-    async def delete(self, key: str) -> None:
-        """Delete a flag by key."""
-        from uuid import UUID
-
-        flag = await self.get(key)
+    async def delete(self, id: str) -> None:
+        """Delete a flag by id."""
         try:
-            response = await delete_flag.asyncio_detailed(UUID(flag.id), client=self._flags_http)
+            response = await delete_flag.asyncio_detailed(id, client=self._flags_http)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
@@ -1020,7 +1001,6 @@ class AsyncFlagsClient:
     async def _create_flag(self, flag: AsyncFlag) -> AsyncFlag:
         """Internal: POST a new flag."""
         gen_flag = _build_gen_flag(
-            key=flag.key,
             name=flag.name,
             type_=flag.type,
             default=flag.default,
@@ -1028,7 +1008,7 @@ class AsyncFlagsClient:
             description=flag.description,
             environments=flag.environments or None,
         )
-        body = _build_request_body(gen_flag, values_null=flag.values is None)
+        body = _build_request_body(gen_flag, flag_id=flag.id, values_null=flag.values is None)
         try:
             response = await create_flag.asyncio_detailed(client=self._flags_http, body=body)
         except Exception as exc:
@@ -1040,10 +1020,7 @@ class AsyncFlagsClient:
 
     async def _update_flag(self, *, flag: AsyncFlag) -> AsyncFlag:
         """Internal: PUT a full flag update."""
-        from uuid import UUID
-
         gen_flag = _build_gen_flag(
-            key=flag.key,
             name=flag.name,
             type_=flag.type,
             default=flag.default,
@@ -1053,7 +1030,7 @@ class AsyncFlagsClient:
         )
         body = _build_request_body(gen_flag, flag_id=flag.id, values_null=flag.values is None)
         try:
-            response = await update_flag.asyncio_detailed(UUID(flag.id), client=self._flags_http, body=body)
+            response = await update_flag.asyncio_detailed(flag.id, client=self._flags_http, body=body)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
@@ -1065,24 +1042,24 @@ class AsyncFlagsClient:
     # Runtime: typed flag handles
     # ------------------------------------------------------------------
 
-    def booleanFlag(self, key: str, *, default: bool) -> AsyncBooleanFlag:
-        handle = AsyncBooleanFlag(self, key=key, name=key, type="BOOLEAN", default=default)
-        self._handles[key] = handle
+    def booleanFlag(self, id: str, *, default: bool) -> AsyncBooleanFlag:
+        handle = AsyncBooleanFlag(self, id=id, name=id, type="BOOLEAN", default=default)
+        self._handles[id] = handle
         return handle
 
-    def stringFlag(self, key: str, *, default: str) -> AsyncStringFlag:
-        handle = AsyncStringFlag(self, key=key, name=key, type="STRING", default=default)
-        self._handles[key] = handle
+    def stringFlag(self, id: str, *, default: str) -> AsyncStringFlag:
+        handle = AsyncStringFlag(self, id=id, name=id, type="STRING", default=default)
+        self._handles[id] = handle
         return handle
 
-    def numberFlag(self, key: str, *, default: int | float) -> AsyncNumberFlag:
-        handle = AsyncNumberFlag(self, key=key, name=key, type="NUMERIC", default=default)
-        self._handles[key] = handle
+    def numberFlag(self, id: str, *, default: int | float) -> AsyncNumberFlag:
+        handle = AsyncNumberFlag(self, id=id, name=id, type="NUMERIC", default=default)
+        self._handles[id] = handle
         return handle
 
-    def jsonFlag(self, key: str, *, default: dict[str, Any]) -> AsyncJsonFlag:
-        handle = AsyncJsonFlag(self, key=key, name=key, type="JSON", default=default)
-        self._handles[key] = handle
+    def jsonFlag(self, id: str, *, default: dict[str, Any]) -> AsyncJsonFlag:
+        handle = AsyncJsonFlag(self, id=id, name=id, type="JSON", default=default)
+        self._handles[id] = handle
         return handle
 
     # ------------------------------------------------------------------
@@ -1122,16 +1099,16 @@ class AsyncFlagsClient:
     # Runtime: change listeners (dual-mode decorator)
     # ------------------------------------------------------------------
 
-    def on_change(self, fn_or_key: Callable[[FlagChangeEvent], None] | str | None = None) -> Any:
-        """Register a change listener (global or key-scoped)."""
-        if callable(fn_or_key):
-            self._global_listeners.append(fn_or_key)
-            return fn_or_key
-        elif isinstance(fn_or_key, str):
-            key = fn_or_key
+    def on_change(self, fn_or_id: Callable[[FlagChangeEvent], None] | str | None = None) -> Any:
+        """Register a change listener (global or id-scoped)."""
+        if callable(fn_or_id):
+            self._global_listeners.append(fn_or_id)
+            return fn_or_id
+        elif isinstance(fn_or_id, str):
+            flag_id = fn_or_id
 
             def decorator(fn: Callable[[FlagChangeEvent], None]) -> Callable[[FlagChangeEvent], None]:
-                self._key_listeners.setdefault(key, []).append(fn)
+                self._key_listeners.setdefault(flag_id, []).append(fn)
                 return fn
 
             return decorator
@@ -1170,7 +1147,7 @@ class AsyncFlagsClient:
     # Internal: evaluation
     # ------------------------------------------------------------------
 
-    def _evaluate_handle(self, key: str, default: Any, context: list[Context] | None) -> Any:
+    def _evaluate_handle(self, flag_id: str, default: Any, context: list[Context] | None) -> Any:
         """Core evaluation used by flag handles.  Lazily connects on first call.
 
         Note: This is synchronous.  The async client's _connect_internal is
@@ -1203,17 +1180,17 @@ class AsyncFlagsClient:
             eval_dict["service"] = {"key": self._parent._service}
 
         ctx_hash = _hash_context(eval_dict)
-        cache_key = f"{key}:{ctx_hash}"
+        cache_key = f"{flag_id}:{ctx_hash}"
 
         hit, cached_value = self._cache.get(cache_key)
         if hit:
             metrics = self._parent._metrics
             if metrics is not None:
                 metrics.record("flags.cache_hits", unit="hits")
-                metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag_key": key})
+                metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag_id": flag_id})
             return cached_value
 
-        flag_def = self._flag_store.get(key)
+        flag_def = self._flag_store.get(flag_id)
         if flag_def is None:
             self._cache.put(cache_key, default)
             return default
@@ -1226,7 +1203,7 @@ class AsyncFlagsClient:
         metrics = self._parent._metrics
         if metrics is not None:
             metrics.record("flags.cache_misses", unit="misses")
-            metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag_key": key})
+            metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag_id": flag_id})
         return value
 
     def _flush_contexts_bg(self) -> None:
@@ -1245,7 +1222,7 @@ class AsyncFlagsClient:
 
     async def _fetch_all_flags(self) -> None:
         flags = await self._fetch_flags_list()
-        self._flag_store = {f["key"]: f for f in flags}
+        self._flag_store = {f["id"]: f for f in flags}
 
     async def _fetch_flags_list(self) -> list[dict[str, Any]]:
         try:
@@ -1260,7 +1237,7 @@ class AsyncFlagsClient:
             d = _flag_dict_from_json(r)
             result.append(
                 {
-                    "key": d["key"],
+                    "id": d["id"],
                     "name": d["name"],
                     "type": d["type"],
                     "default": d["default"],
@@ -1283,8 +1260,8 @@ class AsyncFlagsClient:
         store: dict[str, dict[str, Any]] = {}
         for r in body.get("data", []):
             d = _flag_dict_from_json(r)
-            store[d["key"]] = {
-                "key": d["key"],
+            store[d["id"]] = {
+                "id": d["id"],
                 "name": d["name"],
                 "type": d["type"],
                 "default": d["default"],
@@ -1299,7 +1276,7 @@ class AsyncFlagsClient:
     # ------------------------------------------------------------------
 
     def _handle_flag_changed(self, data: dict[str, Any]) -> None:
-        flag_key = data.get("key")
+        flag_id = data.get("id")
         try:
             response = list_flags.sync_detailed(client=self._flags_http)
             _check_response_status(response.status_code, response.content)
@@ -1307,8 +1284,8 @@ class AsyncFlagsClient:
             new_store: dict[str, dict[str, Any]] = {}
             for r in body.get("data", []):
                 d = _flag_dict_from_json(r)
-                new_store[d["key"]] = {
-                    "key": d["key"],
+                new_store[d["id"]] = {
+                    "id": d["id"],
                     "name": d["name"],
                     "type": d["type"],
                     "default": d["default"],
@@ -1320,10 +1297,10 @@ class AsyncFlagsClient:
         except Exception:
             ws_logger.error("Failed to refresh flags after WS event", exc_info=True)
         self._cache.clear()
-        self._fire_change_listeners(flag_key, "websocket")
+        self._fire_change_listeners(flag_id, "websocket")
 
     def _handle_flag_deleted(self, data: dict[str, Any]) -> None:
-        flag_key = data.get("key")
+        flag_id = data.get("id")
         try:
             response = list_flags.sync_detailed(client=self._flags_http)
             _check_response_status(response.status_code, response.content)
@@ -1331,8 +1308,8 @@ class AsyncFlagsClient:
             new_store: dict[str, dict[str, Any]] = {}
             for r in body.get("data", []):
                 d = _flag_dict_from_json(r)
-                new_store[d["key"]] = {
-                    "key": d["key"],
+                new_store[d["id"]] = {
+                    "id": d["id"],
                     "name": d["name"],
                     "type": d["type"],
                     "default": d["default"],
@@ -1344,25 +1321,25 @@ class AsyncFlagsClient:
         except Exception:
             ws_logger.error("Failed to refresh flags after WS event", exc_info=True)
         self._cache.clear()
-        self._fire_change_listeners(flag_key, "websocket")
+        self._fire_change_listeners(flag_id, "websocket")
 
-    def _fire_change_listeners(self, flag_key: str | None, source: str) -> None:
-        if flag_key:
-            event = FlagChangeEvent(key=flag_key, source=source)
+    def _fire_change_listeners(self, flag_id: str | None, source: str) -> None:
+        if flag_id:
+            event = FlagChangeEvent(id=flag_id, source=source)
             for cb in self._global_listeners:
                 try:
                     cb(event)
                 except Exception:
                     logger.error("Exception in global flags on_change listener", exc_info=True)
-            for cb in self._key_listeners.get(flag_key, []):
+            for cb in self._key_listeners.get(flag_id, []):
                 try:
                     cb(event)
                 except Exception:
-                    logger.error("Exception in key-scoped flags on_change listener", exc_info=True)
+                    logger.error("Exception in id-scoped flags on_change listener", exc_info=True)
 
     def _fire_change_listeners_all(self, source: str) -> None:
-        for flag_key in self._flag_store:
-            self._fire_change_listeners(flag_key, source)
+        for flag_id in self._flag_store:
+            self._fire_change_listeners(flag_id, source)
 
     # ------------------------------------------------------------------
     # Model conversion
@@ -1376,7 +1353,6 @@ class AsyncFlagsClient:
         return AsyncFlag(
             self,
             id=_unset_to_none(resource.id) or "",
-            key=attrs.key,
             name=attrs.name,
             type=attrs.type_,
             default=attrs.default,

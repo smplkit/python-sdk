@@ -173,65 +173,63 @@ class TestMaybeReraiseNetworkError:
 
 class TestBuildLoggerBody:
     def test_basic(self):
-        body = _build_logger_body(name="SQL Logger", key="sql")
+        body = _build_logger_body(name="SQL Logger")
         assert body.data.attributes.name == "SQL Logger"
-        assert body.data.attributes.key == "sql"
 
     def test_with_environments(self):
-        body = _build_logger_body(name="Test", key="t", environments={"prod": {"level": "ERROR"}})
+        body = _build_logger_body(name="Test", environments={"prod": {"level": "ERROR"}})
         assert body.data.attributes.environments is not None
 
     def test_with_logger_id(self):
-        body = _build_logger_body(logger_id="abc-123", name="Test", key="t")
+        body = _build_logger_body(logger_id="abc-123", name="Test")
         assert body.data.id == "abc-123"
 
     def test_without_logger_id(self):
-        body = _build_logger_body(name="Test", key="t")
+        body = _build_logger_body(name="Test")
         assert body.data.id is None
 
 
 class TestBuildGroupBody:
     def test_basic(self):
-        body = _build_group_body(name="DB Loggers", key="db")
+        body = _build_group_body(name="DB Loggers")
         assert body.data.attributes.name == "DB Loggers"
-        assert body.data.attributes.key == "db"
 
     def test_with_group_id(self):
-        body = _build_group_body(group_id="grp-1", name="DB", key="db")
+        body = _build_group_body(group_id="grp-1", name="DB")
         assert body.data.id == "grp-1"
 
     def test_without_group_id(self):
-        body = _build_group_body(name="DB", key="db")
+        body = _build_group_body(name="DB")
         assert body.data.id is None
 
 
 class TestSmplLoggerRepr:
     def test_repr(self):
-        lg = SmplLogger(None, id="1", key="sql", name="SQL Logger")
+        lg = SmplLogger(None, id="sql", name="SQL Logger")
         assert "sql" in repr(lg)
 
     def test_repr_none_id(self):
-        lg = SmplLogger(None, id=None, key="sql", name="SQL Logger")
+        lg = SmplLogger(None, id=None, name="SQL Logger")
         assert "None" in repr(lg)
 
 
 class TestSmplLogGroupRepr:
     def test_repr(self):
-        grp = SmplLogGroup(None, id="1", key="db", name="DB Loggers")
+        grp = SmplLogGroup(None, id="db", name="DB Loggers")
         assert "db" in repr(grp)
 
     def test_repr_none_id(self):
-        grp = SmplLogGroup(None, id=None, key="db", name="DB Loggers")
+        grp = SmplLogGroup(None, id=None, name="DB Loggers")
         assert "None" in repr(grp)
 
 
 class TestAsyncSmplLoggerRepr:
     def test_repr(self):
-        lg = AsyncSmplLogger(None, id="1", key="sql", name="SQL Logger")
+        lg = AsyncSmplLogger(None, id="sql", name="SQL Logger")
         assert "sql" in repr(lg)
 
 
 class TestAsyncSmplLogGroupRepr:
     def test_repr(self):
-        grp = AsyncSmplLogGroup(None, id="1", key="db", name="DB Loggers")
+        grp = AsyncSmplLogGroup(None, id="db", name="DB Loggers")
         assert "db" in repr(grp)

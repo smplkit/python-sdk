@@ -83,7 +83,7 @@ class TestListenerRegistration:
         config_cb.assert_called_once()
         flag_cb.assert_not_called()
 
-        ws._dispatch("flag_changed", {"key": "my-flag"})
+        ws._dispatch("flag_changed", {"id": "my-flag"})
         flag_cb.assert_called_once()
 
     def test_off_removes_listener(self):
@@ -512,12 +512,12 @@ class TestMultiProductRouting:
         ws.on("flag_changed", lambda data: flag_events.append(data))
 
         ws._dispatch("config_changed", {"config_id": "cfg-001"})
-        ws._dispatch("flag_changed", {"key": "my-flag"})
+        ws._dispatch("flag_changed", {"id": "my-flag"})
 
         assert len(config_events) == 1
         assert config_events[0]["config_id"] == "cfg-001"
         assert len(flag_events) == 1
-        assert flag_events[0]["key"] == "my-flag"
+        assert flag_events[0]["id"] == "my-flag"
 
     def test_multiple_config_listeners(self):
         """Multiple config runtimes can listen for config_changed."""

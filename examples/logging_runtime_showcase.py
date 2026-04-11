@@ -8,7 +8,7 @@ Demonstrates the smplkit Python SDK's runtime experience for Smpl Logging:
 - Explicit start() — opt-in monkey-patching and level management
 - Level resolution chain: env override → base level → group → dot-notation → fallback
 - Dynamic level control: server-side changes applied to the Python runtime
-- @client.logging.on_change decorator with optional key scoping
+- @client.logging.on_change decorator with optional id scoping
 - Continuous discovery (loggers created after start)
 
 This is the SDK experience that 99%% of customers will use. Loggers are
@@ -101,7 +101,7 @@ async def main() -> None:
         # ==================================================================
         #
         # @client.logging.on_change — fires when ANY logger/group changes
-        # @client.logging.on_change("sqlalchemy.engine") — scoped to a key
+        # @client.logging.on_change("sqlalchemy.engine") — scoped to an id
         #
         # Listeners can be registered before start(). They are stored
         # locally and begin firing when WebSocket events arrive after start().
@@ -114,7 +114,7 @@ async def main() -> None:
         @client.logging.on_change
         def on_any_change(event):
             all_changes.append(event)
-            print(f"    [CHANGE] {event.key}: level={event.level}")
+            print(f"    [CHANGE] {event.id}: level={event.level}")
 
         step("Global change listener registered")
 

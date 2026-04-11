@@ -4,7 +4,7 @@ Smpl Config SDK Showcase — Management API
 
 Demonstrates the smplkit Python SDK's management plane for Smpl Config:
 
-- Config CRUD: new() + save(), get(key), list(), delete(key)
+- Config CRUD: new() + save(), get(id), list(), delete(id)
 - Active record pattern: fetch → mutate → save()
 - Base items and environment-specific overrides
 - Config inheritance from the common root
@@ -80,7 +80,7 @@ async def main() -> None:
         section("2a. Update the Common Config")
 
         common = await client.config.get("common")
-        step(f"Fetched common config: id={common.id}, key={common.key}")
+        step(f"Fetched common config: id={common.id}")
 
         # Mutate items — local until save()
         common.items = {
@@ -187,12 +187,12 @@ async def main() -> None:
         configs = await client.config.list()
         for cfg in configs:
             parent_info = f" (parent: {cfg.parent})" if cfg.parent else " (root)"
-            step(f"{cfg.key}{parent_info}")
+            step(f"{cfg.id}{parent_info}")
 
-        section("4b. Get a Config by Key")
+        section("4b. Get a Config by ID")
 
         fetched = await client.config.get("user_service")
-        step(f"Fetched: key={fetched.key}, name={fetched.name}")
+        step(f"Fetched: id={fetched.id}, name={fetched.name}")
         step(f"  description={fetched.description}")
         step(f"  parent={fetched.parent or '(none)'}")
         step(f"  items: {list(fetched.items.keys())}")
