@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -6,11 +8,10 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from typing import Union
 
 if TYPE_CHECKING:
-    from ..models.product_plans import ProductPlans
     from ..models.product_limits import ProductLimits
+    from ..models.product_plans import ProductPlans
 
 
 T = TypeVar("T", bound="Product")
@@ -24,14 +25,14 @@ class Product:
         description (str):
         limits (ProductLimits):
         plans (ProductPlans):
-        coming_soon (Union[Unset, bool]):  Default: False.
+        coming_soon (bool | Unset):  Default: False.
     """
 
     display_name: str
     description: str
-    limits: "ProductLimits"
-    plans: "ProductPlans"
-    coming_soon: Union[Unset, bool] = False
+    limits: ProductLimits
+    plans: ProductPlans
+    coming_soon: bool | Unset = False
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -62,8 +63,8 @@ class Product:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.product_plans import ProductPlans
         from ..models.product_limits import ProductLimits
+        from ..models.product_plans import ProductPlans
 
         d = dict(src_dict)
         display_name = d.pop("display_name")

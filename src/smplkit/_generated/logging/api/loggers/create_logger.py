@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
 
 import httpx
 
@@ -33,8 +33,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[ErrorResponse, HTTPValidationError, LoggerResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ErrorResponse | HTTPValidationError | LoggerResponse | None:
     if response.status_code == 201:
         response_201 = LoggerResponse.from_dict(response.json())
 
@@ -72,8 +72,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[ErrorResponse, HTTPValidationError, LoggerResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ErrorResponse | HTTPValidationError | LoggerResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -86,7 +86,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     body: ResponseLogger,
-) -> Response[Union[ErrorResponse, HTTPValidationError, LoggerResponse]]:
+) -> Response[ErrorResponse | HTTPValidationError | LoggerResponse]:
     """Create Logger
 
     Args:
@@ -97,7 +97,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ErrorResponse, HTTPValidationError, LoggerResponse]]
+        Response[ErrorResponse | HTTPValidationError | LoggerResponse]
     """
 
     kwargs = _get_kwargs(
@@ -115,7 +115,7 @@ def sync(
     *,
     client: AuthenticatedClient,
     body: ResponseLogger,
-) -> Optional[Union[ErrorResponse, HTTPValidationError, LoggerResponse]]:
+) -> ErrorResponse | HTTPValidationError | LoggerResponse | None:
     """Create Logger
 
     Args:
@@ -126,7 +126,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ErrorResponse, HTTPValidationError, LoggerResponse]
+        ErrorResponse | HTTPValidationError | LoggerResponse
     """
 
     return sync_detailed(
@@ -139,7 +139,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     body: ResponseLogger,
-) -> Response[Union[ErrorResponse, HTTPValidationError, LoggerResponse]]:
+) -> Response[ErrorResponse | HTTPValidationError | LoggerResponse]:
     """Create Logger
 
     Args:
@@ -150,7 +150,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ErrorResponse, HTTPValidationError, LoggerResponse]]
+        Response[ErrorResponse | HTTPValidationError | LoggerResponse]
     """
 
     kwargs = _get_kwargs(
@@ -166,7 +166,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     body: ResponseLogger,
-) -> Optional[Union[ErrorResponse, HTTPValidationError, LoggerResponse]]:
+) -> ErrorResponse | HTTPValidationError | LoggerResponse | None:
     """Create Logger
 
     Args:
@@ -177,7 +177,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ErrorResponse, HTTPValidationError, LoggerResponse]
+        ErrorResponse | HTTPValidationError | LoggerResponse
     """
 
     return (

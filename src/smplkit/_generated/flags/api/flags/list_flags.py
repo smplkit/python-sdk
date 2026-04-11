@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
 
 import httpx
 
@@ -14,12 +14,12 @@ from ...types import Unset
 
 def _get_kwargs(
     *,
-    filtertype: Union[None, Unset, str] = UNSET,
+    filtertype: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
-    json_filtertype: Union[None, Unset, str]
+    json_filtertype: None | str | Unset
     if isinstance(filtertype, Unset):
         json_filtertype = UNSET
     else:
@@ -38,8 +38,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[FlagListResponse, HTTPValidationError]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> FlagListResponse | HTTPValidationError | None:
     if response.status_code == 200:
         response_200 = FlagListResponse.from_dict(response.json())
 
@@ -57,8 +57,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[FlagListResponse, HTTPValidationError]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[FlagListResponse | HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -70,19 +70,19 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    filtertype: Union[None, Unset, str] = UNSET,
-) -> Response[Union[FlagListResponse, HTTPValidationError]]:
+    filtertype: None | str | Unset = UNSET,
+) -> Response[FlagListResponse | HTTPValidationError]:
     """List Flags
 
     Args:
-        filtertype (Union[None, Unset, str]):
+        filtertype (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[FlagListResponse, HTTPValidationError]]
+        Response[FlagListResponse | HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
@@ -99,19 +99,19 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    filtertype: Union[None, Unset, str] = UNSET,
-) -> Optional[Union[FlagListResponse, HTTPValidationError]]:
+    filtertype: None | str | Unset = UNSET,
+) -> FlagListResponse | HTTPValidationError | None:
     """List Flags
 
     Args:
-        filtertype (Union[None, Unset, str]):
+        filtertype (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[FlagListResponse, HTTPValidationError]
+        FlagListResponse | HTTPValidationError
     """
 
     return sync_detailed(
@@ -123,19 +123,19 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    filtertype: Union[None, Unset, str] = UNSET,
-) -> Response[Union[FlagListResponse, HTTPValidationError]]:
+    filtertype: None | str | Unset = UNSET,
+) -> Response[FlagListResponse | HTTPValidationError]:
     """List Flags
 
     Args:
-        filtertype (Union[None, Unset, str]):
+        filtertype (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[FlagListResponse, HTTPValidationError]]
+        Response[FlagListResponse | HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
@@ -150,19 +150,19 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    filtertype: Union[None, Unset, str] = UNSET,
-) -> Optional[Union[FlagListResponse, HTTPValidationError]]:
+    filtertype: None | str | Unset = UNSET,
+) -> FlagListResponse | HTTPValidationError | None:
     """List Flags
 
     Args:
-        filtertype (Union[None, Unset, str]):
+        filtertype (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[FlagListResponse, HTTPValidationError]
+        FlagListResponse | HTTPValidationError
     """
 
     return (
