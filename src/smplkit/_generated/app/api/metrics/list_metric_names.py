@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
 
 import httpx
 
@@ -22,8 +22,8 @@ def _get_kwargs() -> dict[str, Any]:
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[ErrorResponse, MetricNamesResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ErrorResponse | MetricNamesResponse | None:
     if response.status_code == 200:
         response_200 = MetricNamesResponse.from_dict(response.json())
 
@@ -56,8 +56,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[ErrorResponse, MetricNamesResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ErrorResponse | MetricNamesResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,7 +69,7 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-) -> Response[Union[ErrorResponse, MetricNamesResponse]]:
+) -> Response[ErrorResponse | MetricNamesResponse]:
     """List Metric Names
 
      Return distinct metric names (with a representative unit) for this account.
@@ -82,7 +82,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ErrorResponse, MetricNamesResponse]]
+        Response[ErrorResponse | MetricNamesResponse]
     """
 
     kwargs = _get_kwargs()
@@ -97,7 +97,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-) -> Optional[Union[ErrorResponse, MetricNamesResponse]]:
+) -> ErrorResponse | MetricNamesResponse | None:
     """List Metric Names
 
      Return distinct metric names (with a representative unit) for this account.
@@ -110,7 +110,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ErrorResponse, MetricNamesResponse]
+        ErrorResponse | MetricNamesResponse
     """
 
     return sync_detailed(
@@ -121,7 +121,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-) -> Response[Union[ErrorResponse, MetricNamesResponse]]:
+) -> Response[ErrorResponse | MetricNamesResponse]:
     """List Metric Names
 
      Return distinct metric names (with a representative unit) for this account.
@@ -134,7 +134,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ErrorResponse, MetricNamesResponse]]
+        Response[ErrorResponse | MetricNamesResponse]
     """
 
     kwargs = _get_kwargs()
@@ -147,7 +147,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-) -> Optional[Union[ErrorResponse, MetricNamesResponse]]:
+) -> ErrorResponse | MetricNamesResponse | None:
     """List Metric Names
 
      Return distinct metric names (with a representative unit) for this account.
@@ -160,7 +160,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ErrorResponse, MetricNamesResponse]
+        ErrorResponse | MetricNamesResponse
     """
 
     return (

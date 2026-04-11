@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -22,7 +24,7 @@ class ConfigResponse:
             'parent': 'common', 'updated_at': '2026-03-27T10:00:00Z'}, 'id': 'database', 'type': 'config'}.
     """
 
-    data: "ConfigResource"
+    data: ConfigResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
