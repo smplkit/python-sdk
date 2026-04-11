@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
 
 import httpx
 
@@ -15,14 +15,14 @@ from ...types import Unset
 def _get_kwargs(
     *,
     filtername: str,
-    filterrecorded_at: Union[None, Unset, str] = UNSET,
+    filterrecorded_at: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
     params["filter[name]"] = filtername
 
-    json_filterrecorded_at: Union[None, Unset, str]
+    json_filterrecorded_at: None | str | Unset
     if isinstance(filterrecorded_at, Unset):
         json_filterrecorded_at = UNSET
     else:
@@ -41,8 +41,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[ErrorResponse, MetricListResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ErrorResponse | MetricListResponse | None:
     if response.status_code == 200:
         response_200 = MetricListResponse.from_dict(response.json())
 
@@ -75,8 +75,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[ErrorResponse, MetricListResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ErrorResponse | MetricListResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -89,20 +89,20 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     filtername: str,
-    filterrecorded_at: Union[None, Unset, str] = UNSET,
-) -> Response[Union[ErrorResponse, MetricListResponse]]:
+    filterrecorded_at: None | str | Unset = UNSET,
+) -> Response[ErrorResponse | MetricListResponse]:
     """List Metrics
 
     Args:
         filtername (str):
-        filterrecorded_at (Union[None, Unset, str]):
+        filterrecorded_at (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ErrorResponse, MetricListResponse]]
+        Response[ErrorResponse | MetricListResponse]
     """
 
     kwargs = _get_kwargs(
@@ -121,20 +121,20 @@ def sync(
     *,
     client: AuthenticatedClient,
     filtername: str,
-    filterrecorded_at: Union[None, Unset, str] = UNSET,
-) -> Optional[Union[ErrorResponse, MetricListResponse]]:
+    filterrecorded_at: None | str | Unset = UNSET,
+) -> ErrorResponse | MetricListResponse | None:
     """List Metrics
 
     Args:
         filtername (str):
-        filterrecorded_at (Union[None, Unset, str]):
+        filterrecorded_at (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ErrorResponse, MetricListResponse]
+        ErrorResponse | MetricListResponse
     """
 
     return sync_detailed(
@@ -148,20 +148,20 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     filtername: str,
-    filterrecorded_at: Union[None, Unset, str] = UNSET,
-) -> Response[Union[ErrorResponse, MetricListResponse]]:
+    filterrecorded_at: None | str | Unset = UNSET,
+) -> Response[ErrorResponse | MetricListResponse]:
     """List Metrics
 
     Args:
         filtername (str):
-        filterrecorded_at (Union[None, Unset, str]):
+        filterrecorded_at (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ErrorResponse, MetricListResponse]]
+        Response[ErrorResponse | MetricListResponse]
     """
 
     kwargs = _get_kwargs(
@@ -178,20 +178,20 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     filtername: str,
-    filterrecorded_at: Union[None, Unset, str] = UNSET,
-) -> Optional[Union[ErrorResponse, MetricListResponse]]:
+    filterrecorded_at: None | str | Unset = UNSET,
+) -> ErrorResponse | MetricListResponse | None:
     """List Metrics
 
     Args:
         filtername (str):
-        filterrecorded_at (Union[None, Unset, str]):
+        filterrecorded_at (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ErrorResponse, MetricListResponse]
+        ErrorResponse | MetricListResponse
     """
 
     return (

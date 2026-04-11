@@ -1,5 +1,6 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -15,8 +16,8 @@ from ...types import Unset
 def _get_kwargs(
     provider: OidcProvider,
     *,
-    mode: Union[Unset, str] = "signin",
-    source: Union[Unset, str] = "",
+    mode: str | Unset = "signin",
+    source: str | Unset = "",
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -30,7 +31,7 @@ def _get_kwargs(
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/api/v1/auth/oidc/{provider}".format(
-            provider=provider,
+            provider=quote(str(provider), safe=""),
         ),
         "params": params,
     }
@@ -38,9 +39,7 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[Any, ErrorResponse]]:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | ErrorResponse | None:
     if response.status_code == 200:
         response_200 = response.json()
         return response_200
@@ -71,9 +70,7 @@ def _parse_response(
         return None
 
 
-def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[Any, ErrorResponse]]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | ErrorResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -85,25 +82,25 @@ def _build_response(
 def sync_detailed(
     provider: OidcProvider,
     *,
-    client: Union[AuthenticatedClient, Client],
-    mode: Union[Unset, str] = "signin",
-    source: Union[Unset, str] = "",
-) -> Response[Union[Any, ErrorResponse]]:
+    client: AuthenticatedClient | Client,
+    mode: str | Unset = "signin",
+    source: str | Unset = "",
+) -> Response[Any | ErrorResponse]:
     """Begin OIDC Login
 
      Initiates the OIDC authorization flow by redirecting the user to the provider's login page.
 
     Args:
         provider (OidcProvider):
-        mode (Union[Unset, str]):  Default: 'signin'.
-        source (Union[Unset, str]):  Default: ''.
+        mode (str | Unset):  Default: 'signin'.
+        source (str | Unset):  Default: ''.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Any, ErrorResponse]]
+        Response[Any | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
@@ -122,25 +119,25 @@ def sync_detailed(
 def sync(
     provider: OidcProvider,
     *,
-    client: Union[AuthenticatedClient, Client],
-    mode: Union[Unset, str] = "signin",
-    source: Union[Unset, str] = "",
-) -> Optional[Union[Any, ErrorResponse]]:
+    client: AuthenticatedClient | Client,
+    mode: str | Unset = "signin",
+    source: str | Unset = "",
+) -> Any | ErrorResponse | None:
     """Begin OIDC Login
 
      Initiates the OIDC authorization flow by redirecting the user to the provider's login page.
 
     Args:
         provider (OidcProvider):
-        mode (Union[Unset, str]):  Default: 'signin'.
-        source (Union[Unset, str]):  Default: ''.
+        mode (str | Unset):  Default: 'signin'.
+        source (str | Unset):  Default: ''.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Any, ErrorResponse]
+        Any | ErrorResponse
     """
 
     return sync_detailed(
@@ -154,25 +151,25 @@ def sync(
 async def asyncio_detailed(
     provider: OidcProvider,
     *,
-    client: Union[AuthenticatedClient, Client],
-    mode: Union[Unset, str] = "signin",
-    source: Union[Unset, str] = "",
-) -> Response[Union[Any, ErrorResponse]]:
+    client: AuthenticatedClient | Client,
+    mode: str | Unset = "signin",
+    source: str | Unset = "",
+) -> Response[Any | ErrorResponse]:
     """Begin OIDC Login
 
      Initiates the OIDC authorization flow by redirecting the user to the provider's login page.
 
     Args:
         provider (OidcProvider):
-        mode (Union[Unset, str]):  Default: 'signin'.
-        source (Union[Unset, str]):  Default: ''.
+        mode (str | Unset):  Default: 'signin'.
+        source (str | Unset):  Default: ''.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Any, ErrorResponse]]
+        Response[Any | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
@@ -189,25 +186,25 @@ async def asyncio_detailed(
 async def asyncio(
     provider: OidcProvider,
     *,
-    client: Union[AuthenticatedClient, Client],
-    mode: Union[Unset, str] = "signin",
-    source: Union[Unset, str] = "",
-) -> Optional[Union[Any, ErrorResponse]]:
+    client: AuthenticatedClient | Client,
+    mode: str | Unset = "signin",
+    source: str | Unset = "",
+) -> Any | ErrorResponse | None:
     """Begin OIDC Login
 
      Initiates the OIDC authorization flow by redirecting the user to the provider's login page.
 
     Args:
         provider (OidcProvider):
-        mode (Union[Unset, str]):  Default: 'signin'.
-        source (Union[Unset, str]):  Default: ''.
+        mode (str | Unset):  Default: 'signin'.
+        source (str | Unset):  Default: ''.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Any, ErrorResponse]
+        Any | ErrorResponse
     """
 
     return (
