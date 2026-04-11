@@ -13,8 +13,8 @@ from ...models.error_response import ErrorResponse
 def _get_kwargs() -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
-        "method": "post",
-        "url": "/api/v1/billing/setup_intent",
+        "method": "get",
+        "url": "/api/v1/payment_methods",
     }
 
     return _kwargs
@@ -64,9 +64,9 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
 ) -> Response[Any | ErrorResponse]:
-    """Create Setup Intent
+    """List Payment Methods
 
-     Create a Stripe SetupIntent for saving a payment method.
+     Return the default payment method for the account's Stripe Customer.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -89,9 +89,9 @@ def sync(
     *,
     client: AuthenticatedClient,
 ) -> Any | ErrorResponse | None:
-    """Create Setup Intent
+    """List Payment Methods
 
-     Create a Stripe SetupIntent for saving a payment method.
+     Return the default payment method for the account's Stripe Customer.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -110,9 +110,9 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
 ) -> Response[Any | ErrorResponse]:
-    """Create Setup Intent
+    """List Payment Methods
 
-     Create a Stripe SetupIntent for saving a payment method.
+     Return the default payment method for the account's Stripe Customer.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -133,9 +133,9 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
 ) -> Any | ErrorResponse | None:
-    """Create Setup Intent
+    """List Payment Methods
 
-     Create a Stripe SetupIntent for saving a payment method.
+     Return the default payment method for the account's Stripe Customer.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

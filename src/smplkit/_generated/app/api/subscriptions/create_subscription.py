@@ -1,6 +1,5 @@
 from http import HTTPStatus
 from typing import Any
-from urllib.parse import quote
 
 import httpx
 
@@ -8,22 +7,19 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
+from ...models.create_subscription_body import CreateSubscriptionBody
 from ...models.error_response import ErrorResponse
-from ...models.update_subscription_body import UpdateSubscriptionBody
 
 
 def _get_kwargs(
-    product: str,
     *,
-    body: UpdateSubscriptionBody,
+    body: CreateSubscriptionBody,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
-        "method": "patch",
-        "url": "/api/v1/billing/subscriptions/{product}".format(
-            product=quote(str(product), safe=""),
-        ),
+        "method": "post",
+        "url": "/api/v1/subscriptions",
     }
 
     _kwargs["json"] = body.to_dict()
@@ -35,9 +31,9 @@ def _get_kwargs(
 
 
 def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | ErrorResponse | None:
-    if response.status_code == 200:
-        response_200 = response.json()
-        return response_200
+    if response.status_code == 201:
+        response_201 = response.json()
+        return response_201
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
@@ -75,18 +71,16 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 
 def sync_detailed(
-    product: str,
     *,
     client: AuthenticatedClient,
-    body: UpdateSubscriptionBody,
+    body: CreateSubscriptionBody,
 ) -> Response[Any | ErrorResponse]:
-    """Update Billing Subscription
+    """Create Subscription
 
-     Change the plan for an existing paid subscription (upgrade or downgrade).
+     Create a new paid subscription for a product.
 
     Args:
-        product (str):
-        body (UpdateSubscriptionBody):
+        body (CreateSubscriptionBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -97,7 +91,6 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
-        product=product,
         body=body,
     )
 
@@ -109,18 +102,16 @@ def sync_detailed(
 
 
 def sync(
-    product: str,
     *,
     client: AuthenticatedClient,
-    body: UpdateSubscriptionBody,
+    body: CreateSubscriptionBody,
 ) -> Any | ErrorResponse | None:
-    """Update Billing Subscription
+    """Create Subscription
 
-     Change the plan for an existing paid subscription (upgrade or downgrade).
+     Create a new paid subscription for a product.
 
     Args:
-        product (str):
-        body (UpdateSubscriptionBody):
+        body (CreateSubscriptionBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -131,25 +122,22 @@ def sync(
     """
 
     return sync_detailed(
-        product=product,
         client=client,
         body=body,
     ).parsed
 
 
 async def asyncio_detailed(
-    product: str,
     *,
     client: AuthenticatedClient,
-    body: UpdateSubscriptionBody,
+    body: CreateSubscriptionBody,
 ) -> Response[Any | ErrorResponse]:
-    """Update Billing Subscription
+    """Create Subscription
 
-     Change the plan for an existing paid subscription (upgrade or downgrade).
+     Create a new paid subscription for a product.
 
     Args:
-        product (str):
-        body (UpdateSubscriptionBody):
+        body (CreateSubscriptionBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -160,7 +148,6 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
-        product=product,
         body=body,
     )
 
@@ -170,18 +157,16 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    product: str,
     *,
     client: AuthenticatedClient,
-    body: UpdateSubscriptionBody,
+    body: CreateSubscriptionBody,
 ) -> Any | ErrorResponse | None:
-    """Update Billing Subscription
+    """Create Subscription
 
-     Change the plan for an existing paid subscription (upgrade or downgrade).
+     Create a new paid subscription for a product.
 
     Args:
-        product (str):
-        body (UpdateSubscriptionBody):
+        body (CreateSubscriptionBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -193,7 +178,6 @@ async def asyncio(
 
     return (
         await asyncio_detailed(
-            product=product,
             client=client,
             body=body,
         )

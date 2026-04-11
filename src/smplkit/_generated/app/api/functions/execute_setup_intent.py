@@ -7,33 +7,23 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
-from ...models.create_subscription_body import CreateSubscriptionBody
 from ...models.error_response import ErrorResponse
 
 
-def _get_kwargs(
-    *,
-    body: CreateSubscriptionBody,
-) -> dict[str, Any]:
-    headers: dict[str, Any] = {}
+def _get_kwargs() -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/api/v1/billing/subscriptions",
+        "url": "/api/v1/functions/setup_intent/actions/execute",
     }
 
-    _kwargs["json"] = body.to_dict()
-
-    headers["Content-Type"] = "application/vnd.api+json"
-
-    _kwargs["headers"] = headers
     return _kwargs
 
 
 def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | ErrorResponse | None:
-    if response.status_code == 201:
-        response_201 = response.json()
-        return response_201
+    if response.status_code == 200:
+        response_200 = response.json()
+        return response_200
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
@@ -73,14 +63,14 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: CreateSubscriptionBody,
 ) -> Response[Any | ErrorResponse]:
-    """Create Billing Subscription
+    """Execute Setup Intent
 
-     Create a new paid subscription for a product.
+     Create a Stripe SetupIntent for saving a payment method.
 
-    Args:
-        body (CreateSubscriptionBody):
+    Returns a ``client_secret`` that the frontend passes to Stripe's
+    Payment Element so the customer can securely enter card details
+    without an immediate charge.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -90,9 +80,7 @@ def sync_detailed(
         Response[Any | ErrorResponse]
     """
 
-    kwargs = _get_kwargs(
-        body=body,
-    )
+    kwargs = _get_kwargs()
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -104,14 +92,14 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: CreateSubscriptionBody,
 ) -> Any | ErrorResponse | None:
-    """Create Billing Subscription
+    """Execute Setup Intent
 
-     Create a new paid subscription for a product.
+     Create a Stripe SetupIntent for saving a payment method.
 
-    Args:
-        body (CreateSubscriptionBody):
+    Returns a ``client_secret`` that the frontend passes to Stripe's
+    Payment Element so the customer can securely enter card details
+    without an immediate charge.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -123,21 +111,20 @@ def sync(
 
     return sync_detailed(
         client=client,
-        body=body,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: CreateSubscriptionBody,
 ) -> Response[Any | ErrorResponse]:
-    """Create Billing Subscription
+    """Execute Setup Intent
 
-     Create a new paid subscription for a product.
+     Create a Stripe SetupIntent for saving a payment method.
 
-    Args:
-        body (CreateSubscriptionBody):
+    Returns a ``client_secret`` that the frontend passes to Stripe's
+    Payment Element so the customer can securely enter card details
+    without an immediate charge.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -147,9 +134,7 @@ async def asyncio_detailed(
         Response[Any | ErrorResponse]
     """
 
-    kwargs = _get_kwargs(
-        body=body,
-    )
+    kwargs = _get_kwargs()
 
     response = await client.get_async_httpx_client().request(**kwargs)
 
@@ -159,14 +144,14 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: CreateSubscriptionBody,
 ) -> Any | ErrorResponse | None:
-    """Create Billing Subscription
+    """Execute Setup Intent
 
-     Create a new paid subscription for a product.
+     Create a Stripe SetupIntent for saving a payment method.
 
-    Args:
-        body (CreateSubscriptionBody):
+    Returns a ``client_secret`` that the frontend passes to Stripe's
+    Payment Element so the customer can securely enter card details
+    without an immediate charge.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -179,6 +164,5 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
-            body=body,
         )
     ).parsed
