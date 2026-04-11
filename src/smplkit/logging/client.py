@@ -885,12 +885,20 @@ class LoggingClient:
         items = [LoggerBulkItem(id=b["id"], level=b["level"], service=b.get("service")) for b in batch]
         body = LoggerBulkRequest(loggers=items)
         try:
-            bulk_register_loggers.sync_detailed(client=self._logging_http, body=body)
-            metrics = self._parent._metrics
-            if metrics is not None:
-                metrics.record("logging.loggers_discovered", len(items), unit="loggers")
+            response = bulk_register_loggers.sync_detailed(client=self._logging_http, body=body)
+            if response.status_code.value >= 300:
+                detail = response.content[:500] if response.content else b""
+                logger.warning(
+                    "Bulk logger registration failed: HTTP %s: %s",
+                    response.status_code.value,
+                    detail.decode("utf-8", errors="replace"),
+                )
+            else:
+                metrics = self._parent._metrics
+                if metrics is not None:
+                    metrics.record("logging.loggers_discovered", len(items), unit="loggers")
         except Exception:
-            logger.debug("Bulk logger registration failed", exc_info=True)
+            logger.warning("Bulk logger registration failed", exc_info=True)
 
     def _schedule_flush(self) -> None:
         """Schedule the next periodic flush."""
@@ -1310,12 +1318,20 @@ class AsyncLoggingClient:
         items = [LoggerBulkItem(id=b["id"], level=b["level"], service=b.get("service")) for b in batch]
         body = LoggerBulkRequest(loggers=items)
         try:
-            await bulk_register_loggers.asyncio_detailed(client=self._logging_http, body=body)
-            metrics = self._parent._metrics
-            if metrics is not None:
-                metrics.record("logging.loggers_discovered", len(items), unit="loggers")
+            response = await bulk_register_loggers.asyncio_detailed(client=self._logging_http, body=body)
+            if response.status_code.value >= 300:
+                detail = response.content[:500] if response.content else b""
+                logger.warning(
+                    "Bulk logger registration failed: HTTP %s: %s",
+                    response.status_code.value,
+                    detail.decode("utf-8", errors="replace"),
+                )
+            else:
+                metrics = self._parent._metrics
+                if metrics is not None:
+                    metrics.record("logging.loggers_discovered", len(items), unit="loggers")
         except Exception:
-            logger.debug("Bulk logger registration failed", exc_info=True)
+            logger.warning("Bulk logger registration failed", exc_info=True)
 
     def _flush_bulk_sync(self) -> None:
         """Sync flush for the timer thread."""
@@ -1325,12 +1341,20 @@ class AsyncLoggingClient:
         items = [LoggerBulkItem(id=b["id"], level=b["level"], service=b.get("service")) for b in batch]
         body = LoggerBulkRequest(loggers=items)
         try:
-            bulk_register_loggers.sync_detailed(client=self._logging_http, body=body)
-            metrics = self._parent._metrics
-            if metrics is not None:
-                metrics.record("logging.loggers_discovered", len(items), unit="loggers")
+            response = bulk_register_loggers.sync_detailed(client=self._logging_http, body=body)
+            if response.status_code.value >= 300:
+                detail = response.content[:500] if response.content else b""
+                logger.warning(
+                    "Bulk logger registration failed: HTTP %s: %s",
+                    response.status_code.value,
+                    detail.decode("utf-8", errors="replace"),
+                )
+            else:
+                metrics = self._parent._metrics
+                if metrics is not None:
+                    metrics.record("logging.loggers_discovered", len(items), unit="loggers")
         except Exception:
-            logger.debug("Bulk logger registration failed", exc_info=True)
+            logger.warning("Bulk logger registration failed", exc_info=True)
 
     def _schedule_flush(self) -> None:
         """Schedule the next periodic flush."""

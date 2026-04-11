@@ -834,6 +834,43 @@ class TestBulkFlush:
         client._buffer.add("com.test", "INFO", None)
         client._flush_bulk_sync()
 
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    def test_flush_logs_warning_on_http_error(self, mock_bulk, caplog):
+        """Flush should log a WARNING with status and body on non-2xx."""
+        mock_bulk.return_value = _ok_response(
+            status=HTTPStatus.BAD_REQUEST,
+        )
+        mock_bulk.return_value.content = b'{"errors":[{"detail":"Invalid level"}]}'
+        client = _make_logging_client()
+        client._buffer.add("com.test", "INFO", None)
+        with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
+            client._flush_bulk_sync()
+        assert len(caplog.records) == 1
+        assert "400" in caplog.records[0].message
+        assert "Invalid level" in caplog.records[0].message
+        assert caplog.records[0].levelno == stdlib_logging.WARNING
+
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    def test_flush_logs_warning_on_network_error(self, mock_bulk, caplog):
+        """Flush should log a WARNING on network-level exceptions."""
+        mock_bulk.side_effect = Exception("connection refused")
+        client = _make_logging_client()
+        client._buffer.add("com.test", "INFO", None)
+        with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
+            client._flush_bulk_sync()
+        assert len(caplog.records) == 1
+        assert caplog.records[0].levelno == stdlib_logging.WARNING
+
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    def test_flush_no_metrics_on_http_error(self, mock_bulk):
+        """Metrics should NOT be recorded on non-2xx responses."""
+        mock_bulk.return_value = _ok_response(status=HTTPStatus.BAD_REQUEST)
+        mock_bulk.return_value.content = b'{"errors":[]}'
+        client = _make_logging_client()
+        client._buffer.add("com.test", "INFO", None)
+        client._flush_bulk_sync()
+        client._parent._metrics.record.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # Level application

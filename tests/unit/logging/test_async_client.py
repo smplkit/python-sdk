@@ -730,6 +730,34 @@ class TestAsyncBulkFlush:
         client._buffer.add("com.test", "INFO", None)
         client._flush_bulk_sync()
 
+    @patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed")
+    def test_async_flush_logs_warning_on_http_error(self, mock_bulk, caplog):
+        import logging as stdlib_logging
+
+        mock_bulk.return_value = _ok_response(status=HTTPStatus.BAD_REQUEST)
+        mock_bulk.return_value.content = b'{"errors":[{"detail":"bad"}]}'
+        client = _make_async_logging_client()
+        client._buffer.add("com.test", "INFO", None)
+        with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
+            asyncio.run(client._flush_bulk_async())
+        assert len(caplog.records) == 1
+        assert "400" in caplog.records[0].message
+        assert caplog.records[0].levelno == stdlib_logging.WARNING
+
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    def test_sync_flush_logs_warning_on_http_error(self, mock_bulk, caplog):
+        import logging as stdlib_logging
+
+        mock_bulk.return_value = _ok_response(status=HTTPStatus.BAD_REQUEST)
+        mock_bulk.return_value.content = b'{"errors":[{"detail":"bad"}]}'
+        client = _make_async_logging_client()
+        client._buffer.add("com.test", "INFO", None)
+        with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
+            client._flush_bulk_sync()
+        assert len(caplog.records) == 1
+        assert "400" in caplog.records[0].message
+        assert caplog.records[0].levelno == stdlib_logging.WARNING
+
 
 # ---------------------------------------------------------------------------
 # On new logger callback
