@@ -1157,7 +1157,7 @@
             "name": "Database Loggers",
             "updated_at": "2026-04-01T10:00:00Z"
           },
-          "id": "550e8400-e29b-41d4-a716-446655440000",
+          "id": "database-loggers",
           "type": "log_group"
         }
       },
@@ -1284,7 +1284,7 @@
               "level": "DEBUG"
             }
           },
-          "group": "550e8400-e29b-41d4-a716-446655440000",
+          "group": "database-loggers",
           "level": "DEBUG",
           "managed": true,
           "name": "SQL Logger",
@@ -1302,7 +1302,7 @@
           "id": {
             "type": "string",
             "title": "Id",
-            "description": "Logger identifier (slug)"
+            "description": "Normalized logger name"
           },
           "level": {
             "type": "string",
@@ -1413,7 +1413,7 @@
                 "level": "DEBUG"
               }
             },
-            "group": "660e8400-e29b-41d4-a716-446655440000",
+            "group": "database-loggers",
             "level": "DEBUG",
             "managed": true,
             "name": "SQL Logger",
@@ -1425,7 +1425,7 @@
             ],
             "updated_at": "2026-04-01T10:00:00Z"
           },
-          "id": "550e8400-e29b-41d4-a716-446655440000",
+          "id": "com.example.sql",
           "type": "logger"
         }
       },

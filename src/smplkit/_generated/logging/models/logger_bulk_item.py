@@ -18,7 +18,7 @@ T = TypeVar("T", bound="LoggerBulkItem")
 class LoggerBulkItem:
     """
     Attributes:
-        id (str): Logger identifier (slug)
+        id (str): Normalized logger name
         level (str): Observed log level in smplkit canonical format
         service (None | str | Unset): Service name that discovered this logger
     """
