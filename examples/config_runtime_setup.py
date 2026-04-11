@@ -28,7 +28,13 @@ async def setup_demo_configs(client: AsyncSmplClient) -> dict:
             pass
 
     # Update the built-in common config with org-wide defaults.
+    # Reset items first to avoid type-change errors from previous runs.
     common = await client.config.get("common")
+    common.description = ""
+    common.items = {}
+    common.environments = {}
+    await common.save()
+
     common.description = "Organization-wide shared configuration"
     common.items = {
         "app_name": {"value": "Acme SaaS Platform", "type": "STRING"},

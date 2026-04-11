@@ -77,7 +77,9 @@ async def main() -> None:
         try:
             existing_groups = await client.logging.list_groups()
             for g in existing_groups:
-                if g.id in demo_group_ids:
+                # Server assigns group IDs from the name (e.g. "HTTP Clients"), normalize for comparison
+                normalized = g.id.lower().replace(" ", "_")
+                if normalized in demo_group_ids:
                     await client.logging.delete_group(g.id)
         except Exception:
             pass
@@ -201,7 +203,7 @@ async def main() -> None:
 
         section("5c. Get a Log Group by ID")
 
-        fetched_group = await client.logging.get_group("databases")
+        fetched_group = await client.logging.get_group(db_group.id)
         step(f"Fetched: id={fetched_group.id}, name={fetched_group.name}")
         step(f"  level={fetched_group.level}")
         step(f"  environments={fetched_group.environments}")
@@ -295,15 +297,15 @@ async def main() -> None:
         # ==================================================================
         section("9. Cleanup")
 
-        await client.logging.delete_group("databases")
-        step("Deleted group: databases")
+        await client.logging.delete_group(db_group.id)
+        step(f"Deleted group: {db_group.id}")
 
-        await client.logging.delete_group("http_clients")
-        step("Deleted group: http_clients")
+        await client.logging.delete_group(http_group.id)
+        step(f"Deleted group: {http_group.id}")
 
-        for logger_id in ["app", "app.payments", "sqlalchemy.engine", "app.internal.debug"]:
-            await client.logging.delete(logger_id)
-            step(f"Deleted logger: {logger_id}")
+        for lg in [app_lg, payments_lg, sqla_lg, unmanaged_lg]:
+            await client.logging.delete(lg.id)
+            step(f"Deleted logger: {lg.id}")
 
         # ==================================================================
         # DONE

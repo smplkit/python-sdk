@@ -36,7 +36,8 @@ async def setup_demo_loggers(client: AsyncSmplClient) -> dict:
     try:
         existing_groups = await client.logging.list_groups()
         for g in existing_groups:
-            if g.id in demo_group_ids:
+            # Server assigns group IDs from the name (e.g. "Databases"), normalize for comparison
+            if g.id.lower().replace(" ", "_") in demo_group_ids:
                 await client.logging.delete_group(g.id)
     except Exception:
         pass
@@ -61,8 +62,8 @@ async def setup_demo_loggers(client: AsyncSmplClient) -> dict:
     await sqla_lg.save()
 
     return {
-        "logger_ids": ["app", "app.payments", "sqlalchemy.engine"],
-        "group_ids": ["databases"],
+        "logger_ids": [app_lg.id, payments_lg.id, sqla_lg.id],
+        "group_ids": [db_group.id],  # server-assigned id (e.g. "Databases")
     }
 
 

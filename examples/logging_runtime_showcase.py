@@ -203,7 +203,7 @@ async def main() -> None:
         # ------------------------------------------------------------------
         section("5a. Dynamic Control — Change Group Level")
 
-        db_group = await client.logging.get_group("databases")
+        db_group = await client.logging.get_group(demo["group_ids"][0])
         step(f"sqlalchemy.engine before: {python_level_name('sqlalchemy.engine')}")
 
         db_group.setEnvironmentLevel(ENVIRONMENT, LogLevel.DEBUG)
