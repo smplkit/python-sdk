@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar
 
@@ -9,7 +11,6 @@ from ..types import UNSET, Unset
 from ..models.config_item_definition_type_type_0 import check_config_item_definition_type_type_0
 from ..models.config_item_definition_type_type_0 import ConfigItemDefinitionTypeType0
 from typing import cast
-from typing import Union
 
 
 T = TypeVar("T", bound="ConfigItemDefinition")
@@ -21,19 +22,19 @@ class ConfigItemDefinition:
 
     Attributes:
         value (Any):
-        type_ (Union[ConfigItemDefinitionTypeType0, None, Unset]):
-        description (Union[None, Unset, str]):
+        type_ (ConfigItemDefinitionTypeType0 | None | Unset):
+        description (None | str | Unset):
     """
 
     value: Any
-    type_: Union[ConfigItemDefinitionTypeType0, None, Unset] = UNSET
-    description: Union[None, Unset, str] = UNSET
+    type_: ConfigItemDefinitionTypeType0 | None | Unset = UNSET
+    description: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         value = self.value
 
-        type_: Union[None, Unset, str]
+        type_: None | str | Unset
         if isinstance(self.type_, Unset):
             type_ = UNSET
         elif isinstance(self.type_, str):
@@ -41,7 +42,7 @@ class ConfigItemDefinition:
         else:
             type_ = self.type_
 
-        description: Union[None, Unset, str]
+        description: None | str | Unset
         if isinstance(self.description, Unset):
             description = UNSET
         else:
@@ -66,7 +67,7 @@ class ConfigItemDefinition:
         d = dict(src_dict)
         value = d.pop("value")
 
-        def _parse_type_(data: object) -> Union[ConfigItemDefinitionTypeType0, None, Unset]:
+        def _parse_type_(data: object) -> ConfigItemDefinitionTypeType0 | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -77,18 +78,18 @@ class ConfigItemDefinition:
                 type_type_0 = check_config_item_definition_type_type_0(data)
 
                 return type_type_0
-            except:  # noqa: E722
+            except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(Union[ConfigItemDefinitionTypeType0, None, Unset], data)
+            return cast(ConfigItemDefinitionTypeType0 | None | Unset, data)
 
         type_ = _parse_type_(d.pop("type", UNSET))
 
-        def _parse_description(data: object) -> Union[None, Unset, str]:
+        def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
 

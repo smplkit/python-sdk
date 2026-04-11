@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -9,7 +11,6 @@ from ..types import UNSET, Unset
 from ..models.product_resource_type import check_product_resource_type
 from ..models.product_resource_type import ProductResourceType
 from typing import cast
-from typing import Union
 
 if TYPE_CHECKING:
     from ..models.product import Product
@@ -24,12 +25,12 @@ class ProductResource:
     Attributes:
         type_ (ProductResourceType):
         attributes (Product):
-        id (Union[None, Unset, str]):
+        id (None | str | Unset):
     """
 
     type_: ProductResourceType
-    attributes: "Product"
-    id: Union[None, Unset, str] = UNSET
+    attributes: Product
+    id: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -37,7 +38,7 @@ class ProductResource:
 
         attributes = self.attributes.to_dict()
 
-        id: Union[None, Unset, str]
+        id: None | str | Unset
         if isinstance(self.id, Unset):
             id = UNSET
         else:
@@ -65,12 +66,12 @@ class ProductResource:
 
         attributes = Product.from_dict(d.pop("attributes"))
 
-        def _parse_id(data: object) -> Union[None, Unset, str]:
+        def _parse_id(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         id = _parse_id(d.pop("id", UNSET))
 

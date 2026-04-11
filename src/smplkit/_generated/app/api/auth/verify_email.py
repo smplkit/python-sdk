@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
 
 import httpx
 
@@ -32,8 +32,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[AuthTokenResponse, ErrorResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> AuthTokenResponse | ErrorResponse | None:
     if response.status_code == 200:
         response_200 = AuthTokenResponse.from_dict(response.json())
 
@@ -66,8 +66,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[AuthTokenResponse, ErrorResponse]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[AuthTokenResponse | ErrorResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -78,9 +78,9 @@ def _build_response(
 
 def sync_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: VerifyEmailRequest,
-) -> Response[Union[AuthTokenResponse, ErrorResponse]]:
+) -> Response[AuthTokenResponse | ErrorResponse]:
     """Verify Email
 
      Verifies a user's email address using the token from the verification email.
@@ -93,7 +93,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[AuthTokenResponse, ErrorResponse]]
+        Response[AuthTokenResponse | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
@@ -109,9 +109,9 @@ def sync_detailed(
 
 def sync(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: VerifyEmailRequest,
-) -> Optional[Union[AuthTokenResponse, ErrorResponse]]:
+) -> AuthTokenResponse | ErrorResponse | None:
     """Verify Email
 
      Verifies a user's email address using the token from the verification email.
@@ -124,7 +124,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[AuthTokenResponse, ErrorResponse]
+        AuthTokenResponse | ErrorResponse
     """
 
     return sync_detailed(
@@ -135,9 +135,9 @@ def sync(
 
 async def asyncio_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: VerifyEmailRequest,
-) -> Response[Union[AuthTokenResponse, ErrorResponse]]:
+) -> Response[AuthTokenResponse | ErrorResponse]:
     """Verify Email
 
      Verifies a user's email address using the token from the verification email.
@@ -150,7 +150,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[AuthTokenResponse, ErrorResponse]]
+        Response[AuthTokenResponse | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
@@ -164,9 +164,9 @@ async def asyncio_detailed(
 
 async def asyncio(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: VerifyEmailRequest,
-) -> Optional[Union[AuthTokenResponse, ErrorResponse]]:
+) -> AuthTokenResponse | ErrorResponse | None:
     """Verify Email
 
      Verifies a user's email address using the token from the verification email.
@@ -179,7 +179,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[AuthTokenResponse, ErrorResponse]
+        AuthTokenResponse | ErrorResponse
     """
 
     return (
