@@ -3075,6 +3075,73 @@
         ]
       }
     },
+    "/api/v1/metric_names": {
+      "get": {
+        "tags": [
+          "Metrics"
+        ],
+        "summary": "List Metric Names",
+        "description": "Return distinct metric names (with a representative unit) for this account.\n\nUsed by the dashboard to discover which product sections to render.\nPlain JSON response (not JSON:API) \u2014 this is metadata, not a metric resource.",
+        "operationId": "list_metric_names",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricNamesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or malformed request",
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid authentication",
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/metrics/bulk": {
       "post": {
         "tags": [
@@ -4787,6 +4854,40 @@
           "data"
         ],
         "title": "MetricListResponse"
+      },
+      "MetricNameItem": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "unit": {
+            "type": "string",
+            "nullable": true,
+            "title": "Unit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "MetricNameItem"
+      },
+      "MetricNamesResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/MetricNameItem"
+            },
+            "type": "array",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "MetricNamesResponse"
       },
       "MetricResource": {
         "properties": {

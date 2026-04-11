@@ -51,6 +51,8 @@ from .metric_attributes import MetricAttributes
 from .metric_attributes_dimensions import MetricAttributesDimensions
 from .metric_bulk_request import MetricBulkRequest
 from .metric_list_response import MetricListResponse
+from .metric_name_item import MetricNameItem
+from .metric_names_response import MetricNamesResponse
 from .metric_resource import MetricResource
 from .metric_resource_type import MetricResourceType
 from .metric_rollup_attributes import MetricRollupAttributes
@@ -135,6 +137,8 @@ __all__ = (
     "MetricAttributesDimensions",
     "MetricBulkRequest",
     "MetricListResponse",
+    "MetricNameItem",
+    "MetricNamesResponse",
     "MetricResource",
     "MetricResourceType",
     "MetricRollupAttributes",
