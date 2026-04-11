@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar
 
@@ -8,7 +10,6 @@ from ..types import UNSET, Unset
 
 from dateutil.parser import isoparse
 from typing import cast
-from typing import Union
 import datetime
 
 
@@ -23,14 +24,14 @@ class MetricRollupAttributes:
         value (str):
         bucket (datetime.datetime):
         rollup (str):
-        unit (Union[None, Unset, str]):
+        unit (None | str | Unset):
     """
 
     name: str
     value: str
     bucket: datetime.datetime
     rollup: str
-    unit: Union[None, Unset, str] = UNSET
+    unit: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -42,7 +43,7 @@ class MetricRollupAttributes:
 
         rollup = self.rollup
 
-        unit: Union[None, Unset, str]
+        unit: None | str | Unset
         if isinstance(self.unit, Unset):
             unit = UNSET
         else:
@@ -74,12 +75,12 @@ class MetricRollupAttributes:
 
         rollup = d.pop("rollup")
 
-        def _parse_unit(data: object) -> Union[None, Unset, str]:
+        def _parse_unit(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         unit = _parse_unit(d.pop("unit", UNSET))
 

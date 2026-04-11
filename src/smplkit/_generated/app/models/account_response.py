@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -21,7 +23,7 @@ class AccountResponse:
             'd290f1ee-6c54-4b01-90e6-d701748f0851', 'type': 'account'}.
     """
 
-    data: "AccountResource"
+    data: AccountResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
