@@ -93,7 +93,6 @@ def set_simulated_context(*, user: dict | None = None, account: dict | None = No
 async def main() -> None:
 
     async with AsyncSmplClient(environment="staging", service="showcase-service") as client:
-
         step("AsyncSmplClient initialized (environment=staging, service=showcase-service)")
 
         # Create demo flags (normally done via Console UI).
@@ -190,16 +189,24 @@ async def main() -> None:
 
         section("3. Explicit Context Registration")
 
-        client.flags.register([
-            Context("user", _current_user["id"],
-                first_name=_current_user["first_name"],
-                plan=_current_user["plan"],
-                beta_tester=_current_user["beta_tester"]),
-            Context("account", _current_account["id"],
-                industry=_current_account["industry"],
-                region=_current_account["region"],
-                employee_count=_current_account["employee_count"]),
-        ])
+        client.flags.register(
+            [
+                Context(
+                    "user",
+                    _current_user["id"],
+                    first_name=_current_user["first_name"],
+                    plan=_current_user["plan"],
+                    beta_tester=_current_user["beta_tester"],
+                ),
+                Context(
+                    "account",
+                    _current_account["id"],
+                    industry=_current_account["industry"],
+                    region=_current_account["region"],
+                    employee_count=_current_account["employee_count"],
+                ),
+            ]
+        )
         step("Registered user + account contexts (queued for background flush)")
 
         # ==================================================================
@@ -293,17 +300,21 @@ async def main() -> None:
         # ------------------------------------------------------------------
         section("4c. Explicit Context Override")
 
-        explicit_result = checkout_v2.get(context=[
-            Context("user", "test-user", plan="free", beta_tester=False),
-            Context("account", "test-account", region="jp"),
-        ])
+        explicit_result = checkout_v2.get(
+            context=[
+                Context("user", "test-user", plan="free", beta_tester=False),
+                Context("account", "test-account", region="jp"),
+            ]
+        )
         step(f"checkout-v2 (free, JP) = {explicit_result}")
         assert explicit_result is False
 
-        explicit_result_2 = checkout_v2.get(context=[
-            Context("user", "test-user", plan="enterprise", beta_tester=False),
-            Context("account", "test-account", region="us"),
-        ])
+        explicit_result_2 = checkout_v2.get(
+            context=[
+                Context("user", "test-user", plan="enterprise", beta_tester=False),
+                Context("account", "test-account", region="us"),
+            ]
+        )
         step(f"checkout-v2 (enterprise, US) = {explicit_result_2}")
         assert explicit_result_2 is True
 

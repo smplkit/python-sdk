@@ -62,7 +62,6 @@ async def main() -> None:
     # Management operations do not require start() — they are stateless
     # HTTP calls. No monkey-patching, no discovery, no WebSocket.
     async with AsyncSmplClient(environment="production", service="showcase-service") as client:
-
         step("AsyncSmplClient initialized (environment=production, service=showcase-service)")
 
         # Clean up leftover loggers and groups from previous runs.
@@ -185,7 +184,7 @@ async def main() -> None:
         db_group.setEnvironmentLevel("production", LogLevel.WARN)
         await db_group.save()
         step(f"Created group: id={db_group.id}")
-        step(f"  level=ERROR, production override=WARN")
+        step("  level=ERROR, production override=WARN")
 
         http_group = client.logging.new_group("http_clients", name="HTTP Clients")
         http_group.setLevel(LogLevel.INFO)
@@ -225,7 +224,7 @@ async def main() -> None:
 
         sqla_lg.group = None
         await sqla_lg.save()
-        step(f"Unassigned sqlalchemy.engine from group")
+        step("Unassigned sqlalchemy.engine from group")
 
         sqla_lg.group = db_group.id
         await sqla_lg.save()
@@ -237,14 +236,18 @@ async def main() -> None:
 
         section("7a. Release a Managed Logger")
 
-        step(f"Before: id={sqla_lg.id}, managed={sqla_lg.managed}, "
-             f"level={sqla_lg.level or '(null)'}, group={sqla_lg.group}")
+        step(
+            f"Before: id={sqla_lg.id}, managed={sqla_lg.managed}, "
+            f"level={sqla_lg.level or '(null)'}, group={sqla_lg.group}"
+        )
 
         sqla_lg.managed = False
         await sqla_lg.save()
         step("Released sqlalchemy.engine → unmanaged")
-        step(f"After: managed={sqla_lg.managed}, level={sqla_lg.level or '(null)'}, "
-             f"group={sqla_lg.group or '(null)'}, environments={sqla_lg.environments}")
+        step(
+            f"After: managed={sqla_lg.managed}, level={sqla_lg.level or '(null)'}, "
+            f"group={sqla_lg.group or '(null)'}, environments={sqla_lg.environments}"
+        )
 
         section("7b. Re-Promote a Logger")
 

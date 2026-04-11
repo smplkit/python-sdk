@@ -85,7 +85,6 @@ class UserServiceConfig(BaseModel):
 async def main() -> None:
 
     async with AsyncSmplClient(environment="production", service="showcase-service") as client:
-
         step("AsyncSmplClient initialized (environment=production, service=showcase-service)")
 
         # Create server-side state (normally done via Console UI).
@@ -219,8 +218,7 @@ async def main() -> None:
         @client.config.on_change
         def on_any_change(event):
             changes.append(event)
-            print(f"    [CHANGE] {event.config_id}.{event.item_key}: "
-                  f"{event.old_value!r} -> {event.new_value!r}")
+            print(f"    [CHANGE] {event.config_id}.{event.item_key}: {event.old_value!r} -> {event.new_value!r}")
 
         step("Global change listener registered")
 

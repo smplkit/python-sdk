@@ -59,7 +59,6 @@ async def main() -> None:
     # Management operations do not require connect() or lazy init — they
     # are stateless HTTP calls that bypass the runtime cache entirely.
     async with AsyncSmplClient(environment="production", service="showcase-service") as client:
-
         step("AsyncSmplClient initialized (environment=production, service=showcase-service)")
 
         # Clean up leftover configs from previous runs (order matters: children first).

@@ -88,7 +88,6 @@ async def main() -> None:
     ENVIRONMENT = "production"
 
     async with AsyncSmplClient(environment=ENVIRONMENT, service="showcase-service") as client:
-
         step(f"AsyncSmplClient initialized (environment={ENVIRONMENT}, service=showcase-service)")
 
         # Create server-side state (normally done via Console UI).
@@ -185,7 +184,7 @@ async def main() -> None:
         step(f"    Resolution: env override ({ENVIRONMENT}=ERROR) ✓")
 
         step(f"\n  app.payments → {python_level_name('app.payments')}")
-        step(f"    Resolution: no level → no group → ancestor 'app' → ERROR ✓")
+        step("    Resolution: no level → no group → ancestor 'app' → ERROR ✓")
 
         step(f"\n  sqlalchemy.engine → {python_level_name('sqlalchemy.engine')}")
         step(f"    Resolution: no level → group 'databases' → env override ({ENVIRONMENT}=WARN) ✓")

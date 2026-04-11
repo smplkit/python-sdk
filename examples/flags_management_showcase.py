@@ -68,7 +68,6 @@ async def main() -> None:
     # are stateless HTTP calls. The constructor resolves environment,
     # service, and API key, then registers the service with the server.
     async with AsyncSmplClient(environment="staging", service="showcase-service") as client:
-
         step("AsyncSmplClient initialized (environment=staging, service=showcase-service)")
 
         # Clean up leftover flags from previous runs.
@@ -114,7 +113,7 @@ async def main() -> None:
         step(f"  default={checkout_flag.default}")
 
         await checkout_flag.save()
-        step(f"  Saved")
+        step("  Saved")
 
         # ------------------------------------------------------------------
         # 2b. STRING flag

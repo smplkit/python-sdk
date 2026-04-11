@@ -83,9 +83,7 @@ class TestFlag:
     def test_save_creates_when_created_at_is_none(self):
         client = MagicMock()
         flag = Flag(client, id="new-flag", name="New", type="BOOLEAN", default=False)
-        created = Flag(
-            client, id="new-flag", name="New", type="BOOLEAN", default=False, created_at="2024-01-01"
-        )
+        created = Flag(client, id="new-flag", name="New", type="BOOLEAN", default=False, created_at="2024-01-01")
         client._create_flag.return_value = created
 
         flag.save()
@@ -99,12 +97,8 @@ class TestFlag:
 
     def test_save_updates_when_created_at_is_set(self):
         client = MagicMock()
-        flag = Flag(
-            client, id="existing-id", name="Old", type="BOOLEAN", default=False, created_at="2024-01-01"
-        )
-        updated = Flag(
-            client, id="existing-id", name="Updated", type="BOOLEAN", default=True, created_at="2024-01-01"
-        )
+        flag = Flag(client, id="existing-id", name="Old", type="BOOLEAN", default=False, created_at="2024-01-01")
+        updated = Flag(client, id="existing-id", name="Updated", type="BOOLEAN", default=True, created_at="2024-01-01")
         client._update_flag.return_value = updated
 
         flag.save()
@@ -358,9 +352,7 @@ class TestAsyncFlag:
     def test_save_creates_when_created_at_is_none(self):
         client = AsyncMock()
         flag = AsyncFlag(client, id="new-flag", name="New", type="BOOLEAN", default=False)
-        created = AsyncFlag(
-            client, id="new-flag", name="New", type="BOOLEAN", default=False, created_at="2024-01-01"
-        )
+        created = AsyncFlag(client, id="new-flag", name="New", type="BOOLEAN", default=False, created_at="2024-01-01")
         client._create_flag.return_value = created
 
         async def _run():
@@ -375,9 +367,7 @@ class TestAsyncFlag:
 
     def test_save_updates_when_created_at_is_set(self):
         client = AsyncMock()
-        flag = AsyncFlag(
-            client, id="existing-id", name="Old", type="BOOLEAN", default=False, created_at="2024-01-01"
-        )
+        flag = AsyncFlag(client, id="existing-id", name="Old", type="BOOLEAN", default=False, created_at="2024-01-01")
         updated = AsyncFlag(
             client, id="existing-id", name="Updated", type="BOOLEAN", default=True, created_at="2024-01-01"
         )

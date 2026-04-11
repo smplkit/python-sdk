@@ -1016,9 +1016,7 @@ class TestAsyncConfigClientConnectInternal:
         cfg.id = id
         cfg._items_raw = items_raw
         cfg.environments = environments or {}
-        cfg._build_chain = AsyncMock(
-            return_value=[{"id": id, "items": items_raw, "environments": environments or {}}]
-        )
+        cfg._build_chain = AsyncMock(return_value=[{"id": id, "items": items_raw, "environments": environments or {}}])
         return cfg
 
     def test_connect_internal_populates_cache(self):

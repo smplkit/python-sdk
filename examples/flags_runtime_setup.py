@@ -30,8 +30,9 @@ async def setup_demo_flags(client: AsyncSmplClient) -> list[str]:
         pass
 
     # 1. checkout-v2 — boolean
-    checkout = client.flags.newBooleanFlag("checkout-v2", default=False,
-        description="Controls rollout of the new checkout experience.")
+    checkout = client.flags.newBooleanFlag(
+        "checkout-v2", default=False, description="Controls rollout of the new checkout experience."
+    )
     checkout.setEnvironmentEnabled("staging", True)
     checkout.addRule(
         Rule("Enable for enterprise users in US region")
@@ -42,25 +43,24 @@ async def setup_demo_flags(client: AsyncSmplClient) -> list[str]:
         .build()
     )
     checkout.addRule(
-        Rule("Enable for beta testers")
-        .environment("staging")
-        .when("user.beta_tester", "==", True)
-        .serve(True)
-        .build()
+        Rule("Enable for beta testers").environment("staging").when("user.beta_tester", "==", True).serve(True).build()
     )
     checkout.setEnvironmentEnabled("production", False)
     checkout.setEnvironmentDefault("production", False)
     await checkout.save()
 
     # 2. banner-color — string
-    banner = client.flags.newStringFlag("banner-color", default="red",
+    banner = client.flags.newStringFlag(
+        "banner-color",
+        default="red",
         name="Banner Color",
         description="Controls the banner color shown to users.",
         values=[
             {"name": "Red", "value": "red"},
             {"name": "Green", "value": "green"},
             {"name": "Blue", "value": "blue"},
-        ])
+        ],
+    )
     banner.setEnvironmentEnabled("staging", True)
     banner.addRule(
         Rule("Blue for enterprise users")
@@ -81,8 +81,9 @@ async def setup_demo_flags(client: AsyncSmplClient) -> list[str]:
     await banner.save()
 
     # 3. max-retries — numeric (unconstrained)
-    retries = client.flags.newNumberFlag("max-retries", default=3,
-        description="Maximum number of API retries before failing.")
+    retries = client.flags.newNumberFlag(
+        "max-retries", default=3, description="Maximum number of API retries before failing."
+    )
     retries.setEnvironmentEnabled("staging", True)
     retries.addRule(
         Rule("High retries for large accounts")
