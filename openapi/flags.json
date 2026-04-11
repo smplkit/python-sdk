@@ -266,15 +266,22 @@
           },
           "default": {
             "title": "Default",
-            "description": "Default value; must reference a value in the values array"
+            "description": "Default value; must reference a value in the values array (constrained) or match the flag type (unconstrained)"
           },
           "values": {
-            "items": {
-              "$ref": "#/components/schemas/FlagValue"
-            },
-            "type": "array",
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FlagValue"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Values",
-            "description": "Closed set of possible values"
+            "description": "Ordered set of allowed values (constrained), or null (unconstrained)"
           },
           "environments": {
             "additionalProperties": {
@@ -314,8 +321,7 @@
         "required": [
           "name",
           "type",
-          "default",
-          "values"
+          "default"
         ],
         "title": "Flag",
         "example": {
@@ -466,7 +472,7 @@
               }
             ]
           },
-          "id": "550e8400-e29b-41d4-a716-446655440000",
+          "id": "dark_mode",
           "type": "flag"
         }
       },
