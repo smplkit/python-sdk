@@ -17,7 +17,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "delete",
-        "url": "/api/v1/billing/subscriptions/{product}".format(
+        "url": "/api/v1/subscriptions/{product}".format(
             product=quote(str(product), safe=""),
         ),
     }
@@ -70,7 +70,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
 ) -> Response[Any | ErrorResponse]:
-    """Cancel Billing Subscription
+    """Cancel Subscription
 
      Cancel a subscription at end of the current billing period.
 
@@ -101,7 +101,7 @@ def sync(
     *,
     client: AuthenticatedClient,
 ) -> Any | ErrorResponse | None:
-    """Cancel Billing Subscription
+    """Cancel Subscription
 
      Cancel a subscription at end of the current billing period.
 
@@ -127,7 +127,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
 ) -> Response[Any | ErrorResponse]:
-    """Cancel Billing Subscription
+    """Cancel Subscription
 
      Cancel a subscription at end of the current billing period.
 
@@ -156,7 +156,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
 ) -> Any | ErrorResponse | None:
-    """Cancel Billing Subscription
+    """Cancel Subscription
 
      Cancel a subscription at end of the current billing period.
 

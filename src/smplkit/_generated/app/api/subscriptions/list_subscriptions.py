@@ -14,7 +14,7 @@ def _get_kwargs() -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/api/v1/billing/payment_methods",
+        "url": "/api/v1/subscriptions",
     }
 
     return _kwargs
@@ -64,9 +64,9 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
 ) -> Response[Any | ErrorResponse]:
-    """List Payment Methods
+    """List Subscriptions
 
-     Return the default payment method for the account's Stripe Customer.
+     Return per-product subscription state for the authenticated account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -89,9 +89,9 @@ def sync(
     *,
     client: AuthenticatedClient,
 ) -> Any | ErrorResponse | None:
-    """List Payment Methods
+    """List Subscriptions
 
-     Return the default payment method for the account's Stripe Customer.
+     Return per-product subscription state for the authenticated account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -110,9 +110,9 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
 ) -> Response[Any | ErrorResponse]:
-    """List Payment Methods
+    """List Subscriptions
 
-     Return the default payment method for the account's Stripe Customer.
+     Return per-product subscription state for the authenticated account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -133,9 +133,9 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
 ) -> Any | ErrorResponse | None:
-    """List Payment Methods
+    """List Subscriptions
 
-     Return the default payment method for the account's Stripe Customer.
+     Return per-product subscription state for the authenticated account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

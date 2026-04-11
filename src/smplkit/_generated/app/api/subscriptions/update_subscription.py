@@ -1,5 +1,6 @@
 from http import HTTPStatus
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -8,15 +9,28 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
+from ...models.update_subscription_body import UpdateSubscriptionBody
 
 
-def _get_kwargs() -> dict[str, Any]:
+def _get_kwargs(
+    product: str,
+    *,
+    body: UpdateSubscriptionBody,
+) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
-        "method": "get",
-        "url": "/api/v1/billing/subscriptions",
+        "method": "patch",
+        "url": "/api/v1/subscriptions/{product}".format(
+            product=quote(str(product), safe=""),
+        ),
     }
 
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/vnd.api+json"
+
+    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -61,12 +75,18 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 
 def sync_detailed(
+    product: str,
     *,
     client: AuthenticatedClient,
+    body: UpdateSubscriptionBody,
 ) -> Response[Any | ErrorResponse]:
-    """List Billing Subscriptions
+    """Update Subscription
 
-     Return per-product subscription state for the authenticated account.
+     Change the plan for an existing paid subscription (upgrade or downgrade).
+
+    Args:
+        product (str):
+        body (UpdateSubscriptionBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -76,7 +96,10 @@ def sync_detailed(
         Response[Any | ErrorResponse]
     """
 
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        product=product,
+        body=body,
+    )
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -86,12 +109,18 @@ def sync_detailed(
 
 
 def sync(
+    product: str,
     *,
     client: AuthenticatedClient,
+    body: UpdateSubscriptionBody,
 ) -> Any | ErrorResponse | None:
-    """List Billing Subscriptions
+    """Update Subscription
 
-     Return per-product subscription state for the authenticated account.
+     Change the plan for an existing paid subscription (upgrade or downgrade).
+
+    Args:
+        product (str):
+        body (UpdateSubscriptionBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -102,17 +131,25 @@ def sync(
     """
 
     return sync_detailed(
+        product=product,
         client=client,
+        body=body,
     ).parsed
 
 
 async def asyncio_detailed(
+    product: str,
     *,
     client: AuthenticatedClient,
+    body: UpdateSubscriptionBody,
 ) -> Response[Any | ErrorResponse]:
-    """List Billing Subscriptions
+    """Update Subscription
 
-     Return per-product subscription state for the authenticated account.
+     Change the plan for an existing paid subscription (upgrade or downgrade).
+
+    Args:
+        product (str):
+        body (UpdateSubscriptionBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -122,7 +159,10 @@ async def asyncio_detailed(
         Response[Any | ErrorResponse]
     """
 
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        product=product,
+        body=body,
+    )
 
     response = await client.get_async_httpx_client().request(**kwargs)
 
@@ -130,12 +170,18 @@ async def asyncio_detailed(
 
 
 async def asyncio(
+    product: str,
     *,
     client: AuthenticatedClient,
+    body: UpdateSubscriptionBody,
 ) -> Any | ErrorResponse | None:
-    """List Billing Subscriptions
+    """Update Subscription
 
-     Return per-product subscription state for the authenticated account.
+     Change the plan for an existing paid subscription (upgrade or downgrade).
+
+    Args:
+        product (str):
+        body (UpdateSubscriptionBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -147,6 +193,8 @@ async def asyncio(
 
     return (
         await asyncio_detailed(
+            product=product,
             client=client,
+            body=body,
         )
     ).parsed
