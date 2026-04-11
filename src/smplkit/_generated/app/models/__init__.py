@@ -29,6 +29,9 @@ from .context_type_list_response import ContextTypeListResponse
 from .context_type_resource import ContextTypeResource
 from .context_type_resource_type import ContextTypeResourceType
 from .context_type_response import ContextTypeResponse
+from .create_subscription_attributes import CreateSubscriptionAttributes
+from .create_subscription_body import CreateSubscriptionBody
+from .create_subscription_data import CreateSubscriptionData
 from .environment import Environment
 from .environment_list_response import EnvironmentListResponse
 from .environment_resource import EnvironmentResource
@@ -78,6 +81,9 @@ from .service_list_response import ServiceListResponse
 from .service_resource import ServiceResource
 from .service_resource_type import ServiceResourceType
 from .service_response import ServiceResponse
+from .update_subscription_attributes import UpdateSubscriptionAttributes
+from .update_subscription_body import UpdateSubscriptionBody
+from .update_subscription_data import UpdateSubscriptionData
 from .user import User
 from .user_list_response import UserListResponse
 from .user_resource import UserResource
@@ -115,6 +121,9 @@ __all__ = (
     "ContextTypeResource",
     "ContextTypeResourceType",
     "ContextTypeResponse",
+    "CreateSubscriptionAttributes",
+    "CreateSubscriptionBody",
+    "CreateSubscriptionData",
     "Environment",
     "EnvironmentListResponse",
     "EnvironmentResource",
@@ -164,6 +173,9 @@ __all__ = (
     "ServiceResource",
     "ServiceResourceType",
     "ServiceResponse",
+    "UpdateSubscriptionAttributes",
+    "UpdateSubscriptionBody",
+    "UpdateSubscriptionData",
     "User",
     "UserListResponse",
     "UserResource",
