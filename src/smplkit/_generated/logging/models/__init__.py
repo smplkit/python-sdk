@@ -17,7 +17,9 @@ from .logger_environments_type_0 import LoggerEnvironmentsType0
 from .logger_list_response import LoggerListResponse
 from .logger_resource import LoggerResource
 from .logger_response import LoggerResponse
-from .logger_sources_type_0_item import LoggerSourcesType0Item
+from .logger_source import LoggerSource
+from .logger_source_list_response import LoggerSourceListResponse
+from .logger_source_resource import LoggerSourceResource
 from .resource_log_group import ResourceLogGroup
 from .resource_logger import ResourceLogger
 from .response_log_group import ResponseLogGroup
@@ -37,7 +39,9 @@ __all__ = (
     "LoggerListResponse",
     "LoggerResource",
     "LoggerResponse",
-    "LoggerSourcesType0Item",
+    "LoggerSource",
+    "LoggerSourceListResponse",
+    "LoggerSourceResource",
     "LogGroup",
     "LogGroupEnvironmentsType0",
     "LogGroupListResponse",

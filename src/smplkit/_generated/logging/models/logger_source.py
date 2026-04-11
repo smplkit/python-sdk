@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -12,44 +12,43 @@ from dateutil.parser import isoparse
 from typing import cast
 import datetime
 
-if TYPE_CHECKING:
-    from ..models.logger_environments_type_0 import LoggerEnvironmentsType0
 
-
-T = TypeVar("T", bound="Logger")
+T = TypeVar("T", bound="LoggerSource")
 
 
 @_attrs_define
-class Logger:
+class LoggerSource:
     """
     Example:
-        {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'WARN'}, 'staging': {'level':
-            'DEBUG'}}, 'group': 'database-loggers', 'level': 'DEBUG', 'managed': True, 'name': 'SQL Logger', 'updated_at':
-            '2026-04-01T10:00:00Z'}
+        {'created_at': '2026-04-01T10:00:00Z', 'environment': 'production', 'first_observed': '2026-04-01T10:00:00Z',
+            'last_seen': '2026-04-11T15:30:00Z', 'resolved_level': 'WARN', 'service': 'api-gateway', 'updated_at':
+            '2026-04-11T15:30:00Z'}
 
     Attributes:
-        name (str):
+        service (str | Unset):
+        environment (str | Unset):
         level (None | str | Unset):
-        group (None | str | Unset):
-        managed (bool | None | Unset):
-        environments (LoggerEnvironmentsType0 | None | Unset):
+        resolved_level (str | Unset):
+        first_observed (datetime.datetime | None | Unset):
+        last_seen (datetime.datetime | None | Unset):
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
     """
 
-    name: str
+    service: str | Unset = UNSET
+    environment: str | Unset = UNSET
     level: None | str | Unset = UNSET
-    group: None | str | Unset = UNSET
-    managed: bool | None | Unset = UNSET
-    environments: LoggerEnvironmentsType0 | None | Unset = UNSET
+    resolved_level: str | Unset = UNSET
+    first_observed: datetime.datetime | None | Unset = UNSET
+    last_seen: datetime.datetime | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.logger_environments_type_0 import LoggerEnvironmentsType0
+        service = self.service
 
-        name = self.name
+        environment = self.environment
 
         level: None | str | Unset
         if isinstance(self.level, Unset):
@@ -57,25 +56,23 @@ class Logger:
         else:
             level = self.level
 
-        group: None | str | Unset
-        if isinstance(self.group, Unset):
-            group = UNSET
-        else:
-            group = self.group
+        resolved_level = self.resolved_level
 
-        managed: bool | None | Unset
-        if isinstance(self.managed, Unset):
-            managed = UNSET
+        first_observed: None | str | Unset
+        if isinstance(self.first_observed, Unset):
+            first_observed = UNSET
+        elif isinstance(self.first_observed, datetime.datetime):
+            first_observed = self.first_observed.isoformat()
         else:
-            managed = self.managed
+            first_observed = self.first_observed
 
-        environments: dict[str, Any] | None | Unset
-        if isinstance(self.environments, Unset):
-            environments = UNSET
-        elif isinstance(self.environments, LoggerEnvironmentsType0):
-            environments = self.environments.to_dict()
+        last_seen: None | str | Unset
+        if isinstance(self.last_seen, Unset):
+            last_seen = UNSET
+        elif isinstance(self.last_seen, datetime.datetime):
+            last_seen = self.last_seen.isoformat()
         else:
-            environments = self.environments
+            last_seen = self.last_seen
 
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
@@ -95,19 +92,19 @@ class Logger:
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "name": name,
-            }
-        )
+        field_dict.update({})
+        if service is not UNSET:
+            field_dict["service"] = service
+        if environment is not UNSET:
+            field_dict["environment"] = environment
         if level is not UNSET:
             field_dict["level"] = level
-        if group is not UNSET:
-            field_dict["group"] = group
-        if managed is not UNSET:
-            field_dict["managed"] = managed
-        if environments is not UNSET:
-            field_dict["environments"] = environments
+        if resolved_level is not UNSET:
+            field_dict["resolved_level"] = resolved_level
+        if first_observed is not UNSET:
+            field_dict["first_observed"] = first_observed
+        if last_seen is not UNSET:
+            field_dict["last_seen"] = last_seen
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
         if updated_at is not UNSET:
@@ -117,10 +114,10 @@ class Logger:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.logger_environments_type_0 import LoggerEnvironmentsType0
-
         d = dict(src_dict)
-        name = d.pop("name")
+        service = d.pop("service", UNSET)
+
+        environment = d.pop("environment", UNSET)
 
         def _parse_level(data: object) -> None | str | Unset:
             if data is None:
@@ -131,40 +128,41 @@ class Logger:
 
         level = _parse_level(d.pop("level", UNSET))
 
-        def _parse_group(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
+        resolved_level = d.pop("resolved_level", UNSET)
 
-        group = _parse_group(d.pop("group", UNSET))
-
-        def _parse_managed(data: object) -> bool | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(bool | None | Unset, data)
-
-        managed = _parse_managed(d.pop("managed", UNSET))
-
-        def _parse_environments(data: object) -> LoggerEnvironmentsType0 | None | Unset:
+        def _parse_first_observed(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             try:
-                if not isinstance(data, dict):
+                if not isinstance(data, str):
                     raise TypeError()
-                environments_type_0 = LoggerEnvironmentsType0.from_dict(data)
+                first_observed_type_0 = isoparse(data)
 
-                return environments_type_0
+                return first_observed_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(LoggerEnvironmentsType0 | None | Unset, data)
+            return cast(datetime.datetime | None | Unset, data)
 
-        environments = _parse_environments(d.pop("environments", UNSET))
+        first_observed = _parse_first_observed(d.pop("first_observed", UNSET))
+
+        def _parse_last_seen(data: object) -> datetime.datetime | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                last_seen_type_0 = isoparse(data)
+
+                return last_seen_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None | Unset, data)
+
+        last_seen = _parse_last_seen(d.pop("last_seen", UNSET))
 
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -200,18 +198,19 @@ class Logger:
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 
-        logger = cls(
-            name=name,
+        logger_source = cls(
+            service=service,
+            environment=environment,
             level=level,
-            group=group,
-            managed=managed,
-            environments=environments,
+            resolved_level=resolved_level,
+            first_observed=first_observed,
+            last_seen=last_seen,
             created_at=created_at,
             updated_at=updated_at,
         )
 
-        logger.additional_properties = d
-        return logger
+        logger_source.additional_properties = d
+        return logger_source
 
     @property
     def additional_keys(self) -> list[str]:

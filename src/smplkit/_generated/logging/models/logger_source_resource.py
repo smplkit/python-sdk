@@ -9,31 +9,39 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from typing import cast
+from typing import Literal
 
 if TYPE_CHECKING:
-    from ..models.logger import Logger
+    from ..models.logger_source import LoggerSource
 
 
-T = TypeVar("T", bound="ResourceLogger")
+T = TypeVar("T", bound="LoggerSourceResource")
 
 
 @_attrs_define
-class ResourceLogger:
+class LoggerSourceResource:
     """
+    Example:
+        {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environment': 'production', 'first_observed':
+            '2026-04-01T10:00:00Z', 'last_seen': '2026-04-11T15:30:00Z', 'resolved_level': 'WARN', 'service': 'api-gateway',
+            'updated_at': '2026-04-11T15:30:00Z'}, 'id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type': 'logger_source'}
+
     Attributes:
-        attributes (Logger):  Example: {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level':
-            'WARN'}, 'staging': {'level': 'DEBUG'}}, 'group': 'database-loggers', 'level': 'DEBUG', 'managed': True, 'name':
-            'SQL Logger', 'updated_at': '2026-04-01T10:00:00Z'}.
+        type_ (Literal['logger_source']):
+        attributes (LoggerSource):  Example: {'created_at': '2026-04-01T10:00:00Z', 'environment': 'production',
+            'first_observed': '2026-04-01T10:00:00Z', 'last_seen': '2026-04-11T15:30:00Z', 'resolved_level': 'WARN',
+            'service': 'api-gateway', 'updated_at': '2026-04-11T15:30:00Z'}.
         id (None | str | Unset):
-        type_ (str | Unset):  Default: ''.
     """
 
-    attributes: Logger
+    type_: Literal["logger_source"]
+    attributes: LoggerSource
     id: None | str | Unset = UNSET
-    type_: str | Unset = ""
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        type_ = self.type_
+
         attributes = self.attributes.to_dict()
 
         id: None | str | Unset
@@ -42,28 +50,29 @@ class ResourceLogger:
         else:
             id = self.id
 
-        type_ = self.type_
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "type": type_,
                 "attributes": attributes,
             }
         )
         if id is not UNSET:
             field_dict["id"] = id
-        if type_ is not UNSET:
-            field_dict["type"] = type_
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.logger import Logger
+        from ..models.logger_source import LoggerSource
 
         d = dict(src_dict)
-        attributes = Logger.from_dict(d.pop("attributes"))
+        type_ = cast(Literal["logger_source"], d.pop("type"))
+        if type_ != "logger_source":
+            raise ValueError(f"type must match const 'logger_source', got '{type_}'")
+
+        attributes = LoggerSource.from_dict(d.pop("attributes"))
 
         def _parse_id(data: object) -> None | str | Unset:
             if data is None:
@@ -74,16 +83,14 @@ class ResourceLogger:
 
         id = _parse_id(d.pop("id", UNSET))
 
-        type_ = d.pop("type", UNSET)
-
-        resource_logger = cls(
+        logger_source_resource = cls(
+            type_=type_,
             attributes=attributes,
             id=id,
-            type_=type_,
         )
 
-        resource_logger.additional_properties = d
-        return resource_logger
+        logger_source_resource.additional_properties = d
+        return logger_source_resource
 
     @property
     def additional_keys(self) -> list[str]:

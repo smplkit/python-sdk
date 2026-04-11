@@ -24,15 +24,13 @@ class LoggerResource:
     Example:
         {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'WARN'},
             'staging': {'level': 'DEBUG'}}, 'group': 'database-loggers', 'level': 'DEBUG', 'managed': True, 'name': 'SQL
-            Logger', 'sources': [{'first_observed': '2026-04-01T10:00:00Z', 'service': 'api-gateway'}], 'updated_at':
-            '2026-04-01T10:00:00Z'}, 'id': 'com.example.sql', 'type': 'logger'}
+            Logger', 'updated_at': '2026-04-01T10:00:00Z'}, 'id': 'com.example.sql', 'type': 'logger'}
 
     Attributes:
         type_ (Literal['logger']):
         attributes (Logger):  Example: {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level':
             'WARN'}, 'staging': {'level': 'DEBUG'}}, 'group': 'database-loggers', 'level': 'DEBUG', 'managed': True, 'name':
-            'SQL Logger', 'sources': [{'first_observed': '2026-04-01T10:00:00Z', 'service': 'api-gateway'}], 'updated_at':
-            '2026-04-01T10:00:00Z'}.
+            'SQL Logger', 'updated_at': '2026-04-01T10:00:00Z'}.
         id (None | str | Unset):
     """
 

@@ -21,11 +21,13 @@ class LoggerBulkItem:
         id (str): Normalized logger name
         level (str): Observed log level in smplkit canonical format
         service (None | str | Unset): Service name that discovered this logger
+        environment (None | str | Unset): Environment where this logger was observed
     """
 
     id: str
     level: str
     service: None | str | Unset = UNSET
+    environment: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -39,6 +41,12 @@ class LoggerBulkItem:
         else:
             service = self.service
 
+        environment: None | str | Unset
+        if isinstance(self.environment, Unset):
+            environment = UNSET
+        else:
+            environment = self.environment
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -49,6 +57,8 @@ class LoggerBulkItem:
         )
         if service is not UNSET:
             field_dict["service"] = service
+        if environment is not UNSET:
+            field_dict["environment"] = environment
 
         return field_dict
 
@@ -68,10 +78,20 @@ class LoggerBulkItem:
 
         service = _parse_service(d.pop("service", UNSET))
 
+        def _parse_environment(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        environment = _parse_environment(d.pop("environment", UNSET))
+
         logger_bulk_item = cls(
             id=id,
             level=level,
             service=service,
+            environment=environment,
         )
 
         logger_bulk_item.additional_properties = d
