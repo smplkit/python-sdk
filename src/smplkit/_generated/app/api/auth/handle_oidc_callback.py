@@ -1,6 +1,5 @@
 from http import HTTPStatus
-from typing import Any
-from urllib.parse import quote
+from typing import Any, Optional, Union
 
 import httpx
 
@@ -16,36 +15,36 @@ from ...types import Unset
 def _get_kwargs(
     provider: OidcProvider,
     *,
-    code: None | str | Unset = UNSET,
-    state: None | str | Unset = UNSET,
-    error: None | str | Unset = UNSET,
-    error_description: None | str | Unset = UNSET,
+    code: Union[None, Unset, str] = UNSET,
+    state: Union[None, Unset, str] = UNSET,
+    error: Union[None, Unset, str] = UNSET,
+    error_description: Union[None, Unset, str] = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
-    json_code: None | str | Unset
+    json_code: Union[None, Unset, str]
     if isinstance(code, Unset):
         json_code = UNSET
     else:
         json_code = code
     params["code"] = json_code
 
-    json_state: None | str | Unset
+    json_state: Union[None, Unset, str]
     if isinstance(state, Unset):
         json_state = UNSET
     else:
         json_state = state
     params["state"] = json_state
 
-    json_error: None | str | Unset
+    json_error: Union[None, Unset, str]
     if isinstance(error, Unset):
         json_error = UNSET
     else:
         json_error = error
     params["error"] = json_error
 
-    json_error_description: None | str | Unset
+    json_error_description: Union[None, Unset, str]
     if isinstance(error_description, Unset):
         json_error_description = UNSET
     else:
@@ -57,7 +56,7 @@ def _get_kwargs(
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/api/v1/auth/callback/{provider}".format(
-            provider=quote(str(provider), safe=""),
+            provider=provider,
         ),
         "params": params,
     }
@@ -65,7 +64,9 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | ErrorResponse | None:
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[Any, ErrorResponse]]:
     if response.status_code == 200:
         response_200 = response.json()
         return response_200
@@ -96,7 +97,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | ErrorResponse]:
+def _build_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[Any, ErrorResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -108,12 +111,12 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     provider: OidcProvider,
     *,
-    client: AuthenticatedClient | Client,
-    code: None | str | Unset = UNSET,
-    state: None | str | Unset = UNSET,
-    error: None | str | Unset = UNSET,
-    error_description: None | str | Unset = UNSET,
-) -> Response[Any | ErrorResponse]:
+    client: Union[AuthenticatedClient, Client],
+    code: Union[None, Unset, str] = UNSET,
+    state: Union[None, Unset, str] = UNSET,
+    error: Union[None, Unset, str] = UNSET,
+    error_description: Union[None, Unset, str] = UNSET,
+) -> Response[Union[Any, ErrorResponse]]:
     """Handle OIDC Callback
 
      Handles the callback from the OIDC provider, exchanges the authorization code for tokens, and
@@ -121,17 +124,17 @@ def sync_detailed(
 
     Args:
         provider (OidcProvider):
-        code (None | str | Unset):
-        state (None | str | Unset):
-        error (None | str | Unset):
-        error_description (None | str | Unset):
+        code (Union[None, Unset, str]):
+        state (Union[None, Unset, str]):
+        error (Union[None, Unset, str]):
+        error_description (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse]
+        Response[Union[Any, ErrorResponse]]
     """
 
     kwargs = _get_kwargs(
@@ -152,12 +155,12 @@ def sync_detailed(
 def sync(
     provider: OidcProvider,
     *,
-    client: AuthenticatedClient | Client,
-    code: None | str | Unset = UNSET,
-    state: None | str | Unset = UNSET,
-    error: None | str | Unset = UNSET,
-    error_description: None | str | Unset = UNSET,
-) -> Any | ErrorResponse | None:
+    client: Union[AuthenticatedClient, Client],
+    code: Union[None, Unset, str] = UNSET,
+    state: Union[None, Unset, str] = UNSET,
+    error: Union[None, Unset, str] = UNSET,
+    error_description: Union[None, Unset, str] = UNSET,
+) -> Optional[Union[Any, ErrorResponse]]:
     """Handle OIDC Callback
 
      Handles the callback from the OIDC provider, exchanges the authorization code for tokens, and
@@ -165,17 +168,17 @@ def sync(
 
     Args:
         provider (OidcProvider):
-        code (None | str | Unset):
-        state (None | str | Unset):
-        error (None | str | Unset):
-        error_description (None | str | Unset):
+        code (Union[None, Unset, str]):
+        state (Union[None, Unset, str]):
+        error (Union[None, Unset, str]):
+        error_description (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse
+        Union[Any, ErrorResponse]
     """
 
     return sync_detailed(
@@ -191,12 +194,12 @@ def sync(
 async def asyncio_detailed(
     provider: OidcProvider,
     *,
-    client: AuthenticatedClient | Client,
-    code: None | str | Unset = UNSET,
-    state: None | str | Unset = UNSET,
-    error: None | str | Unset = UNSET,
-    error_description: None | str | Unset = UNSET,
-) -> Response[Any | ErrorResponse]:
+    client: Union[AuthenticatedClient, Client],
+    code: Union[None, Unset, str] = UNSET,
+    state: Union[None, Unset, str] = UNSET,
+    error: Union[None, Unset, str] = UNSET,
+    error_description: Union[None, Unset, str] = UNSET,
+) -> Response[Union[Any, ErrorResponse]]:
     """Handle OIDC Callback
 
      Handles the callback from the OIDC provider, exchanges the authorization code for tokens, and
@@ -204,17 +207,17 @@ async def asyncio_detailed(
 
     Args:
         provider (OidcProvider):
-        code (None | str | Unset):
-        state (None | str | Unset):
-        error (None | str | Unset):
-        error_description (None | str | Unset):
+        code (Union[None, Unset, str]):
+        state (Union[None, Unset, str]):
+        error (Union[None, Unset, str]):
+        error_description (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse]
+        Response[Union[Any, ErrorResponse]]
     """
 
     kwargs = _get_kwargs(
@@ -233,12 +236,12 @@ async def asyncio_detailed(
 async def asyncio(
     provider: OidcProvider,
     *,
-    client: AuthenticatedClient | Client,
-    code: None | str | Unset = UNSET,
-    state: None | str | Unset = UNSET,
-    error: None | str | Unset = UNSET,
-    error_description: None | str | Unset = UNSET,
-) -> Any | ErrorResponse | None:
+    client: Union[AuthenticatedClient, Client],
+    code: Union[None, Unset, str] = UNSET,
+    state: Union[None, Unset, str] = UNSET,
+    error: Union[None, Unset, str] = UNSET,
+    error_description: Union[None, Unset, str] = UNSET,
+) -> Optional[Union[Any, ErrorResponse]]:
     """Handle OIDC Callback
 
      Handles the callback from the OIDC provider, exchanges the authorization code for tokens, and
@@ -246,17 +249,17 @@ async def asyncio(
 
     Args:
         provider (OidcProvider):
-        code (None | str | Unset):
-        state (None | str | Unset):
-        error (None | str | Unset):
-        error_description (None | str | Unset):
+        code (Union[None, Unset, str]):
+        state (Union[None, Unset, str]):
+        error (Union[None, Unset, str]):
+        error_description (Union[None, Unset, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse
+        Union[Any, ErrorResponse]
     """
 
     return (

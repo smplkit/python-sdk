@@ -34,7 +34,6 @@ from smplkit.flags.client import (
     _flag_dict_from_json,
     _hash_context,
     _maybe_reraise_network_error,
-    _NullValuesBody,
     _unset_to_none,
 )
 from smplkit.flags.models import (
@@ -388,15 +387,6 @@ class TestBuildRequestBody:
         gen_flag = _build_gen_flag(name="Test", type_="BOOLEAN", default=False, values=[])
         body = _build_request_body(gen_flag, flag_id="abc-123")
         assert body.data.id == "abc-123"
-
-
-class TestNullValuesBody:
-    def test_to_dict_sets_values_null(self):
-        gen_flag = _build_gen_flag(name="Test", type_="STRING", default="a", values=[])
-        body = _build_request_body(gen_flag)
-        wrapper = _NullValuesBody(body)
-        d = wrapper.to_dict()
-        assert d["data"]["attributes"]["values"] is None
 
 
 class TestFlagDictFromJson:

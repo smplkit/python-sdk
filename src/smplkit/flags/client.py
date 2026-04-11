@@ -164,7 +164,9 @@ def _build_gen_flag(
     environments: dict[str, Any] | None = None,
 ) -> GenFlag:
     """Build a generated Flag model from plain values."""
-    gen_values = [GenFlagValue(name=v["name"], value=v["value"]) for v in (values or [])]
+    gen_values: list[GenFlagValue] | None = None
+    if values is not None:
+        gen_values = [GenFlagValue(name=v["name"], value=v["value"]) for v in values]
 
     gen_envs: GenFlagEnvironments | Any
     if environments:
@@ -203,36 +205,21 @@ def _build_gen_flag(
     )
 
 
-def _build_request_body(gen_flag: GenFlag, *, flag_id: str | None = None, values_null: bool = False) -> ResponseFlag:
-    """Wrap a generated Flag in the JSON:API request envelope."""
-    resource = ResourceFlag(attributes=gen_flag, id=flag_id, type_="flag")
-    body = ResponseFlag(data=resource)
-    if values_null:
-        return _NullValuesBody(body)
-    return body
+def _build_request_body(gen_flag: GenFlag, *, flag_id: str | None = None) -> ResponseFlag:
+    """Wrap a generated Flag in the JSON:API request envelope.
 
-
-class _NullValuesBody:
-    """Wrapper that serializes values as null (for unconstrained flags).
-
-    The generated Flag model does not support nullable values, so we
-    post-process the serialized dict to set values to null.
+    The server's Flag schema declares ``id`` as a *writeOnly* attribute (used
+    as the slug on create).  The generated Python model omits writeOnly fields,
+    so we inject it via ``additional_properties``.
     """
-
-    def __init__(self, inner: ResponseFlag) -> None:
-        self._inner = inner
-
-    def to_dict(self) -> dict[str, Any]:
-        d = self._inner.to_dict()
-        d["data"]["attributes"]["values"] = None
-        return d
+    if flag_id is not None:
+        gen_flag["id"] = flag_id
+    resource = ResourceFlag(attributes=gen_flag, id=flag_id, type_="flag")
+    return ResponseFlag(data=resource)
 
 
 def _flag_dict_from_json(data: dict[str, Any]) -> dict[str, Any]:
-    """Extract flat flag attributes from a JSON:API response ``data`` block.
-
-    Handles ``values: null`` which the generated parser cannot.
-    """
+    """Extract flat flag attributes from a JSON:API response ``data`` block."""
     attrs = data["attributes"]
     values_raw = attrs.get("values")
     values: list[dict[str, Any]] | None = None
@@ -549,7 +536,7 @@ class FlagsClient:
             description=flag.description,
             environments=flag.environments or None,
         )
-        body = _build_request_body(gen_flag, flag_id=flag.id, values_null=flag.values is None)
+        body = _build_request_body(gen_flag, flag_id=flag.id)
         try:
             response = create_flag.sync_detailed(client=self._flags_http, body=body)
         except Exception as exc:
@@ -569,7 +556,7 @@ class FlagsClient:
             description=flag.description,
             environments=flag.environments or None,
         )
-        body = _build_request_body(gen_flag, flag_id=flag.id, values_null=flag.values is None)
+        body = _build_request_body(gen_flag, flag_id=flag.id)
         try:
             response = update_flag.sync_detailed(flag.id, client=self._flags_http, body=body)
         except Exception as exc:
@@ -1008,7 +995,7 @@ class AsyncFlagsClient:
             description=flag.description,
             environments=flag.environments or None,
         )
-        body = _build_request_body(gen_flag, flag_id=flag.id, values_null=flag.values is None)
+        body = _build_request_body(gen_flag, flag_id=flag.id)
         try:
             response = await create_flag.asyncio_detailed(client=self._flags_http, body=body)
         except Exception as exc:
@@ -1028,7 +1015,7 @@ class AsyncFlagsClient:
             description=flag.description,
             environments=flag.environments or None,
         )
-        body = _build_request_body(gen_flag, flag_id=flag.id, values_null=flag.values is None)
+        body = _build_request_body(gen_flag, flag_id=flag.id)
         try:
             response = await update_flag.asyncio_detailed(flag.id, client=self._flags_http, body=body)
         except Exception as exc:

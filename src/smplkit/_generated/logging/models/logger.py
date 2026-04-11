@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -10,6 +8,7 @@ from ..types import UNSET, Unset
 
 from dateutil.parser import isoparse
 from typing import cast
+from typing import Union
 import datetime
 
 if TYPE_CHECKING:
@@ -30,23 +29,23 @@ class Logger:
 
     Attributes:
         name (str):
-        level (None | str | Unset):
-        group (None | str | Unset):
-        managed (bool | None | Unset):
-        sources (list[LoggerSourcesType0Item] | None | Unset):
-        environments (LoggerEnvironmentsType0 | None | Unset):
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
+        level (Union[None, Unset, str]):
+        group (Union[None, Unset, str]):
+        managed (Union[None, Unset, bool]):
+        sources (Union[None, Unset, list['LoggerSourcesType0Item']]):
+        environments (Union['LoggerEnvironmentsType0', None, Unset]):
+        created_at (Union[None, Unset, datetime.datetime]):
+        updated_at (Union[None, Unset, datetime.datetime]):
     """
 
     name: str
-    level: None | str | Unset = UNSET
-    group: None | str | Unset = UNSET
-    managed: bool | None | Unset = UNSET
-    sources: list[LoggerSourcesType0Item] | None | Unset = UNSET
-    environments: LoggerEnvironmentsType0 | None | Unset = UNSET
-    created_at: datetime.datetime | None | Unset = UNSET
-    updated_at: datetime.datetime | None | Unset = UNSET
+    level: Union[None, Unset, str] = UNSET
+    group: Union[None, Unset, str] = UNSET
+    managed: Union[None, Unset, bool] = UNSET
+    sources: Union[None, Unset, list["LoggerSourcesType0Item"]] = UNSET
+    environments: Union["LoggerEnvironmentsType0", None, Unset] = UNSET
+    created_at: Union[None, Unset, datetime.datetime] = UNSET
+    updated_at: Union[None, Unset, datetime.datetime] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -54,25 +53,25 @@ class Logger:
 
         name = self.name
 
-        level: None | str | Unset
+        level: Union[None, Unset, str]
         if isinstance(self.level, Unset):
             level = UNSET
         else:
             level = self.level
 
-        group: None | str | Unset
+        group: Union[None, Unset, str]
         if isinstance(self.group, Unset):
             group = UNSET
         else:
             group = self.group
 
-        managed: bool | None | Unset
+        managed: Union[None, Unset, bool]
         if isinstance(self.managed, Unset):
             managed = UNSET
         else:
             managed = self.managed
 
-        sources: list[dict[str, Any]] | None | Unset
+        sources: Union[None, Unset, list[dict[str, Any]]]
         if isinstance(self.sources, Unset):
             sources = UNSET
         elif isinstance(self.sources, list):
@@ -84,7 +83,7 @@ class Logger:
         else:
             sources = self.sources
 
-        environments: dict[str, Any] | None | Unset
+        environments: Union[None, Unset, dict[str, Any]]
         if isinstance(self.environments, Unset):
             environments = UNSET
         elif isinstance(self.environments, LoggerEnvironmentsType0):
@@ -92,7 +91,7 @@ class Logger:
         else:
             environments = self.environments
 
-        created_at: None | str | Unset
+        created_at: Union[None, Unset, str]
         if isinstance(self.created_at, Unset):
             created_at = UNSET
         elif isinstance(self.created_at, datetime.datetime):
@@ -100,7 +99,7 @@ class Logger:
         else:
             created_at = self.created_at
 
-        updated_at: None | str | Unset
+        updated_at: Union[None, Unset, str]
         if isinstance(self.updated_at, Unset):
             updated_at = UNSET
         elif isinstance(self.updated_at, datetime.datetime):
@@ -140,34 +139,34 @@ class Logger:
         d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_level(data: object) -> None | str | Unset:
+        def _parse_level(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         level = _parse_level(d.pop("level", UNSET))
 
-        def _parse_group(data: object) -> None | str | Unset:
+        def _parse_group(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         group = _parse_group(d.pop("group", UNSET))
 
-        def _parse_managed(data: object) -> bool | None | Unset:
+        def _parse_managed(data: object) -> Union[None, Unset, bool]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(bool | None | Unset, data)
+            return cast(Union[None, Unset, bool], data)
 
         managed = _parse_managed(d.pop("managed", UNSET))
 
-        def _parse_sources(data: object) -> list[LoggerSourcesType0Item] | None | Unset:
+        def _parse_sources(data: object) -> Union[None, Unset, list["LoggerSourcesType0Item"]]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -183,13 +182,13 @@ class Logger:
                     sources_type_0.append(sources_type_0_item)
 
                 return sources_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except:  # noqa: E722
                 pass
-            return cast(list[LoggerSourcesType0Item] | None | Unset, data)
+            return cast(Union[None, Unset, list["LoggerSourcesType0Item"]], data)
 
         sources = _parse_sources(d.pop("sources", UNSET))
 
-        def _parse_environments(data: object) -> LoggerEnvironmentsType0 | None | Unset:
+        def _parse_environments(data: object) -> Union["LoggerEnvironmentsType0", None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -200,13 +199,13 @@ class Logger:
                 environments_type_0 = LoggerEnvironmentsType0.from_dict(data)
 
                 return environments_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except:  # noqa: E722
                 pass
-            return cast(LoggerEnvironmentsType0 | None | Unset, data)
+            return cast(Union["LoggerEnvironmentsType0", None, Unset], data)
 
         environments = _parse_environments(d.pop("environments", UNSET))
 
-        def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_created_at(data: object) -> Union[None, Unset, datetime.datetime]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -217,13 +216,13 @@ class Logger:
                 created_at_type_0 = isoparse(data)
 
                 return created_at_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except:  # noqa: E722
                 pass
-            return cast(datetime.datetime | None | Unset, data)
+            return cast(Union[None, Unset, datetime.datetime], data)
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_updated_at(data: object) -> datetime.datetime | None | Unset:
+        def _parse_updated_at(data: object) -> Union[None, Unset, datetime.datetime]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -234,9 +233,9 @@ class Logger:
                 updated_at_type_0 = isoparse(data)
 
                 return updated_at_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except:  # noqa: E722
                 pass
-            return cast(datetime.datetime | None | Unset, data)
+            return cast(Union[None, Unset, datetime.datetime], data)
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 

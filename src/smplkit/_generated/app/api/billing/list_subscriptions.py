@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, Optional, Union
 
 import httpx
 
@@ -20,7 +20,9 @@ def _get_kwargs() -> dict[str, Any]:
     return _kwargs
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | ErrorResponse | None:
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[Any, ErrorResponse]]:
     if response.status_code == 200:
         response_200 = response.json()
         return response_200
@@ -51,7 +53,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | ErrorResponse]:
+def _build_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[Any, ErrorResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -63,7 +67,7 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-) -> Response[Any | ErrorResponse]:
+) -> Response[Union[Any, ErrorResponse]]:
     """List Subscriptions
 
      Return per-product subscription state for the authenticated account.
@@ -73,7 +77,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse]
+        Response[Union[Any, ErrorResponse]]
     """
 
     kwargs = _get_kwargs()
@@ -88,7 +92,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-) -> Any | ErrorResponse | None:
+) -> Optional[Union[Any, ErrorResponse]]:
     """List Subscriptions
 
      Return per-product subscription state for the authenticated account.
@@ -98,7 +102,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse
+        Union[Any, ErrorResponse]
     """
 
     return sync_detailed(
@@ -109,7 +113,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-) -> Response[Any | ErrorResponse]:
+) -> Response[Union[Any, ErrorResponse]]:
     """List Subscriptions
 
      Return per-product subscription state for the authenticated account.
@@ -119,7 +123,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse]
+        Response[Union[Any, ErrorResponse]]
     """
 
     kwargs = _get_kwargs()
@@ -132,7 +136,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-) -> Any | ErrorResponse | None:
+) -> Optional[Union[Any, ErrorResponse]]:
     """List Subscriptions
 
      Return per-product subscription state for the authenticated account.
@@ -142,7 +146,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse
+        Union[Any, ErrorResponse]
     """
 
     return (

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any, TypeVar, TYPE_CHECKING
 
@@ -9,6 +7,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from typing import cast
+from typing import Union
 
 if TYPE_CHECKING:
     from ..models.config import Config
@@ -26,19 +25,19 @@ class ResourceConfig:
             'items': {'host': {'description': 'Primary database hostname', 'type': 'STRING', 'value': 'db.internal'},
             'pool_size': {'description': 'Connection pool size', 'type': 'NUMBER', 'value': 10}}, 'name': 'Database',
             'updated_at': '2026-03-27T10:00:00Z'}.
-        id (None | str | Unset):
-        type_ (str | Unset):  Default: ''.
+        id (Union[None, Unset, str]):
+        type_ (Union[Unset, str]):  Default: ''.
     """
 
-    attributes: Config
-    id: None | str | Unset = UNSET
-    type_: str | Unset = ""
+    attributes: "Config"
+    id: Union[None, Unset, str] = UNSET
+    type_: Union[Unset, str] = ""
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         attributes = self.attributes.to_dict()
 
-        id: None | str | Unset
+        id: Union[None, Unset, str]
         if isinstance(self.id, Unset):
             id = UNSET
         else:
@@ -67,12 +66,12 @@ class ResourceConfig:
         d = dict(src_dict)
         attributes = Config.from_dict(d.pop("attributes"))
 
-        def _parse_id(data: object) -> None | str | Unset:
+        def _parse_id(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(Union[None, Unset, str], data)
 
         id = _parse_id(d.pop("id", UNSET))
 
