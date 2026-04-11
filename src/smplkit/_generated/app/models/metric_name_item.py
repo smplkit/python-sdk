@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar
 
@@ -6,7 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from typing import cast, Union
+from typing import cast
 
 
 T = TypeVar("T", bound="MetricNameItem")
@@ -17,17 +19,17 @@ class MetricNameItem:
     """
     Attributes:
         name (str):
-        unit (Union[None, Unset, str]):
+        unit (None | str | Unset):
     """
 
     name: str
-    unit: Union[None, Unset, str] = UNSET
+    unit: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         name = self.name
 
-        unit: Union[None, Unset, str]
+        unit: None | str | Unset
         if isinstance(self.unit, Unset):
             unit = UNSET
         else:
@@ -50,12 +52,12 @@ class MetricNameItem:
         d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_unit(data: object) -> Union[None, Unset, str]:
+        def _parse_unit(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         unit = _parse_unit(d.pop("unit", UNSET))
 
