@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar
 
@@ -6,7 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from typing import cast, Union
+from typing import cast
 
 
 T = TypeVar("T", bound="LoggerBulkItem")
@@ -18,12 +20,12 @@ class LoggerBulkItem:
     Attributes:
         id (str): Logger identifier (slug)
         level (str): Observed log level in smplkit canonical format
-        service (Union[None, Unset, str]): Service name that discovered this logger
+        service (None | str | Unset): Service name that discovered this logger
     """
 
     id: str
     level: str
-    service: Union[None, Unset, str] = UNSET
+    service: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -31,7 +33,7 @@ class LoggerBulkItem:
 
         level = self.level
 
-        service: Union[None, Unset, str]
+        service: None | str | Unset
         if isinstance(self.service, Unset):
             service = UNSET
         else:
@@ -57,12 +59,12 @@ class LoggerBulkItem:
 
         level = d.pop("level")
 
-        def _parse_service(data: object) -> Union[None, Unset, str]:
+        def _parse_service(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         service = _parse_service(d.pop("service", UNSET))
 
