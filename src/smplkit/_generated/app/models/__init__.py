@@ -14,9 +14,13 @@ from .api_key_response import ApiKeyResponse
 from .api_key_scopes import ApiKeyScopes
 from .auth_token_response import AuthTokenResponse
 from .bundle_attributes import BundleAttributes
+from .bundle_list_response import BundleListResponse
 from .bundle_resource import BundleResource
 from .bundle_resource_type import BundleResourceType
 from .bundle_response import BundleResponse
+from .catalog_bundle_attributes import CatalogBundleAttributes
+from .catalog_bundle_resource import CatalogBundleResource
+from .catalog_bundle_resource_type import CatalogBundleResourceType
 from .context import Context
 from .context_attributes import ContextAttributes
 from .context_batch_response import ContextBatchResponse
@@ -133,9 +137,13 @@ __all__ = (
     "ApiKeyScopes",
     "AuthTokenResponse",
     "BundleAttributes",
+    "BundleListResponse",
     "BundleResource",
     "BundleResourceType",
     "BundleResponse",
+    "CatalogBundleAttributes",
+    "CatalogBundleResource",
+    "CatalogBundleResourceType",
     "Context",
     "ContextAttributes",
     "ContextBatchResponse",
