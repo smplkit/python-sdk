@@ -20,16 +20,20 @@ class SubscriptionAttributes:
     Attributes:
         product (str):
         plan (str):
-        status (str):
+        comped (bool):
         stripe_managed (bool):
+        status (None | str | Unset):
+        bundle (None | str | Unset):
         current_period_end (None | str | Unset):
         client_secret (None | str | Unset):
     """
 
     product: str
     plan: str
-    status: str
+    comped: bool
     stripe_managed: bool
+    status: None | str | Unset = UNSET
+    bundle: None | str | Unset = UNSET
     current_period_end: None | str | Unset = UNSET
     client_secret: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -39,9 +43,21 @@ class SubscriptionAttributes:
 
         plan = self.plan
 
-        status = self.status
+        comped = self.comped
 
         stripe_managed = self.stripe_managed
+
+        status: None | str | Unset
+        if isinstance(self.status, Unset):
+            status = UNSET
+        else:
+            status = self.status
+
+        bundle: None | str | Unset
+        if isinstance(self.bundle, Unset):
+            bundle = UNSET
+        else:
+            bundle = self.bundle
 
         current_period_end: None | str | Unset
         if isinstance(self.current_period_end, Unset):
@@ -61,10 +77,14 @@ class SubscriptionAttributes:
             {
                 "product": product,
                 "plan": plan,
-                "status": status,
+                "comped": comped,
                 "stripe_managed": stripe_managed,
             }
         )
+        if status is not UNSET:
+            field_dict["status"] = status
+        if bundle is not UNSET:
+            field_dict["bundle"] = bundle
         if current_period_end is not UNSET:
             field_dict["current_period_end"] = current_period_end
         if client_secret is not UNSET:
@@ -79,9 +99,27 @@ class SubscriptionAttributes:
 
         plan = d.pop("plan")
 
-        status = d.pop("status")
+        comped = d.pop("comped")
 
         stripe_managed = d.pop("stripe_managed")
+
+        def _parse_status(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        status = _parse_status(d.pop("status", UNSET))
+
+        def _parse_bundle(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        bundle = _parse_bundle(d.pop("bundle", UNSET))
 
         def _parse_current_period_end(data: object) -> None | str | Unset:
             if data is None:
@@ -104,8 +142,10 @@ class SubscriptionAttributes:
         subscription_attributes = cls(
             product=product,
             plan=plan,
-            status=status,
+            comped=comped,
             stripe_managed=stripe_managed,
+            status=status,
+            bundle=bundle,
             current_period_end=current_period_end,
             client_secret=client_secret,
         )

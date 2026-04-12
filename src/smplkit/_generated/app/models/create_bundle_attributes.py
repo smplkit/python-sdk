@@ -7,30 +7,35 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-T = TypeVar("T", bound="UpdateSubscriptionAttributes")
+T = TypeVar("T", bound="CreateBundleAttributes")
 
 
 @_attrs_define
-class UpdateSubscriptionAttributes:
+class CreateBundleAttributes:
     """
     Example:
-        {'plan': 'pro'}
+        {'bundle': 'standard', 'payment_method': 'pm_1234567890abcdef'}
 
     Attributes:
-        plan (str):
+        bundle (str):
+        payment_method (str):
     """
 
-    plan: str
+    bundle: str
+    payment_method: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        plan = self.plan
+        bundle = self.bundle
+
+        payment_method = self.payment_method
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "plan": plan,
+                "bundle": bundle,
+                "payment_method": payment_method,
             }
         )
 
@@ -39,14 +44,17 @@ class UpdateSubscriptionAttributes:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        plan = d.pop("plan")
+        bundle = d.pop("bundle")
 
-        update_subscription_attributes = cls(
-            plan=plan,
+        payment_method = d.pop("payment_method")
+
+        create_bundle_attributes = cls(
+            bundle=bundle,
+            payment_method=payment_method,
         )
 
-        update_subscription_attributes.additional_properties = d
-        return update_subscription_attributes
+        create_bundle_attributes.additional_properties = d
+        return create_bundle_attributes
 
     @property
     def additional_keys(self) -> list[str]:

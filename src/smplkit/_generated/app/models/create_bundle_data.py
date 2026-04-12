@@ -7,33 +7,39 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
+from ..models.create_bundle_data_type import check_create_bundle_data_type
+from ..models.create_bundle_data_type import CreateBundleDataType
+
 if TYPE_CHECKING:
-    from ..models.subscription_resource import SubscriptionResource
+    from ..models.create_bundle_attributes import CreateBundleAttributes
 
 
-T = TypeVar("T", bound="SubscriptionResponse")
+T = TypeVar("T", bound="CreateBundleData")
 
 
 @_attrs_define
-class SubscriptionResponse:
+class CreateBundleData:
     """
     Attributes:
-        data (SubscriptionResource):  Example: {'attributes': {'comped': False, 'current_period_end':
-            '2026-05-01T00:00:00Z', 'plan': 'pro', 'product': 'flags', 'status': 'active', 'stripe_managed': True}, 'id':
-            'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type': 'subscription'}.
+        type_ (CreateBundleDataType):
+        attributes (CreateBundleAttributes):  Example: {'bundle': 'standard', 'payment_method': 'pm_1234567890abcdef'}.
     """
 
-    data: SubscriptionResource
+    type_: CreateBundleDataType
+    attributes: CreateBundleAttributes
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = self.data.to_dict()
+        type_: str = self.type_
+
+        attributes = self.attributes.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "data": data,
+                "type": type_,
+                "attributes": attributes,
             }
         )
 
@@ -41,17 +47,20 @@ class SubscriptionResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.subscription_resource import SubscriptionResource
+        from ..models.create_bundle_attributes import CreateBundleAttributes
 
         d = dict(src_dict)
-        data = SubscriptionResource.from_dict(d.pop("data"))
+        type_ = check_create_bundle_data_type(d.pop("type"))
 
-        subscription_response = cls(
-            data=data,
+        attributes = CreateBundleAttributes.from_dict(d.pop("attributes"))
+
+        create_bundle_data = cls(
+            type_=type_,
+            attributes=attributes,
         )
 
-        subscription_response.additional_properties = d
-        return subscription_response
+        create_bundle_data.additional_properties = d
+        return create_bundle_data
 
     @property
     def additional_keys(self) -> list[str]:
