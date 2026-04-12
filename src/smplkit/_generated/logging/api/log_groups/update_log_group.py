@@ -9,15 +9,13 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
-from ...models.http_validation_error import HTTPValidationError
 from ...models.log_group_response import LogGroupResponse
-from ...models.response_log_group import ResponseLogGroup
 
 
 def _get_kwargs(
     id: str,
     *,
-    body: ResponseLogGroup,
+    body: LogGroupResponse,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -30,7 +28,7 @@ def _get_kwargs(
 
     _kwargs["json"] = body.to_dict()
 
-    headers["Content-Type"] = "application/json"
+    headers["Content-Type"] = "application/vnd.api+json"
 
     _kwargs["headers"] = headers
     return _kwargs
@@ -38,7 +36,7 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse | HTTPValidationError | LogGroupResponse | None:
+) -> ErrorResponse | LogGroupResponse | None:
     if response.status_code == 200:
         response_200 = LogGroupResponse.from_dict(response.json())
 
@@ -59,11 +57,6 @@ def _parse_response(
 
         return response_404
 
-    if response.status_code == 422:
-        response_422 = HTTPValidationError.from_dict(response.json())
-
-        return response_422
-
     if response.status_code == 429:
         response_429 = ErrorResponse.from_dict(response.json())
 
@@ -77,7 +70,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse | HTTPValidationError | LogGroupResponse]:
+) -> Response[ErrorResponse | LogGroupResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -90,20 +83,22 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: ResponseLogGroup,
-) -> Response[ErrorResponse | HTTPValidationError | LogGroupResponse]:
+    body: LogGroupResponse,
+) -> Response[ErrorResponse | LogGroupResponse]:
     """Update Log Group
+
+     Replace a log group entirely.
 
     Args:
         id (str):
-        body (ResponseLogGroup):
+        body (LogGroupResponse):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | LogGroupResponse]
+        Response[ErrorResponse | LogGroupResponse]
     """
 
     kwargs = _get_kwargs(
@@ -122,20 +117,22 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: ResponseLogGroup,
-) -> ErrorResponse | HTTPValidationError | LogGroupResponse | None:
+    body: LogGroupResponse,
+) -> ErrorResponse | LogGroupResponse | None:
     """Update Log Group
+
+     Replace a log group entirely.
 
     Args:
         id (str):
-        body (ResponseLogGroup):
+        body (LogGroupResponse):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | LogGroupResponse
+        ErrorResponse | LogGroupResponse
     """
 
     return sync_detailed(
@@ -149,20 +146,22 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: ResponseLogGroup,
-) -> Response[ErrorResponse | HTTPValidationError | LogGroupResponse]:
+    body: LogGroupResponse,
+) -> Response[ErrorResponse | LogGroupResponse]:
     """Update Log Group
+
+     Replace a log group entirely.
 
     Args:
         id (str):
-        body (ResponseLogGroup):
+        body (LogGroupResponse):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | LogGroupResponse]
+        Response[ErrorResponse | LogGroupResponse]
     """
 
     kwargs = _get_kwargs(
@@ -179,20 +178,22 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: ResponseLogGroup,
-) -> ErrorResponse | HTTPValidationError | LogGroupResponse | None:
+    body: LogGroupResponse,
+) -> ErrorResponse | LogGroupResponse | None:
     """Update Log Group
+
+     Replace a log group entirely.
 
     Args:
         id (str):
-        body (ResponseLogGroup):
+        body (LogGroupResponse):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | LogGroupResponse
+        ErrorResponse | LogGroupResponse
     """
 
     return (

@@ -36,10 +36,10 @@ from smplkit._generated.logging.api.log_groups import (
 )
 from smplkit._generated.logging.models.logger import Logger as GenLogger
 from smplkit._generated.logging.models.log_group import LogGroup as GenLogGroup
-from smplkit._generated.logging.models.resource_logger import ResourceLogger
-from smplkit._generated.logging.models.resource_log_group import ResourceLogGroup
-from smplkit._generated.logging.models.response_logger import ResponseLogger
-from smplkit._generated.logging.models.response_log_group import ResponseLogGroup
+from smplkit._generated.logging.models.logger_resource import LoggerResource
+from smplkit._generated.logging.models.log_group_resource import LogGroupResource
+from smplkit._generated.logging.models.logger_response import LoggerResponse
+from smplkit._generated.logging.models.log_group_response import LogGroupResponse
 from smplkit._generated.logging.models.logger_bulk_item import LoggerBulkItem
 from smplkit._generated.logging.models.logger_bulk_request import LoggerBulkRequest
 from smplkit._generated.logging.models.logger_environments_type_0 import LoggerEnvironmentsType0
@@ -158,7 +158,7 @@ def _build_logger_body(
     group: str | None = None,
     managed: bool | None = None,
     environments: dict[str, Any] | None = None,
-) -> ResponseLogger:
+) -> LoggerResponse:
     """Build a JSON:API request body for logger create/update."""
     attrs = GenLogger(
         name=name,
@@ -167,8 +167,8 @@ def _build_logger_body(
         managed=managed,
         environments=_make_environments(environments),
     )
-    resource = ResourceLogger(attributes=attrs, id=logger_id, type_="logger")
-    return ResponseLogger(data=resource)
+    resource = LoggerResource(attributes=attrs, id=logger_id, type_="logger")
+    return LoggerResponse(data=resource)
 
 
 def _build_group_body(
@@ -178,7 +178,7 @@ def _build_group_body(
     level: str | None = None,
     group: str | None = None,
     environments: dict[str, Any] | None = None,
-) -> ResponseLogGroup:
+) -> LogGroupResponse:
     """Build a JSON:API request body for log group create/update."""
     attrs = GenLogGroup(
         name=name,
@@ -186,8 +186,8 @@ def _build_group_body(
         group=group,
         environments=_make_group_environments(environments),
     )
-    resource = ResourceLogGroup(attributes=attrs, id=group_id, type_="log_group")
-    return ResponseLogGroup(data=resource)
+    resource = LogGroupResource(attributes=attrs, id=group_id, type_="log_group")
+    return LogGroupResponse(data=resource)
 
 
 # ---------------------------------------------------------------------------

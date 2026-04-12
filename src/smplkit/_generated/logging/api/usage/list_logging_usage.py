@@ -8,29 +8,29 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error_response import ErrorResponse
-from ...models.logger_list_response import LoggerListResponse
+from ...models.usage_list_response import UsageListResponse
 from ...types import Unset
 
 
 def _get_kwargs(
     *,
-    filtermanaged: bool | None | Unset = UNSET,
+    filterperiod: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
-    json_filtermanaged: bool | None | Unset
-    if isinstance(filtermanaged, Unset):
-        json_filtermanaged = UNSET
+    json_filterperiod: None | str | Unset
+    if isinstance(filterperiod, Unset):
+        json_filterperiod = UNSET
     else:
-        json_filtermanaged = filtermanaged
-    params["filter[managed]"] = json_filtermanaged
+        json_filterperiod = filterperiod
+    params["filter[period]"] = json_filterperiod
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/api/v1/loggers",
+        "url": "/api/v1/usage",
         "params": params,
     }
 
@@ -39,9 +39,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse | LoggerListResponse | None:
+) -> ErrorResponse | UsageListResponse | None:
     if response.status_code == 200:
-        response_200 = LoggerListResponse.from_dict(response.json())
+        response_200 = UsageListResponse.from_dict(response.json())
 
         return response_200
 
@@ -73,7 +73,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse | LoggerListResponse]:
+) -> Response[ErrorResponse | UsageListResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -85,25 +85,25 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    filtermanaged: bool | None | Unset = UNSET,
-) -> Response[ErrorResponse | LoggerListResponse]:
-    """List Loggers
+    filterperiod: None | str | Unset = UNSET,
+) -> Response[ErrorResponse | UsageListResponse]:
+    """List Logging Usage
 
-     List all loggers for the authenticated account. Optionally filter by managed status.
+     Return current resource usage counts for the authenticated account.
 
     Args:
-        filtermanaged (bool | None | Unset):
+        filterperiod (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | LoggerListResponse]
+        Response[ErrorResponse | UsageListResponse]
     """
 
     kwargs = _get_kwargs(
-        filtermanaged=filtermanaged,
+        filterperiod=filterperiod,
     )
 
     response = client.get_httpx_client().request(
@@ -116,51 +116,51 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    filtermanaged: bool | None | Unset = UNSET,
-) -> ErrorResponse | LoggerListResponse | None:
-    """List Loggers
+    filterperiod: None | str | Unset = UNSET,
+) -> ErrorResponse | UsageListResponse | None:
+    """List Logging Usage
 
-     List all loggers for the authenticated account. Optionally filter by managed status.
+     Return current resource usage counts for the authenticated account.
 
     Args:
-        filtermanaged (bool | None | Unset):
+        filterperiod (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | LoggerListResponse
+        ErrorResponse | UsageListResponse
     """
 
     return sync_detailed(
         client=client,
-        filtermanaged=filtermanaged,
+        filterperiod=filterperiod,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    filtermanaged: bool | None | Unset = UNSET,
-) -> Response[ErrorResponse | LoggerListResponse]:
-    """List Loggers
+    filterperiod: None | str | Unset = UNSET,
+) -> Response[ErrorResponse | UsageListResponse]:
+    """List Logging Usage
 
-     List all loggers for the authenticated account. Optionally filter by managed status.
+     Return current resource usage counts for the authenticated account.
 
     Args:
-        filtermanaged (bool | None | Unset):
+        filterperiod (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | LoggerListResponse]
+        Response[ErrorResponse | UsageListResponse]
     """
 
     kwargs = _get_kwargs(
-        filtermanaged=filtermanaged,
+        filterperiod=filterperiod,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -171,26 +171,26 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    filtermanaged: bool | None | Unset = UNSET,
-) -> ErrorResponse | LoggerListResponse | None:
-    """List Loggers
+    filterperiod: None | str | Unset = UNSET,
+) -> ErrorResponse | UsageListResponse | None:
+    """List Logging Usage
 
-     List all loggers for the authenticated account. Optionally filter by managed status.
+     Return current resource usage counts for the authenticated account.
 
     Args:
-        filtermanaged (bool | None | Unset):
+        filterperiod (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | LoggerListResponse
+        ErrorResponse | UsageListResponse
     """
 
     return (
         await asyncio_detailed(
             client=client,
-            filtermanaged=filtermanaged,
+            filterperiod=filterperiod,
         )
     ).parsed
