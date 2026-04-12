@@ -1,45 +1,33 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-if TYPE_CHECKING:
-    from ..models.update_subscription_attributes import UpdateSubscriptionAttributes
-
-
-T = TypeVar("T", bound="UpdateSubscriptionData")
+T = TypeVar("T", bound="PlanChangeRequest")
 
 
 @_attrs_define
-class UpdateSubscriptionData:
+class PlanChangeRequest:
     """
-    Example:
-        {'attributes': {'plan': 'pro'}, 'type': 'subscription'}
-
     Attributes:
-        type_ (str):
-        attributes (UpdateSubscriptionAttributes):  Example: {'plan': 'pro'}.
+        plan (str):
     """
 
-    type_: str
-    attributes: UpdateSubscriptionAttributes
+    plan: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        type_ = self.type_
-
-        attributes = self.attributes.to_dict()
+        plan = self.plan
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "type": type_,
-                "attributes": attributes,
+                "plan": plan,
             }
         )
 
@@ -47,20 +35,15 @@ class UpdateSubscriptionData:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.update_subscription_attributes import UpdateSubscriptionAttributes
-
         d = dict(src_dict)
-        type_ = d.pop("type")
+        plan = d.pop("plan")
 
-        attributes = UpdateSubscriptionAttributes.from_dict(d.pop("attributes"))
-
-        update_subscription_data = cls(
-            type_=type_,
-            attributes=attributes,
+        plan_change_request = cls(
+            plan=plan,
         )
 
-        update_subscription_data.additional_properties = d
-        return update_subscription_data
+        plan_change_request.additional_properties = d
+        return plan_change_request
 
     @property
     def additional_keys(self) -> list[str]:

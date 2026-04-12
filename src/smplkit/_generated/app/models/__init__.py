@@ -72,6 +72,7 @@ from .payment_method_list_response import PaymentMethodListResponse
 from .payment_method_resource import PaymentMethodResource
 from .payment_method_resource_type import PaymentMethodResourceType
 from .plan import Plan
+from .plan_change_request import PlanChangeRequest
 from .plan_definition import PlanDefinition
 from .plan_definition_limits import PlanDefinitionLimits
 from .plan_list_response import PlanListResponse
@@ -98,9 +99,6 @@ from .subscription_list_response import SubscriptionListResponse
 from .subscription_resource import SubscriptionResource
 from .subscription_resource_type import SubscriptionResourceType
 from .subscription_response import SubscriptionResponse
-from .update_subscription_attributes import UpdateSubscriptionAttributes
-from .update_subscription_body import UpdateSubscriptionBody
-from .update_subscription_data import UpdateSubscriptionData
 from .user import User
 from .user_list_response import UserListResponse
 from .user_resource import UserResource
@@ -181,6 +179,7 @@ __all__ = (
     "PaymentMethodResource",
     "PaymentMethodResourceType",
     "Plan",
+    "PlanChangeRequest",
     "PlanDefinition",
     "PlanDefinitionLimits",
     "PlanListResponse",
@@ -207,9 +206,6 @@ __all__ = (
     "SubscriptionResource",
     "SubscriptionResourceType",
     "SubscriptionResponse",
-    "UpdateSubscriptionAttributes",
-    "UpdateSubscriptionBody",
-    "UpdateSubscriptionData",
     "User",
     "UserListResponse",
     "UserResource",

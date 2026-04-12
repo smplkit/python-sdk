@@ -9,21 +9,22 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
+from ...models.plan_change_request import PlanChangeRequest
 from ...models.subscription_response import SubscriptionResponse
-from ...models.update_subscription_body import UpdateSubscriptionBody
+from uuid import UUID
 
 
 def _get_kwargs(
-    product: str,
+    id: UUID,
     *,
-    body: UpdateSubscriptionBody,
+    body: PlanChangeRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
-        "method": "patch",
-        "url": "/api/v1/subscriptions/{product}".format(
-            product=quote(str(product), safe=""),
+        "method": "post",
+        "url": "/api/v1/subscriptions/{id}/actions/downgrade".format(
+            id=quote(str(id), safe=""),
         ),
     }
 
@@ -81,19 +82,18 @@ def _build_response(
 
 
 def sync_detailed(
-    product: str,
+    id: UUID,
     *,
     client: AuthenticatedClient,
-    body: UpdateSubscriptionBody,
+    body: PlanChangeRequest,
 ) -> Response[ErrorResponse | SubscriptionResponse]:
-    """Update Subscription
+    """Downgrade Subscription
 
-     Change the plan for an existing paid subscription (upgrade or downgrade).
+     Downgrade an existing paid subscription to a lower plan.
 
     Args:
-        product (str):
-        body (UpdateSubscriptionBody):  Example: {'data': {'attributes': {'plan': 'pro'}, 'type':
-            'subscription'}}.
+        id (UUID):
+        body (PlanChangeRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -104,7 +104,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
-        product=product,
+        id=id,
         body=body,
     )
 
@@ -116,19 +116,18 @@ def sync_detailed(
 
 
 def sync(
-    product: str,
+    id: UUID,
     *,
     client: AuthenticatedClient,
-    body: UpdateSubscriptionBody,
+    body: PlanChangeRequest,
 ) -> ErrorResponse | SubscriptionResponse | None:
-    """Update Subscription
+    """Downgrade Subscription
 
-     Change the plan for an existing paid subscription (upgrade or downgrade).
+     Downgrade an existing paid subscription to a lower plan.
 
     Args:
-        product (str):
-        body (UpdateSubscriptionBody):  Example: {'data': {'attributes': {'plan': 'pro'}, 'type':
-            'subscription'}}.
+        id (UUID):
+        body (PlanChangeRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -139,26 +138,25 @@ def sync(
     """
 
     return sync_detailed(
-        product=product,
+        id=id,
         client=client,
         body=body,
     ).parsed
 
 
 async def asyncio_detailed(
-    product: str,
+    id: UUID,
     *,
     client: AuthenticatedClient,
-    body: UpdateSubscriptionBody,
+    body: PlanChangeRequest,
 ) -> Response[ErrorResponse | SubscriptionResponse]:
-    """Update Subscription
+    """Downgrade Subscription
 
-     Change the plan for an existing paid subscription (upgrade or downgrade).
+     Downgrade an existing paid subscription to a lower plan.
 
     Args:
-        product (str):
-        body (UpdateSubscriptionBody):  Example: {'data': {'attributes': {'plan': 'pro'}, 'type':
-            'subscription'}}.
+        id (UUID):
+        body (PlanChangeRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -169,7 +167,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
-        product=product,
+        id=id,
         body=body,
     )
 
@@ -179,19 +177,18 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    product: str,
+    id: UUID,
     *,
     client: AuthenticatedClient,
-    body: UpdateSubscriptionBody,
+    body: PlanChangeRequest,
 ) -> ErrorResponse | SubscriptionResponse | None:
-    """Update Subscription
+    """Downgrade Subscription
 
-     Change the plan for an existing paid subscription (upgrade or downgrade).
+     Downgrade an existing paid subscription to a lower plan.
 
     Args:
-        product (str):
-        body (UpdateSubscriptionBody):  Example: {'data': {'attributes': {'plan': 'pro'}, 'type':
-            'subscription'}}.
+        id (UUID):
+        body (PlanChangeRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -203,7 +200,7 @@ async def asyncio(
 
     return (
         await asyncio_detailed(
-            product=product,
+            id=id,
             client=client,
             body=body,
         )

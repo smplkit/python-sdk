@@ -23,8 +23,9 @@ T = TypeVar("T", bound="SubscriptionResource")
 class SubscriptionResource:
     """
     Example:
-        {'attributes': {'current_period_end': '2026-05-01T00:00:00Z', 'plan': 'pro', 'product': 'flags', 'status':
-            'active', 'stripe_managed': True}, 'id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type': 'subscription'}
+        {'attributes': {'comped': False, 'current_period_end': '2026-05-01T00:00:00Z', 'plan': 'pro', 'product':
+            'flags', 'status': 'active', 'stripe_managed': True}, 'id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type':
+            'subscription'}
 
     Attributes:
         type_ (SubscriptionResourceType):
