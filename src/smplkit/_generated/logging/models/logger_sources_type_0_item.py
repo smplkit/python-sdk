@@ -1,55 +1,35 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-if TYPE_CHECKING:
-    from ..models.resource_logger import ResourceLogger
-
-
-T = TypeVar("T", bound="ResponseLogger")
+T = TypeVar("T", bound="LoggerSourcesType0Item")
 
 
 @_attrs_define
-class ResponseLogger:
-    """
-    Attributes:
-        data (ResourceLogger):
-    """
+class LoggerSourcesType0Item:
+    """ """
 
-    data: ResourceLogger
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = self.data.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "data": data,
-            }
-        )
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.resource_logger import ResourceLogger
-
         d = dict(src_dict)
-        data = ResourceLogger.from_dict(d.pop("data"))
+        logger_sources_type_0_item = cls()
 
-        response_logger = cls(
-            data=data,
-        )
-
-        response_logger.additional_properties = d
-        return response_logger
+        logger_sources_type_0_item.additional_properties = d
+        return logger_sources_type_0_item
 
     @property
     def additional_keys(self) -> list[str]:

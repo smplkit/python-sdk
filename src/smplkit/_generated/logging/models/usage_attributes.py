@@ -1,44 +1,43 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-if TYPE_CHECKING:
-    from ..models.logger_bulk_item import LoggerBulkItem
-
-
-T = TypeVar("T", bound="LoggerBulkRequest")
+T = TypeVar("T", bound="UsageAttributes")
 
 
 @_attrs_define
-class LoggerBulkRequest:
+class UsageAttributes:
     """
-    Example:
-        {'loggers': [{'environment': 'production', 'id': 'sqlalchemy.engine', 'level': 'WARN', 'service': 'api-
-            gateway'}, {'environment': 'production', 'id': 'stripe', 'level': 'INFO', 'service': 'api-gateway'}]}
-
     Attributes:
-        loggers (list[LoggerBulkItem]):
+        limit_key (str):
+        period (str):
+        value (int):
     """
 
-    loggers: list[LoggerBulkItem]
+    limit_key: str
+    period: str
+    value: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        loggers = []
-        for loggers_item_data in self.loggers:
-            loggers_item = loggers_item_data.to_dict()
-            loggers.append(loggers_item)
+        limit_key = self.limit_key
+
+        period = self.period
+
+        value = self.value
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "loggers": loggers,
+                "limit_key": limit_key,
+                "period": period,
+                "value": value,
             }
         )
 
@@ -46,22 +45,21 @@ class LoggerBulkRequest:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.logger_bulk_item import LoggerBulkItem
-
         d = dict(src_dict)
-        loggers = []
-        _loggers = d.pop("loggers")
-        for loggers_item_data in _loggers:
-            loggers_item = LoggerBulkItem.from_dict(loggers_item_data)
+        limit_key = d.pop("limit_key")
 
-            loggers.append(loggers_item)
+        period = d.pop("period")
 
-        logger_bulk_request = cls(
-            loggers=loggers,
+        value = d.pop("value")
+
+        usage_attributes = cls(
+            limit_key=limit_key,
+            period=period,
+            value=value,
         )
 
-        logger_bulk_request.additional_properties = d
-        return logger_bulk_request
+        usage_attributes.additional_properties = d
+        return usage_attributes
 
     @property
     def additional_keys(self) -> list[str]:
