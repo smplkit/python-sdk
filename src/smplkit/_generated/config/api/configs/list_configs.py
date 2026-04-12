@@ -8,7 +8,6 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.config_list_response import ConfigListResponse
-from ...models.http_validation_error import HTTPValidationError
 from ...types import Unset
 
 
@@ -37,18 +36,11 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ConfigListResponse | HTTPValidationError | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ConfigListResponse | None:
     if response.status_code == 200:
         response_200 = ConfigListResponse.from_dict(response.json())
 
         return response_200
-
-    if response.status_code == 422:
-        response_422 = HTTPValidationError.from_dict(response.json())
-
-        return response_422
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -56,9 +48,7 @@ def _parse_response(
         return None
 
 
-def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ConfigListResponse | HTTPValidationError]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ConfigListResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -71,8 +61,10 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     filterparent: None | str | Unset = UNSET,
-) -> Response[ConfigListResponse | HTTPValidationError]:
+) -> Response[ConfigListResponse]:
     """List Configs
+
+     List all configurations for the authenticated account.
 
     Args:
         filterparent (None | str | Unset):
@@ -82,7 +74,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ConfigListResponse | HTTPValidationError]
+        Response[ConfigListResponse]
     """
 
     kwargs = _get_kwargs(
@@ -100,8 +92,10 @@ def sync(
     *,
     client: AuthenticatedClient,
     filterparent: None | str | Unset = UNSET,
-) -> ConfigListResponse | HTTPValidationError | None:
+) -> ConfigListResponse | None:
     """List Configs
+
+     List all configurations for the authenticated account.
 
     Args:
         filterparent (None | str | Unset):
@@ -111,7 +105,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ConfigListResponse | HTTPValidationError
+        ConfigListResponse
     """
 
     return sync_detailed(
@@ -124,8 +118,10 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     filterparent: None | str | Unset = UNSET,
-) -> Response[ConfigListResponse | HTTPValidationError]:
+) -> Response[ConfigListResponse]:
     """List Configs
+
+     List all configurations for the authenticated account.
 
     Args:
         filterparent (None | str | Unset):
@@ -135,7 +131,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ConfigListResponse | HTTPValidationError]
+        Response[ConfigListResponse]
     """
 
     kwargs = _get_kwargs(
@@ -151,8 +147,10 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     filterparent: None | str | Unset = UNSET,
-) -> ConfigListResponse | HTTPValidationError | None:
+) -> ConfigListResponse | None:
     """List Configs
+
+     List all configurations for the authenticated account.
 
     Args:
         filterparent (None | str | Unset):
@@ -162,7 +160,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ConfigListResponse | HTTPValidationError
+        ConfigListResponse
     """
 
     return (
