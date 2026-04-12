@@ -8,13 +8,11 @@ from ...types import Response
 from ... import errors
 
 from ...models.flag_response import FlagResponse
-from ...models.http_validation_error import HTTPValidationError
-from ...models.response_flag import ResponseFlag
 
 
 def _get_kwargs(
     *,
-    body: ResponseFlag,
+    body: FlagResponse,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -25,24 +23,17 @@ def _get_kwargs(
 
     _kwargs["json"] = body.to_dict()
 
-    headers["Content-Type"] = "application/json"
+    headers["Content-Type"] = "application/vnd.api+json"
 
     _kwargs["headers"] = headers
     return _kwargs
 
 
-def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> FlagResponse | HTTPValidationError | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> FlagResponse | None:
     if response.status_code == 201:
         response_201 = FlagResponse.from_dict(response.json())
 
         return response_201
-
-    if response.status_code == 422:
-        response_422 = HTTPValidationError.from_dict(response.json())
-
-        return response_422
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -50,9 +41,7 @@ def _parse_response(
         return None
 
 
-def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[FlagResponse | HTTPValidationError]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[FlagResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -64,19 +53,21 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: ResponseFlag,
-) -> Response[FlagResponse | HTTPValidationError]:
+    body: FlagResponse,
+) -> Response[FlagResponse]:
     """Create Flag
 
+     Create a new feature flag. The caller provides the id (key) in the request body.
+
     Args:
-        body (ResponseFlag):
+        body (FlagResponse):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[FlagResponse | HTTPValidationError]
+        Response[FlagResponse]
     """
 
     kwargs = _get_kwargs(
@@ -93,19 +84,21 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: ResponseFlag,
-) -> FlagResponse | HTTPValidationError | None:
+    body: FlagResponse,
+) -> FlagResponse | None:
     """Create Flag
 
+     Create a new feature flag. The caller provides the id (key) in the request body.
+
     Args:
-        body (ResponseFlag):
+        body (FlagResponse):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        FlagResponse | HTTPValidationError
+        FlagResponse
     """
 
     return sync_detailed(
@@ -117,19 +110,21 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: ResponseFlag,
-) -> Response[FlagResponse | HTTPValidationError]:
+    body: FlagResponse,
+) -> Response[FlagResponse]:
     """Create Flag
 
+     Create a new feature flag. The caller provides the id (key) in the request body.
+
     Args:
-        body (ResponseFlag):
+        body (FlagResponse):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[FlagResponse | HTTPValidationError]
+        Response[FlagResponse]
     """
 
     kwargs = _get_kwargs(
@@ -144,19 +139,21 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: ResponseFlag,
-) -> FlagResponse | HTTPValidationError | None:
+    body: FlagResponse,
+) -> FlagResponse | None:
     """Create Flag
 
+     Create a new feature flag. The caller provides the id (key) in the request body.
+
     Args:
-        body (ResponseFlag):
+        body (FlagResponse):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        FlagResponse | HTTPValidationError
+        FlagResponse
     """
 
     return (
