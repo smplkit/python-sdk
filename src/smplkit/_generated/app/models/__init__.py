@@ -98,6 +98,10 @@ from .service_list_response import ServiceListResponse
 from .service_resource import ServiceResource
 from .service_resource_type import ServiceResourceType
 from .service_response import ServiceResponse
+from .set_default_payment_method_attributes import SetDefaultPaymentMethodAttributes
+from .set_default_payment_method_data import SetDefaultPaymentMethodData
+from .set_default_payment_method_data_type import SetDefaultPaymentMethodDataType
+from .set_default_payment_method_request import SetDefaultPaymentMethodRequest
 from .setup_intent_attributes import SetupIntentAttributes
 from .setup_intent_resource import SetupIntentResource
 from .setup_intent_resource_type import SetupIntentResourceType
@@ -213,6 +217,10 @@ __all__ = (
     "ServiceResource",
     "ServiceResourceType",
     "ServiceResponse",
+    "SetDefaultPaymentMethodAttributes",
+    "SetDefaultPaymentMethodData",
+    "SetDefaultPaymentMethodDataType",
+    "SetDefaultPaymentMethodRequest",
     "SetupIntentAttributes",
     "SetupIntentResource",
     "SetupIntentResourceType",
