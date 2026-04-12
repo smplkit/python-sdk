@@ -25,32 +25,48 @@ class Invitation:
             'PENDING', 'updated_at': '2026-03-20T11:02:16.616Z'}
 
     Attributes:
-        email (str | Unset):  Default: ''.
-        role (str | Unset):  Default: ''.
-        status (str | Unset):  Default: ''.
-        invited_by (str | Unset):  Default: ''.
+        email (None | str | Unset):
+        role (None | str | Unset):
+        status (None | str | Unset):
+        invited_by (None | str | Unset):
         expires_at (datetime.datetime | None | Unset):
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
     """
 
-    email: str | Unset = ""
-    role: str | Unset = ""
-    status: str | Unset = ""
-    invited_by: str | Unset = ""
+    email: None | str | Unset = UNSET
+    role: None | str | Unset = UNSET
+    status: None | str | Unset = UNSET
+    invited_by: None | str | Unset = UNSET
     expires_at: datetime.datetime | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        email = self.email
+        email: None | str | Unset
+        if isinstance(self.email, Unset):
+            email = UNSET
+        else:
+            email = self.email
 
-        role = self.role
+        role: None | str | Unset
+        if isinstance(self.role, Unset):
+            role = UNSET
+        else:
+            role = self.role
 
-        status = self.status
+        status: None | str | Unset
+        if isinstance(self.status, Unset):
+            status = UNSET
+        else:
+            status = self.status
 
-        invited_by = self.invited_by
+        invited_by: None | str | Unset
+        if isinstance(self.invited_by, Unset):
+            invited_by = UNSET
+        else:
+            invited_by = self.invited_by
 
         expires_at: None | str | Unset
         if isinstance(self.expires_at, Unset):
@@ -99,13 +115,42 @@ class Invitation:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        email = d.pop("email", UNSET)
 
-        role = d.pop("role", UNSET)
+        def _parse_email(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
 
-        status = d.pop("status", UNSET)
+        email = _parse_email(d.pop("email", UNSET))
 
-        invited_by = d.pop("invited_by", UNSET)
+        def _parse_role(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        role = _parse_role(d.pop("role", UNSET))
+
+        def _parse_status(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        status = _parse_status(d.pop("status", UNSET))
+
+        def _parse_invited_by(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        invited_by = _parse_invited_by(d.pop("invited_by", UNSET))
 
         def _parse_expires_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:

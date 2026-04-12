@@ -72,6 +72,8 @@ def sync_detailed(
 ) -> Response[Any | ErrorResponse]:
     """Delete Environment
 
+     Delete an environment by id.
+
     Args:
         id (str):
 
@@ -101,6 +103,8 @@ def sync(
 ) -> Any | ErrorResponse | None:
     """Delete Environment
 
+     Delete an environment by id.
+
     Args:
         id (str):
 
@@ -124,6 +128,8 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 ) -> Response[Any | ErrorResponse]:
     """Delete Environment
+
+     Delete an environment by id.
 
     Args:
         id (str):
@@ -151,6 +157,8 @@ async def asyncio(
     client: AuthenticatedClient,
 ) -> Any | ErrorResponse | None:
     """Delete Environment
+
+     Delete an environment by id.
 
     Args:
         id (str):

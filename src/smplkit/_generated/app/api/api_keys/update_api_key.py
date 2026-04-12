@@ -88,6 +88,8 @@ def sync_detailed(
 ) -> Response[ApiKeyResponse | ErrorResponse]:
     """Update API Key
 
+     Update an API key by id.
+
     Args:
         id (UUID):
         body (ApiKeyResponse):
@@ -120,6 +122,8 @@ def sync(
 ) -> ApiKeyResponse | ErrorResponse | None:
     """Update API Key
 
+     Update an API key by id.
+
     Args:
         id (UUID):
         body (ApiKeyResponse):
@@ -146,6 +150,8 @@ async def asyncio_detailed(
     body: ApiKeyResponse,
 ) -> Response[ApiKeyResponse | ErrorResponse]:
     """Update API Key
+
+     Update an API key by id.
 
     Args:
         id (UUID):
@@ -176,6 +182,8 @@ async def asyncio(
     body: ApiKeyResponse,
 ) -> ApiKeyResponse | ErrorResponse | None:
     """Update API Key
+
+     Update an API key by id.
 
     Args:
         id (UUID):

@@ -18,7 +18,9 @@ T = TypeVar("T", bound="ContextTypeResponse")
 class ContextTypeResponse:
     """
     Attributes:
-        data (ContextTypeResource):
+        data (ContextTypeResource):  Example: {'attributes': {'attributes': {'beta_tester': {}, 'first_name': {},
+            'plan': {}}, 'created_at': '2026-03-31T10:00:00Z', 'name': 'User', 'updated_at': '2026-03-31T10:00:00Z'}, 'id':
+            'user', 'type': 'context_type'}.
     """
 
     data: ContextTypeResource

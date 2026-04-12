@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -32,7 +32,7 @@ def _get_kwargs(
 
 def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | ErrorResponse | None:
     if response.status_code == 202:
-        response_202 = response.json()
+        response_202 = cast(Any, None)
         return response_202
 
     if response.status_code == 400:
@@ -77,8 +77,13 @@ def sync_detailed(
 ) -> Response[Any | ErrorResponse]:
     """Bulk Ingest Metrics
 
+     Ingest pre-aggregated metric data points. Returns 202 Accepted with no response body.
+
     Args:
-        body (MetricBulkRequest):
+        body (MetricBulkRequest):  Example: {'data': [{'attributes': {'dimensions':
+            {'environment': 'production'}, 'name': 'flags.evaluations', 'period_seconds': 60,
+            'recorded_at': '2026-04-10T18:00:00Z', 'unit': 'evaluations', 'value': 1482}, 'type':
+            'metric'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -106,8 +111,13 @@ def sync(
 ) -> Any | ErrorResponse | None:
     """Bulk Ingest Metrics
 
+     Ingest pre-aggregated metric data points. Returns 202 Accepted with no response body.
+
     Args:
-        body (MetricBulkRequest):
+        body (MetricBulkRequest):  Example: {'data': [{'attributes': {'dimensions':
+            {'environment': 'production'}, 'name': 'flags.evaluations', 'period_seconds': 60,
+            'recorded_at': '2026-04-10T18:00:00Z', 'unit': 'evaluations', 'value': 1482}, 'type':
+            'metric'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -130,8 +140,13 @@ async def asyncio_detailed(
 ) -> Response[Any | ErrorResponse]:
     """Bulk Ingest Metrics
 
+     Ingest pre-aggregated metric data points. Returns 202 Accepted with no response body.
+
     Args:
-        body (MetricBulkRequest):
+        body (MetricBulkRequest):  Example: {'data': [{'attributes': {'dimensions':
+            {'environment': 'production'}, 'name': 'flags.evaluations', 'period_seconds': 60,
+            'recorded_at': '2026-04-10T18:00:00Z', 'unit': 'evaluations', 'value': 1482}, 'type':
+            'metric'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -157,8 +172,13 @@ async def asyncio(
 ) -> Any | ErrorResponse | None:
     """Bulk Ingest Metrics
 
+     Ingest pre-aggregated metric data points. Returns 202 Accepted with no response body.
+
     Args:
-        body (MetricBulkRequest):
+        body (MetricBulkRequest):  Example: {'data': [{'attributes': {'dimensions':
+            {'environment': 'production'}, 'name': 'flags.evaluations', 'period_seconds': 60,
+            'recorded_at': '2026-04-10T18:00:00Z', 'unit': 'evaluations', 'value': 1482}, 'type':
+            'metric'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

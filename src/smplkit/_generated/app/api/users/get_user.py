@@ -79,6 +79,8 @@ def sync_detailed(
 ) -> Response[ErrorResponse | UserResponse]:
     """Get User
 
+     Return a user by id.
+
     Args:
         id (UUID):
 
@@ -108,6 +110,8 @@ def sync(
 ) -> ErrorResponse | UserResponse | None:
     """Get User
 
+     Return a user by id.
+
     Args:
         id (UUID):
 
@@ -131,6 +135,8 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 ) -> Response[ErrorResponse | UserResponse]:
     """Get User
+
+     Return a user by id.
 
     Args:
         id (UUID):
@@ -158,6 +164,8 @@ async def asyncio(
     client: AuthenticatedClient,
 ) -> ErrorResponse | UserResponse | None:
     """Get User
+
+     Return a user by id.
 
     Args:
         id (UUID):

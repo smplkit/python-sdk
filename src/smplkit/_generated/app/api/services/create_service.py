@@ -82,6 +82,8 @@ def sync_detailed(
 ) -> Response[ErrorResponse | ServiceResponse]:
     """Create Service
 
+     Create a new service. The caller provides the id (key) in the request body.
+
     Args:
         body (ServiceResponse):
 
@@ -111,6 +113,8 @@ def sync(
 ) -> ErrorResponse | ServiceResponse | None:
     """Create Service
 
+     Create a new service. The caller provides the id (key) in the request body.
+
     Args:
         body (ServiceResponse):
 
@@ -134,6 +138,8 @@ async def asyncio_detailed(
     body: ServiceResponse,
 ) -> Response[ErrorResponse | ServiceResponse]:
     """Create Service
+
+     Create a new service. The caller provides the id (key) in the request body.
 
     Args:
         body (ServiceResponse):
@@ -161,6 +167,8 @@ async def asyncio(
     body: ServiceResponse,
 ) -> ErrorResponse | ServiceResponse | None:
     """Create Service
+
+     Create a new service. The caller provides the id (key) in the request body.
 
     Args:
         body (ServiceResponse):

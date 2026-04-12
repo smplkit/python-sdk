@@ -78,6 +78,8 @@ def sync_detailed(
 ) -> Response[ErrorResponse | ServiceResponse]:
     """Get Service
 
+     Return a service by id.
+
     Args:
         id (str):
 
@@ -107,6 +109,8 @@ def sync(
 ) -> ErrorResponse | ServiceResponse | None:
     """Get Service
 
+     Return a service by id.
+
     Args:
         id (str):
 
@@ -130,6 +134,8 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 ) -> Response[ErrorResponse | ServiceResponse]:
     """Get Service
+
+     Return a service by id.
 
     Args:
         id (str):
@@ -157,6 +163,8 @@ async def asyncio(
     client: AuthenticatedClient,
 ) -> ErrorResponse | ServiceResponse | None:
     """Get Service
+
+     Return a service by id.
 
     Args:
         id (str):

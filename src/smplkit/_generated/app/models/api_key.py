@@ -30,10 +30,10 @@ class ApiKey:
 
     Attributes:
         name (str):
-        status (str | Unset):  Default: ''.
-        key (str | Unset):  Default: ''.
+        status (None | str | Unset):
+        key (None | str | Unset):
         scopes (ApiKeyScopes | Unset):
-        created_by (str | Unset):  Default: ''.
+        created_by (None | str | Unset):
         expires_at (datetime.datetime | None | Unset):
         last_used_at (datetime.datetime | None | Unset):
         created_at (datetime.datetime | None | Unset):
@@ -42,10 +42,10 @@ class ApiKey:
     """
 
     name: str
-    status: str | Unset = ""
-    key: str | Unset = ""
+    status: None | str | Unset = UNSET
+    key: None | str | Unset = UNSET
     scopes: ApiKeyScopes | Unset = UNSET
-    created_by: str | Unset = ""
+    created_by: None | str | Unset = UNSET
     expires_at: datetime.datetime | None | Unset = UNSET
     last_used_at: datetime.datetime | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
@@ -56,15 +56,27 @@ class ApiKey:
     def to_dict(self) -> dict[str, Any]:
         name = self.name
 
-        status = self.status
+        status: None | str | Unset
+        if isinstance(self.status, Unset):
+            status = UNSET
+        else:
+            status = self.status
 
-        key = self.key
+        key: None | str | Unset
+        if isinstance(self.key, Unset):
+            key = UNSET
+        else:
+            key = self.key
 
         scopes: dict[str, Any] | Unset = UNSET
         if not isinstance(self.scopes, Unset):
             scopes = self.scopes.to_dict()
 
-        created_by = self.created_by
+        created_by: None | str | Unset
+        if isinstance(self.created_by, Unset):
+            created_by = UNSET
+        else:
+            created_by = self.created_by
 
         expires_at: None | str | Unset
         if isinstance(self.expires_at, Unset):
@@ -138,9 +150,23 @@ class ApiKey:
         d = dict(src_dict)
         name = d.pop("name")
 
-        status = d.pop("status", UNSET)
+        def _parse_status(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
 
-        key = d.pop("key", UNSET)
+        status = _parse_status(d.pop("status", UNSET))
+
+        def _parse_key(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        key = _parse_key(d.pop("key", UNSET))
 
         _scopes = d.pop("scopes", UNSET)
         scopes: ApiKeyScopes | Unset
@@ -149,7 +175,14 @@ class ApiKey:
         else:
             scopes = ApiKeyScopes.from_dict(_scopes)
 
-        created_by = d.pop("created_by", UNSET)
+        def _parse_created_by(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        created_by = _parse_created_by(d.pop("created_by", UNSET))
 
         def _parse_expires_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:

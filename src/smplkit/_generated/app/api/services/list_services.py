@@ -72,6 +72,8 @@ def sync_detailed(
 ) -> Response[ErrorResponse | ServiceListResponse]:
     """List Services
 
+     List all services for the authenticated account.
+
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
@@ -95,6 +97,8 @@ def sync(
 ) -> ErrorResponse | ServiceListResponse | None:
     """List Services
 
+     List all services for the authenticated account.
+
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
@@ -113,6 +117,8 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 ) -> Response[ErrorResponse | ServiceListResponse]:
     """List Services
+
+     List all services for the authenticated account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -134,6 +140,8 @@ async def asyncio(
     client: AuthenticatedClient,
 ) -> ErrorResponse | ServiceListResponse | None:
     """List Services
+
+     List all services for the authenticated account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

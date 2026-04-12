@@ -88,6 +88,8 @@ def sync_detailed(
 ) -> Response[ErrorResponse | UserResponse]:
     """Update User Role
 
+     Update a user's role in the account.
+
     Args:
         id (UUID):
         body (UserResponse):
@@ -120,6 +122,8 @@ def sync(
 ) -> ErrorResponse | UserResponse | None:
     """Update User Role
 
+     Update a user's role in the account.
+
     Args:
         id (UUID):
         body (UserResponse):
@@ -146,6 +150,8 @@ async def asyncio_detailed(
     body: UserResponse,
 ) -> Response[ErrorResponse | UserResponse]:
     """Update User Role
+
+     Update a user's role in the account.
 
     Args:
         id (UUID):
@@ -176,6 +182,8 @@ async def asyncio(
     body: UserResponse,
 ) -> ErrorResponse | UserResponse | None:
     """Update User Role
+
+     Update a user's role in the account.
 
     Args:
         id (UUID):

@@ -13,6 +13,9 @@ T = TypeVar("T", bound="LoginRequest")
 @_attrs_define
 class LoginRequest:
     """
+    Example:
+        {'email': 'jane@example.com', 'password': 'correct-horse-battery-staple'}
+
     Attributes:
         email (str):
         password (str):

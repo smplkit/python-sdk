@@ -98,6 +98,8 @@ def sync_detailed(
 ) -> Response[ErrorResponse | UserListResponse]:
     """List Users
 
+     List users in the authenticated account.
+
     Args:
         filteraccount (None | str | Unset):
         filteremail (None | str | Unset):
@@ -130,6 +132,8 @@ def sync(
 ) -> ErrorResponse | UserListResponse | None:
     """List Users
 
+     List users in the authenticated account.
+
     Args:
         filteraccount (None | str | Unset):
         filteremail (None | str | Unset):
@@ -156,6 +160,8 @@ async def asyncio_detailed(
     filteremail: None | str | Unset = UNSET,
 ) -> Response[ErrorResponse | UserListResponse]:
     """List Users
+
+     List users in the authenticated account.
 
     Args:
         filteraccount (None | str | Unset):
@@ -186,6 +192,8 @@ async def asyncio(
     filteremail: None | str | Unset = UNSET,
 ) -> ErrorResponse | UserListResponse | None:
     """List Users
+
+     List users in the authenticated account.
 
     Args:
         filteraccount (None | str | Unset):

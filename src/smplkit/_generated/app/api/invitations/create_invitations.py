@@ -83,8 +83,11 @@ def sync_detailed(
 ) -> Response[ErrorResponse | InvitationListResponse]:
     """Bulk Create Invitations
 
+     Send one or more invitations to join the account.
+
     Args:
-        body (InvitationBulkCreateRequest):
+        body (InvitationBulkCreateRequest):  Example: {'invitations': [{'email':
+            'alice@example.com', 'role': 'MEMBER'}, {'email': 'bob@example.com', 'role': 'MEMBER'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -112,8 +115,11 @@ def sync(
 ) -> ErrorResponse | InvitationListResponse | None:
     """Bulk Create Invitations
 
+     Send one or more invitations to join the account.
+
     Args:
-        body (InvitationBulkCreateRequest):
+        body (InvitationBulkCreateRequest):  Example: {'invitations': [{'email':
+            'alice@example.com', 'role': 'MEMBER'}, {'email': 'bob@example.com', 'role': 'MEMBER'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -136,8 +142,11 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | InvitationListResponse]:
     """Bulk Create Invitations
 
+     Send one or more invitations to join the account.
+
     Args:
-        body (InvitationBulkCreateRequest):
+        body (InvitationBulkCreateRequest):  Example: {'invitations': [{'email':
+            'alice@example.com', 'role': 'MEMBER'}, {'email': 'bob@example.com', 'role': 'MEMBER'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -163,8 +172,11 @@ async def asyncio(
 ) -> ErrorResponse | InvitationListResponse | None:
     """Bulk Create Invitations
 
+     Send one or more invitations to join the account.
+
     Args:
-        body (InvitationBulkCreateRequest):
+        body (InvitationBulkCreateRequest):  Example: {'invitations': [{'email':
+            'alice@example.com', 'role': 'MEMBER'}, {'email': 'bob@example.com', 'role': 'MEMBER'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

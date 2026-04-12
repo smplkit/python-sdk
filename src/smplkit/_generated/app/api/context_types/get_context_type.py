@@ -78,6 +78,8 @@ def sync_detailed(
 ) -> Response[ContextTypeResponse | ErrorResponse]:
     """Get Context Type
 
+     Return a context type by id.
+
     Args:
         id (str):
 
@@ -107,6 +109,8 @@ def sync(
 ) -> ContextTypeResponse | ErrorResponse | None:
     """Get Context Type
 
+     Return a context type by id.
+
     Args:
         id (str):
 
@@ -130,6 +134,8 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 ) -> Response[ContextTypeResponse | ErrorResponse]:
     """Get Context Type
+
+     Return a context type by id.
 
     Args:
         id (str):
@@ -157,6 +163,8 @@ async def asyncio(
     client: AuthenticatedClient,
 ) -> ContextTypeResponse | ErrorResponse | None:
     """Get Context Type
+
+     Return a context type by id.
 
     Args:
         id (str):

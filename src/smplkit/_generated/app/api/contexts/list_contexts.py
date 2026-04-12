@@ -89,6 +89,8 @@ def sync_detailed(
 ) -> Response[ContextListResponse | ErrorResponse]:
     """List Contexts
 
+     List all context instances for the authenticated account.
+
     Args:
         filtercontext_type (None | str | Unset):
 
@@ -118,6 +120,8 @@ def sync(
 ) -> ContextListResponse | ErrorResponse | None:
     """List Contexts
 
+     List all context instances for the authenticated account.
+
     Args:
         filtercontext_type (None | str | Unset):
 
@@ -141,6 +145,8 @@ async def asyncio_detailed(
     filtercontext_type: None | str | Unset = UNSET,
 ) -> Response[ContextListResponse | ErrorResponse]:
     """List Contexts
+
+     List all context instances for the authenticated account.
 
     Args:
         filtercontext_type (None | str | Unset):
@@ -168,6 +174,8 @@ async def asyncio(
     filtercontext_type: None | str | Unset = UNSET,
 ) -> ContextListResponse | ErrorResponse | None:
     """List Contexts
+
+     List all context instances for the authenticated account.
 
     Args:
         filtercontext_type (None | str | Unset):

@@ -17,6 +17,11 @@ T = TypeVar("T", bound="MetricBulkRequest")
 @_attrs_define
 class MetricBulkRequest:
     """
+    Example:
+        {'data': [{'attributes': {'dimensions': {'environment': 'production'}, 'name': 'flags.evaluations',
+            'period_seconds': 60, 'recorded_at': '2026-04-10T18:00:00Z', 'unit': 'evaluations', 'value': 1482}, 'type':
+            'metric'}]}
+
     Attributes:
         data (list[MetricResource]):
     """

@@ -73,6 +73,8 @@ def sync_detailed(
 ) -> Response[Any | ErrorResponse]:
     """Remove User
 
+     Remove a user from the account.
+
     Args:
         id (UUID):
 
@@ -102,6 +104,8 @@ def sync(
 ) -> Any | ErrorResponse | None:
     """Remove User
 
+     Remove a user from the account.
+
     Args:
         id (UUID):
 
@@ -125,6 +129,8 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 ) -> Response[Any | ErrorResponse]:
     """Remove User
+
+     Remove a user from the account.
 
     Args:
         id (UUID):
@@ -152,6 +158,8 @@ async def asyncio(
     client: AuthenticatedClient,
 ) -> Any | ErrorResponse | None:
     """Remove User
+
+     Remove a user from the account.
 
     Args:
         id (UUID):

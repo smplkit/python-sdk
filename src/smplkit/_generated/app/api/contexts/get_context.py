@@ -78,6 +78,8 @@ def sync_detailed(
 ) -> Response[ContextResponse | ErrorResponse]:
     """Get Context
 
+     Return a context instance by composite id (type:key).
+
     Args:
         id (str):
 
@@ -107,6 +109,8 @@ def sync(
 ) -> ContextResponse | ErrorResponse | None:
     """Get Context
 
+     Return a context instance by composite id (type:key).
+
     Args:
         id (str):
 
@@ -130,6 +134,8 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 ) -> Response[ContextResponse | ErrorResponse]:
     """Get Context
+
+     Return a context instance by composite id (type:key).
 
     Args:
         id (str):
@@ -157,6 +163,8 @@ async def asyncio(
     client: AuthenticatedClient,
 ) -> ContextResponse | ErrorResponse | None:
     """Get Context
+
+     Return a context instance by composite id (type:key).
 
     Args:
         id (str):

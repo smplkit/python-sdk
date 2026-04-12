@@ -9,6 +9,7 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
+from ...models.subscription_response import SubscriptionResponse
 from ...models.update_subscription_body import UpdateSubscriptionBody
 
 
@@ -34,9 +35,12 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | ErrorResponse | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ErrorResponse | SubscriptionResponse | None:
     if response.status_code == 200:
-        response_200 = response.json()
+        response_200 = SubscriptionResponse.from_dict(response.json())
+
         return response_200
 
     if response.status_code == 400:
@@ -65,7 +69,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | ErrorResponse]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ErrorResponse | SubscriptionResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -79,21 +85,22 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     body: UpdateSubscriptionBody,
-) -> Response[Any | ErrorResponse]:
+) -> Response[ErrorResponse | SubscriptionResponse]:
     """Update Subscription
 
      Change the plan for an existing paid subscription (upgrade or downgrade).
 
     Args:
         product (str):
-        body (UpdateSubscriptionBody):
+        body (UpdateSubscriptionBody):  Example: {'data': {'attributes': {'plan': 'pro'}, 'type':
+            'subscription'}}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse]
+        Response[ErrorResponse | SubscriptionResponse]
     """
 
     kwargs = _get_kwargs(
@@ -113,21 +120,22 @@ def sync(
     *,
     client: AuthenticatedClient,
     body: UpdateSubscriptionBody,
-) -> Any | ErrorResponse | None:
+) -> ErrorResponse | SubscriptionResponse | None:
     """Update Subscription
 
      Change the plan for an existing paid subscription (upgrade or downgrade).
 
     Args:
         product (str):
-        body (UpdateSubscriptionBody):
+        body (UpdateSubscriptionBody):  Example: {'data': {'attributes': {'plan': 'pro'}, 'type':
+            'subscription'}}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse
+        ErrorResponse | SubscriptionResponse
     """
 
     return sync_detailed(
@@ -142,21 +150,22 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     body: UpdateSubscriptionBody,
-) -> Response[Any | ErrorResponse]:
+) -> Response[ErrorResponse | SubscriptionResponse]:
     """Update Subscription
 
      Change the plan for an existing paid subscription (upgrade or downgrade).
 
     Args:
         product (str):
-        body (UpdateSubscriptionBody):
+        body (UpdateSubscriptionBody):  Example: {'data': {'attributes': {'plan': 'pro'}, 'type':
+            'subscription'}}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse]
+        Response[ErrorResponse | SubscriptionResponse]
     """
 
     kwargs = _get_kwargs(
@@ -174,21 +183,22 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     body: UpdateSubscriptionBody,
-) -> Any | ErrorResponse | None:
+) -> ErrorResponse | SubscriptionResponse | None:
     """Update Subscription
 
      Change the plan for an existing paid subscription (upgrade or downgrade).
 
     Args:
         product (str):
-        body (UpdateSubscriptionBody):
+        body (UpdateSubscriptionBody):  Example: {'data': {'attributes': {'plan': 'pro'}, 'type':
+            'subscription'}}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse
+        ErrorResponse | SubscriptionResponse
     """
 
     return (

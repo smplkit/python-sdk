@@ -22,6 +22,10 @@ T = TypeVar("T", bound="PlanResource")
 @_attrs_define
 class PlanResource:
     """
+    Example:
+        {'attributes': {'description': 'Get started with essential features at no cost', 'display_name': 'Free',
+            'sort_order': 0}, 'id': 'free', 'type': 'plan'}
+
     Attributes:
         type_ (PlanResourceType):
         attributes (Plan):

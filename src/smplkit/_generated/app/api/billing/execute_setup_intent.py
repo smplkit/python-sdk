@@ -8,6 +8,7 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
+from ...models.setup_intent_response import SetupIntentResponse
 
 
 def _get_kwargs() -> dict[str, Any]:
@@ -20,9 +21,12 @@ def _get_kwargs() -> dict[str, Any]:
     return _kwargs
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | ErrorResponse | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ErrorResponse | SetupIntentResponse | None:
     if response.status_code == 200:
-        response_200 = response.json()
+        response_200 = SetupIntentResponse.from_dict(response.json())
+
         return response_200
 
     if response.status_code == 400:
@@ -51,7 +55,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | ErrorResponse]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ErrorResponse | SetupIntentResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -63,7 +69,7 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-) -> Response[Any | ErrorResponse]:
+) -> Response[ErrorResponse | SetupIntentResponse]:
     """Execute Setup Intent
 
      Create a Stripe SetupIntent for saving a payment method.
@@ -77,7 +83,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse]
+        Response[ErrorResponse | SetupIntentResponse]
     """
 
     kwargs = _get_kwargs()
@@ -92,7 +98,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-) -> Any | ErrorResponse | None:
+) -> ErrorResponse | SetupIntentResponse | None:
     """Execute Setup Intent
 
      Create a Stripe SetupIntent for saving a payment method.
@@ -106,7 +112,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse
+        ErrorResponse | SetupIntentResponse
     """
 
     return sync_detailed(
@@ -117,7 +123,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-) -> Response[Any | ErrorResponse]:
+) -> Response[ErrorResponse | SetupIntentResponse]:
     """Execute Setup Intent
 
      Create a Stripe SetupIntent for saving a payment method.
@@ -131,7 +137,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse]
+        Response[ErrorResponse | SetupIntentResponse]
     """
 
     kwargs = _get_kwargs()
@@ -144,7 +150,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-) -> Any | ErrorResponse | None:
+) -> ErrorResponse | SetupIntentResponse | None:
     """Execute Setup Intent
 
      Create a Stripe SetupIntent for saving a payment method.
@@ -158,7 +164,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse
+        ErrorResponse | SetupIntentResponse
     """
 
     return (

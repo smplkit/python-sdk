@@ -89,6 +89,8 @@ def sync_detailed(
 ) -> Response[ErrorResponse | InvitationListResponse]:
     """List Invitations
 
+     List all invitations for the authenticated account.
+
     Args:
         filterstatus (None | str | Unset):
 
@@ -118,6 +120,8 @@ def sync(
 ) -> ErrorResponse | InvitationListResponse | None:
     """List Invitations
 
+     List all invitations for the authenticated account.
+
     Args:
         filterstatus (None | str | Unset):
 
@@ -141,6 +145,8 @@ async def asyncio_detailed(
     filterstatus: None | str | Unset = UNSET,
 ) -> Response[ErrorResponse | InvitationListResponse]:
     """List Invitations
+
+     List all invitations for the authenticated account.
 
     Args:
         filterstatus (None | str | Unset):
@@ -168,6 +174,8 @@ async def asyncio(
     filterstatus: None | str | Unset = UNSET,
 ) -> ErrorResponse | InvitationListResponse | None:
     """List Invitations
+
+     List all invitations for the authenticated account.
 
     Args:
         filterstatus (None | str | Unset):

@@ -13,6 +13,9 @@ T = TypeVar("T", bound="RegisterRequest")
 @_attrs_define
 class RegisterRequest:
     """
+    Example:
+        {'email': 'jane@example.com', 'password': 'correct-horse-battery-staple'}
+
     Attributes:
         email (str):
         password (str):
