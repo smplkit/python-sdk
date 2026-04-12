@@ -82,6 +82,8 @@ def sync_detailed(
 ) -> Response[ContextTypeResponse | ErrorResponse]:
     """Create Context Type
 
+     Create a new context type. The caller provides the id (key) in the request body.
+
     Args:
         body (ContextTypeResponse):
 
@@ -111,6 +113,8 @@ def sync(
 ) -> ContextTypeResponse | ErrorResponse | None:
     """Create Context Type
 
+     Create a new context type. The caller provides the id (key) in the request body.
+
     Args:
         body (ContextTypeResponse):
 
@@ -134,6 +138,8 @@ async def asyncio_detailed(
     body: ContextTypeResponse,
 ) -> Response[ContextTypeResponse | ErrorResponse]:
     """Create Context Type
+
+     Create a new context type. The caller provides the id (key) in the request body.
 
     Args:
         body (ContextTypeResponse):
@@ -161,6 +167,8 @@ async def asyncio(
     body: ContextTypeResponse,
 ) -> ContextTypeResponse | ErrorResponse | None:
     """Create Context Type
+
+     Create a new context type. The caller provides the id (key) in the request body.
 
     Args:
         body (ContextTypeResponse):

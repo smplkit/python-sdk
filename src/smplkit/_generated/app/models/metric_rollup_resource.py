@@ -20,6 +20,10 @@ T = TypeVar("T", bound="MetricRollupResource")
 @_attrs_define
 class MetricRollupResource:
     """
+    Example:
+        {'attributes': {'bucket': '2026-04-10T15:00:00Z', 'name': 'flags.evaluations', 'rollup': '1h', 'unit':
+            'evaluations', 'value': 87420}, 'type': 'metric_rollup'}
+
     Attributes:
         type_ (MetricRollupResourceType):
         attributes (MetricRollupAttributes):

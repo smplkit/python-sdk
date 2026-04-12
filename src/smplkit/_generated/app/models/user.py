@@ -28,20 +28,20 @@ class User:
         email (str): User's email address
         display_name (str):
         profile_pic (None | str | Unset):
-        auth_provider (str | Unset):  Default: ''.
+        auth_provider (None | str | Unset):
         email_verified (bool | Unset):  Default: False.
         role (None | str | Unset): Role in current account context
-        account (str | Unset): Account UUID Default: ''.
+        account (None | str | Unset): Account UUID
         created_at (datetime.datetime | None | Unset):
     """
 
     email: str
     display_name: str
     profile_pic: None | str | Unset = UNSET
-    auth_provider: str | Unset = ""
+    auth_provider: None | str | Unset = UNSET
     email_verified: bool | Unset = False
     role: None | str | Unset = UNSET
-    account: str | Unset = ""
+    account: None | str | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -56,7 +56,11 @@ class User:
         else:
             profile_pic = self.profile_pic
 
-        auth_provider = self.auth_provider
+        auth_provider: None | str | Unset
+        if isinstance(self.auth_provider, Unset):
+            auth_provider = UNSET
+        else:
+            auth_provider = self.auth_provider
 
         email_verified = self.email_verified
 
@@ -66,7 +70,11 @@ class User:
         else:
             role = self.role
 
-        account = self.account
+        account: None | str | Unset
+        if isinstance(self.account, Unset):
+            account = UNSET
+        else:
+            account = self.account
 
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
@@ -115,7 +123,14 @@ class User:
 
         profile_pic = _parse_profile_pic(d.pop("profile_pic", UNSET))
 
-        auth_provider = d.pop("auth_provider", UNSET)
+        def _parse_auth_provider(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        auth_provider = _parse_auth_provider(d.pop("auth_provider", UNSET))
 
         email_verified = d.pop("email_verified", UNSET)
 
@@ -128,7 +143,14 @@ class User:
 
         role = _parse_role(d.pop("role", UNSET))
 
-        account = d.pop("account", UNSET)
+        def _parse_account(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        account = _parse_account(d.pop("account", UNSET))
 
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:

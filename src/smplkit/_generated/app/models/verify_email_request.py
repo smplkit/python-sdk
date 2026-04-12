@@ -13,6 +13,9 @@ T = TypeVar("T", bound="VerifyEmailRequest")
 @_attrs_define
 class VerifyEmailRequest:
     """
+    Example:
+        {'token': 'eyJhbGciOiJIUzI1NiJ9...'}
+
     Attributes:
         token (str):
     """

@@ -87,6 +87,8 @@ def sync_detailed(
 ) -> Response[ContextTypeResponse | ErrorResponse]:
     """Update Context Type
 
+     Update a context type by id.
+
     Args:
         id (str):
         body (ContextTypeResponse):
@@ -119,6 +121,8 @@ def sync(
 ) -> ContextTypeResponse | ErrorResponse | None:
     """Update Context Type
 
+     Update a context type by id.
+
     Args:
         id (str):
         body (ContextTypeResponse):
@@ -145,6 +149,8 @@ async def asyncio_detailed(
     body: ContextTypeResponse,
 ) -> Response[ContextTypeResponse | ErrorResponse]:
     """Update Context Type
+
+     Update a context type by id.
 
     Args:
         id (str):
@@ -175,6 +181,8 @@ async def asyncio(
     body: ContextTypeResponse,
 ) -> ContextTypeResponse | ErrorResponse | None:
     """Update Context Type
+
+     Update a context type by id.
 
     Args:
         id (str):

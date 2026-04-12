@@ -83,8 +83,10 @@ def sync_detailed(
 ) -> Response[ErrorResponse | InvitationResponse]:
     """Accept Invitation
 
+     Accept an invitation using a token from the invitation email.
+
     Args:
-        body (InvitationAcceptRequest):
+        body (InvitationAcceptRequest):  Example: {'token': 'eyJhbGciOiJIUzI1NiJ9...'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -112,8 +114,10 @@ def sync(
 ) -> ErrorResponse | InvitationResponse | None:
     """Accept Invitation
 
+     Accept an invitation using a token from the invitation email.
+
     Args:
-        body (InvitationAcceptRequest):
+        body (InvitationAcceptRequest):  Example: {'token': 'eyJhbGciOiJIUzI1NiJ9...'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -136,8 +140,10 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | InvitationResponse]:
     """Accept Invitation
 
+     Accept an invitation using a token from the invitation email.
+
     Args:
-        body (InvitationAcceptRequest):
+        body (InvitationAcceptRequest):  Example: {'token': 'eyJhbGciOiJIUzI1NiJ9...'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -163,8 +169,10 @@ async def asyncio(
 ) -> ErrorResponse | InvitationResponse | None:
     """Accept Invitation
 
+     Accept an invitation using a token from the invitation email.
+
     Args:
-        body (InvitationAcceptRequest):
+        body (InvitationAcceptRequest):  Example: {'token': 'eyJhbGciOiJIUzI1NiJ9...'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

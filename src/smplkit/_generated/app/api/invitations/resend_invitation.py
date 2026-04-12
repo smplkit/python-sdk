@@ -79,6 +79,8 @@ def sync_detailed(
 ) -> Response[ErrorResponse | InvitationResponse]:
     """Resend Invitation
 
+     Resend a pending invitation email by id.
+
     Args:
         id (UUID):
 
@@ -108,6 +110,8 @@ def sync(
 ) -> ErrorResponse | InvitationResponse | None:
     """Resend Invitation
 
+     Resend a pending invitation email by id.
+
     Args:
         id (UUID):
 
@@ -131,6 +135,8 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 ) -> Response[ErrorResponse | InvitationResponse]:
     """Resend Invitation
+
+     Resend a pending invitation email by id.
 
     Args:
         id (UUID):
@@ -158,6 +164,8 @@ async def asyncio(
     client: AuthenticatedClient,
 ) -> ErrorResponse | InvitationResponse | None:
     """Resend Invitation
+
+     Resend a pending invitation email by id.
 
     Args:
         id (UUID):

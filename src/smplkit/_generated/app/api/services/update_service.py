@@ -87,6 +87,8 @@ def sync_detailed(
 ) -> Response[ErrorResponse | ServiceResponse]:
     """Update Service
 
+     Update a service by id.
+
     Args:
         id (str):
         body (ServiceResponse):
@@ -119,6 +121,8 @@ def sync(
 ) -> ErrorResponse | ServiceResponse | None:
     """Update Service
 
+     Update a service by id.
+
     Args:
         id (str):
         body (ServiceResponse):
@@ -145,6 +149,8 @@ async def asyncio_detailed(
     body: ServiceResponse,
 ) -> Response[ErrorResponse | ServiceResponse]:
     """Update Service
+
+     Update a service by id.
 
     Args:
         id (str):
@@ -175,6 +181,8 @@ async def asyncio(
     body: ServiceResponse,
 ) -> ErrorResponse | ServiceResponse | None:
     """Update Service
+
+     Update a service by id.
 
     Args:
         id (str):

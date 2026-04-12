@@ -17,9 +17,14 @@ T = TypeVar("T", bound="CreateSubscriptionData")
 @_attrs_define
 class CreateSubscriptionData:
     """
+    Example:
+        {'attributes': {'payment_method_id': 'pm_1234567890abcdef', 'plan': 'pro', 'product': 'flags'}, 'type':
+            'subscription'}
+
     Attributes:
         type_ (str):
-        attributes (CreateSubscriptionAttributes):
+        attributes (CreateSubscriptionAttributes):  Example: {'payment_method_id': 'pm_1234567890abcdef', 'plan': 'pro',
+            'product': 'flags'}.
     """
 
     type_: str

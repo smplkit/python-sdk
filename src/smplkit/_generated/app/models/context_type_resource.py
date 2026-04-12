@@ -22,6 +22,11 @@ T = TypeVar("T", bound="ContextTypeResource")
 @_attrs_define
 class ContextTypeResource:
     """
+    Example:
+        {'attributes': {'attributes': {'beta_tester': {}, 'first_name': {}, 'plan': {}}, 'created_at':
+            '2026-03-31T10:00:00Z', 'name': 'User', 'updated_at': '2026-03-31T10:00:00Z'}, 'id': 'user', 'type':
+            'context_type'}
+
     Attributes:
         type_ (ContextTypeResourceType):
         attributes (ContextType):  Example: {'attributes': {'beta_tester': {}, 'first_name': {}, 'plan': {}},

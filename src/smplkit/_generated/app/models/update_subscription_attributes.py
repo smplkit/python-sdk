@@ -13,6 +13,9 @@ T = TypeVar("T", bound="UpdateSubscriptionAttributes")
 @_attrs_define
 class UpdateSubscriptionAttributes:
     """
+    Example:
+        {'plan': 'pro'}
+
     Attributes:
         plan (str):
     """

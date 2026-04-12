@@ -19,6 +19,9 @@ T = TypeVar("T", bound="ContextBulkItem")
 @_attrs_define
 class ContextBulkItem:
     """
+    Example:
+        {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'}, 'key': 'user-123', 'type': 'user'}
+
     Attributes:
         type_ (str): Context type key: 'user', 'account', 'device'
         key (str): Entity identifier: 'user-123', 'acme-corp'

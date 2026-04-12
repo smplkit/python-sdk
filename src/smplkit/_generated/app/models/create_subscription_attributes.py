@@ -13,6 +13,9 @@ T = TypeVar("T", bound="CreateSubscriptionAttributes")
 @_attrs_define
 class CreateSubscriptionAttributes:
     """
+    Example:
+        {'payment_method_id': 'pm_1234567890abcdef', 'plan': 'pro', 'product': 'flags'}
+
     Attributes:
         product (str):
         plan (str):

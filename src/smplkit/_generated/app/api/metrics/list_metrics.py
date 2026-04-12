@@ -93,6 +93,8 @@ def sync_detailed(
 ) -> Response[ErrorResponse | MetricListResponse]:
     """List Metrics
 
+     Query raw metric rows with filtering by name, time range, and dimensions.
+
     Args:
         filtername (str):
         filterrecorded_at (None | str | Unset):
@@ -125,6 +127,8 @@ def sync(
 ) -> ErrorResponse | MetricListResponse | None:
     """List Metrics
 
+     Query raw metric rows with filtering by name, time range, and dimensions.
+
     Args:
         filtername (str):
         filterrecorded_at (None | str | Unset):
@@ -151,6 +155,8 @@ async def asyncio_detailed(
     filterrecorded_at: None | str | Unset = UNSET,
 ) -> Response[ErrorResponse | MetricListResponse]:
     """List Metrics
+
+     Query raw metric rows with filtering by name, time range, and dimensions.
 
     Args:
         filtername (str):
@@ -181,6 +187,8 @@ async def asyncio(
     filterrecorded_at: None | str | Unset = UNSET,
 ) -> ErrorResponse | MetricListResponse | None:
     """List Metrics
+
+     Query raw metric rows with filtering by name, time range, and dimensions.
 
     Args:
         filtername (str):

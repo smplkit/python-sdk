@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote
 
 import httpx
@@ -17,14 +17,19 @@ def _get_kwargs(
     provider: OidcProvider,
     *,
     mode: str | Unset = "signin",
-    source: str | Unset = "",
+    source: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
     params["mode"] = mode
 
-    params["source"] = source
+    json_source: None | str | Unset
+    if isinstance(source, Unset):
+        json_source = UNSET
+    else:
+        json_source = source
+    params["source"] = json_source
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -40,9 +45,9 @@ def _get_kwargs(
 
 
 def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | ErrorResponse | None:
-    if response.status_code == 200:
-        response_200 = response.json()
-        return response_200
+    if response.status_code == 302:
+        response_302 = cast(Any, None)
+        return response_302
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
@@ -84,7 +89,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     mode: str | Unset = "signin",
-    source: str | Unset = "",
+    source: None | str | Unset = UNSET,
 ) -> Response[Any | ErrorResponse]:
     """Begin OIDC Login
 
@@ -93,7 +98,7 @@ def sync_detailed(
     Args:
         provider (OidcProvider):
         mode (str | Unset):  Default: 'signin'.
-        source (str | Unset):  Default: ''.
+        source (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -121,7 +126,7 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     mode: str | Unset = "signin",
-    source: str | Unset = "",
+    source: None | str | Unset = UNSET,
 ) -> Any | ErrorResponse | None:
     """Begin OIDC Login
 
@@ -130,7 +135,7 @@ def sync(
     Args:
         provider (OidcProvider):
         mode (str | Unset):  Default: 'signin'.
-        source (str | Unset):  Default: ''.
+        source (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -153,7 +158,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     mode: str | Unset = "signin",
-    source: str | Unset = "",
+    source: None | str | Unset = UNSET,
 ) -> Response[Any | ErrorResponse]:
     """Begin OIDC Login
 
@@ -162,7 +167,7 @@ async def asyncio_detailed(
     Args:
         provider (OidcProvider):
         mode (str | Unset):  Default: 'signin'.
-        source (str | Unset):  Default: ''.
+        source (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -188,7 +193,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     mode: str | Unset = "signin",
-    source: str | Unset = "",
+    source: None | str | Unset = UNSET,
 ) -> Any | ErrorResponse | None:
     """Begin OIDC Login
 
@@ -197,7 +202,7 @@ async def asyncio(
     Args:
         provider (OidcProvider):
         mode (str | Unset):  Default: 'signin'.
-        source (str | Unset):  Default: ''.
+        source (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

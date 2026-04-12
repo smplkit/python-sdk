@@ -13,6 +13,9 @@ T = TypeVar("T", bound="InvitationAcceptRequest")
 @_attrs_define
 class InvitationAcceptRequest:
     """
+    Example:
+        {'token': 'eyJhbGciOiJIUzI1NiJ9...'}
+
     Attributes:
         token (str):
     """

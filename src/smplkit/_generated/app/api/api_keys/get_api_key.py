@@ -79,6 +79,8 @@ def sync_detailed(
 ) -> Response[ApiKeyResponse | ErrorResponse]:
     """Get API Key
 
+     Return an API key by id.
+
     Args:
         id (UUID):
 
@@ -108,6 +110,8 @@ def sync(
 ) -> ApiKeyResponse | ErrorResponse | None:
     """Get API Key
 
+     Return an API key by id.
+
     Args:
         id (UUID):
 
@@ -131,6 +135,8 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 ) -> Response[ApiKeyResponse | ErrorResponse]:
     """Get API Key
+
+     Return an API key by id.
 
     Args:
         id (UUID):
@@ -158,6 +164,8 @@ async def asyncio(
     client: AuthenticatedClient,
 ) -> ApiKeyResponse | ErrorResponse | None:
     """Get API Key
+
+     Return an API key by id.
 
     Args:
         id (UUID):

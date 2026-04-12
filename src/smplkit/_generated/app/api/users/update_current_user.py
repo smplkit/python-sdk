@@ -82,6 +82,8 @@ def sync_detailed(
 ) -> Response[ErrorResponse | UserResponse]:
     """Update Current User
 
+     Update the currently authenticated user's profile.
+
     Args:
         body (UserResponse):
 
@@ -111,6 +113,8 @@ def sync(
 ) -> ErrorResponse | UserResponse | None:
     """Update Current User
 
+     Update the currently authenticated user's profile.
+
     Args:
         body (UserResponse):
 
@@ -134,6 +138,8 @@ async def asyncio_detailed(
     body: UserResponse,
 ) -> Response[ErrorResponse | UserResponse]:
     """Update Current User
+
+     Update the currently authenticated user's profile.
 
     Args:
         body (UserResponse):
@@ -161,6 +167,8 @@ async def asyncio(
     body: UserResponse,
 ) -> ErrorResponse | UserResponse | None:
     """Update Current User
+
+     Update the currently authenticated user's profile.
 
     Args:
         body (UserResponse):

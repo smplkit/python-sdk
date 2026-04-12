@@ -28,14 +28,14 @@ class Context:
 
     Attributes:
         context_type (str): Context type key (e.g., 'user', 'account')
-        name (str | Unset): Human-readable display name Default: ''.
+        name (None | str | Unset): Human-readable display name
         attributes (ContextAttributes | Unset): Observed attributes
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
     """
 
     context_type: str
-    name: str | Unset = ""
+    name: None | str | Unset = UNSET
     attributes: ContextAttributes | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
@@ -44,7 +44,11 @@ class Context:
     def to_dict(self) -> dict[str, Any]:
         context_type = self.context_type
 
-        name = self.name
+        name: None | str | Unset
+        if isinstance(self.name, Unset):
+            name = UNSET
+        else:
+            name = self.name
 
         attributes: dict[str, Any] | Unset = UNSET
         if not isinstance(self.attributes, Unset):
@@ -91,7 +95,14 @@ class Context:
         d = dict(src_dict)
         context_type = d.pop("context_type")
 
-        name = d.pop("name", UNSET)
+        def _parse_name(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        name = _parse_name(d.pop("name", UNSET))
 
         _attributes = d.pop("attributes", UNSET)
         attributes: ContextAttributes | Unset

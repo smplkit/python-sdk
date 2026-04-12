@@ -87,6 +87,8 @@ def sync_detailed(
 ) -> Response[EnvironmentResponse | ErrorResponse]:
     """Update Environment
 
+     Update an environment by id.
+
     Args:
         id (str):
         body (EnvironmentResponse):
@@ -119,6 +121,8 @@ def sync(
 ) -> EnvironmentResponse | ErrorResponse | None:
     """Update Environment
 
+     Update an environment by id.
+
     Args:
         id (str):
         body (EnvironmentResponse):
@@ -145,6 +149,8 @@ async def asyncio_detailed(
     body: EnvironmentResponse,
 ) -> Response[EnvironmentResponse | ErrorResponse]:
     """Update Environment
+
+     Update an environment by id.
 
     Args:
         id (str):
@@ -175,6 +181,8 @@ async def asyncio(
     body: EnvironmentResponse,
 ) -> EnvironmentResponse | ErrorResponse | None:
     """Update Environment
+
+     Update an environment by id.
 
     Args:
         id (str):

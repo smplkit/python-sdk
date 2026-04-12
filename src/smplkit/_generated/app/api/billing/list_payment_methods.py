@@ -8,6 +8,7 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
+from ...models.payment_method_list_response import PaymentMethodListResponse
 
 
 def _get_kwargs() -> dict[str, Any]:
@@ -20,9 +21,12 @@ def _get_kwargs() -> dict[str, Any]:
     return _kwargs
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | ErrorResponse | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ErrorResponse | PaymentMethodListResponse | None:
     if response.status_code == 200:
-        response_200 = response.json()
+        response_200 = PaymentMethodListResponse.from_dict(response.json())
+
         return response_200
 
     if response.status_code == 400:
@@ -51,7 +55,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | ErrorResponse]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ErrorResponse | PaymentMethodListResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -63,7 +69,7 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-) -> Response[Any | ErrorResponse]:
+) -> Response[ErrorResponse | PaymentMethodListResponse]:
     """List Payment Methods
 
      Return the default payment method for the account's Stripe Customer.
@@ -73,7 +79,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse]
+        Response[ErrorResponse | PaymentMethodListResponse]
     """
 
     kwargs = _get_kwargs()
@@ -88,7 +94,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-) -> Any | ErrorResponse | None:
+) -> ErrorResponse | PaymentMethodListResponse | None:
     """List Payment Methods
 
      Return the default payment method for the account's Stripe Customer.
@@ -98,7 +104,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse
+        ErrorResponse | PaymentMethodListResponse
     """
 
     return sync_detailed(
@@ -109,7 +115,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-) -> Response[Any | ErrorResponse]:
+) -> Response[ErrorResponse | PaymentMethodListResponse]:
     """List Payment Methods
 
      Return the default payment method for the account's Stripe Customer.
@@ -119,7 +125,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse]
+        Response[ErrorResponse | PaymentMethodListResponse]
     """
 
     kwargs = _get_kwargs()
@@ -132,7 +138,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-) -> Any | ErrorResponse | None:
+) -> ErrorResponse | PaymentMethodListResponse | None:
     """List Payment Methods
 
      Return the default payment method for the account's Stripe Customer.
@@ -142,7 +148,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse
+        ErrorResponse | PaymentMethodListResponse
     """
 
     return (

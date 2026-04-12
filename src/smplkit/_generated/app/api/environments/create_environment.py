@@ -82,6 +82,8 @@ def sync_detailed(
 ) -> Response[EnvironmentResponse | ErrorResponse]:
     """Create Environment
 
+     Create a new environment. The caller provides the id (key) in the request body.
+
     Args:
         body (EnvironmentResponse):
 
@@ -111,6 +113,8 @@ def sync(
 ) -> EnvironmentResponse | ErrorResponse | None:
     """Create Environment
 
+     Create a new environment. The caller provides the id (key) in the request body.
+
     Args:
         body (EnvironmentResponse):
 
@@ -134,6 +138,8 @@ async def asyncio_detailed(
     body: EnvironmentResponse,
 ) -> Response[EnvironmentResponse | ErrorResponse]:
     """Create Environment
+
+     Create a new environment. The caller provides the id (key) in the request body.
 
     Args:
         body (EnvironmentResponse):
@@ -161,6 +167,8 @@ async def asyncio(
     body: EnvironmentResponse,
 ) -> EnvironmentResponse | ErrorResponse | None:
     """Create Environment
+
+     Create a new environment. The caller provides the id (key) in the request body.
 
     Args:
         body (EnvironmentResponse):

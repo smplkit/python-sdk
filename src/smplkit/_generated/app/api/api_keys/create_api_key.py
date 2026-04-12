@@ -82,6 +82,8 @@ def sync_detailed(
 ) -> Response[ApiKeyResponse | ErrorResponse]:
     """Create API Key
 
+     Create a new API key. The id and key value are server-generated.
+
     Args:
         body (ApiKeyResponse):
 
@@ -111,6 +113,8 @@ def sync(
 ) -> ApiKeyResponse | ErrorResponse | None:
     """Create API Key
 
+     Create a new API key. The id and key value are server-generated.
+
     Args:
         body (ApiKeyResponse):
 
@@ -134,6 +138,8 @@ async def asyncio_detailed(
     body: ApiKeyResponse,
 ) -> Response[ApiKeyResponse | ErrorResponse]:
     """Create API Key
+
+     Create a new API key. The id and key value are server-generated.
 
     Args:
         body (ApiKeyResponse):
@@ -161,6 +167,8 @@ async def asyncio(
     body: ApiKeyResponse,
 ) -> ApiKeyResponse | ErrorResponse | None:
     """Create API Key
+
+     Create a new API key. The id and key value are server-generated.
 
     Args:
         body (ApiKeyResponse):

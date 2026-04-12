@@ -83,6 +83,8 @@ def sync_detailed(
 ) -> Response[ContextBatchResponse | ErrorResponse]:
     """Bulk Register Contexts
 
+     Register context instances in bulk. Creates context types automatically if they don't exist.
+
     Args:
         body (ContextBulkRegister):
 
@@ -112,6 +114,8 @@ def sync(
 ) -> ContextBatchResponse | ErrorResponse | None:
     """Bulk Register Contexts
 
+     Register context instances in bulk. Creates context types automatically if they don't exist.
+
     Args:
         body (ContextBulkRegister):
 
@@ -135,6 +139,8 @@ async def asyncio_detailed(
     body: ContextBulkRegister,
 ) -> Response[ContextBatchResponse | ErrorResponse]:
     """Bulk Register Contexts
+
+     Register context instances in bulk. Creates context types automatically if they don't exist.
 
     Args:
         body (ContextBulkRegister):
@@ -162,6 +168,8 @@ async def asyncio(
     body: ContextBulkRegister,
 ) -> ContextBatchResponse | ErrorResponse | None:
     """Bulk Register Contexts
+
+     Register context instances in bulk. Creates context types automatically if they don't exist.
 
     Args:
         body (ContextBulkRegister):

@@ -17,6 +17,10 @@ T = TypeVar("T", bound="InvitationBulkCreateRequest")
 @_attrs_define
 class InvitationBulkCreateRequest:
     """
+    Example:
+        {'invitations': [{'email': 'alice@example.com', 'role': 'MEMBER'}, {'email': 'bob@example.com', 'role':
+            'MEMBER'}]}
+
     Attributes:
         invitations (list[InvitationCreateItem]):
     """

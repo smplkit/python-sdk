@@ -15,6 +15,9 @@ T = TypeVar("T", bound="InvitationCreateItem")
 @_attrs_define
 class InvitationCreateItem:
     """
+    Example:
+        {'email': 'alice@example.com', 'role': 'MEMBER'}
+
     Attributes:
         email (str):
         role (str | Unset):  Default: 'MEMBER'.

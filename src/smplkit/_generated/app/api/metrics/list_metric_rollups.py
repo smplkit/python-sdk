@@ -97,6 +97,8 @@ def sync_detailed(
 ) -> Response[ErrorResponse | MetricRollupListResponse]:
     """List Metric Rollups
 
+     Query aggregated metric rollups. Requires filter[rollup] for the aggregation interval.
+
     Args:
         filtername (str):
         filterrollup (str):
@@ -132,6 +134,8 @@ def sync(
 ) -> ErrorResponse | MetricRollupListResponse | None:
     """List Metric Rollups
 
+     Query aggregated metric rollups. Requires filter[rollup] for the aggregation interval.
+
     Args:
         filtername (str):
         filterrollup (str):
@@ -161,6 +165,8 @@ async def asyncio_detailed(
     filterrecorded_at: None | str | Unset = UNSET,
 ) -> Response[ErrorResponse | MetricRollupListResponse]:
     """List Metric Rollups
+
+     Query aggregated metric rollups. Requires filter[rollup] for the aggregation interval.
 
     Args:
         filtername (str):
@@ -194,6 +200,8 @@ async def asyncio(
     filterrecorded_at: None | str | Unset = UNSET,
 ) -> ErrorResponse | MetricRollupListResponse | None:
     """List Metric Rollups
+
+     Query aggregated metric rollups. Requires filter[rollup] for the aggregation interval.
 
     Args:
         filtername (str):

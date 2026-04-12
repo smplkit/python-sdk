@@ -82,6 +82,8 @@ def sync_detailed(
 ) -> Response[AccountResponse | ErrorResponse]:
     """Update Current Account
 
+     Update the current account's settings.
+
     Args:
         body (AccountResponse):
 
@@ -111,6 +113,8 @@ def sync(
 ) -> AccountResponse | ErrorResponse | None:
     """Update Current Account
 
+     Update the current account's settings.
+
     Args:
         body (AccountResponse):
 
@@ -134,6 +138,8 @@ async def asyncio_detailed(
     body: AccountResponse,
 ) -> Response[AccountResponse | ErrorResponse]:
     """Update Current Account
+
+     Update the current account's settings.
 
     Args:
         body (AccountResponse):
@@ -161,6 +167,8 @@ async def asyncio(
     body: AccountResponse,
 ) -> AccountResponse | ErrorResponse | None:
     """Update Current Account
+
+     Update the current account's settings.
 
     Args:
         body (AccountResponse):

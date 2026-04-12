@@ -78,6 +78,8 @@ def sync_detailed(
 ) -> Response[EnvironmentResponse | ErrorResponse]:
     """Get Environment
 
+     Return an environment by id.
+
     Args:
         id (str):
 
@@ -107,6 +109,8 @@ def sync(
 ) -> EnvironmentResponse | ErrorResponse | None:
     """Get Environment
 
+     Return an environment by id.
+
     Args:
         id (str):
 
@@ -130,6 +134,8 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 ) -> Response[EnvironmentResponse | ErrorResponse]:
     """Get Environment
+
+     Return an environment by id.
 
     Args:
         id (str):
@@ -157,6 +163,8 @@ async def asyncio(
     client: AuthenticatedClient,
 ) -> EnvironmentResponse | ErrorResponse | None:
     """Get Environment
+
+     Return an environment by id.
 
     Args:
         id (str):
