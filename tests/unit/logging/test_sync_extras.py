@@ -22,7 +22,6 @@ def _make_logger_attrs(*, name="SQL Logger", level="DEBUG", group=None, managed=
     attrs.level = level
     attrs.group = group if group is not None else UNSET
     attrs.managed = managed
-    attrs.sources = UNSET
     attrs.environments = UNSET
     attrs.created_at = UNSET
     attrs.updated_at = UNSET
