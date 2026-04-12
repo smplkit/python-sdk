@@ -8,33 +8,33 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from ..models.subscription_resource_type import check_subscription_resource_type
-from ..models.subscription_resource_type import SubscriptionResourceType
+from ..models.bundle_resource_type import BundleResourceType
+from ..models.bundle_resource_type import check_bundle_resource_type
 from typing import cast
 
 if TYPE_CHECKING:
-    from ..models.subscription_attributes import SubscriptionAttributes
+    from ..models.bundle_attributes import BundleAttributes
 
 
-T = TypeVar("T", bound="SubscriptionResource")
+T = TypeVar("T", bound="BundleResource")
 
 
 @_attrs_define
-class SubscriptionResource:
+class BundleResource:
     """
     Example:
-        {'attributes': {'comped': False, 'current_period_end': '2026-05-01T00:00:00Z', 'plan': 'pro', 'product':
-            'flags', 'status': 'active', 'stripe_managed': True}, 'id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type':
-            'subscription'}
+        {'attributes': {'bundle': 'standard', 'plan': 'standard', 'products': ['config', 'flags', 'logging'],
+            'subscriptions': ['sub-uuid-config', 'sub-uuid-flags', 'sub-uuid-logging']}, 'id': 'a1b2c3d4-e5f6-7890-abcd-
+            ef1234567890', 'type': 'bundle'}
 
     Attributes:
-        type_ (SubscriptionResourceType):
-        attributes (SubscriptionAttributes):
+        type_ (BundleResourceType):
+        attributes (BundleAttributes):
         id (None | str | Unset):
     """
 
-    type_: SubscriptionResourceType
-    attributes: SubscriptionAttributes
+    type_: BundleResourceType
+    attributes: BundleAttributes
     id: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -64,12 +64,12 @@ class SubscriptionResource:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.subscription_attributes import SubscriptionAttributes
+        from ..models.bundle_attributes import BundleAttributes
 
         d = dict(src_dict)
-        type_ = check_subscription_resource_type(d.pop("type"))
+        type_ = check_bundle_resource_type(d.pop("type"))
 
-        attributes = SubscriptionAttributes.from_dict(d.pop("attributes"))
+        attributes = BundleAttributes.from_dict(d.pop("attributes"))
 
         def _parse_id(data: object) -> None | str | Unset:
             if data is None:
@@ -80,14 +80,14 @@ class SubscriptionResource:
 
         id = _parse_id(d.pop("id", UNSET))
 
-        subscription_resource = cls(
+        bundle_resource = cls(
             type_=type_,
             attributes=attributes,
             id=id,
         )
 
-        subscription_resource.additional_properties = d
-        return subscription_resource
+        bundle_resource.additional_properties = d
+        return bundle_resource
 
     @property
     def additional_keys(self) -> list[str]:

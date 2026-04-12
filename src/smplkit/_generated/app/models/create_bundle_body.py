@@ -8,38 +8,30 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.update_subscription_attributes import UpdateSubscriptionAttributes
+    from ..models.create_bundle_data import CreateBundleData
 
 
-T = TypeVar("T", bound="UpdateSubscriptionData")
+T = TypeVar("T", bound="CreateBundleBody")
 
 
 @_attrs_define
-class UpdateSubscriptionData:
+class CreateBundleBody:
     """
-    Example:
-        {'attributes': {'plan': 'pro'}, 'type': 'subscription'}
-
     Attributes:
-        type_ (str):
-        attributes (UpdateSubscriptionAttributes):  Example: {'plan': 'pro'}.
+        data (CreateBundleData):
     """
 
-    type_: str
-    attributes: UpdateSubscriptionAttributes
+    data: CreateBundleData
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        type_ = self.type_
-
-        attributes = self.attributes.to_dict()
+        data = self.data.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "type": type_,
-                "attributes": attributes,
+                "data": data,
             }
         )
 
@@ -47,20 +39,17 @@ class UpdateSubscriptionData:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.update_subscription_attributes import UpdateSubscriptionAttributes
+        from ..models.create_bundle_data import CreateBundleData
 
         d = dict(src_dict)
-        type_ = d.pop("type")
+        data = CreateBundleData.from_dict(d.pop("data"))
 
-        attributes = UpdateSubscriptionAttributes.from_dict(d.pop("attributes"))
-
-        update_subscription_data = cls(
-            type_=type_,
-            attributes=attributes,
+        create_bundle_body = cls(
+            data=data,
         )
 
-        update_subscription_data.additional_properties = d
-        return update_subscription_data
+        create_bundle_body.additional_properties = d
+        return create_bundle_body
 
     @property
     def additional_keys(self) -> list[str]:

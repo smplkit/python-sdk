@@ -72,7 +72,7 @@ def sync_detailed(
 ) -> Response[ErrorResponse | SubscriptionListResponse]:
     """List Subscriptions
 
-     Return per-product subscription state for the authenticated account.
+     Return subscription rows for the authenticated account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -97,7 +97,7 @@ def sync(
 ) -> ErrorResponse | SubscriptionListResponse | None:
     """List Subscriptions
 
-     Return per-product subscription state for the authenticated account.
+     Return subscription rows for the authenticated account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,7 +118,7 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | SubscriptionListResponse]:
     """List Subscriptions
 
-     Return per-product subscription state for the authenticated account.
+     Return subscription rows for the authenticated account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -141,7 +141,7 @@ async def asyncio(
 ) -> ErrorResponse | SubscriptionListResponse | None:
     """List Subscriptions
 
-     Return per-product subscription state for the authenticated account.
+     Return subscription rows for the authenticated account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

@@ -1,39 +1,51 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-if TYPE_CHECKING:
-    from ..models.subscription_resource import SubscriptionResource
+from typing import cast
 
 
-T = TypeVar("T", bound="SubscriptionResponse")
+T = TypeVar("T", bound="BundleAttributes")
 
 
 @_attrs_define
-class SubscriptionResponse:
+class BundleAttributes:
     """
     Attributes:
-        data (SubscriptionResource):  Example: {'attributes': {'comped': False, 'current_period_end':
-            '2026-05-01T00:00:00Z', 'plan': 'pro', 'product': 'flags', 'status': 'active', 'stripe_managed': True}, 'id':
-            'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type': 'subscription'}.
+        bundle (str):
+        plan (str):
+        products (list[str]):
+        subscriptions (list[str]):
     """
 
-    data: SubscriptionResource
+    bundle: str
+    plan: str
+    products: list[str]
+    subscriptions: list[str]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = self.data.to_dict()
+        bundle = self.bundle
+
+        plan = self.plan
+
+        products = self.products
+
+        subscriptions = self.subscriptions
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "data": data,
+                "bundle": bundle,
+                "plan": plan,
+                "products": products,
+                "subscriptions": subscriptions,
             }
         )
 
@@ -41,17 +53,24 @@ class SubscriptionResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.subscription_resource import SubscriptionResource
-
         d = dict(src_dict)
-        data = SubscriptionResource.from_dict(d.pop("data"))
+        bundle = d.pop("bundle")
 
-        subscription_response = cls(
-            data=data,
+        plan = d.pop("plan")
+
+        products = cast(list[str], d.pop("products"))
+
+        subscriptions = cast(list[str], d.pop("subscriptions"))
+
+        bundle_attributes = cls(
+            bundle=bundle,
+            plan=plan,
+            products=products,
+            subscriptions=subscriptions,
         )
 
-        subscription_response.additional_properties = d
-        return subscription_response
+        bundle_attributes.additional_properties = d
+        return bundle_attributes
 
     @property
     def additional_keys(self) -> list[str]:

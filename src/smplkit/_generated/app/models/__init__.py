@@ -13,6 +13,10 @@ from .api_key_resource_type import ApiKeyResourceType
 from .api_key_response import ApiKeyResponse
 from .api_key_scopes import ApiKeyScopes
 from .auth_token_response import AuthTokenResponse
+from .bundle_attributes import BundleAttributes
+from .bundle_resource import BundleResource
+from .bundle_resource_type import BundleResourceType
+from .bundle_response import BundleResponse
 from .context import Context
 from .context_attributes import ContextAttributes
 from .context_batch_response import ContextBatchResponse
@@ -29,6 +33,10 @@ from .context_type_list_response import ContextTypeListResponse
 from .context_type_resource import ContextTypeResource
 from .context_type_resource_type import ContextTypeResourceType
 from .context_type_response import ContextTypeResponse
+from .create_bundle_attributes import CreateBundleAttributes
+from .create_bundle_body import CreateBundleBody
+from .create_bundle_data import CreateBundleData
+from .create_bundle_data_type import CreateBundleDataType
 from .create_subscription_attributes import CreateSubscriptionAttributes
 from .create_subscription_body import CreateSubscriptionBody
 from .create_subscription_data import CreateSubscriptionData
@@ -72,6 +80,7 @@ from .payment_method_list_response import PaymentMethodListResponse
 from .payment_method_resource import PaymentMethodResource
 from .payment_method_resource_type import PaymentMethodResourceType
 from .plan import Plan
+from .plan_change_request import PlanChangeRequest
 from .plan_definition import PlanDefinition
 from .plan_definition_limits import PlanDefinitionLimits
 from .plan_list_response import PlanListResponse
@@ -98,9 +107,6 @@ from .subscription_list_response import SubscriptionListResponse
 from .subscription_resource import SubscriptionResource
 from .subscription_resource_type import SubscriptionResourceType
 from .subscription_response import SubscriptionResponse
-from .update_subscription_attributes import UpdateSubscriptionAttributes
-from .update_subscription_body import UpdateSubscriptionBody
-from .update_subscription_data import UpdateSubscriptionData
 from .user import User
 from .user_list_response import UserListResponse
 from .user_resource import UserResource
@@ -122,6 +128,10 @@ __all__ = (
     "ApiKeyResponse",
     "ApiKeyScopes",
     "AuthTokenResponse",
+    "BundleAttributes",
+    "BundleResource",
+    "BundleResourceType",
+    "BundleResponse",
     "Context",
     "ContextAttributes",
     "ContextBatchResponse",
@@ -138,6 +148,10 @@ __all__ = (
     "ContextTypeResource",
     "ContextTypeResourceType",
     "ContextTypeResponse",
+    "CreateBundleAttributes",
+    "CreateBundleBody",
+    "CreateBundleData",
+    "CreateBundleDataType",
     "CreateSubscriptionAttributes",
     "CreateSubscriptionBody",
     "CreateSubscriptionData",
@@ -181,6 +195,7 @@ __all__ = (
     "PaymentMethodResource",
     "PaymentMethodResourceType",
     "Plan",
+    "PlanChangeRequest",
     "PlanDefinition",
     "PlanDefinitionLimits",
     "PlanListResponse",
@@ -207,9 +222,6 @@ __all__ = (
     "SubscriptionResource",
     "SubscriptionResourceType",
     "SubscriptionResponse",
-    "UpdateSubscriptionAttributes",
-    "UpdateSubscriptionBody",
-    "UpdateSubscriptionData",
     "User",
     "UserListResponse",
     "UserResource",
