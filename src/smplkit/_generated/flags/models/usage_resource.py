@@ -7,36 +7,44 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
+from typing import cast
+from typing import Literal
+
 if TYPE_CHECKING:
-    from ..models.flag_resource import FlagResource
+    from ..models.usage_attributes import UsageAttributes
 
 
-T = TypeVar("T", bound="FlagResponse")
+T = TypeVar("T", bound="UsageResource")
 
 
 @_attrs_define
-class FlagResponse:
+class UsageResource:
     """
     Attributes:
-        data (FlagResource):  Example: {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'default': False,
-            'description': 'Enable dark mode for the application UI', 'environments': {'production': {'default': False,
-            'enabled': True, 'rules': [{'description': 'Beta users get dark mode', 'logic': {'attribute': 'beta', 'op':
-            'eq', 'value': True}, 'value': True}]}}, 'name': 'Dark Mode', 'type': 'BOOLEAN', 'updated_at':
-            '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value': False}]}, 'id':
-            'dark-mode', 'type': 'flag'}.
+        id (str):
+        type_ (Literal['usage']):
+        attributes (UsageAttributes):
     """
 
-    data: FlagResource
+    id: str
+    type_: Literal["usage"]
+    attributes: UsageAttributes
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = self.data.to_dict()
+        id = self.id
+
+        type_ = self.type_
+
+        attributes = self.attributes.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "data": data,
+                "id": id,
+                "type": type_,
+                "attributes": attributes,
             }
         )
 
@@ -44,17 +52,25 @@ class FlagResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.flag_resource import FlagResource
+        from ..models.usage_attributes import UsageAttributes
 
         d = dict(src_dict)
-        data = FlagResource.from_dict(d.pop("data"))
+        id = d.pop("id")
 
-        flag_response = cls(
-            data=data,
+        type_ = cast(Literal["usage"], d.pop("type"))
+        if type_ != "usage":
+            raise ValueError(f"type must match const 'usage', got '{type_}'")
+
+        attributes = UsageAttributes.from_dict(d.pop("attributes"))
+
+        usage_resource = cls(
+            id=id,
+            type_=type_,
+            attributes=attributes,
         )
 
-        flag_response.additional_properties = d
-        return flag_response
+        usage_resource.additional_properties = d
+        return usage_resource
 
     @property
     def additional_keys(self) -> list[str]:

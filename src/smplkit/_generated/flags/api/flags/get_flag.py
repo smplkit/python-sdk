@@ -9,7 +9,6 @@ from ...types import Response
 from ... import errors
 
 from ...models.flag_response import FlagResponse
-from ...models.http_validation_error import HTTPValidationError
 
 
 def _get_kwargs(
@@ -26,18 +25,11 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> FlagResponse | HTTPValidationError | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> FlagResponse | None:
     if response.status_code == 200:
         response_200 = FlagResponse.from_dict(response.json())
 
         return response_200
-
-    if response.status_code == 422:
-        response_422 = HTTPValidationError.from_dict(response.json())
-
-        return response_422
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -45,9 +37,7 @@ def _parse_response(
         return None
 
 
-def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[FlagResponse | HTTPValidationError]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[FlagResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -60,8 +50,10 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-) -> Response[FlagResponse | HTTPValidationError]:
+) -> Response[FlagResponse]:
     """Get Flag
+
+     Return a feature flag by its key.
 
     Args:
         id (str):
@@ -71,7 +63,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[FlagResponse | HTTPValidationError]
+        Response[FlagResponse]
     """
 
     kwargs = _get_kwargs(
@@ -89,8 +81,10 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient,
-) -> FlagResponse | HTTPValidationError | None:
+) -> FlagResponse | None:
     """Get Flag
+
+     Return a feature flag by its key.
 
     Args:
         id (str):
@@ -100,7 +94,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        FlagResponse | HTTPValidationError
+        FlagResponse
     """
 
     return sync_detailed(
@@ -113,8 +107,10 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-) -> Response[FlagResponse | HTTPValidationError]:
+) -> Response[FlagResponse]:
     """Get Flag
+
+     Return a feature flag by its key.
 
     Args:
         id (str):
@@ -124,7 +120,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[FlagResponse | HTTPValidationError]
+        Response[FlagResponse]
     """
 
     kwargs = _get_kwargs(
@@ -140,8 +136,10 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient,
-) -> FlagResponse | HTTPValidationError | None:
+) -> FlagResponse | None:
     """Get Flag
+
+     Return a feature flag by its key.
 
     Args:
         id (str):
@@ -151,7 +149,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        FlagResponse | HTTPValidationError
+        FlagResponse
     """
 
     return (
