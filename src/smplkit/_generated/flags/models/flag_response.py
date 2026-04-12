@@ -23,7 +23,7 @@ class FlagResponse:
             'enabled': True, 'rules': [{'description': 'Beta users get dark mode', 'logic': {'attribute': 'beta', 'op':
             'eq', 'value': True}, 'value': True}]}}, 'name': 'Dark Mode', 'type': 'BOOLEAN', 'updated_at':
             '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value': False}]}, 'id':
-            'dark_mode', 'type': 'flag'}.
+            'dark-mode', 'type': 'flag'}.
     """
 
     data: FlagResource

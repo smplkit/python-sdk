@@ -35,7 +35,7 @@ class Flag:
         type_ (str): Value type: STRING, BOOLEAN, NUMERIC, or JSON
         default (Any): Default value; must reference a value in the values array (constrained) or match the flag type
             (unconstrained)
-        description (str | Unset):  Default: ''.
+        description (None | str | Unset):
         values (list[FlagValue] | None | Unset): Ordered set of allowed values (constrained), or null (unconstrained)
         environments (FlagEnvironments | Unset):
         created_at (datetime.datetime | None | Unset):
@@ -45,7 +45,7 @@ class Flag:
     name: str
     type_: str
     default: Any
-    description: str | Unset = ""
+    description: None | str | Unset = UNSET
     values: list[FlagValue] | None | Unset = UNSET
     environments: FlagEnvironments | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
@@ -59,7 +59,11 @@ class Flag:
 
         default = self.default
 
-        description = self.description
+        description: None | str | Unset
+        if isinstance(self.description, Unset):
+            description = UNSET
+        else:
+            description = self.description
 
         values: list[dict[str, Any]] | None | Unset
         if isinstance(self.values, Unset):
@@ -127,7 +131,14 @@ class Flag:
 
         default = d.pop("default")
 
-        description = d.pop("description", UNSET)
+        def _parse_description(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        description = _parse_description(d.pop("description", UNSET))
 
         def _parse_values(data: object) -> list[FlagValue] | None | Unset:
             if data is None:

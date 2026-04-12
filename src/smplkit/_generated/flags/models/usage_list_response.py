@@ -1,50 +1,44 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, TYPE_CHECKING
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-from typing import cast
+if TYPE_CHECKING:
+    from ..models.usage_resource import UsageResource
 
 
-T = TypeVar("T", bound="ValidationError")
+T = TypeVar("T", bound="UsageListResponse")
 
 
 @_attrs_define
-class ValidationError:
+class UsageListResponse:
     """
+    Example:
+        {'data': [{'attributes': {'limit_key': 'flags.items', 'period': 'current', 'value': 5}, 'id':
+            '550e8400-e29b-41d4-a716-446655440000', 'type': 'usage'}]}
+
     Attributes:
-        loc (list[int | str]):
-        msg (str):
-        type_ (str):
+        data (list[UsageResource]):
     """
 
-    loc: list[int | str]
-    msg: str
-    type_: str
+    data: list[UsageResource]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        loc = []
-        for loc_item_data in self.loc:
-            loc_item: int | str
-            loc_item = loc_item_data
-            loc.append(loc_item)
-
-        msg = self.msg
-
-        type_ = self.type_
+        data = []
+        for data_item_data in self.data:
+            data_item = data_item_data.to_dict()
+            data.append(data_item)
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "loc": loc,
-                "msg": msg,
-                "type": type_,
+                "data": data,
             }
         )
 
@@ -52,30 +46,22 @@ class ValidationError:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.usage_resource import UsageResource
+
         d = dict(src_dict)
-        loc = []
-        _loc = d.pop("loc")
-        for loc_item_data in _loc:
+        data = []
+        _data = d.pop("data")
+        for data_item_data in _data:
+            data_item = UsageResource.from_dict(data_item_data)
 
-            def _parse_loc_item(data: object) -> int | str:
-                return cast(int | str, data)
+            data.append(data_item)
 
-            loc_item = _parse_loc_item(loc_item_data)
-
-            loc.append(loc_item)
-
-        msg = d.pop("msg")
-
-        type_ = d.pop("type")
-
-        validation_error = cls(
-            loc=loc,
-            msg=msg,
-            type_=type_,
+        usage_list_response = cls(
+            data=data,
         )
 
-        validation_error.additional_properties = d
-        return validation_error
+        usage_list_response.additional_properties = d
+        return usage_list_response
 
     @property
     def additional_keys(self) -> list[str]:
