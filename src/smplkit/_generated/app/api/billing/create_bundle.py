@@ -1,6 +1,5 @@
 from http import HTTPStatus
 from typing import Any
-from urllib.parse import quote
 
 import httpx
 
@@ -8,23 +7,20 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
+from ...models.bundle_response import BundleResponse
+from ...models.create_bundle_body import CreateBundleBody
 from ...models.error_response import ErrorResponse
-from ...models.subscription_response import SubscriptionResponse
-from ...models.update_subscription_body import UpdateSubscriptionBody
 
 
 def _get_kwargs(
-    product: str,
     *,
-    body: UpdateSubscriptionBody,
+    body: CreateBundleBody,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
-        "method": "patch",
-        "url": "/api/v1/subscriptions/{product}".format(
-            product=quote(str(product), safe=""),
-        ),
+        "method": "post",
+        "url": "/api/v1/bundles",
     }
 
     _kwargs["json"] = body.to_dict()
@@ -37,11 +33,11 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse | SubscriptionResponse | None:
-    if response.status_code == 200:
-        response_200 = SubscriptionResponse.from_dict(response.json())
+) -> BundleResponse | ErrorResponse | None:
+    if response.status_code == 201:
+        response_201 = BundleResponse.from_dict(response.json())
 
-        return response_200
+        return response_201
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
@@ -71,7 +67,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse | SubscriptionResponse]:
+) -> Response[BundleResponse | ErrorResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -81,30 +77,26 @@ def _build_response(
 
 
 def sync_detailed(
-    product: str,
     *,
     client: AuthenticatedClient,
-    body: UpdateSubscriptionBody,
-) -> Response[ErrorResponse | SubscriptionResponse]:
-    """Update Subscription
+    body: CreateBundleBody,
+) -> Response[BundleResponse | ErrorResponse]:
+    """Create Bundle Subscription
 
-     Change the plan for an existing paid subscription (upgrade or downgrade).
+     Create a bundle subscription covering all three products at a shared plan tier.
 
     Args:
-        product (str):
-        body (UpdateSubscriptionBody):  Example: {'data': {'attributes': {'plan': 'pro'}, 'type':
-            'subscription'}}.
+        body (CreateBundleBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | SubscriptionResponse]
+        Response[BundleResponse | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
-        product=product,
         body=body,
     )
 
@@ -116,60 +108,52 @@ def sync_detailed(
 
 
 def sync(
-    product: str,
     *,
     client: AuthenticatedClient,
-    body: UpdateSubscriptionBody,
-) -> ErrorResponse | SubscriptionResponse | None:
-    """Update Subscription
+    body: CreateBundleBody,
+) -> BundleResponse | ErrorResponse | None:
+    """Create Bundle Subscription
 
-     Change the plan for an existing paid subscription (upgrade or downgrade).
+     Create a bundle subscription covering all three products at a shared plan tier.
 
     Args:
-        product (str):
-        body (UpdateSubscriptionBody):  Example: {'data': {'attributes': {'plan': 'pro'}, 'type':
-            'subscription'}}.
+        body (CreateBundleBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | SubscriptionResponse
+        BundleResponse | ErrorResponse
     """
 
     return sync_detailed(
-        product=product,
         client=client,
         body=body,
     ).parsed
 
 
 async def asyncio_detailed(
-    product: str,
     *,
     client: AuthenticatedClient,
-    body: UpdateSubscriptionBody,
-) -> Response[ErrorResponse | SubscriptionResponse]:
-    """Update Subscription
+    body: CreateBundleBody,
+) -> Response[BundleResponse | ErrorResponse]:
+    """Create Bundle Subscription
 
-     Change the plan for an existing paid subscription (upgrade or downgrade).
+     Create a bundle subscription covering all three products at a shared plan tier.
 
     Args:
-        product (str):
-        body (UpdateSubscriptionBody):  Example: {'data': {'attributes': {'plan': 'pro'}, 'type':
-            'subscription'}}.
+        body (CreateBundleBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | SubscriptionResponse]
+        Response[BundleResponse | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
-        product=product,
         body=body,
     )
 
@@ -179,31 +163,27 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    product: str,
     *,
     client: AuthenticatedClient,
-    body: UpdateSubscriptionBody,
-) -> ErrorResponse | SubscriptionResponse | None:
-    """Update Subscription
+    body: CreateBundleBody,
+) -> BundleResponse | ErrorResponse | None:
+    """Create Bundle Subscription
 
-     Change the plan for an existing paid subscription (upgrade or downgrade).
+     Create a bundle subscription covering all three products at a shared plan tier.
 
     Args:
-        product (str):
-        body (UpdateSubscriptionBody):  Example: {'data': {'attributes': {'plan': 'pro'}, 'type':
-            'subscription'}}.
+        body (CreateBundleBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | SubscriptionResponse
+        BundleResponse | ErrorResponse
     """
 
     return (
         await asyncio_detailed(
-            product=product,
             client=client,
             body=body,
         )

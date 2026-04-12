@@ -8,23 +8,22 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.update_subscription_data import UpdateSubscriptionData
+    from ..models.bundle_resource import BundleResource
 
 
-T = TypeVar("T", bound="UpdateSubscriptionBody")
+T = TypeVar("T", bound="BundleResponse")
 
 
 @_attrs_define
-class UpdateSubscriptionBody:
+class BundleResponse:
     """
-    Example:
-        {'data': {'attributes': {'plan': 'pro'}, 'type': 'subscription'}}
-
     Attributes:
-        data (UpdateSubscriptionData):  Example: {'attributes': {'plan': 'pro'}, 'type': 'subscription'}.
+        data (BundleResource):  Example: {'attributes': {'bundle': 'standard', 'plan': 'standard', 'products':
+            ['config', 'flags', 'logging'], 'subscriptions': ['sub-uuid-config', 'sub-uuid-flags', 'sub-uuid-logging']},
+            'id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type': 'bundle'}.
     """
 
-    data: UpdateSubscriptionData
+    data: BundleResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -42,17 +41,17 @@ class UpdateSubscriptionBody:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.update_subscription_data import UpdateSubscriptionData
+        from ..models.bundle_resource import BundleResource
 
         d = dict(src_dict)
-        data = UpdateSubscriptionData.from_dict(d.pop("data"))
+        data = BundleResource.from_dict(d.pop("data"))
 
-        update_subscription_body = cls(
+        bundle_response = cls(
             data=data,
         )
 
-        update_subscription_body.additional_properties = d
-        return update_subscription_body
+        bundle_response.additional_properties = d
+        return bundle_response
 
     @property
     def additional_keys(self) -> list[str]:
