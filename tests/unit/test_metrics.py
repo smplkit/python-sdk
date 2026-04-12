@@ -776,7 +776,7 @@ class TestConfigInstrumentation:
         client._connected = True
         client._config_cache["my-config"] = {"host": "localhost"}
 
-        result = client.resolve("my-config")
+        result = client.get("my-config")
 
         assert result == {"host": "localhost"}
         metrics = parent._metrics
@@ -795,7 +795,7 @@ class TestConfigInstrumentation:
         client._connected = True
         client._config_cache["my-config"] = {"host": "localhost"}
 
-        result = client.resolve("my-config")
+        result = client.get("my-config")
         assert result == {"host": "localhost"}
 
     def test_change_listeners_record_metric(self):

@@ -72,19 +72,19 @@ def _mock_resource(id="test", **attr_kwargs):
 class TestConfigClientNew:
     def test_new_returns_config_with_no_created_at(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        cfg = client.config.new("my_service")
+        cfg = client.config.management.new("my_service")
         assert cfg.id == "my_service"
         assert cfg.created_at is None
         assert cfg.name == "My Service"  # auto-generated from id
 
     def test_new_with_explicit_name(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        cfg = client.config.new("my_service", name="Custom Name")
+        cfg = client.config.management.new("my_service", name="Custom Name")
         assert cfg.name == "Custom Name"
 
     def test_new_with_description_and_parent(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        cfg = client.config.new("child_svc", description="A child", parent=_TEST_UUID)
+        cfg = client.config.management.new("child_svc", description="A child", parent=_TEST_UUID)
         assert cfg.description == "A child"
         assert cfg.parent == _TEST_UUID
 
@@ -101,7 +101,7 @@ class TestConfigClientGet:
         mock_get.return_value = _mock_single_response(resource)
 
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        cfg = client.config.get("common")
+        cfg = client.config.management.get("common")
         assert cfg.id == "common"
         mock_get.assert_called_once()
 
@@ -110,14 +110,14 @@ class TestConfigClientGet:
         mock_get.return_value = _mock_response(status_code=HTTPStatus.NOT_FOUND, content=b"Not Found")
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         with pytest.raises(SmplNotFoundError):
-            client.config.get("nonexistent")
+            client.config.management.get("nonexistent")
 
     @patch("smplkit.config.client.get_config.sync_detailed")
     def test_get_not_found_parsed_none(self, mock_get):
         mock_get.return_value = _mock_response(parsed=None)
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         with pytest.raises(SmplNotFoundError):
-            client.config.get("missing")
+            client.config.management.get("missing")
 
     @patch("smplkit.config.client.get_config.sync_detailed")
     def test_get_not_found_no_data_attr(self, mock_get):
@@ -125,28 +125,28 @@ class TestConfigClientGet:
         mock_get.return_value = _mock_response(parsed=parsed)
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         with pytest.raises(SmplNotFoundError):
-            client.config.get("missing")
+            client.config.management.get("missing")
 
     @patch("smplkit.config.client.get_config.sync_detailed")
     def test_get_network_error(self, mock_get):
         mock_get.side_effect = httpx.ConnectError("connection refused")
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         with pytest.raises(SmplConnectionError):
-            client.config.get("common")
+            client.config.management.get("common")
 
     @patch("smplkit.config.client.get_config.sync_detailed")
     def test_get_timeout(self, mock_get):
         mock_get.side_effect = httpx.ReadTimeout("timed out")
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         with pytest.raises(SmplTimeoutError):
-            client.config.get("common")
+            client.config.management.get("common")
 
     @patch("smplkit.config.client.get_config.sync_detailed")
     def test_get_reraises_non_network_error(self, mock_get):
         mock_get.side_effect = RuntimeError("unexpected")
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         with pytest.raises(RuntimeError, match="unexpected"):
-            client.config.get("common")
+            client.config.management.get("common")
 
 
 # ===================================================================
@@ -161,7 +161,7 @@ class TestConfigClientList:
         mock_list.return_value = _mock_list_response([resource])
 
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        configs = client.config.list()
+        configs = client.config.management.list()
         assert len(configs) == 1
         assert configs[0].id == "c1"
 
@@ -170,27 +170,27 @@ class TestConfigClientList:
         mock_list.side_effect = httpx.ConnectError("refused")
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         with pytest.raises(SmplConnectionError):
-            client.config.list()
+            client.config.management.list()
 
     @patch("smplkit.config.client.list_configs.sync_detailed")
     def test_list_parsed_none(self, mock_list):
         mock_list.return_value = _mock_response(parsed=None)
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        assert client.config.list() == []
+        assert client.config.management.list() == []
 
     @patch("smplkit.config.client.list_configs.sync_detailed")
     def test_list_no_data_attr(self, mock_list):
         parsed = MagicMock(spec=[])
         mock_list.return_value = _mock_response(parsed=parsed)
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        assert client.config.list() == []
+        assert client.config.management.list() == []
 
     @patch("smplkit.config.client.list_configs.sync_detailed")
     def test_list_reraises_non_network_error(self, mock_list):
         mock_list.side_effect = RuntimeError("unexpected")
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         with pytest.raises(RuntimeError, match="unexpected"):
-            client.config.list()
+            client.config.management.list()
 
 
 # ===================================================================
@@ -204,7 +204,7 @@ class TestConfigClientDelete:
         mock_delete.return_value = _mock_response(status_code=HTTPStatus.NO_CONTENT)
 
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config.delete("my_config")
+        client.config.management.delete("my_config")
 
         mock_delete.assert_called_once()
 
@@ -214,7 +214,7 @@ class TestConfigClientDelete:
 
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         with pytest.raises(SmplConnectionError):
-            client.config.delete("my_config")
+            client.config.management.delete("my_config")
 
     @patch("smplkit.config.client.delete_config.sync_detailed")
     def test_delete_reraises_non_network_error(self, mock_delete):
@@ -222,7 +222,7 @@ class TestConfigClientDelete:
 
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         with pytest.raises(RuntimeError, match="unexpected"):
-            client.config.delete("my_config")
+            client.config.management.delete("my_config")
 
 
 # ===================================================================
@@ -237,7 +237,7 @@ class TestConfigClientCreateUpdate:
         mock_create.return_value = _mock_single_response(resource, status_code=HTTPStatus.CREATED)
 
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        cfg = client.config.new("new_config")
+        cfg = client.config.management.new("new_config")
         result = client.config._create_config(cfg)
         assert result.id == "new_config"
         assert result.name == "New Config"
@@ -246,7 +246,7 @@ class TestConfigClientCreateUpdate:
     def test_create_config_network_error(self, mock_create):
         mock_create.side_effect = httpx.ConnectError("refused")
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        cfg = client.config.new("test")
+        cfg = client.config.management.new("test")
         with pytest.raises(SmplConnectionError):
             client.config._create_config(cfg)
 
@@ -254,7 +254,7 @@ class TestConfigClientCreateUpdate:
     def test_create_config_parsed_none(self, mock_create):
         mock_create.return_value = _mock_response(parsed=None)
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        cfg = client.config.new("test")
+        cfg = client.config.management.new("test")
         with pytest.raises(SmplValidationError):
             client.config._create_config(cfg)
 
@@ -262,7 +262,7 @@ class TestConfigClientCreateUpdate:
     def test_create_config_reraises_non_network_error(self, mock_create):
         mock_create.side_effect = RuntimeError("unexpected")
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        cfg = client.config.new("test")
+        cfg = client.config.management.new("test")
         with pytest.raises(RuntimeError, match="unexpected"):
             client.config._create_config(cfg)
 
@@ -326,7 +326,7 @@ class TestConfigClientConnectInternal:
     def test_connect_internal_populates_cache(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         mock_cfg = self._make_mock_config("db", {"host": {"value": "localhost"}})
-        with patch.object(client.config, "list", return_value=[mock_cfg]):
+        with patch.object(client.config.management, "list", return_value=[mock_cfg]):
             client.config._connect_internal()
         assert client.config._connected is True
         assert "db" in client.config._config_cache
@@ -334,7 +334,7 @@ class TestConfigClientConnectInternal:
     def test_connect_internal_is_idempotent(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         mock_cfg = self._make_mock_config("db", {"host": {"value": "localhost"}})
-        with patch.object(client.config, "list", return_value=[mock_cfg]) as mock_list:
+        with patch.object(client.config.management, "list", return_value=[mock_cfg]) as mock_list:
             client.config._connect_internal()
             client.config._connect_internal()
         mock_list.assert_called_once()
@@ -351,7 +351,7 @@ class TestConfigClientResolve:
         client.config._connected = True
         client.config._config_cache = {"db": {"host": "localhost", "port": 5432}}
 
-        result = client.config.resolve("db")
+        result = client.config.get("db")
         assert result == {"host": "localhost", "port": 5432}
 
     def test_resolve_returns_empty_for_missing_id(self):
@@ -359,13 +359,13 @@ class TestConfigClientResolve:
         client.config._connected = True
         client.config._config_cache = {}
 
-        assert client.config.resolve("missing") == {}
+        assert client.config.get("missing") == {}
 
     def test_resolve_triggers_connect(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         with patch.object(client.config, "_connect_internal") as mock_connect:
             with patch.object(client.config, "_config_cache", {"db": {"host": "h"}}):
-                client.config.resolve("db")
+                client.config.get("db")
         mock_connect.assert_called_once()
 
     def test_resolve_with_model_class(self):
@@ -378,7 +378,7 @@ class TestConfigClientResolve:
                 self.host = host
                 self.port = port
 
-        result = client.config.resolve("db", model=DbConfig)
+        result = client.config.get("db", model=DbConfig)
         assert isinstance(result, DbConfig)
         assert result.host == "localhost"
         assert result.port == 5432
@@ -396,7 +396,7 @@ class TestConfigClientResolve:
                 obj.port = data["port"]
                 return obj
 
-        result = client.config.resolve("db", model=FakePydanticModel)
+        result = client.config.get("db", model=FakePydanticModel)
         assert isinstance(result, FakePydanticModel)
         assert result.host == "localhost"
 
@@ -409,7 +409,7 @@ class TestConfigClientResolve:
             def __init__(self, database):
                 self.database = database
 
-        result = client.config.resolve("svc", model=SvcConfig)
+        result = client.config.get("svc", model=SvcConfig)
         assert result.database == {"host": "h", "port": 5432}
 
 
@@ -685,19 +685,19 @@ class TestConfigClientModelConversion:
 class TestAsyncConfigClientNew:
     def test_new_returns_async_config_with_no_created_at(self):
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        cfg = client.config.new("my_service")
+        cfg = client.config.management.new("my_service")
         assert cfg.id == "my_service"
         assert cfg.created_at is None
         assert cfg.name == "My Service"
 
     def test_new_with_explicit_name(self):
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        cfg = client.config.new("my_service", name="Custom Name")
+        cfg = client.config.management.new("my_service", name="Custom Name")
         assert cfg.name == "Custom Name"
 
     def test_new_with_description_and_parent(self):
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        cfg = client.config.new("child_svc", description="A child", parent=_TEST_UUID)
+        cfg = client.config.management.new("child_svc", description="A child", parent=_TEST_UUID)
         assert cfg.description == "A child"
         assert cfg.parent == _TEST_UUID
 
@@ -715,7 +715,7 @@ class TestAsyncConfigClientGet:
 
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            cfg = await client.config.get("common")
+            cfg = await client.config.management.get("common")
             assert cfg.id == "common"
 
         asyncio.run(_run())
@@ -727,7 +727,7 @@ class TestAsyncConfigClientGet:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             with pytest.raises(SmplNotFoundError):
-                await client.config.get("nonexistent")
+                await client.config.management.get("nonexistent")
 
         asyncio.run(_run())
 
@@ -738,7 +738,7 @@ class TestAsyncConfigClientGet:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             with pytest.raises(SmplNotFoundError):
-                await client.config.get("missing")
+                await client.config.management.get("missing")
 
         asyncio.run(_run())
 
@@ -750,7 +750,7 @@ class TestAsyncConfigClientGet:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             with pytest.raises(SmplNotFoundError):
-                await client.config.get("missing")
+                await client.config.management.get("missing")
 
         asyncio.run(_run())
 
@@ -761,7 +761,7 @@ class TestAsyncConfigClientGet:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             with pytest.raises(SmplConnectionError):
-                await client.config.get("common")
+                await client.config.management.get("common")
 
         asyncio.run(_run())
 
@@ -772,7 +772,7 @@ class TestAsyncConfigClientGet:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             with pytest.raises(SmplTimeoutError):
-                await client.config.get("common")
+                await client.config.management.get("common")
 
         asyncio.run(_run())
 
@@ -783,7 +783,7 @@ class TestAsyncConfigClientGet:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             with pytest.raises(RuntimeError, match="unexpected"):
-                await client.config.get("common")
+                await client.config.management.get("common")
 
         asyncio.run(_run())
 
@@ -801,7 +801,7 @@ class TestAsyncConfigClientList:
 
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            configs = await client.config.list()
+            configs = await client.config.management.list()
             assert len(configs) == 1
 
         asyncio.run(_run())
@@ -813,7 +813,7 @@ class TestAsyncConfigClientList:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             with pytest.raises(SmplConnectionError):
-                await client.config.list()
+                await client.config.management.list()
 
         asyncio.run(_run())
 
@@ -823,7 +823,7 @@ class TestAsyncConfigClientList:
 
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            result = await client.config.list()
+            result = await client.config.management.list()
             assert result == []
 
         asyncio.run(_run())
@@ -835,7 +835,7 @@ class TestAsyncConfigClientList:
 
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            result = await client.config.list()
+            result = await client.config.management.list()
             assert result == []
 
         asyncio.run(_run())
@@ -847,7 +847,7 @@ class TestAsyncConfigClientList:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             with pytest.raises(RuntimeError, match="unexpected"):
-                await client.config.list()
+                await client.config.management.list()
 
         asyncio.run(_run())
 
@@ -864,7 +864,7 @@ class TestAsyncConfigClientDelete:
 
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            await client.config.delete("my_config")
+            await client.config.management.delete("my_config")
 
         asyncio.run(_run())
         mock_delete.assert_called_once()
@@ -876,7 +876,7 @@ class TestAsyncConfigClientDelete:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             with pytest.raises(SmplConnectionError):
-                await client.config.delete("my_config")
+                await client.config.management.delete("my_config")
 
         asyncio.run(_run())
 
@@ -887,7 +887,7 @@ class TestAsyncConfigClientDelete:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             with pytest.raises(RuntimeError, match="unexpected"):
-                await client.config.delete("my_config")
+                await client.config.management.delete("my_config")
 
         asyncio.run(_run())
 
@@ -905,7 +905,7 @@ class TestAsyncConfigClientCreateUpdate:
 
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            cfg = client.config.new("new_config")
+            cfg = client.config.management.new("new_config")
             result = await client.config._create_config(cfg)
             assert result.id == "new_config"
 
@@ -917,7 +917,7 @@ class TestAsyncConfigClientCreateUpdate:
 
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            cfg = client.config.new("test")
+            cfg = client.config.management.new("test")
             with pytest.raises(SmplConnectionError):
                 await client.config._create_config(cfg)
 
@@ -929,7 +929,7 @@ class TestAsyncConfigClientCreateUpdate:
 
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            cfg = client.config.new("test")
+            cfg = client.config.management.new("test")
             with pytest.raises(SmplValidationError):
                 await client.config._create_config(cfg)
 
@@ -941,7 +941,7 @@ class TestAsyncConfigClientCreateUpdate:
 
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            cfg = client.config.new("test")
+            cfg = client.config.management.new("test")
             with pytest.raises(RuntimeError, match="unexpected"):
                 await client.config._create_config(cfg)
 
@@ -1023,7 +1023,7 @@ class TestAsyncConfigClientConnectInternal:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             mock_cfg = self._make_mock_config("db", {"host": {"value": "localhost"}})
-            with patch.object(client.config, "list", new_callable=AsyncMock, return_value=[mock_cfg]):
+            with patch.object(client.config.management, "list", new_callable=AsyncMock, return_value=[mock_cfg]):
                 await client.config._connect_internal()
             assert client.config._connected is True
             assert "db" in client.config._config_cache
@@ -1034,7 +1034,7 @@ class TestAsyncConfigClientConnectInternal:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             mock_cfg = self._make_mock_config("db", {"host": {"value": "localhost"}})
-            with patch.object(client.config, "list", new_callable=AsyncMock, return_value=[mock_cfg]) as mock_list:
+            with patch.object(client.config.management, "list", new_callable=AsyncMock, return_value=[mock_cfg]) as mock_list:
                 await client.config._connect_internal()
                 await client.config._connect_internal()
             mock_list.assert_called_once()
@@ -1053,7 +1053,7 @@ class TestAsyncConfigClientResolve:
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             client.config._connected = True
             client.config._config_cache = {"db": {"host": "localhost", "port": 5432}}
-            result = await client.config.resolve("db")
+            result = await client.config.get("db")
             assert result == {"host": "localhost", "port": 5432}
 
         asyncio.run(_run())
@@ -1063,7 +1063,7 @@ class TestAsyncConfigClientResolve:
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             client.config._connected = True
             client.config._config_cache = {}
-            assert await client.config.resolve("missing") == {}
+            assert await client.config.get("missing") == {}
 
         asyncio.run(_run())
 
@@ -1078,7 +1078,7 @@ class TestAsyncConfigClientResolve:
                     self.host = host
                     self.port = port
 
-            result = await client.config.resolve("db", model=DbConfig)
+            result = await client.config.get("db", model=DbConfig)
             assert isinstance(result, DbConfig)
             assert result.host == "localhost"
 
@@ -1097,7 +1097,7 @@ class TestAsyncConfigClientResolve:
                     obj.host = data["host"]
                     return obj
 
-            result = await client.config.resolve("db", model=FakePydanticModel)
+            result = await client.config.get("db", model=FakePydanticModel)
             assert isinstance(result, FakePydanticModel)
             assert result.host == "localhost"
 

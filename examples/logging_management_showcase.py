@@ -68,19 +68,19 @@ async def main() -> None:
         demo_logger_ids = {"app", "app.payments", "sqlalchemy.engine", "app.internal.debug"}
         demo_group_ids = {"databases", "http_clients"}
         try:
-            existing = await client.logging.list()
+            existing = await client.logging.management.list()
             for lg in existing:
                 if lg.id in demo_logger_ids:
-                    await client.logging.delete(lg.id)
+                    await client.logging.management.delete(lg.id)
         except Exception:
             pass
         try:
-            existing_groups = await client.logging.list_groups()
+            existing_groups = await client.logging.management.list_groups()
             for g in existing_groups:
                 # Server assigns group IDs from the name (e.g. "HTTP Clients"), normalize for comparison
                 normalized = g.id.lower().replace(" ", "_")
                 if normalized in demo_group_ids:
-                    await client.logging.delete_group(g.id)
+                    await client.logging.management.delete_group(g.id)
         except Exception:
             pass
 
@@ -88,7 +88,7 @@ async def main() -> None:
         # 2. CREATE LOGGERS — new() + save()
         # ==================================================================
         #
-        # client.logging.new(id, *, name=None, managed=False) creates a
+        # client.logging.management.new(id, *, name=None, managed=False) creates a
         # local Logger instance. Nothing hits the server until save().
         #
         # Convenience methods (setLevel, setEnvironmentLevel) accept
@@ -97,23 +97,23 @@ async def main() -> None:
 
         section("2a. Create Managed Loggers")
 
-        app_lg = client.logging.new("app", name="app", managed=True)
+        app_lg = client.logging.management.new("app", name="app", managed=True)
         app_lg.setLevel(LogLevel.WARN)
         await app_lg.save()
         step(f"Created: id={app_lg.id}, managed={app_lg.managed}, level={app_lg.level}")
 
-        payments_lg = client.logging.new("app.payments", name="app.payments", managed=True)
+        payments_lg = client.logging.management.new("app.payments", name="app.payments", managed=True)
         # No level — will inherit via dot-notation from "app"
         await payments_lg.save()
         step(f"Created: id={payments_lg.id}, managed={payments_lg.managed}, level={payments_lg.level or '(null)'}")
 
-        sqla_lg = client.logging.new("sqlalchemy.engine", name="sqlalchemy.engine", managed=True)
+        sqla_lg = client.logging.management.new("sqlalchemy.engine", name="sqlalchemy.engine", managed=True)
         await sqla_lg.save()
         step(f"Created: id={sqla_lg.id}, managed={sqla_lg.managed}, level={sqla_lg.level or '(null)'}")
 
         section("2b. Create an Unmanaged Logger")
 
-        unmanaged_lg = client.logging.new("app.internal.debug", name="app.internal.debug", managed=False)
+        unmanaged_lg = client.logging.management.new("app.internal.debug", name="app.internal.debug", managed=False)
         await unmanaged_lg.save()
         step(f"Created: id={unmanaged_lg.id}, managed={unmanaged_lg.managed}")
         step("  Unmanaged loggers do not consume managed-logger slots")
@@ -124,14 +124,14 @@ async def main() -> None:
 
         section("3a. List All Loggers")
 
-        loggers = await client.logging.list()
+        loggers = await client.logging.management.list()
         step(f"Total loggers: {len(loggers)}")
         for lg in loggers:
             step(f"  {lg.id} (managed={lg.managed}, level={lg.level or '(null)'})")
 
         section("3b. Get a Logger by ID")
 
-        fetched = await client.logging.get("app")
+        fetched = await client.logging.management.get("app")
         step(f"Fetched: id={fetched.id}, name={fetched.name}")
         step(f"  managed={fetched.managed}")
         step(f"  level={fetched.level}")
@@ -181,21 +181,21 @@ async def main() -> None:
 
         section("5a. Create Log Groups")
 
-        db_group = client.logging.new_group("databases", name="Databases")
+        db_group = client.logging.management.new_group("databases", name="Databases")
         db_group.setLevel(LogLevel.ERROR)
         db_group.setEnvironmentLevel("production", LogLevel.WARN)
         await db_group.save()
         step(f"Created group: id={db_group.id}")
         step("  level=ERROR, production override=WARN")
 
-        http_group = client.logging.new_group("http_clients", name="HTTP Clients")
+        http_group = client.logging.management.new_group("http_clients", name="HTTP Clients")
         http_group.setLevel(LogLevel.INFO)
         await http_group.save()
         step(f"Created group: id={http_group.id}")
 
         section("5b. List Log Groups")
 
-        groups = await client.logging.list_groups()
+        groups = await client.logging.management.list_groups()
         step(f"Total groups: {len(groups)}")
         for g in groups:
             env_str = f", envs={g.environments}" if g.environments else ""
@@ -203,7 +203,7 @@ async def main() -> None:
 
         section("5c. Get a Log Group by ID")
 
-        fetched_group = await client.logging.get_group(db_group.id)
+        fetched_group = await client.logging.management.get_group(db_group.id)
         step(f"Fetched: id={fetched_group.id}, name={fetched_group.name}")
         step(f"  level={fetched_group.level}")
         step(f"  environments={fetched_group.environments}")
@@ -270,25 +270,25 @@ async def main() -> None:
         #     with SmplClient(environment="production", service="my-service") as client:
         #
         #         # Create a logger
-        #         lgr = client.logging.new("my.logger", managed=True)
+        #         lgr = client.logging.management.new("my.logger", managed=True)
         #         lgr.setLevel(LogLevel.WARN)
         #         lgr.save()
         #
         #         # Fetch, mutate, save
-        #         lgr = client.logging.get("my.logger")
+        #         lgr = client.logging.management.get("my.logger")
         #         lgr.setEnvironmentLevel("production", LogLevel.ERROR)
         #         lgr.save()
         #
         #         # Groups
-        #         grp = client.logging.new_group("sql", name="SQL Loggers")
+        #         grp = client.logging.management.new_group("sql", name="SQL Loggers")
         #         grp.setLevel(LogLevel.WARN)
         #         grp.save()
         #
         #         lgr.group = grp.id
         #         lgr.save()
         #
-        #         client.logging.delete("my.logger")
-        #         client.logging.delete_group("sql")
+        #         client.logging.management.delete("my.logger")
+        #         client.logging.management.delete_group("sql")
 
         step("(See code comments for sync usage examples)")
 
@@ -297,14 +297,14 @@ async def main() -> None:
         # ==================================================================
         section("9. Cleanup")
 
-        await client.logging.delete_group(db_group.id)
+        await client.logging.management.delete_group(db_group.id)
         step(f"Deleted group: {db_group.id}")
 
-        await client.logging.delete_group(http_group.id)
+        await client.logging.management.delete_group(http_group.id)
         step(f"Deleted group: {http_group.id}")
 
         for lg in [app_lg, payments_lg, sqla_lg, unmanaged_lg]:
-            await client.logging.delete(lg.id)
+            await client.logging.management.delete(lg.id)
             step(f"Deleted logger: {lg.id}")
 
         # ==================================================================

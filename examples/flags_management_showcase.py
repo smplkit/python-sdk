@@ -73,10 +73,10 @@ async def main() -> None:
         # Clean up leftover flags from previous runs.
         demo_flag_ids = {"checkout-v2", "banner-color", "max-retries", "ui-theme"}
         try:
-            existing_flags = await client.flags.list()
+            existing_flags = await client.flags.management.list()
             for flag in existing_flags:
                 if flag.id in demo_flag_ids:
-                    await client.flags.delete(flag.id)
+                    await client.flags.management.delete(flag.id)
         except Exception:
             pass
 
@@ -104,7 +104,7 @@ async def main() -> None:
         # ------------------------------------------------------------------
         section("2a. Create a Boolean Flag")
 
-        checkout_flag = client.flags.newBooleanFlag(
+        checkout_flag = client.flags.management.newBooleanFlag(
             "checkout-v2",
             default=False,
             description="Controls rollout of the new checkout experience.",
@@ -123,7 +123,7 @@ async def main() -> None:
         # The values parameter defines a closed set — this flag can only
         # serve "red", "green", or "blue". This makes it a constrained
         # flag. The Console UI shows dropdowns for value selection.
-        banner_flag = client.flags.newStringFlag(
+        banner_flag = client.flags.management.newStringFlag(
             "banner-color",
             default="red",
             name="Banner Color",
@@ -149,7 +149,7 @@ async def main() -> None:
         # where the value space is open-ended.
         #
         # Omitting the values parameter creates an unconstrained flag.
-        retry_flag = client.flags.newNumberFlag(
+        retry_flag = client.flags.management.newNumberFlag(
             "max-retries",
             default=3,
             description="Maximum number of API retries before failing.",
@@ -164,7 +164,7 @@ async def main() -> None:
 
         # Like banner-color, this JSON flag is constrained — only the
         # three declared theme objects can be served.
-        theme_flag = client.flags.newJsonFlag(
+        theme_flag = client.flags.management.newJsonFlag(
             "ui-theme",
             default={"mode": "light", "accent": "#0066cc"},
             description="Controls the UI theme configuration.",
@@ -288,14 +288,14 @@ async def main() -> None:
         section("4. List and Inspect Flags")
 
         # List all flags — always an HTTP request.
-        flags = await client.flags.list()
+        flags = await client.flags.management.list()
         step(f"Total flags: {len(flags)}")
         for f in flags:
             env_keys = list(f.environments.keys()) if f.environments else []
             step(f"  {f.id} ({f.type}) — default={f.default}, environments={env_keys}")
 
         # Fetch a single flag by id — always an HTTP request.
-        fetched = await client.flags.get("checkout-v2")
+        fetched = await client.flags.management.get("checkout-v2")
         step(f"\nFetched by id: {fetched.id}")
         step(f"  staging rules: {len(fetched.environments.get('staging', {}).get('rules', []))}")
         step(f"  production enabled: {fetched.environments.get('production', {}).get('enabled')}")
@@ -345,7 +345,7 @@ async def main() -> None:
         step("All changes persisted via single save()")
 
         # Verify by re-fetching.
-        refreshed = await client.flags.get("banner-color")
+        refreshed = await client.flags.management.get("banner-color")
         prod_rules = refreshed.environments.get("production", {}).get("rules", [])
         step(f"Production rules after save: {len(prod_rules)}")
         for i, rule in enumerate(prod_rules):
@@ -380,11 +380,11 @@ async def main() -> None:
         #     with SmplClient(environment="staging", service="my-service") as client:
         #
         #         # Create a flag — local, then persist
-        #         flag = client.flags.newBooleanFlag("my-flag", default=False)
+        #         flag = client.flags.management.newBooleanFlag("my-flag", default=False)
         #         flag.save()
         #
         #         # Fetch, mutate, save
-        #         flag = client.flags.get("my-flag")
+        #         flag = client.flags.management.get("my-flag")
         #         flag.setEnvironmentEnabled("staging", True)
         #         flag.addRule(
         #             Rule("...").environment("staging").when(...).serve(True).build()
@@ -392,8 +392,8 @@ async def main() -> None:
         #         flag.save()
         #
         #         # List and delete
-        #         flags = client.flags.list()
-        #         client.flags.delete("my-flag")
+        #         flags = client.flags.management.list()
+        #         client.flags.management.delete("my-flag")
 
         step("(See code comments for sync usage examples)")
 
@@ -403,7 +403,7 @@ async def main() -> None:
         section("8. Cleanup")
 
         for flag_id in ["checkout-v2", "banner-color", "max-retries", "ui-theme"]:
-            await client.flags.delete(flag_id)
+            await client.flags.management.delete(flag_id)
             step(f"Deleted flag: {flag_id}")
 
         # ==================================================================

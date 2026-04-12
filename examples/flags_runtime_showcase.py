@@ -393,7 +393,7 @@ async def main() -> None:
         # ------------------------------------------------------------------
         step("Adding a rule to banner-color staging via management API...")
 
-        current_banner = await client.flags.get("banner-color")
+        current_banner = await client.flags.management.get("banner-color")
         current_banner.addRule(
             Rule("Red for small companies")
             .environment("staging")

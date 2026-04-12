@@ -97,24 +97,24 @@ def _make_logging_client(**kwargs):
 class TestNew:
     def test_new_returns_unsaved_logger(self):
         client = _make_logging_client()
-        lg = client.new("sql")
+        lg = client.management.new("sql")
         assert isinstance(lg, SmplLogger)
         assert lg.id == "sql"
         assert lg.managed is False
 
     def test_new_with_name(self):
         client = _make_logging_client()
-        lg = client.new("sql", name="SQL Logger")
+        lg = client.management.new("sql", name="SQL Logger")
         assert lg.name == "SQL Logger"
 
     def test_new_auto_generates_name(self):
         client = _make_logging_client()
-        lg = client.new("checkout-v2")
+        lg = client.management.new("checkout-v2")
         assert lg.name == "Checkout V2"
 
     def test_new_with_managed(self):
         client = _make_logging_client()
-        lg = client.new("sql", managed=True)
+        lg = client.management.new("sql", managed=True)
         assert lg.managed is True
 
 
@@ -126,23 +126,23 @@ class TestNew:
 class TestNewGroup:
     def test_new_group_returns_unsaved(self):
         client = _make_logging_client()
-        grp = client.new_group("db-loggers")
+        grp = client.management.new_group("db-loggers")
         assert isinstance(grp, SmplLogGroup)
         assert grp.id == "db-loggers"
 
     def test_new_group_with_name(self):
         client = _make_logging_client()
-        grp = client.new_group("db-loggers", name="DB Loggers")
+        grp = client.management.new_group("db-loggers", name="DB Loggers")
         assert grp.name == "DB Loggers"
 
     def test_new_group_auto_generates_name(self):
         client = _make_logging_client()
-        grp = client.new_group("db-loggers")
+        grp = client.management.new_group("db-loggers")
         assert grp.name == "Db Loggers"
 
     def test_new_group_with_parent_group(self):
         client = _make_logging_client()
-        grp = client.new_group("child", group="parent-id")
+        grp = client.management.new_group("child", group="parent-id")
         assert grp.group == "parent-id"
 
 
@@ -159,7 +159,7 @@ class TestList:
         mock_list.return_value = _ok_response(_make_list_parsed([resource]))
 
         client = _make_logging_client()
-        result = client.list()
+        result = client.management.list()
         assert len(result) == 1
         assert isinstance(result[0], SmplLogger)
 
@@ -167,7 +167,7 @@ class TestList:
     def test_list_empty_parsed(self, mock_list):
         mock_list.return_value = _ok_response(None)
         client = _make_logging_client()
-        result = client.list()
+        result = client.management.list()
         assert result == []
 
 
@@ -184,7 +184,7 @@ class TestGet:
         mock_get.return_value = _ok_response(_make_parsed(resource))
 
         client = _make_logging_client()
-        result = client.get("sql")
+        result = client.management.get("sql")
         assert isinstance(result, SmplLogger)
         mock_get.assert_called_once()
         assert mock_get.call_args.args[0] == "sql"
@@ -194,14 +194,14 @@ class TestGet:
         mock_get.return_value = _ok_response(None, HTTPStatus.NOT_FOUND)
         client = _make_logging_client()
         with pytest.raises(SmplNotFoundError):
-            client.get("sql")
+            client.management.get("sql")
 
     @patch("smplkit.logging.client.get_logger.sync_detailed")
     def test_get_not_found_null_parsed(self, mock_get):
         mock_get.return_value = _ok_response(None)
         client = _make_logging_client()
         with pytest.raises(SmplNotFoundError):
-            client.get("sql")
+            client.management.get("sql")
 
 
 # ---------------------------------------------------------------------------
@@ -218,7 +218,7 @@ class TestSaveLogger:
         mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
 
         client = _make_logging_client()
-        lg = client.new("sql", name="SQL Logger")
+        lg = client.management.new("sql", name="SQL Logger")
         lg.save()
 
         mock_create.assert_called_once()
@@ -368,7 +368,7 @@ class TestDelete:
         mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
 
         client = _make_logging_client()
-        client.delete("sql")
+        client.management.delete("sql")
         mock_delete.assert_called_once()
         assert mock_delete.call_args.args[0] == "sql"
 
@@ -377,7 +377,7 @@ class TestDelete:
         mock_delete.return_value = _ok_response(status=HTTPStatus.NOT_FOUND)
         client = _make_logging_client()
         with pytest.raises(SmplNotFoundError):
-            client.delete("nonexistent")
+            client.management.delete("nonexistent")
 
 
 # ---------------------------------------------------------------------------
@@ -393,7 +393,7 @@ class TestListGroups:
         mock_list.return_value = _ok_response(_make_list_parsed([resource]))
 
         client = _make_logging_client()
-        result = client.list_groups()
+        result = client.management.list_groups()
         assert len(result) == 1
         assert isinstance(result[0], SmplLogGroup)
 
@@ -401,7 +401,7 @@ class TestListGroups:
     def test_list_groups_empty_parsed(self, mock_list):
         mock_list.return_value = _ok_response(None)
         client = _make_logging_client()
-        result = client.list_groups()
+        result = client.management.list_groups()
         assert result == []
 
 
@@ -418,7 +418,7 @@ class TestGetGroup:
         mock_get.return_value = _ok_response(_make_parsed(resource))
 
         client = _make_logging_client()
-        result = client.get_group("db-loggers")
+        result = client.management.get_group("db-loggers")
         assert isinstance(result, SmplLogGroup)
         mock_get.assert_called_once()
         assert mock_get.call_args.args[0] == "db-loggers"
@@ -429,14 +429,14 @@ class TestGetGroup:
 
         client = _make_logging_client()
         with pytest.raises(SmplNotFoundError):
-            client.get_group("db-loggers")
+            client.management.get_group("db-loggers")
 
     @patch("smplkit.logging.client.get_log_group.sync_detailed")
     def test_get_group_not_found_null_parsed(self, mock_get):
         mock_get.return_value = _ok_response(None)
         client = _make_logging_client()
         with pytest.raises(SmplNotFoundError):
-            client.get_group("db-loggers")
+            client.management.get_group("db-loggers")
 
 
 # ---------------------------------------------------------------------------
@@ -453,7 +453,7 @@ class TestSaveGroup:
         mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
 
         client = _make_logging_client()
-        grp = client.new_group("db-loggers", name="DB Loggers")
+        grp = client.management.new_group("db-loggers", name="DB Loggers")
         grp.save()
 
         mock_create.assert_called_once()
@@ -574,7 +574,7 @@ class TestDeleteGroup:
         mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
 
         client = _make_logging_client()
-        client.delete_group("db-loggers")
+        client.management.delete_group("db-loggers")
         mock_delete.assert_called_once()
         assert mock_delete.call_args.args[0] == "db-loggers"
 
@@ -583,7 +583,7 @@ class TestDeleteGroup:
         mock_delete.return_value = _ok_response(status=HTTPStatus.NOT_FOUND)
         client = _make_logging_client()
         with pytest.raises(SmplNotFoundError):
-            client.delete_group("nonexistent")
+            client.management.delete_group("nonexistent")
 
 
 # ---------------------------------------------------------------------------
@@ -755,7 +755,7 @@ class TestManagementWithoutConnect:
 
         client = _make_logging_client()
         assert client._connected is False
-        result = client.list()
+        result = client.management.list()
         assert result == []
 
 

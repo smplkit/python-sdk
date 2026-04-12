@@ -22,15 +22,15 @@ async def setup_demo_flags(client: AsyncSmplClient) -> list[str]:
 
     # Clean up leftover flags from previous runs.
     try:
-        existing = await client.flags.list()
+        existing = await client.flags.management.list()
         for flag in existing:
             if flag.id in demo_ids:
-                await client.flags.delete(flag.id)
+                await client.flags.management.delete(flag.id)
     except Exception:
         pass
 
     # 1. checkout-v2 — boolean
-    checkout = client.flags.newBooleanFlag(
+    checkout = client.flags.management.newBooleanFlag(
         "checkout-v2", default=False, description="Controls rollout of the new checkout experience."
     )
     checkout.setEnvironmentEnabled("staging", True)
@@ -50,7 +50,7 @@ async def setup_demo_flags(client: AsyncSmplClient) -> list[str]:
     await checkout.save()
 
     # 2. banner-color — string
-    banner = client.flags.newStringFlag(
+    banner = client.flags.management.newStringFlag(
         "banner-color",
         default="red",
         name="Banner Color",
@@ -81,7 +81,7 @@ async def setup_demo_flags(client: AsyncSmplClient) -> list[str]:
     await banner.save()
 
     # 3. max-retries — numeric (unconstrained)
-    retries = client.flags.newNumberFlag(
+    retries = client.flags.management.newNumberFlag(
         "max-retries", default=3, description="Maximum number of API retries before failing."
     )
     retries.setEnvironmentEnabled("staging", True)
@@ -102,6 +102,6 @@ async def teardown_demo_flags(client: AsyncSmplClient, ids: list[str]) -> None:
     """Delete the demo flags created by setup_demo_flags."""
     for id in ids:
         try:
-            await client.flags.delete(id)
+            await client.flags.management.delete(id)
         except Exception:
             pass

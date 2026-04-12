@@ -60,7 +60,7 @@ def _make_connected_async_client(cache=None):
 class TestResolveSyncPrescriptive:
     def test_resolve_returns_flat_dict(self):
         client = _make_connected_client()
-        result = client.config.resolve("db")
+        result = client.config.get("db")
         assert result == {
             "host": "localhost",
             "port": 5432,
@@ -72,7 +72,7 @@ class TestResolveSyncPrescriptive:
 
     def test_resolve_returns_empty_for_missing_config(self):
         client = _make_connected_client()
-        assert client.config.resolve("nonexistent") == {}
+        assert client.config.get("nonexistent") == {}
 
     def test_resolve_with_dataclass_model(self):
         client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
@@ -82,7 +82,7 @@ class TestResolveSyncPrescriptive:
                 self.host = host
                 self.port = port
 
-        result = client.config.resolve("db", model=DbConfig)
+        result = client.config.get("db", model=DbConfig)
         assert isinstance(result, DbConfig)
         assert result.host == "localhost"
         assert result.port == 5432
@@ -98,7 +98,7 @@ class TestResolveSyncPrescriptive:
                 obj.port = data["port"]
                 return obj
 
-        result = client.config.resolve("db", model=FakePydantic)
+        result = client.config.get("db", model=FakePydantic)
         assert isinstance(result, FakePydantic)
         assert result.host == "localhost"
 
@@ -110,7 +110,7 @@ class TestResolveSyncPrescriptive:
                 self.database = database
                 self.retries = retries
 
-        result = client.config.resolve("svc", model=SvcConfig)
+        result = client.config.get("svc", model=SvcConfig)
         assert result.database == {"host": "h", "port": 5432}
         assert result.retries == 3
 
@@ -118,7 +118,7 @@ class TestResolveSyncPrescriptive:
         client = SmplClient(api_key="sk_test", environment="production", service="svc")
         with patch.object(client.config, "_connect_internal") as mock_connect:
             client.config._config_cache = {"db": {"host": "h"}}
-            client.config.resolve("db")
+            client.config.get("db")
         mock_connect.assert_called_once()
 
 
@@ -132,7 +132,7 @@ class TestResolveAsyncPrescriptive:
         client = _make_connected_async_client()
 
         async def _run():
-            result = await client.config.resolve("db")
+            result = await client.config.get("db")
             assert result["host"] == "localhost"
             assert result["port"] == 5432
 
@@ -142,7 +142,7 @@ class TestResolveAsyncPrescriptive:
         client = _make_connected_async_client()
 
         async def _run():
-            assert await client.config.resolve("nonexistent") == {}
+            assert await client.config.get("nonexistent") == {}
 
         asyncio.run(_run())
 
@@ -155,7 +155,7 @@ class TestResolveAsyncPrescriptive:
                 self.port = port
 
         async def _run():
-            result = await client.config.resolve("db", model=DbConfig)
+            result = await client.config.get("db", model=DbConfig)
             assert isinstance(result, DbConfig)
             assert result.host == "localhost"
 
@@ -172,7 +172,7 @@ class TestResolveAsyncPrescriptive:
                 return obj
 
         async def _run():
-            result = await client.config.resolve("db", model=FakePydantic)
+            result = await client.config.get("db", model=FakePydantic)
             assert isinstance(result, FakePydantic)
 
         asyncio.run(_run())

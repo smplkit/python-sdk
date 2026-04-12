@@ -203,7 +203,7 @@ async def main() -> None:
         # ------------------------------------------------------------------
         section("5a. Dynamic Control — Change Group Level")
 
-        db_group = await client.logging.get_group(demo["group_ids"][0])
+        db_group = await client.logging.management.get_group(demo["group_ids"][0])
         step(f"sqlalchemy.engine before: {python_level_name('sqlalchemy.engine')}")
 
         db_group.setEnvironmentLevel(ENVIRONMENT, LogLevel.DEBUG)
@@ -220,7 +220,7 @@ async def main() -> None:
         # ------------------------------------------------------------------
         section("5b. Dynamic Control — Change Ancestor Level")
 
-        app_lg = await client.logging.get("app")
+        app_lg = await client.logging.management.get("app")
         step(f"app.payments before: {python_level_name('app.payments')}")
 
         app_lg.setEnvironmentLevel(ENVIRONMENT, LogLevel.TRACE)

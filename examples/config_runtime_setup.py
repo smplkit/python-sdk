@@ -23,13 +23,13 @@ async def setup_demo_configs(client: AsyncSmplClient) -> dict:
     # Clean up leftover configs from previous runs (order matters: children first).
     for leftover_key in ("auth_module", "user_service"):
         try:
-            await client.config.delete(leftover_key)
+            await client.config.management.delete(leftover_key)
         except Exception:
             pass
 
     # Update the built-in common config with org-wide defaults.
     # Reset items first to avoid type-change errors from previous runs.
-    common = await client.config.get("common")
+    common = await client.config.management.get("common")
     common.description = ""
     common.items = {}
     common.environments = {}
@@ -59,7 +59,7 @@ async def setup_demo_configs(client: AsyncSmplClient) -> dict:
     await common.save()
 
     # Create a service-specific config (inherits from common).
-    user_service = client.config.new(
+    user_service = client.config.management.new(
         "user_service",
         name="User Service",
         description="Configuration for the user microservice.",
@@ -87,7 +87,7 @@ async def setup_demo_configs(client: AsyncSmplClient) -> dict:
     await user_service.save()
 
     # Create auth_module config (also inherits from common).
-    auth_module = client.config.new(
+    auth_module = client.config.management.new(
         "auth_module",
         name="Auth Module",
         description="Authentication module within the user service.",
@@ -116,13 +116,13 @@ async def teardown_demo_configs(client: AsyncSmplClient, demo: dict) -> None:
     """Delete demo configs and reset common."""
     for id in demo.get("config_ids", []):
         try:
-            await client.config.delete(id)
+            await client.config.management.delete(id)
         except Exception:
             pass
 
     # Reset common config to empty.
     try:
-        common = await client.config.get(demo["common_id"])
+        common = await client.config.management.get(demo["common_id"])
         common.description = ""
         common.items = {}
         common.environments = {}

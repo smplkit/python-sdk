@@ -93,24 +93,24 @@ def _make_async_logging_client(**kwargs):
 class TestAsyncNew:
     def test_new_returns_unsaved_logger(self):
         client = _make_async_logging_client()
-        lg = client.new("sql")
+        lg = client.management.new("sql")
         assert isinstance(lg, AsyncSmplLogger)
         assert lg.id == "sql"
         assert lg.managed is False
 
     def test_new_with_name(self):
         client = _make_async_logging_client()
-        lg = client.new("sql", name="SQL Logger")
+        lg = client.management.new("sql", name="SQL Logger")
         assert lg.name == "SQL Logger"
 
     def test_new_auto_generates_name(self):
         client = _make_async_logging_client()
-        lg = client.new("checkout-v2")
+        lg = client.management.new("checkout-v2")
         assert lg.name == "Checkout V2"
 
     def test_new_with_managed(self):
         client = _make_async_logging_client()
-        lg = client.new("sql", managed=True)
+        lg = client.management.new("sql", managed=True)
         assert lg.managed is True
 
 
@@ -122,23 +122,23 @@ class TestAsyncNew:
 class TestAsyncNewGroup:
     def test_new_group_returns_unsaved(self):
         client = _make_async_logging_client()
-        grp = client.new_group("db-loggers")
+        grp = client.management.new_group("db-loggers")
         assert isinstance(grp, AsyncSmplLogGroup)
         assert grp.id == "db-loggers"
 
     def test_new_group_with_name(self):
         client = _make_async_logging_client()
-        grp = client.new_group("db-loggers", name="DB Loggers")
+        grp = client.management.new_group("db-loggers", name="DB Loggers")
         assert grp.name == "DB Loggers"
 
     def test_new_group_auto_generates_name(self):
         client = _make_async_logging_client()
-        grp = client.new_group("db-loggers")
+        grp = client.management.new_group("db-loggers")
         assert grp.name == "Db Loggers"
 
     def test_new_group_with_parent_group(self):
         client = _make_async_logging_client()
-        grp = client.new_group("child", group="parent-id")
+        grp = client.management.new_group("child", group="parent-id")
         assert grp.group == "parent-id"
 
 
@@ -155,7 +155,7 @@ class TestAsyncList:
         mock_list.return_value = _ok_response(_make_list_parsed([resource]))
 
         client = _make_async_logging_client()
-        result = asyncio.run(client.list())
+        result = asyncio.run(client.management.list())
         assert len(result) == 1
         assert isinstance(result[0], AsyncSmplLogger)
 
@@ -163,7 +163,7 @@ class TestAsyncList:
     def test_list_empty_parsed(self, mock_list):
         mock_list.return_value = _ok_response(None)
         client = _make_async_logging_client()
-        result = asyncio.run(client.list())
+        result = asyncio.run(client.management.list())
         assert result == []
 
 
@@ -180,7 +180,7 @@ class TestAsyncGet:
         mock_get.return_value = _ok_response(_make_parsed(resource))
 
         client = _make_async_logging_client()
-        result = asyncio.run(client.get("sql"))
+        result = asyncio.run(client.management.get("sql"))
         assert isinstance(result, AsyncSmplLogger)
         assert mock_get.call_args.args[0] == "sql"
 
@@ -189,14 +189,14 @@ class TestAsyncGet:
         mock_get.return_value = _ok_response(None, HTTPStatus.NOT_FOUND)
         client = _make_async_logging_client()
         with pytest.raises(SmplNotFoundError):
-            asyncio.run(client.get("sql"))
+            asyncio.run(client.management.get("sql"))
 
     @patch("smplkit.logging.client.get_logger.asyncio_detailed")
     def test_get_not_found_null_parsed(self, mock_get):
         mock_get.return_value = _ok_response(None)
         client = _make_async_logging_client()
         with pytest.raises(SmplNotFoundError):
-            asyncio.run(client.get("sql"))
+            asyncio.run(client.management.get("sql"))
 
 
 # ---------------------------------------------------------------------------
@@ -213,7 +213,7 @@ class TestAsyncSaveLogger:
         mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
 
         client = _make_async_logging_client()
-        lg = client.new("sql", name="SQL Logger")
+        lg = client.management.new("sql", name="SQL Logger")
         asyncio.run(lg.save())
 
         mock_create.assert_called_once()
@@ -268,7 +268,7 @@ class TestAsyncDelete:
         mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
 
         client = _make_async_logging_client()
-        asyncio.run(client.delete("sql"))
+        asyncio.run(client.management.delete("sql"))
         mock_delete.assert_called_once()
         assert mock_delete.call_args.args[0] == "sql"
 
@@ -277,7 +277,7 @@ class TestAsyncDelete:
         mock_delete.return_value = _ok_response(status=HTTPStatus.NOT_FOUND)
         client = _make_async_logging_client()
         with pytest.raises(SmplNotFoundError):
-            asyncio.run(client.delete("nonexistent"))
+            asyncio.run(client.management.delete("nonexistent"))
 
 
 # ---------------------------------------------------------------------------
@@ -293,7 +293,7 @@ class TestAsyncListGroups:
         mock_list.return_value = _ok_response(_make_list_parsed([resource]))
 
         client = _make_async_logging_client()
-        result = asyncio.run(client.list_groups())
+        result = asyncio.run(client.management.list_groups())
         assert len(result) == 1
         assert isinstance(result[0], AsyncSmplLogGroup)
 
@@ -301,7 +301,7 @@ class TestAsyncListGroups:
     def test_list_groups_empty_parsed(self, mock_list):
         mock_list.return_value = _ok_response(None)
         client = _make_async_logging_client()
-        result = asyncio.run(client.list_groups())
+        result = asyncio.run(client.management.list_groups())
         assert result == []
 
 
@@ -318,7 +318,7 @@ class TestAsyncGetGroup:
         mock_get.return_value = _ok_response(_make_parsed(resource))
 
         client = _make_async_logging_client()
-        result = asyncio.run(client.get_group("db-loggers"))
+        result = asyncio.run(client.management.get_group("db-loggers"))
         assert isinstance(result, AsyncSmplLogGroup)
         assert mock_get.call_args.args[0] == "db-loggers"
 
@@ -328,14 +328,14 @@ class TestAsyncGetGroup:
 
         client = _make_async_logging_client()
         with pytest.raises(SmplNotFoundError):
-            asyncio.run(client.get_group("db-loggers"))
+            asyncio.run(client.management.get_group("db-loggers"))
 
     @patch("smplkit.logging.client.get_log_group.asyncio_detailed")
     def test_get_group_not_found_null_parsed(self, mock_get):
         mock_get.return_value = _ok_response(None)
         client = _make_async_logging_client()
         with pytest.raises(SmplNotFoundError):
-            asyncio.run(client.get_group("db-loggers"))
+            asyncio.run(client.management.get_group("db-loggers"))
 
 
 # ---------------------------------------------------------------------------
@@ -352,7 +352,7 @@ class TestAsyncSaveGroup:
         mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
 
         client = _make_async_logging_client()
-        grp = client.new_group("db-loggers", name="DB Loggers")
+        grp = client.management.new_group("db-loggers", name="DB Loggers")
         asyncio.run(grp.save())
 
         mock_create.assert_called_once()
@@ -405,7 +405,7 @@ class TestAsyncDeleteGroup:
         mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
 
         client = _make_async_logging_client()
-        asyncio.run(client.delete_group("db-loggers"))
+        asyncio.run(client.management.delete_group("db-loggers"))
         mock_delete.assert_called_once()
         assert mock_delete.call_args.args[0] == "db-loggers"
 
@@ -414,7 +414,7 @@ class TestAsyncDeleteGroup:
         mock_delete.return_value = _ok_response(status=HTTPStatus.NOT_FOUND)
         client = _make_async_logging_client()
         with pytest.raises(SmplNotFoundError):
-            asyncio.run(client.delete_group("nonexistent"))
+            asyncio.run(client.management.delete_group("nonexistent"))
 
 
 # ---------------------------------------------------------------------------

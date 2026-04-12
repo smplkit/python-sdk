@@ -754,7 +754,7 @@ class TestFlagsClientInit:
 class TestFlagsClientFactoryMethods:
     def test_newBooleanFlag(self):
         client = _make_flags_client()
-        flag = client.newBooleanFlag("checkout-v2", default=False)
+        flag = client.management.newBooleanFlag("checkout-v2", default=False)
         assert isinstance(flag, BooleanFlag)
         assert flag.id == "checkout-v2"
         assert flag.type == "BOOLEAN"
@@ -764,14 +764,14 @@ class TestFlagsClientFactoryMethods:
 
     def test_newBooleanFlag_custom_name(self):
         client = _make_flags_client()
-        flag = client.newBooleanFlag("my-flag", default=True, name="My Custom Name", description="desc")
+        flag = client.management.newBooleanFlag("my-flag", default=True, name="My Custom Name", description="desc")
         assert flag.name == "My Custom Name"
         assert flag.description == "desc"
         assert flag.default is True
 
     def test_newStringFlag(self):
         client = _make_flags_client()
-        flag = client.newStringFlag("color-theme", default="light")
+        flag = client.management.newStringFlag("color-theme", default="light")
         assert isinstance(flag, StringFlag)
         assert flag.id == "color-theme"
         assert flag.type == "STRING"
@@ -779,14 +779,14 @@ class TestFlagsClientFactoryMethods:
 
     def test_newStringFlag_with_values(self):
         client = _make_flags_client()
-        flag = client.newStringFlag(
+        flag = client.management.newStringFlag(
             "plan", default="free", values=[{"name": "Free", "value": "free"}, {"name": "Pro", "value": "pro"}]
         )
         assert len(flag.values) == 2
 
     def test_newNumberFlag(self):
         client = _make_flags_client()
-        flag = client.newNumberFlag("max-retries", default=3)
+        flag = client.management.newNumberFlag("max-retries", default=3)
         assert isinstance(flag, NumberFlag)
         assert flag.id == "max-retries"
         assert flag.type == "NUMERIC"
@@ -794,7 +794,7 @@ class TestFlagsClientFactoryMethods:
 
     def test_newJsonFlag(self):
         client = _make_flags_client()
-        flag = client.newJsonFlag("config", default={"mode": "standard"})
+        flag = client.management.newJsonFlag("config", default={"mode": "standard"})
         assert isinstance(flag, JsonFlag)
         assert flag.id == "config"
         assert flag.type == "JSON"
@@ -802,25 +802,25 @@ class TestFlagsClientFactoryMethods:
 
     def test_newStringFlag_unconstrained(self):
         client = _make_flags_client()
-        flag = client.newStringFlag("greeting", default="hello")
+        flag = client.management.newStringFlag("greeting", default="hello")
         assert flag.values is None
         assert flag.default == "hello"
 
     def test_newNumberFlag_unconstrained(self):
         client = _make_flags_client()
-        flag = client.newNumberFlag("threshold", default=42)
+        flag = client.management.newNumberFlag("threshold", default=42)
         assert flag.values is None
         assert flag.default == 42
 
     def test_newJsonFlag_unconstrained(self):
         client = _make_flags_client()
-        flag = client.newJsonFlag("settings", default={"a": 1})
+        flag = client.management.newJsonFlag("settings", default={"a": 1})
         assert flag.values is None
         assert flag.default == {"a": 1}
 
     def test_newBooleanFlag_always_constrained(self):
         client = _make_flags_client()
-        flag = client.newBooleanFlag("toggle", default=True)
+        flag = client.management.newBooleanFlag("toggle", default=True)
         assert flag.values is not None
         assert len(flag.values) == 2
 
@@ -835,7 +835,7 @@ class TestFlagsClientCRUD:
     def test_get_by_id(self, mock_get):
         mock_get.return_value = _ok_json_response({"data": _flag_json()})
         client = _make_flags_client()
-        flag = client.get("test-flag")
+        flag = client.management.get("test-flag")
         assert flag.id == _TEST_UUID
         mock_get.assert_called_once()
 
@@ -844,34 +844,34 @@ class TestFlagsClientCRUD:
         mock_get.return_value = _ok_json_response({}, status=HTTPStatus.NOT_FOUND)
         client = _make_flags_client()
         with pytest.raises(SmplNotFoundError):
-            client.get("test-flag")
+            client.management.get("test-flag")
 
     @patch("smplkit.flags.client.get_flag.sync_detailed")
     def test_get_network_error(self, mock_get):
         mock_get.side_effect = httpx.ConnectError("refused")
         client = _make_flags_client()
         with pytest.raises(SmplConnectionError):
-            client.get("test-flag")
+            client.management.get("test-flag")
 
     @patch("smplkit.flags.client.get_flag.sync_detailed")
     def test_get_timeout(self, mock_get):
         mock_get.side_effect = httpx.ReadTimeout("timed out")
         client = _make_flags_client()
         with pytest.raises(SmplTimeoutError):
-            client.get("test-flag")
+            client.management.get("test-flag")
 
     @patch("smplkit.flags.client.get_flag.sync_detailed")
     def test_get_generic_exception(self, mock_get):
         mock_get.side_effect = RuntimeError("unexpected")
         client = _make_flags_client()
         with pytest.raises(RuntimeError):
-            client.get("test-flag")
+            client.management.get("test-flag")
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_list(self, mock_list):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         client = _make_flags_client()
-        flags = client.list()
+        flags = client.management.list()
         assert len(flags) == 1
         assert flags[0].id == _TEST_UUID
 
@@ -879,27 +879,27 @@ class TestFlagsClientCRUD:
     def test_list_empty(self, mock_list):
         mock_list.return_value = _ok_json_response({"data": []})
         client = _make_flags_client()
-        assert client.list() == []
+        assert client.management.list() == []
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_list_network_error(self, mock_list):
         mock_list.side_effect = httpx.ConnectError("fail")
         client = _make_flags_client()
         with pytest.raises(SmplConnectionError):
-            client.list()
+            client.management.list()
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_list_generic_exception(self, mock_list):
         mock_list.side_effect = RuntimeError("unexpected")
         client = _make_flags_client()
         with pytest.raises(RuntimeError):
-            client.list()
+            client.management.list()
 
     @patch("smplkit.flags.client.delete_flag.sync_detailed")
     def test_delete_by_id(self, mock_delete):
         mock_delete.return_value = _ok_response(status=HTTPStatus.NO_CONTENT)
         client = _make_flags_client()
-        client.delete("test-flag")
+        client.management.delete("test-flag")
         mock_delete.assert_called_once()
 
     @patch("smplkit.flags.client.delete_flag.sync_detailed")
@@ -907,21 +907,21 @@ class TestFlagsClientCRUD:
         mock_delete.return_value = _ok_json_response({}, status=HTTPStatus.NOT_FOUND)
         client = _make_flags_client()
         with pytest.raises(SmplNotFoundError):
-            client.delete("test-flag")
+            client.management.delete("test-flag")
 
     @patch("smplkit.flags.client.delete_flag.sync_detailed")
     def test_delete_network_error(self, mock_delete):
         mock_delete.side_effect = httpx.ConnectError("refused")
         client = _make_flags_client()
         with pytest.raises(SmplConnectionError):
-            client.delete("test-flag")
+            client.management.delete("test-flag")
 
     @patch("smplkit.flags.client.delete_flag.sync_detailed")
     def test_delete_generic_exception(self, mock_delete):
         mock_delete.side_effect = RuntimeError("unexpected")
         client = _make_flags_client()
         with pytest.raises(RuntimeError):
-            client.delete("test-flag")
+            client.management.delete("test-flag")
 
 
 # ===========================================================================
@@ -1606,7 +1606,7 @@ class TestAsyncFlagsClientInit:
 class TestAsyncFlagsClientFactoryMethods:
     def test_newBooleanFlag(self):
         client = _make_async_flags_client()
-        flag = client.newBooleanFlag("checkout-v2", default=False)
+        flag = client.management.newBooleanFlag("checkout-v2", default=False)
         assert isinstance(flag, AsyncBooleanFlag)
         assert flag.id == "checkout-v2"
         assert flag.type == "BOOLEAN"
@@ -1614,46 +1614,46 @@ class TestAsyncFlagsClientFactoryMethods:
 
     def test_newBooleanFlag_custom_name(self):
         client = _make_async_flags_client()
-        flag = client.newBooleanFlag("my-flag", default=True, name="Custom", description="desc")
+        flag = client.management.newBooleanFlag("my-flag", default=True, name="Custom", description="desc")
         assert flag.name == "Custom"
         assert flag.description == "desc"
 
     def test_newStringFlag(self):
         client = _make_async_flags_client()
-        flag = client.newStringFlag("color", default="red")
+        flag = client.management.newStringFlag("color", default="red")
         assert isinstance(flag, AsyncStringFlag)
         assert flag.type == "STRING"
 
     def test_newStringFlag_with_values(self):
         client = _make_async_flags_client()
-        flag = client.newStringFlag("plan", default="free", values=[{"name": "Free", "value": "free"}])
+        flag = client.management.newStringFlag("plan", default="free", values=[{"name": "Free", "value": "free"}])
         assert len(flag.values) == 1
 
     def test_newNumberFlag(self):
         client = _make_async_flags_client()
-        flag = client.newNumberFlag("retries", default=3)
+        flag = client.management.newNumberFlag("retries", default=3)
         assert isinstance(flag, AsyncNumberFlag)
         assert flag.type == "NUMERIC"
 
     def test_newJsonFlag(self):
         client = _make_async_flags_client()
-        flag = client.newJsonFlag("config", default={"a": 1})
+        flag = client.management.newJsonFlag("config", default={"a": 1})
         assert isinstance(flag, AsyncJsonFlag)
         assert flag.type == "JSON"
 
     def test_newStringFlag_unconstrained(self):
         client = _make_async_flags_client()
-        flag = client.newStringFlag("greeting", default="hello")
+        flag = client.management.newStringFlag("greeting", default="hello")
         assert flag.values is None
 
     def test_newNumberFlag_unconstrained(self):
         client = _make_async_flags_client()
-        flag = client.newNumberFlag("threshold", default=42)
+        flag = client.management.newNumberFlag("threshold", default=42)
         assert flag.values is None
 
     def test_newBooleanFlag_always_constrained(self):
         client = _make_async_flags_client()
-        flag = client.newBooleanFlag("toggle", default=True)
+        flag = client.management.newBooleanFlag("toggle", default=True)
         assert flag.values is not None
         assert len(flag.values) == 2
 
@@ -1670,7 +1670,7 @@ class TestAsyncFlagsClientCRUD:
 
         async def _run():
             client = _make_async_flags_client()
-            flag = await client.get("test-flag")
+            flag = await client.management.get("test-flag")
             assert flag.id == _TEST_UUID
             mock_get.assert_called_once()
 
@@ -1683,7 +1683,7 @@ class TestAsyncFlagsClientCRUD:
         async def _run():
             client = _make_async_flags_client()
             with pytest.raises(SmplNotFoundError):
-                await client.get("test-flag")
+                await client.management.get("test-flag")
 
         asyncio.run(_run())
 
@@ -1694,7 +1694,7 @@ class TestAsyncFlagsClientCRUD:
         async def _run():
             client = _make_async_flags_client()
             with pytest.raises(SmplConnectionError):
-                await client.get("test-flag")
+                await client.management.get("test-flag")
 
         asyncio.run(_run())
 
@@ -1705,7 +1705,7 @@ class TestAsyncFlagsClientCRUD:
         async def _run():
             client = _make_async_flags_client()
             with pytest.raises(RuntimeError):
-                await client.get("test-flag")
+                await client.management.get("test-flag")
 
         asyncio.run(_run())
 
@@ -1715,7 +1715,7 @@ class TestAsyncFlagsClientCRUD:
 
         async def _run():
             client = _make_async_flags_client()
-            flags = await client.list()
+            flags = await client.management.list()
             assert len(flags) == 1
 
         asyncio.run(_run())
@@ -1726,7 +1726,7 @@ class TestAsyncFlagsClientCRUD:
 
         async def _run():
             client = _make_async_flags_client()
-            assert await client.list() == []
+            assert await client.management.list() == []
 
         asyncio.run(_run())
 
@@ -1736,7 +1736,7 @@ class TestAsyncFlagsClientCRUD:
 
         async def _run():
             client = _make_async_flags_client()
-            assert await client.list() == []
+            assert await client.management.list() == []
 
         asyncio.run(_run())
 
@@ -1747,7 +1747,7 @@ class TestAsyncFlagsClientCRUD:
         async def _run():
             client = _make_async_flags_client()
             with pytest.raises(SmplConnectionError):
-                await client.list()
+                await client.management.list()
 
         asyncio.run(_run())
 
@@ -1758,7 +1758,7 @@ class TestAsyncFlagsClientCRUD:
         async def _run():
             client = _make_async_flags_client()
             with pytest.raises(RuntimeError):
-                await client.list()
+                await client.management.list()
 
         asyncio.run(_run())
 
@@ -1768,7 +1768,7 @@ class TestAsyncFlagsClientCRUD:
 
         async def _run():
             client = _make_async_flags_client()
-            await client.delete("test-flag")
+            await client.management.delete("test-flag")
             mock_delete.assert_called_once()
 
         asyncio.run(_run())
@@ -1780,7 +1780,7 @@ class TestAsyncFlagsClientCRUD:
         async def _run():
             client = _make_async_flags_client()
             with pytest.raises(SmplNotFoundError):
-                await client.delete("test-flag")
+                await client.management.delete("test-flag")
 
         asyncio.run(_run())
 
@@ -1791,7 +1791,7 @@ class TestAsyncFlagsClientCRUD:
         async def _run():
             client = _make_async_flags_client()
             with pytest.raises(SmplConnectionError):
-                await client.delete("test-flag")
+                await client.management.delete("test-flag")
 
         asyncio.run(_run())
 
@@ -1802,7 +1802,7 @@ class TestAsyncFlagsClientCRUD:
         async def _run():
             client = _make_async_flags_client()
             with pytest.raises(RuntimeError):
-                await client.delete("test-flag")
+                await client.management.delete("test-flag")
 
         asyncio.run(_run())
 

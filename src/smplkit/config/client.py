@@ -330,39 +330,14 @@ class LiveConfigProxy:
         return f"LiveConfigProxy(config_id={config_id!r})"
 
 
-class ConfigClient:
-    """Synchronous client for Smpl Config.
+class ConfigManagementClient:
+    """Management (CRUD) operations for Smpl Config.
 
-    Obtained via ``SmplClient(...).config``.
+    Obtained via ``SmplClient(...).config.management``.
     """
 
-    def __init__(self, parent: SmplClient) -> None:
+    def __init__(self, parent: ConfigClient) -> None:
         self._parent = parent
-        self._config_cache: dict[str, dict[str, Any]] = {}
-        self._connected = False
-        self._cache_lock = threading.Lock()
-        self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
-
-    def _connect_internal(self) -> None:
-        """Fetch all configs, resolve values for the environment, and cache.
-
-        Idempotent — returns immediately if already connected.
-        """
-        if self._connected:
-            return
-        configs = self.list()
-        environment = self._parent._environment
-        cache: dict[str, dict[str, Any]] = {}
-        for cfg in configs:
-            chain = cfg._build_chain(configs)
-            cache[cfg.id] = resolve(chain, environment)
-        with self._cache_lock:
-            self._config_cache = cache
-        self._connected = True
-
-    # ------------------------------------------------------------------
-    # CRUD
-    # ------------------------------------------------------------------
 
     def new(
         self,
@@ -386,7 +361,7 @@ class ConfigClient:
             A new :class:`Config` that has not yet been saved.
         """
         return Config(
-            self,
+            self._parent,
             id=id,
             name=name or key_to_display_name(id),
             description=description,
@@ -408,7 +383,7 @@ class ConfigClient:
         try:
             response = get_config.sync_detailed(
                 id,
-                client=self._parent._http_client,
+                client=self._parent._parent._http_client,
             )
         except Exception as exc:
             _maybe_reraise_network_error(exc)
@@ -416,7 +391,7 @@ class ConfigClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
             raise SmplNotFoundError(f"Config with id '{id}' not found", status_code=404)
-        return self._resource_to_model(response.parsed.data)
+        return self._parent._resource_to_model(response.parsed.data)
 
     def list(self) -> list[Config]:
         """List all configs for the account.
@@ -426,7 +401,7 @@ class ConfigClient:
         """
         try:
             response = list_configs.sync_detailed(
-                client=self._parent._http_client,
+                client=self._parent._parent._http_client,
             )
         except Exception as exc:
             _maybe_reraise_network_error(exc)
@@ -434,7 +409,7 @@ class ConfigClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
             return []
-        return [self._resource_to_model(r) for r in response.parsed.data]
+        return [self._parent._resource_to_model(r) for r in response.parsed.data]
 
     def delete(self, id: str) -> None:
         """Delete a config by id.
@@ -449,18 +424,50 @@ class ConfigClient:
         try:
             response = delete_config.sync_detailed(
                 id,
-                client=self._parent._http_client,
+                client=self._parent._parent._http_client,
             )
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
 
+
+class ConfigClient:
+    """Synchronous client for Smpl Config.
+
+    Obtained via ``SmplClient(...).config``.
+    """
+
+    def __init__(self, parent: SmplClient) -> None:
+        self._parent = parent
+        self._config_cache: dict[str, dict[str, Any]] = {}
+        self._connected = False
+        self._cache_lock = threading.Lock()
+        self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
+        self.management = ConfigManagementClient(self)
+
+    def _connect_internal(self) -> None:
+        """Fetch all configs, resolve values for the environment, and cache.
+
+        Idempotent — returns immediately if already connected.
+        """
+        if self._connected:
+            return
+        configs = self.management.list()
+        environment = self._parent._environment
+        cache: dict[str, dict[str, Any]] = {}
+        for cfg in configs:
+            chain = cfg._build_chain(configs)
+            cache[cfg.id] = resolve(chain, environment)
+        with self._cache_lock:
+            self._config_cache = cache
+        self._connected = True
+
     # ------------------------------------------------------------------
-    # Runtime: resolve / subscribe
+    # Runtime: get / subscribe
     # ------------------------------------------------------------------
 
-    def resolve(self, id: str, model: type | None = None) -> Any:
+    def get(self, id: str, model: type | None = None) -> Any:
         """Return resolved config values for *id*.
 
         If *model* is ``None``, returns a flat ``dict[str, Any]`` of
@@ -518,7 +525,7 @@ class ConfigClient:
         Raises:
             SmplConnectionError: If the fetch fails.
         """
-        configs = self.list()
+        configs = self.management.list()
         environment = self._parent._environment
         new_cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
@@ -686,39 +693,14 @@ class ConfigClient:
         )
 
 
-class AsyncConfigClient:
-    """Asynchronous client for Smpl Config.
+class AsyncConfigManagementClient:
+    """Management (CRUD) operations for Smpl Config (async).
 
-    Obtained via ``AsyncSmplClient(...).config``.
+    Obtained via ``AsyncSmplClient(...).config.management``.
     """
 
-    def __init__(self, parent: AsyncSmplClient) -> None:
+    def __init__(self, parent: AsyncConfigClient) -> None:
         self._parent = parent
-        self._config_cache: dict[str, dict[str, Any]] = {}
-        self._connected = False
-        self._cache_lock = threading.Lock()
-        self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
-
-    async def _connect_internal(self) -> None:
-        """Fetch all configs, resolve values for the environment, and cache.
-
-        Idempotent — returns immediately if already connected.
-        """
-        if self._connected:
-            return
-        configs = await self.list()
-        environment = self._parent._environment
-        cache: dict[str, dict[str, Any]] = {}
-        for cfg in configs:
-            chain = await cfg._build_chain(configs)
-            cache[cfg.id] = resolve(chain, environment)
-        with self._cache_lock:
-            self._config_cache = cache
-        self._connected = True
-
-    # ------------------------------------------------------------------
-    # CRUD
-    # ------------------------------------------------------------------
 
     def new(
         self,
@@ -742,7 +724,7 @@ class AsyncConfigClient:
             A new :class:`AsyncConfig` that has not yet been saved.
         """
         return AsyncConfig(
-            self,
+            self._parent,
             id=id,
             name=name or key_to_display_name(id),
             description=description,
@@ -764,7 +746,7 @@ class AsyncConfigClient:
         try:
             response = await get_config.asyncio_detailed(
                 id,
-                client=self._parent._http_client,
+                client=self._parent._parent._http_client,
             )
         except Exception as exc:
             _maybe_reraise_network_error(exc)
@@ -772,7 +754,7 @@ class AsyncConfigClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
             raise SmplNotFoundError(f"Config with id '{id}' not found", status_code=404)
-        return self._resource_to_model(response.parsed.data)
+        return self._parent._resource_to_model(response.parsed.data)
 
     async def list(self) -> list[AsyncConfig]:
         """List all configs for the account.
@@ -782,7 +764,7 @@ class AsyncConfigClient:
         """
         try:
             response = await list_configs.asyncio_detailed(
-                client=self._parent._http_client,
+                client=self._parent._parent._http_client,
             )
         except Exception as exc:
             _maybe_reraise_network_error(exc)
@@ -790,7 +772,7 @@ class AsyncConfigClient:
         _check_response_status(response.status_code, response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
             return []
-        return [self._resource_to_model(r) for r in response.parsed.data]
+        return [self._parent._resource_to_model(r) for r in response.parsed.data]
 
     async def delete(self, id: str) -> None:
         """Delete a config by id.
@@ -805,18 +787,50 @@ class AsyncConfigClient:
         try:
             response = await delete_config.asyncio_detailed(
                 id,
-                client=self._parent._http_client,
+                client=self._parent._parent._http_client,
             )
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
         _check_response_status(response.status_code, response.content)
 
+
+class AsyncConfigClient:
+    """Asynchronous client for Smpl Config.
+
+    Obtained via ``AsyncSmplClient(...).config``.
+    """
+
+    def __init__(self, parent: AsyncSmplClient) -> None:
+        self._parent = parent
+        self._config_cache: dict[str, dict[str, Any]] = {}
+        self._connected = False
+        self._cache_lock = threading.Lock()
+        self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
+        self.management = AsyncConfigManagementClient(self)
+
+    async def _connect_internal(self) -> None:
+        """Fetch all configs, resolve values for the environment, and cache.
+
+        Idempotent — returns immediately if already connected.
+        """
+        if self._connected:
+            return
+        configs = await self.management.list()
+        environment = self._parent._environment
+        cache: dict[str, dict[str, Any]] = {}
+        for cfg in configs:
+            chain = await cfg._build_chain(configs)
+            cache[cfg.id] = resolve(chain, environment)
+        with self._cache_lock:
+            self._config_cache = cache
+        self._connected = True
+
     # ------------------------------------------------------------------
-    # Runtime: resolve / subscribe
+    # Runtime: get / subscribe
     # ------------------------------------------------------------------
 
-    async def resolve(self, id: str, model: type | None = None) -> Any:
+    async def get(self, id: str, model: type | None = None) -> Any:
         """Return resolved config values for *id*.
 
         If *model* is ``None``, returns a flat ``dict[str, Any]`` of
@@ -873,7 +887,7 @@ class AsyncConfigClient:
         Raises:
             SmplConnectionError: If the fetch fails.
         """
-        configs = await self.list()
+        configs = await self.management.list()
         environment = self._parent._environment
         new_cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:

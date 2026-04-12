@@ -183,7 +183,7 @@ class TestSyncErrorPaths:
     def test_save_create_null_parsed(self, mock_create):
         mock_create.return_value = _ok_response(None, HTTPStatus.CREATED)
         client = _make_logging_client()
-        lg = client.new("sql", name="SQL")
+        lg = client.management.new("sql", name="SQL")
         with pytest.raises(SmplValidationError):
             lg.save()
 
@@ -192,13 +192,13 @@ class TestSyncErrorPaths:
         mock_get.return_value = _ok_response(None, HTTPStatus.OK)
         client = _make_logging_client()
         with pytest.raises(SmplNotFoundError):
-            client.get("sql")
+            client.management.get("sql")
 
     @patch("smplkit.logging.client.create_log_group.sync_detailed")
     def test_save_group_create_null_parsed(self, mock_create):
         mock_create.return_value = _ok_response(None, HTTPStatus.CREATED)
         client = _make_logging_client()
-        grp = client.new_group("db", name="DB")
+        grp = client.management.new_group("db", name="DB")
         with pytest.raises(SmplValidationError):
             grp.save()
 
@@ -207,7 +207,7 @@ class TestSyncErrorPaths:
         mock_get.return_value = _ok_response(None, HTTPStatus.OK)
         client = _make_logging_client()
         with pytest.raises(SmplNotFoundError):
-            client.get_group("db")
+            client.management.get_group("db")
 
     @patch("smplkit.logging.client.update_logger.sync_detailed")
     def test_save_logger_null_parsed(self, mock_update):
@@ -234,7 +234,7 @@ class TestSyncErrorPaths:
         from smplkit._errors import SmplConnectionError
 
         with pytest.raises(SmplConnectionError):
-            client.list()
+            client.management.list()
 
     @patch("smplkit.logging.client.get_logger.sync_detailed")
     def test_get_network_error(self, mock_get):
@@ -245,7 +245,7 @@ class TestSyncErrorPaths:
         from smplkit._errors import SmplConnectionError
 
         with pytest.raises(SmplConnectionError):
-            client.get("sql")
+            client.management.get("sql")
 
     @patch("smplkit.logging.client.delete_logger.sync_detailed")
     def test_delete_network_error(self, mock_delete):
@@ -256,7 +256,7 @@ class TestSyncErrorPaths:
         from smplkit._errors import SmplConnectionError
 
         with pytest.raises(SmplConnectionError):
-            client.delete("sql")
+            client.management.delete("sql")
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     def test_list_groups_network_error(self, mock_list):
@@ -267,7 +267,7 @@ class TestSyncErrorPaths:
         from smplkit._errors import SmplConnectionError
 
         with pytest.raises(SmplConnectionError):
-            client.list_groups()
+            client.management.list_groups()
 
     @patch("smplkit.logging.client.get_log_group.sync_detailed")
     def test_get_group_network_error(self, mock_get):
@@ -278,7 +278,7 @@ class TestSyncErrorPaths:
         from smplkit._errors import SmplConnectionError
 
         with pytest.raises(SmplConnectionError):
-            client.get_group("db")
+            client.management.get_group("db")
 
     @patch("smplkit.logging.client.delete_log_group.sync_detailed")
     def test_delete_group_network_error(self, mock_delete):
@@ -289,4 +289,4 @@ class TestSyncErrorPaths:
         from smplkit._errors import SmplConnectionError
 
         with pytest.raises(SmplConnectionError):
-            client.delete_group("db")
+            client.management.delete_group("db")

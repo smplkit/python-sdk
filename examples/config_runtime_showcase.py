@@ -115,7 +115,7 @@ async def main() -> None:
 
         section("2. Resolve — Plain Dict")
 
-        config_dict = await client.config.resolve("user_service")
+        config_dict = await client.config.get("user_service")
         step(f"Total resolved keys: {len(config_dict)}")
 
         step(f"database.host = {config_dict.get('database.host')}")
@@ -152,7 +152,7 @@ async def main() -> None:
 
         section("3. Resolve — Typed Model")
 
-        cfg = await client.config.resolve("user_service", UserServiceConfig)
+        cfg = await client.config.get("user_service", UserServiceConfig)
         step(f"cfg.database.host = {cfg.database.host}")
         step(f"cfg.database.pool_size = {cfg.database.pool_size}")
         step(f"cfg.cache_ttl_seconds = {cfg.cache_ttl_seconds}")
@@ -174,7 +174,7 @@ async def main() -> None:
 
         section("4. Inheritance (auth_module)")
 
-        auth_dict = await client.config.resolve("auth_module")
+        auth_dict = await client.config.get("auth_module")
         step(f"session_ttl_minutes = {auth_dict.get('session_ttl_minutes')}")
         # Expected: 30 (auth_module production override)
 
@@ -235,7 +235,7 @@ async def main() -> None:
         # ------------------------------------------------------------------
         section("6b. Trigger a Change")
 
-        common = await client.config.get("common")
+        common = await client.config.management.get("common")
         common.environments["production"]["values"]["max_retries"] = {"value": 7}
         await common.save()
         step("Updated max_retries to 7 on common (production) via management API")
@@ -244,7 +244,7 @@ async def main() -> None:
         await asyncio.sleep(2)
 
         # Read the updated value — should reflect the change.
-        new_retries = (await client.config.resolve("user_service")).get("max_retries")
+        new_retries = (await client.config.get("user_service")).get("max_retries")
         step(f"max_retries after WebSocket update = {new_retries}")
         # Expected: 7
 
@@ -263,11 +263,11 @@ async def main() -> None:
         #     with SmplClient(environment="production", service="my-service") as client:
         #
         #         # First resolve() triggers lazy init
-        #         config = client.config.resolve("user_service")
+        #         config = client.config.get("user_service")
         #         host = config["database.host"]
         #
         #         # Typed resolution
-        #         cfg = client.config.resolve("user_service", UserServiceConfig)
+        #         cfg = client.config.get("user_service", UserServiceConfig)
         #         print(cfg.database.host)
         #
         #         # Live proxy

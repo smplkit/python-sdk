@@ -418,7 +418,7 @@ class TestConfigClientErrors:
         from smplkit.client import SmplClient
 
         client = SmplClient(api_key="sk_test", environment="test")
-        cfg = client.config.new("test-key", name="test")
+        cfg = client.config.management.new("test-key", name="test")
         with pytest.raises(SmplValidationError) as exc_info:
             cfg.save()
         exc = exc_info.value
@@ -443,7 +443,7 @@ class TestConfigClientErrors:
 
         client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(SmplNotFoundError) as exc_info:
-            client.config.get("abc")
+            client.config.management.get("abc")
         exc = exc_info.value
         assert exc.status_code == 404
         assert "Config 'abc' does not exist." in str(exc)
@@ -466,7 +466,7 @@ class TestConfigClientErrors:
 
         client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(SmplConflictError) as exc_info:
-            client.config.delete("test-config")
+            client.config.management.delete("test-config")
         exc = exc_info.value
         assert exc.status_code == 409
         assert "Config has children" in str(exc)
@@ -482,7 +482,7 @@ class TestConfigClientErrors:
         from smplkit.client import SmplClient
 
         client = SmplClient(api_key="sk_test", environment="test")
-        cfg = client.config.new("test-key", name="test")
+        cfg = client.config.management.new("test-key", name="test")
         with pytest.raises(SmplError) as exc_info:
             cfg.save()
         exc = exc_info.value
@@ -542,7 +542,7 @@ class TestFlagsClientErrors:
 
         client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(SmplNotFoundError) as exc_info:
-            client.flags.get("test-flag")
+            client.flags.management.get("test-flag")
         exc = exc_info.value
         assert exc.status_code == 404
         assert "Flag does not exist." in str(exc)
@@ -567,7 +567,7 @@ class TestLoggingClientErrors:
         from smplkit.client import SmplClient
 
         client = SmplClient(api_key="sk_test", environment="test")
-        lg = client.logging.new("test-key", name="Test")
+        lg = client.logging.management.new("test-key", name="Test")
         with pytest.raises(SmplValidationError) as exc_info:
             lg.save()
         exc = exc_info.value
@@ -592,7 +592,7 @@ class TestLoggingClientErrors:
 
         client = SmplClient(api_key="sk_test", environment="test")
         with pytest.raises(SmplNotFoundError) as exc_info:
-            client.logging.get("test-key")
+            client.logging.management.get("test-key")
         exc = exc_info.value
         assert exc.status_code == 404
         assert "Logger does not exist." in str(exc)

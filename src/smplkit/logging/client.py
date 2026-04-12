@@ -577,6 +577,106 @@ def _auto_load_adapters() -> list[LoggingAdapter]:
 # ---------------------------------------------------------------------------
 
 
+class LoggingManagementClient:
+    """Management (CRUD) operations for Smpl Logging.
+
+    Obtained via ``SmplClient(...).logging.management``.
+    """
+
+    def __init__(self, parent: LoggingClient) -> None:
+        self._parent = parent
+
+    def new(self, id: str, *, name: str | None = None, managed: bool = False) -> SmplLogger:
+        """Return a new unsaved :class:`SmplLogger`.
+
+        Call :meth:`SmplLogger.save` to persist it.
+        """
+        return SmplLogger(
+            self._parent,
+            id=id,
+            name=name if name is not None else key_to_display_name(id),
+            managed=managed,
+        )
+
+    def list(self) -> list[SmplLogger]:
+        """List all loggers."""
+        try:
+            response = list_loggers.sync_detailed(client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [self._parent._logger_resource_to_model(r) for r in response.parsed.data]
+
+    def get(self, id: str) -> SmplLogger:
+        """Get a logger by id."""
+        try:
+            response = get_logger.sync_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise SmplNotFoundError(f"Logger with id {id!r} not found", status_code=404)
+        return self._parent._logger_to_model(response.parsed)
+
+    def delete(self, id: str) -> None:
+        """Delete a logger by id."""
+        try:
+            response = delete_logger.sync_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    def new_group(self, id: str, *, name: str | None = None, group: str | None = None) -> SmplLogGroup:
+        """Return a new unsaved :class:`SmplLogGroup`.
+
+        Call :meth:`SmplLogGroup.save` to persist it.
+        """
+        return SmplLogGroup(
+            self._parent,
+            id=id,
+            name=name if name is not None else key_to_display_name(id),
+            group=group,
+        )
+
+    def list_groups(self) -> list[SmplLogGroup]:
+        """List all log groups."""
+        try:
+            response = list_log_groups.sync_detailed(client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [self._parent._group_resource_to_model(r) for r in response.parsed.data]
+
+    def get_group(self, id: str) -> SmplLogGroup:
+        """Get a log group by id."""
+        try:
+            response = get_log_group.sync_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise SmplNotFoundError(f"Log group with id {id!r} not found", status_code=404)
+        return self._parent._group_to_model(response.parsed)
+
+    def delete_group(self, id: str) -> None:
+        """Delete a log group by id."""
+        try:
+            response = delete_log_group.sync_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+
 class LoggingClient:
     """Synchronous logging namespace.  Obtained via ``SmplClient(...).logging``."""
 
@@ -596,44 +696,7 @@ class LoggingClient:
         self._key_listeners: dict[str, list[Callable[..., Any]]] = {}
         self._adapters: list[LoggingAdapter] = []
         self._explicit_adapters = False
-
-    # --- Management API: Loggers ---
-
-    def new(self, id: str, *, name: str | None = None, managed: bool = False) -> SmplLogger:
-        """Return a new unsaved :class:`SmplLogger`.
-
-        Call :meth:`SmplLogger.save` to persist it.
-        """
-        return SmplLogger(
-            self,
-            id=id,
-            name=name if name is not None else key_to_display_name(id),
-            managed=managed,
-        )
-
-    def list(self) -> list[SmplLogger]:
-        """List all loggers."""
-        try:
-            response = list_loggers.sync_detailed(client=self._logging_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [self._logger_resource_to_model(r) for r in response.parsed.data]
-
-    def get(self, id: str) -> SmplLogger:
-        """Get a logger by id."""
-        try:
-            response = get_logger.sync_detailed(id, client=self._logging_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            raise SmplNotFoundError(f"Logger with id {id!r} not found", status_code=404)
-        return self._logger_to_model(response.parsed)
+        self.management = LoggingManagementClient(self)
 
     def _save_logger(self, lg: SmplLogger) -> SmplLogger:
         """Create or update a logger. Called by SmplLogger.save()."""
@@ -661,53 +724,6 @@ class LoggingClient:
             )
         return self._logger_to_model(response.parsed)
 
-    def delete(self, id: str) -> None:
-        """Delete a logger by id."""
-        try:
-            response = delete_logger.sync_detailed(id, client=self._logging_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-
-    # --- Management API: Log Groups ---
-
-    def new_group(self, id: str, *, name: str | None = None, group: str | None = None) -> SmplLogGroup:
-        """Return a new unsaved :class:`SmplLogGroup`.
-
-        Call :meth:`SmplLogGroup.save` to persist it.
-        """
-        return SmplLogGroup(
-            self,
-            id=id,
-            name=name if name is not None else key_to_display_name(id),
-            group=group,
-        )
-
-    def list_groups(self) -> list[SmplLogGroup]:
-        """List all log groups."""
-        try:
-            response = list_log_groups.sync_detailed(client=self._logging_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [self._group_resource_to_model(r) for r in response.parsed.data]
-
-    def get_group(self, id: str) -> SmplLogGroup:
-        """Get a log group by id."""
-        try:
-            response = get_log_group.sync_detailed(id, client=self._logging_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            raise SmplNotFoundError(f"Log group with id {id!r} not found", status_code=404)
-        return self._group_to_model(response.parsed)
-
     def _save_group(self, grp: SmplLogGroup) -> SmplLogGroup:
         """Create or update a group. Called by SmplLogGroup.save()."""
         body = _build_group_body(
@@ -732,15 +748,6 @@ class LoggingClient:
                 f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
             )
         return self._group_to_model(response.parsed)
-
-    def delete_group(self, id: str) -> None:
-        """Delete a log group by id."""
-        try:
-            response = delete_log_group.sync_detailed(id, client=self._logging_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
 
     # --- Adapter registration ---
 
@@ -1018,6 +1025,106 @@ class LoggingClient:
 # ---------------------------------------------------------------------------
 
 
+class AsyncLoggingManagementClient:
+    """Management (CRUD) operations for Smpl Logging (async).
+
+    Obtained via ``AsyncSmplClient(...).logging.management``.
+    """
+
+    def __init__(self, parent: AsyncLoggingClient) -> None:
+        self._parent = parent
+
+    def new(self, id: str, *, name: str | None = None, managed: bool = False) -> AsyncSmplLogger:
+        """Return a new unsaved :class:`AsyncSmplLogger`.
+
+        Call :meth:`AsyncSmplLogger.save` to persist it.
+        """
+        return AsyncSmplLogger(
+            self._parent,
+            id=id,
+            name=name if name is not None else key_to_display_name(id),
+            managed=managed,
+        )
+
+    async def list(self) -> list[AsyncSmplLogger]:
+        """List all loggers."""
+        try:
+            response = await list_loggers.asyncio_detailed(client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [self._parent._logger_resource_to_model(r) for r in response.parsed.data]
+
+    async def get(self, id: str) -> AsyncSmplLogger:
+        """Get a logger by id."""
+        try:
+            response = await get_logger.asyncio_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise SmplNotFoundError(f"Logger with id {id!r} not found", status_code=404)
+        return self._parent._logger_to_model(response.parsed)
+
+    async def delete(self, id: str) -> None:
+        """Delete a logger by id."""
+        try:
+            response = await delete_logger.asyncio_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    def new_group(self, id: str, *, name: str | None = None, group: str | None = None) -> AsyncSmplLogGroup:
+        """Return a new unsaved :class:`AsyncSmplLogGroup`.
+
+        Call :meth:`AsyncSmplLogGroup.save` to persist it.
+        """
+        return AsyncSmplLogGroup(
+            self._parent,
+            id=id,
+            name=name if name is not None else key_to_display_name(id),
+            group=group,
+        )
+
+    async def list_groups(self) -> list[AsyncSmplLogGroup]:
+        """List all log groups."""
+        try:
+            response = await list_log_groups.asyncio_detailed(client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [self._parent._group_resource_to_model(r) for r in response.parsed.data]
+
+    async def get_group(self, id: str) -> AsyncSmplLogGroup:
+        """Get a log group by id."""
+        try:
+            response = await get_log_group.asyncio_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise SmplNotFoundError(f"Log group with id {id!r} not found", status_code=404)
+        return self._parent._group_to_model(response.parsed)
+
+    async def delete_group(self, id: str) -> None:
+        """Delete a log group by id."""
+        try:
+            response = await delete_log_group.asyncio_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+
 class AsyncLoggingClient:
     """Asynchronous logging namespace.  Obtained via ``AsyncSmplClient(...).logging``."""
 
@@ -1037,44 +1144,7 @@ class AsyncLoggingClient:
         self._key_listeners: dict[str, list[Callable[..., Any]]] = {}
         self._adapters: list[LoggingAdapter] = []
         self._explicit_adapters = False
-
-    # --- Management API: Loggers ---
-
-    def new(self, id: str, *, name: str | None = None, managed: bool = False) -> AsyncSmplLogger:
-        """Return a new unsaved :class:`AsyncSmplLogger`.
-
-        Call :meth:`AsyncSmplLogger.save` to persist it.
-        """
-        return AsyncSmplLogger(
-            self,
-            id=id,
-            name=name if name is not None else key_to_display_name(id),
-            managed=managed,
-        )
-
-    async def list(self) -> list[AsyncSmplLogger]:
-        """List all loggers."""
-        try:
-            response = await list_loggers.asyncio_detailed(client=self._logging_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [self._logger_resource_to_model(r) for r in response.parsed.data]
-
-    async def get(self, id: str) -> AsyncSmplLogger:
-        """Get a logger by id."""
-        try:
-            response = await get_logger.asyncio_detailed(id, client=self._logging_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            raise SmplNotFoundError(f"Logger with id {id!r} not found", status_code=404)
-        return self._logger_to_model(response.parsed)
+        self.management = AsyncLoggingManagementClient(self)
 
     async def _save_logger(self, lg: AsyncSmplLogger) -> AsyncSmplLogger:
         """Create or update a logger. Called by AsyncSmplLogger.save()."""
@@ -1102,53 +1172,6 @@ class AsyncLoggingClient:
             )
         return self._logger_to_model(response.parsed)
 
-    async def delete(self, id: str) -> None:
-        """Delete a logger by id."""
-        try:
-            response = await delete_logger.asyncio_detailed(id, client=self._logging_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-
-    # --- Management API: Log Groups ---
-
-    def new_group(self, id: str, *, name: str | None = None, group: str | None = None) -> AsyncSmplLogGroup:
-        """Return a new unsaved :class:`AsyncSmplLogGroup`.
-
-        Call :meth:`AsyncSmplLogGroup.save` to persist it.
-        """
-        return AsyncSmplLogGroup(
-            self,
-            id=id,
-            name=name if name is not None else key_to_display_name(id),
-            group=group,
-        )
-
-    async def list_groups(self) -> list[AsyncSmplLogGroup]:
-        """List all log groups."""
-        try:
-            response = await list_log_groups.asyncio_detailed(client=self._logging_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [self._group_resource_to_model(r) for r in response.parsed.data]
-
-    async def get_group(self, id: str) -> AsyncSmplLogGroup:
-        """Get a log group by id."""
-        try:
-            response = await get_log_group.asyncio_detailed(id, client=self._logging_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            raise SmplNotFoundError(f"Log group with id {id!r} not found", status_code=404)
-        return self._group_to_model(response.parsed)
-
     async def _save_group(self, grp: AsyncSmplLogGroup) -> AsyncSmplLogGroup:
         """Create or update a group. Called by AsyncSmplLogGroup.save()."""
         body = _build_group_body(
@@ -1173,15 +1196,6 @@ class AsyncLoggingClient:
                 f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
             )
         return self._group_to_model(response.parsed)
-
-    async def delete_group(self, id: str) -> None:
-        """Delete a log group by id."""
-        try:
-            response = await delete_log_group.asyncio_detailed(id, client=self._logging_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
 
     # --- Adapter registration ---
 

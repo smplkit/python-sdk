@@ -380,6 +380,126 @@ class _ContextRegistrationBuffer:
 # ---------------------------------------------------------------------------
 
 
+class FlagsManagementClient:
+    """Management (CRUD) operations for Smpl Flags.
+
+    Obtained via ``SmplClient(...).flags.management``.
+    """
+
+    def __init__(self, parent: FlagsClient) -> None:
+        self._parent = parent
+
+    def newBooleanFlag(
+        self,
+        id: str,
+        *,
+        default: bool,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> BooleanFlag:
+        """Create an unsaved boolean flag.  Call ``.save()`` to persist."""
+        return BooleanFlag(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="BOOLEAN",
+            default=default,
+            values=[{"name": "True", "value": True}, {"name": "False", "value": False}],
+            description=description,
+        )
+
+    def newStringFlag(
+        self,
+        id: str,
+        *,
+        default: str,
+        name: str | None = None,
+        description: str | None = None,
+        values: list[dict[str, Any]] | None = None,
+    ) -> StringFlag:
+        """Create an unsaved string flag.  Call ``.save()`` to persist."""
+        return StringFlag(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="STRING",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    def newNumberFlag(
+        self,
+        id: str,
+        *,
+        default: int | float,
+        name: str | None = None,
+        description: str | None = None,
+        values: list[dict[str, Any]] | None = None,
+    ) -> NumberFlag:
+        """Create an unsaved numeric flag.  Call ``.save()`` to persist."""
+        return NumberFlag(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="NUMERIC",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    def newJsonFlag(
+        self,
+        id: str,
+        *,
+        default: dict[str, Any],
+        name: str | None = None,
+        description: str | None = None,
+        values: list[dict[str, Any]] | None = None,
+    ) -> JsonFlag:
+        """Create an unsaved JSON flag.  Call ``.save()`` to persist."""
+        return JsonFlag(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="JSON",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    def get(self, id: str) -> Flag:
+        """Fetch a flag by id."""
+        try:
+            response = get_flag.sync_detailed(id, client=self._parent._flags_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        body = json.loads(response.content)
+        return self._parent._model_from_json(body["data"])
+
+    def list(self) -> list[Flag]:
+        """List all flags."""
+        try:
+            response = list_flags.sync_detailed(client=self._parent._flags_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        body = json.loads(response.content)
+        return [self._parent._model_from_json(r) for r in body.get("data", [])]
+
+    def delete(self, id: str) -> None:
+        """Delete a flag by id."""
+        try:
+            response = delete_flag.sync_detailed(id, client=self._parent._flags_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+
 class FlagsClient:
     """Synchronous flags namespace.  Obtained via ``SmplClient(...).flags``."""
 
@@ -408,123 +528,7 @@ class FlagsClient:
         # Shared WebSocket (set during connect)
         self._ws_manager: SharedWebSocket | None = None
 
-    # ------------------------------------------------------------------
-    # Management: factory methods (return unsaved Flag with created_at=None)
-    # ------------------------------------------------------------------
-
-    def newBooleanFlag(
-        self,
-        id: str,
-        *,
-        default: bool,
-        name: str | None = None,
-        description: str | None = None,
-    ) -> BooleanFlag:
-        """Create an unsaved boolean flag .  Call ``.save()`` to persist."""
-        return BooleanFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="BOOLEAN",
-            default=default,
-            values=[{"name": "True", "value": True}, {"name": "False", "value": False}],
-            description=description,
-        )
-
-    def newStringFlag(
-        self,
-        id: str,
-        *,
-        default: str,
-        name: str | None = None,
-        description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
-    ) -> StringFlag:
-        """Create an unsaved string flag .  Call ``.save()`` to persist."""
-        return StringFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="STRING",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    def newNumberFlag(
-        self,
-        id: str,
-        *,
-        default: int | float,
-        name: str | None = None,
-        description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
-    ) -> NumberFlag:
-        """Create an unsaved numeric flag .  Call ``.save()`` to persist."""
-        return NumberFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="NUMERIC",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    def newJsonFlag(
-        self,
-        id: str,
-        *,
-        default: dict[str, Any],
-        name: str | None = None,
-        description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
-    ) -> JsonFlag:
-        """Create an unsaved JSON flag .  Call ``.save()`` to persist."""
-        return JsonFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="JSON",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    # ------------------------------------------------------------------
-    # Management: CRUD
-    # ------------------------------------------------------------------
-
-    def get(self, id: str) -> Flag:
-        """Fetch a flag by id."""
-        try:
-            response = get_flag.sync_detailed(id, client=self._flags_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        body = json.loads(response.content)
-        return self._model_from_json(body["data"])
-
-    def list(self) -> list[Flag]:
-        """List all flags."""
-        try:
-            response = list_flags.sync_detailed(client=self._flags_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        body = json.loads(response.content)
-        return [self._model_from_json(r) for r in body.get("data", [])]
-
-    def delete(self, id: str) -> None:
-        """Delete a flag by id."""
-        try:
-            response = delete_flag.sync_detailed(id, client=self._flags_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
+        self.management = FlagsManagementClient(self)
 
     def _create_flag(self, flag: Flag) -> Flag:
         """Internal: POST a new flag.  Called by Flag.save() when created_at is None."""
@@ -843,6 +847,126 @@ class FlagsClient:
 # ---------------------------------------------------------------------------
 
 
+class AsyncFlagsManagementClient:
+    """Management (CRUD) operations for Smpl Flags (async).
+
+    Obtained via ``AsyncSmplClient(...).flags.management``.
+    """
+
+    def __init__(self, parent: AsyncFlagsClient) -> None:
+        self._parent = parent
+
+    def newBooleanFlag(
+        self,
+        id: str,
+        *,
+        default: bool,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> AsyncBooleanFlag:
+        """Create an unsaved boolean flag.  Call ``.save()`` to persist."""
+        return AsyncBooleanFlag(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="BOOLEAN",
+            default=default,
+            values=[{"name": "True", "value": True}, {"name": "False", "value": False}],
+            description=description,
+        )
+
+    def newStringFlag(
+        self,
+        id: str,
+        *,
+        default: str,
+        name: str | None = None,
+        description: str | None = None,
+        values: list[dict[str, Any]] | None = None,
+    ) -> AsyncStringFlag:
+        """Create an unsaved string flag.  Call ``.save()`` to persist."""
+        return AsyncStringFlag(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="STRING",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    def newNumberFlag(
+        self,
+        id: str,
+        *,
+        default: int | float,
+        name: str | None = None,
+        description: str | None = None,
+        values: list[dict[str, Any]] | None = None,
+    ) -> AsyncNumberFlag:
+        """Create an unsaved numeric flag.  Call ``.save()`` to persist."""
+        return AsyncNumberFlag(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="NUMERIC",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    def newJsonFlag(
+        self,
+        id: str,
+        *,
+        default: dict[str, Any],
+        name: str | None = None,
+        description: str | None = None,
+        values: list[dict[str, Any]] | None = None,
+    ) -> AsyncJsonFlag:
+        """Create an unsaved JSON flag.  Call ``.save()`` to persist."""
+        return AsyncJsonFlag(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="JSON",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    async def get(self, id: str) -> AsyncFlag:
+        """Fetch a flag by id."""
+        try:
+            response = await get_flag.asyncio_detailed(id, client=self._parent._flags_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        body = json.loads(response.content)
+        return self._parent._model_from_json(body["data"])
+
+    async def list(self) -> list[AsyncFlag]:
+        """List all flags."""
+        try:
+            response = await list_flags.asyncio_detailed(client=self._parent._flags_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+        body = json.loads(response.content)
+        return [self._parent._model_from_json(r) for r in body.get("data", [])]
+
+    async def delete(self, id: str) -> None:
+        """Delete a flag by id."""
+        try:
+            response = await delete_flag.asyncio_detailed(id, client=self._parent._flags_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+
 class AsyncFlagsClient:
     """Asynchronous flags namespace.  Obtained via ``AsyncSmplClient(...).flags``."""
 
@@ -871,119 +995,7 @@ class AsyncFlagsClient:
         # Shared WebSocket (set during connect)
         self._ws_manager: SharedWebSocket | None = None
 
-    # ------------------------------------------------------------------
-    # Management: factory methods (return unsaved AsyncFlag with created_at=None)
-    # ------------------------------------------------------------------
-
-    def newBooleanFlag(
-        self,
-        id: str,
-        *,
-        default: bool,
-        name: str | None = None,
-        description: str | None = None,
-    ) -> AsyncBooleanFlag:
-        return AsyncBooleanFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="BOOLEAN",
-            default=default,
-            values=[{"name": "True", "value": True}, {"name": "False", "value": False}],
-            description=description,
-        )
-
-    def newStringFlag(
-        self,
-        id: str,
-        *,
-        default: str,
-        name: str | None = None,
-        description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
-    ) -> AsyncStringFlag:
-        return AsyncStringFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="STRING",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    def newNumberFlag(
-        self,
-        id: str,
-        *,
-        default: int | float,
-        name: str | None = None,
-        description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
-    ) -> AsyncNumberFlag:
-        return AsyncNumberFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="NUMERIC",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    def newJsonFlag(
-        self,
-        id: str,
-        *,
-        default: dict[str, Any],
-        name: str | None = None,
-        description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
-    ) -> AsyncJsonFlag:
-        return AsyncJsonFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="JSON",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    # ------------------------------------------------------------------
-    # Management: CRUD (async)
-    # ------------------------------------------------------------------
-
-    async def get(self, id: str) -> AsyncFlag:
-        """Fetch a flag by id."""
-        try:
-            response = await get_flag.asyncio_detailed(id, client=self._flags_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        body = json.loads(response.content)
-        return self._model_from_json(body["data"])
-
-    async def list(self) -> list[AsyncFlag]:
-        """List all flags."""
-        try:
-            response = await list_flags.asyncio_detailed(client=self._flags_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
-        body = json.loads(response.content)
-        return [self._model_from_json(r) for r in body.get("data", [])]
-
-    async def delete(self, id: str) -> None:
-        """Delete a flag by id."""
-        try:
-            response = await delete_flag.asyncio_detailed(id, client=self._flags_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc)
-            raise
-        _check_response_status(response.status_code, response.content)
+        self.management = AsyncFlagsManagementClient(self)
 
     async def _create_flag(self, flag: AsyncFlag) -> AsyncFlag:
         """Internal: POST a new flag."""

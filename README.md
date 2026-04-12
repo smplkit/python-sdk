@@ -36,22 +36,32 @@ client = SmplClient()
 from smplkit import SmplClient
 
 with SmplClient(api_key="sk_api_...") as client:
-    # Get a config by key
-    config = client.config.get(key="user_service")
+    # --- Runtime: resolve config values ---
+    # Connect and read resolved key/value pairs for your service
+    db = client.config.get("database")  # {"host": "...", "port": 5432}
 
+    # --- Management: CRUD operations ---
     # List all configs
-    configs = client.config.list()
+    configs = client.config.management.list()
 
-    # Create a config
-    new_config = client.config.create(
-        name="My Service",
-        key="my_service",
-        description="Configuration for my service",
-        values={"timeout": 30, "retries": 3},
-    )
+    # Create a new config
+    cfg = client.config.management.new("my_service", name="My Service")
+    cfg.save()
+
+    # Get a config by id
+    cfg = client.config.management.get("my_service")
 
     # Delete a config
-    client.config.delete(new_config.id)
+    client.config.management.delete("my_service")
+
+    # --- Flags management ---
+    flag = client.flags.management.newBooleanFlag("checkout-v2", default=False)
+    flag.save()
+    flags = client.flags.management.list()
+
+    # --- Logging management ---
+    logger = client.logging.management.new("sql", name="SQL Logger")
+    logger.save()
 ```
 
 For async usage:
@@ -60,7 +70,12 @@ For async usage:
 from smplkit import AsyncSmplClient
 
 async with AsyncSmplClient(api_key="sk_api_...") as client:
-    config = await client.config.get(key="user_service")
+    # Runtime
+    db = await client.config.get("database")
+
+    # Management
+    cfg = await client.config.management.get("my_service")
+    configs = await client.config.management.list()
 ```
 
 ## Configuration
@@ -88,7 +103,7 @@ All SDK errors extend `SmplError`:
 from smplkit import SmplError, SmplNotFoundError
 
 try:
-    config = client.config.get(key="nonexistent")
+    config = client.config.management.get("nonexistent")
 except SmplNotFoundError:
     print("Config not found")
 except SmplError as e:
