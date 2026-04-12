@@ -17,6 +17,9 @@ T = TypeVar("T", bound="LoggerBulkItem")
 @_attrs_define
 class LoggerBulkItem:
     """
+    Example:
+        {'environment': 'production', 'id': 'sqlalchemy.engine', 'level': 'WARN', 'service': 'api-gateway'}
+
     Attributes:
         id (str): Normalized logger name
         level (str): Observed log level in smplkit canonical format

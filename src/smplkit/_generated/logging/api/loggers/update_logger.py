@@ -9,15 +9,13 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
-from ...models.http_validation_error import HTTPValidationError
 from ...models.logger_response import LoggerResponse
-from ...models.response_logger import ResponseLogger
 
 
 def _get_kwargs(
     id: str,
     *,
-    body: ResponseLogger,
+    body: LoggerResponse,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -30,7 +28,7 @@ def _get_kwargs(
 
     _kwargs["json"] = body.to_dict()
 
-    headers["Content-Type"] = "application/json"
+    headers["Content-Type"] = "application/vnd.api+json"
 
     _kwargs["headers"] = headers
     return _kwargs
@@ -38,7 +36,7 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse | HTTPValidationError | LoggerResponse | None:
+) -> ErrorResponse | LoggerResponse | None:
     if response.status_code == 200:
         response_200 = LoggerResponse.from_dict(response.json())
 
@@ -59,11 +57,6 @@ def _parse_response(
 
         return response_404
 
-    if response.status_code == 422:
-        response_422 = HTTPValidationError.from_dict(response.json())
-
-        return response_422
-
     if response.status_code == 429:
         response_429 = ErrorResponse.from_dict(response.json())
 
@@ -77,7 +70,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse | HTTPValidationError | LoggerResponse]:
+) -> Response[ErrorResponse | LoggerResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -90,20 +83,22 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: ResponseLogger,
-) -> Response[ErrorResponse | HTTPValidationError | LoggerResponse]:
+    body: LoggerResponse,
+) -> Response[ErrorResponse | LoggerResponse]:
     """Update Logger
+
+     Replace a logger entirely.
 
     Args:
         id (str):
-        body (ResponseLogger):
+        body (LoggerResponse):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | LoggerResponse]
+        Response[ErrorResponse | LoggerResponse]
     """
 
     kwargs = _get_kwargs(
@@ -122,20 +117,22 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: ResponseLogger,
-) -> ErrorResponse | HTTPValidationError | LoggerResponse | None:
+    body: LoggerResponse,
+) -> ErrorResponse | LoggerResponse | None:
     """Update Logger
+
+     Replace a logger entirely.
 
     Args:
         id (str):
-        body (ResponseLogger):
+        body (LoggerResponse):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | LoggerResponse
+        ErrorResponse | LoggerResponse
     """
 
     return sync_detailed(
@@ -149,20 +146,22 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: ResponseLogger,
-) -> Response[ErrorResponse | HTTPValidationError | LoggerResponse]:
+    body: LoggerResponse,
+) -> Response[ErrorResponse | LoggerResponse]:
     """Update Logger
+
+     Replace a logger entirely.
 
     Args:
         id (str):
-        body (ResponseLogger):
+        body (LoggerResponse):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | LoggerResponse]
+        Response[ErrorResponse | LoggerResponse]
     """
 
     kwargs = _get_kwargs(
@@ -179,20 +178,22 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: ResponseLogger,
-) -> ErrorResponse | HTTPValidationError | LoggerResponse | None:
+    body: LoggerResponse,
+) -> ErrorResponse | LoggerResponse | None:
     """Update Logger
+
+     Replace a logger entirely.
 
     Args:
         id (str):
-        body (ResponseLogger):
+        body (LoggerResponse):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | LoggerResponse
+        ErrorResponse | LoggerResponse
     """
 
     return (

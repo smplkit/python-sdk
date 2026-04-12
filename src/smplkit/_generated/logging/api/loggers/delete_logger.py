@@ -9,7 +9,6 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
-from ...models.http_validation_error import HTTPValidationError
 
 
 def _get_kwargs(
@@ -26,9 +25,7 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Any | ErrorResponse | HTTPValidationError | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | ErrorResponse | None:
     if response.status_code == 204:
         response_204 = cast(Any, None)
         return response_204
@@ -48,11 +45,6 @@ def _parse_response(
 
         return response_404
 
-    if response.status_code == 422:
-        response_422 = HTTPValidationError.from_dict(response.json())
-
-        return response_422
-
     if response.status_code == 429:
         response_429 = ErrorResponse.from_dict(response.json())
 
@@ -64,9 +56,7 @@ def _parse_response(
         return None
 
 
-def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[Any | ErrorResponse | HTTPValidationError]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | ErrorResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -79,8 +69,10 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-) -> Response[Any | ErrorResponse | HTTPValidationError]:
+) -> Response[Any | ErrorResponse]:
     """Delete Logger
+
+     Delete a logger by its key.
 
     Args:
         id (str):
@@ -90,7 +82,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse | HTTPValidationError]
+        Response[Any | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
@@ -108,8 +100,10 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient,
-) -> Any | ErrorResponse | HTTPValidationError | None:
+) -> Any | ErrorResponse | None:
     """Delete Logger
+
+     Delete a logger by its key.
 
     Args:
         id (str):
@@ -119,7 +113,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse | HTTPValidationError
+        Any | ErrorResponse
     """
 
     return sync_detailed(
@@ -132,8 +126,10 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-) -> Response[Any | ErrorResponse | HTTPValidationError]:
+) -> Response[Any | ErrorResponse]:
     """Delete Logger
+
+     Delete a logger by its key.
 
     Args:
         id (str):
@@ -143,7 +139,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse | HTTPValidationError]
+        Response[Any | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
@@ -159,8 +155,10 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient,
-) -> Any | ErrorResponse | HTTPValidationError | None:
+) -> Any | ErrorResponse | None:
     """Delete Logger
+
+     Delete a logger by its key.
 
     Args:
         id (str):
@@ -170,7 +168,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse | HTTPValidationError
+        Any | ErrorResponse
     """
 
     return (

@@ -1,37 +1,43 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-if TYPE_CHECKING:
-    from ..models.resource_log_group import ResourceLogGroup
-
-
-T = TypeVar("T", bound="ResponseLogGroup")
+T = TypeVar("T", bound="UsageAttributes")
 
 
 @_attrs_define
-class ResponseLogGroup:
+class UsageAttributes:
     """
     Attributes:
-        data (ResourceLogGroup):
+        limit_key (str):
+        period (str):
+        value (int):
     """
 
-    data: ResourceLogGroup
+    limit_key: str
+    period: str
+    value: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = self.data.to_dict()
+        limit_key = self.limit_key
+
+        period = self.period
+
+        value = self.value
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "data": data,
+                "limit_key": limit_key,
+                "period": period,
+                "value": value,
             }
         )
 
@@ -39,17 +45,21 @@ class ResponseLogGroup:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.resource_log_group import ResourceLogGroup
-
         d = dict(src_dict)
-        data = ResourceLogGroup.from_dict(d.pop("data"))
+        limit_key = d.pop("limit_key")
 
-        response_log_group = cls(
-            data=data,
+        period = d.pop("period")
+
+        value = d.pop("value")
+
+        usage_attributes = cls(
+            limit_key=limit_key,
+            period=period,
+            value=value,
         )
 
-        response_log_group.additional_properties = d
-        return response_log_group
+        usage_attributes.additional_properties = d
+        return usage_attributes
 
     @property
     def additional_keys(self) -> list[str]:

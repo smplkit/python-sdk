@@ -8,7 +8,6 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
-from ...models.http_validation_error import HTTPValidationError
 from ...models.logger_bulk_request import LoggerBulkRequest
 from ...models.logger_bulk_response import LoggerBulkResponse
 
@@ -26,7 +25,7 @@ def _get_kwargs(
 
     _kwargs["json"] = body.to_dict()
 
-    headers["Content-Type"] = "application/json"
+    headers["Content-Type"] = "application/vnd.api+json"
 
     _kwargs["headers"] = headers
     return _kwargs
@@ -34,7 +33,7 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse | HTTPValidationError | LoggerBulkResponse | None:
+) -> ErrorResponse | LoggerBulkResponse | None:
     if response.status_code == 200:
         response_200 = LoggerBulkResponse.from_dict(response.json())
 
@@ -55,11 +54,6 @@ def _parse_response(
 
         return response_404
 
-    if response.status_code == 422:
-        response_422 = HTTPValidationError.from_dict(response.json())
-
-        return response_422
-
     if response.status_code == 429:
         response_429 = ErrorResponse.from_dict(response.json())
 
@@ -73,7 +67,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse | HTTPValidationError | LoggerBulkResponse]:
+) -> Response[ErrorResponse | LoggerBulkResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -86,18 +80,23 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     body: LoggerBulkRequest,
-) -> Response[ErrorResponse | HTTPValidationError | LoggerBulkResponse]:
+) -> Response[ErrorResponse | LoggerBulkResponse]:
     """Bulk Register Loggers
 
+     Register loggers discovered by an SDK. Creates new loggers or updates source observations on
+    existing ones.
+
     Args:
-        body (LoggerBulkRequest):
+        body (LoggerBulkRequest):  Example: {'loggers': [{'environment': 'production', 'id':
+            'sqlalchemy.engine', 'level': 'WARN', 'service': 'api-gateway'}, {'environment':
+            'production', 'id': 'stripe', 'level': 'INFO', 'service': 'api-gateway'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | LoggerBulkResponse]
+        Response[ErrorResponse | LoggerBulkResponse]
     """
 
     kwargs = _get_kwargs(
@@ -115,18 +114,23 @@ def sync(
     *,
     client: AuthenticatedClient,
     body: LoggerBulkRequest,
-) -> ErrorResponse | HTTPValidationError | LoggerBulkResponse | None:
+) -> ErrorResponse | LoggerBulkResponse | None:
     """Bulk Register Loggers
 
+     Register loggers discovered by an SDK. Creates new loggers or updates source observations on
+    existing ones.
+
     Args:
-        body (LoggerBulkRequest):
+        body (LoggerBulkRequest):  Example: {'loggers': [{'environment': 'production', 'id':
+            'sqlalchemy.engine', 'level': 'WARN', 'service': 'api-gateway'}, {'environment':
+            'production', 'id': 'stripe', 'level': 'INFO', 'service': 'api-gateway'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | LoggerBulkResponse
+        ErrorResponse | LoggerBulkResponse
     """
 
     return sync_detailed(
@@ -139,18 +143,23 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     body: LoggerBulkRequest,
-) -> Response[ErrorResponse | HTTPValidationError | LoggerBulkResponse]:
+) -> Response[ErrorResponse | LoggerBulkResponse]:
     """Bulk Register Loggers
 
+     Register loggers discovered by an SDK. Creates new loggers or updates source observations on
+    existing ones.
+
     Args:
-        body (LoggerBulkRequest):
+        body (LoggerBulkRequest):  Example: {'loggers': [{'environment': 'production', 'id':
+            'sqlalchemy.engine', 'level': 'WARN', 'service': 'api-gateway'}, {'environment':
+            'production', 'id': 'stripe', 'level': 'INFO', 'service': 'api-gateway'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | HTTPValidationError | LoggerBulkResponse]
+        Response[ErrorResponse | LoggerBulkResponse]
     """
 
     kwargs = _get_kwargs(
@@ -166,18 +175,23 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     body: LoggerBulkRequest,
-) -> ErrorResponse | HTTPValidationError | LoggerBulkResponse | None:
+) -> ErrorResponse | LoggerBulkResponse | None:
     """Bulk Register Loggers
 
+     Register loggers discovered by an SDK. Creates new loggers or updates source observations on
+    existing ones.
+
     Args:
-        body (LoggerBulkRequest):
+        body (LoggerBulkRequest):  Example: {'loggers': [{'environment': 'production', 'id':
+            'sqlalchemy.engine', 'level': 'WARN', 'service': 'api-gateway'}, {'environment':
+            'production', 'id': 'stripe', 'level': 'INFO', 'service': 'api-gateway'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | HTTPValidationError | LoggerBulkResponse
+        ErrorResponse | LoggerBulkResponse
     """
 
     return (

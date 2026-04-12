@@ -17,6 +17,10 @@ T = TypeVar("T", bound="LoggerBulkRequest")
 @_attrs_define
 class LoggerBulkRequest:
     """
+    Example:
+        {'loggers': [{'environment': 'production', 'id': 'sqlalchemy.engine', 'level': 'WARN', 'service': 'api-
+            gateway'}, {'environment': 'production', 'id': 'stripe', 'level': 'INFO', 'service': 'api-gateway'}]}
+
     Attributes:
         loggers (list[LoggerBulkItem]):
     """

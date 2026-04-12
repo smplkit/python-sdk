@@ -3,7 +3,6 @@
 from .error import Error
 from .error_response import ErrorResponse
 from .error_source_type_0 import ErrorSourceType0
-from .http_validation_error import HTTPValidationError
 from .log_group import LogGroup
 from .log_group_environments_type_0 import LogGroupEnvironmentsType0
 from .log_group_list_response import LogGroupListResponse
@@ -20,17 +19,14 @@ from .logger_response import LoggerResponse
 from .logger_source import LoggerSource
 from .logger_source_list_response import LoggerSourceListResponse
 from .logger_source_resource import LoggerSourceResource
-from .resource_log_group import ResourceLogGroup
-from .resource_logger import ResourceLogger
-from .response_log_group import ResponseLogGroup
-from .response_logger import ResponseLogger
-from .validation_error import ValidationError
+from .usage_attributes import UsageAttributes
+from .usage_list_response import UsageListResponse
+from .usage_resource import UsageResource
 
 __all__ = (
     "Error",
     "ErrorResponse",
     "ErrorSourceType0",
-    "HTTPValidationError",
     "Logger",
     "LoggerBulkItem",
     "LoggerBulkRequest",
@@ -47,9 +43,7 @@ __all__ = (
     "LogGroupListResponse",
     "LogGroupResource",
     "LogGroupResponse",
-    "ResourceLogger",
-    "ResourceLogGroup",
-    "ResponseLogger",
-    "ResponseLogGroup",
-    "ValidationError",
+    "UsageAttributes",
+    "UsageListResponse",
+    "UsageResource",
 )
