@@ -72,6 +72,8 @@ def sync_detailed(
 ) -> Response[ErrorResponse | LogGroupListResponse]:
     """List Log Groups
 
+     List all log groups for the authenticated account.
+
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
@@ -95,6 +97,8 @@ def sync(
 ) -> ErrorResponse | LogGroupListResponse | None:
     """List Log Groups
 
+     List all log groups for the authenticated account.
+
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
@@ -113,6 +117,8 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 ) -> Response[ErrorResponse | LogGroupListResponse]:
     """List Log Groups
+
+     List all log groups for the authenticated account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -134,6 +140,8 @@ async def asyncio(
     client: AuthenticatedClient,
 ) -> ErrorResponse | LogGroupListResponse | None:
     """List Log Groups
+
+     List all log groups for the authenticated account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

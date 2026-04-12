@@ -13,6 +13,9 @@ T = TypeVar("T", bound="LoggerBulkResponse")
 @_attrs_define
 class LoggerBulkResponse:
     """
+    Example:
+        {'registered': 5}
+
     Attributes:
         registered (int):
     """
