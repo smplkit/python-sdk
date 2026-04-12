@@ -38,8 +38,8 @@ from smplkit._generated.flags.models.flag_environments import FlagEnvironments a
 from smplkit._generated.flags.models.flag_rule import FlagRule as GenFlagRule
 from smplkit._generated.flags.models.flag_rule_logic import FlagRuleLogic as GenFlagRuleLogic
 from smplkit._generated.flags.models.flag_value import FlagValue as GenFlagValue
-from smplkit._generated.flags.models.resource_flag import ResourceFlag
-from smplkit._generated.flags.models.response_flag import ResponseFlag
+from smplkit._generated.flags.models.flag_resource import FlagResource as ResourceFlag
+from smplkit._generated.flags.models.flag_response import FlagResponse as ResponseFlag
 from smplkit.flags.models import (
     AsyncBooleanFlag,
     AsyncFlag,
