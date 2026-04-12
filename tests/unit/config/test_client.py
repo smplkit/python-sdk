@@ -1034,7 +1034,9 @@ class TestAsyncConfigClientConnectInternal:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             mock_cfg = self._make_mock_config("db", {"host": {"value": "localhost"}})
-            with patch.object(client.config.management, "list", new_callable=AsyncMock, return_value=[mock_cfg]) as mock_list:
+            with patch.object(
+                client.config.management, "list", new_callable=AsyncMock, return_value=[mock_cfg]
+            ) as mock_list:
                 await client.config._connect_internal()
                 await client.config._connect_internal()
             mock_list.assert_called_once()
