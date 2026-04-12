@@ -31,8 +31,8 @@ from smplkit._generated.config.models.config_environments_type_0 import (
     ConfigEnvironmentsType0,
 )
 from smplkit._generated.config.models.config_items_type_0 import ConfigItemsType0
-from smplkit._generated.config.models.resource_config import ResourceConfig
-from smplkit._generated.config.models.response_config import ResponseConfig
+from smplkit._generated.config.models.config_resource import ConfigResource
+from smplkit._generated.config.models.config_response import ConfigResponse
 from smplkit.config.models import AsyncConfig, Config
 
 if TYPE_CHECKING:
@@ -199,7 +199,7 @@ def _build_request_body(
     parent: str | None = None,
     items: dict[str, Any] | None = None,
     environments: dict[str, Any] | None = None,
-) -> ResponseConfig:
+) -> ConfigResponse:
     """Build a JSON:API request body for create/update operations."""
     attrs = GenConfig(
         name=name,
@@ -208,8 +208,8 @@ def _build_request_body(
         items=_make_items(items),
         environments=_make_environments(environments),
     )
-    resource = ResourceConfig(attributes=attrs, id=config_id, type_="config")
-    return ResponseConfig(data=resource)
+    resource = ConfigResource(attributes=attrs, id=config_id, type_="config")
+    return ConfigResponse(data=resource)
 
 
 def _unflatten(flat: dict[str, Any]) -> dict[str, Any]:
