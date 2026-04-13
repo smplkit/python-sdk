@@ -15,6 +15,8 @@ from ...types import Unset
 def _get_kwargs(
     *,
     filtermanaged: bool | None | Unset = UNSET,
+    filterservice: None | str | Unset = UNSET,
+    filterlast_seen: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -25,6 +27,20 @@ def _get_kwargs(
     else:
         json_filtermanaged = filtermanaged
     params["filter[managed]"] = json_filtermanaged
+
+    json_filterservice: None | str | Unset
+    if isinstance(filterservice, Unset):
+        json_filterservice = UNSET
+    else:
+        json_filterservice = filterservice
+    params["filter[service]"] = json_filterservice
+
+    json_filterlast_seen: None | str | Unset
+    if isinstance(filterlast_seen, Unset):
+        json_filterlast_seen = UNSET
+    else:
+        json_filterlast_seen = filterlast_seen
+    params["filter[last_seen]"] = json_filterlast_seen
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -86,13 +102,18 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     filtermanaged: bool | None | Unset = UNSET,
+    filterservice: None | str | Unset = UNSET,
+    filterlast_seen: None | str | Unset = UNSET,
 ) -> Response[ErrorResponse | LoggerListResponse]:
     """List Loggers
 
-     List all loggers for the authenticated account. Optionally filter by managed status.
+     List all loggers for the authenticated account. Optionally filter by managed status,
+    service, or last-seen time window.
 
     Args:
         filtermanaged (bool | None | Unset):
+        filterservice (None | str | Unset):
+        filterlast_seen (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -104,6 +125,8 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         filtermanaged=filtermanaged,
+        filterservice=filterservice,
+        filterlast_seen=filterlast_seen,
     )
 
     response = client.get_httpx_client().request(
@@ -117,13 +140,18 @@ def sync(
     *,
     client: AuthenticatedClient,
     filtermanaged: bool | None | Unset = UNSET,
+    filterservice: None | str | Unset = UNSET,
+    filterlast_seen: None | str | Unset = UNSET,
 ) -> ErrorResponse | LoggerListResponse | None:
     """List Loggers
 
-     List all loggers for the authenticated account. Optionally filter by managed status.
+     List all loggers for the authenticated account. Optionally filter by managed status,
+    service, or last-seen time window.
 
     Args:
         filtermanaged (bool | None | Unset):
+        filterservice (None | str | Unset):
+        filterlast_seen (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -136,6 +164,8 @@ def sync(
     return sync_detailed(
         client=client,
         filtermanaged=filtermanaged,
+        filterservice=filterservice,
+        filterlast_seen=filterlast_seen,
     ).parsed
 
 
@@ -143,13 +173,18 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     filtermanaged: bool | None | Unset = UNSET,
+    filterservice: None | str | Unset = UNSET,
+    filterlast_seen: None | str | Unset = UNSET,
 ) -> Response[ErrorResponse | LoggerListResponse]:
     """List Loggers
 
-     List all loggers for the authenticated account. Optionally filter by managed status.
+     List all loggers for the authenticated account. Optionally filter by managed status,
+    service, or last-seen time window.
 
     Args:
         filtermanaged (bool | None | Unset):
+        filterservice (None | str | Unset):
+        filterlast_seen (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -161,6 +196,8 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         filtermanaged=filtermanaged,
+        filterservice=filterservice,
+        filterlast_seen=filterlast_seen,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -172,13 +209,18 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     filtermanaged: bool | None | Unset = UNSET,
+    filterservice: None | str | Unset = UNSET,
+    filterlast_seen: None | str | Unset = UNSET,
 ) -> ErrorResponse | LoggerListResponse | None:
     """List Loggers
 
-     List all loggers for the authenticated account. Optionally filter by managed status.
+     List all loggers for the authenticated account. Optionally filter by managed status,
+    service, or last-seen time window.
 
     Args:
         filtermanaged (bool | None | Unset):
+        filterservice (None | str | Unset):
+        filterlast_seen (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -192,5 +234,7 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             filtermanaged=filtermanaged,
+            filterservice=filterservice,
+            filterlast_seen=filterlast_seen,
         )
     ).parsed

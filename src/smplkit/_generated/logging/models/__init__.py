@@ -12,6 +12,7 @@ from .logger import Logger
 from .logger_bulk_item import LoggerBulkItem
 from .logger_bulk_request import LoggerBulkRequest
 from .logger_bulk_response import LoggerBulkResponse
+from .logger_effective_levels_type_0 import LoggerEffectiveLevelsType0
 from .logger_environments_type_0 import LoggerEnvironmentsType0
 from .logger_list_response import LoggerListResponse
 from .logger_resource import LoggerResource
@@ -19,6 +20,7 @@ from .logger_response import LoggerResponse
 from .logger_source import LoggerSource
 from .logger_source_list_response import LoggerSourceListResponse
 from .logger_source_resource import LoggerSourceResource
+from .logger_source_services_response import LoggerSourceServicesResponse
 from .logger_sources_type_0_item import LoggerSourcesType0Item
 from .usage_attributes import UsageAttributes
 from .usage_list_response import UsageListResponse
@@ -32,6 +34,7 @@ __all__ = (
     "LoggerBulkItem",
     "LoggerBulkRequest",
     "LoggerBulkResponse",
+    "LoggerEffectiveLevelsType0",
     "LoggerEnvironmentsType0",
     "LoggerListResponse",
     "LoggerResource",
@@ -39,6 +42,7 @@ __all__ = (
     "LoggerSource",
     "LoggerSourceListResponse",
     "LoggerSourceResource",
+    "LoggerSourceServicesResponse",
     "LoggerSourcesType0Item",
     "LogGroup",
     "LogGroupEnvironmentsType0",

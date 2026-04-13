@@ -8,35 +8,26 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
-from ...models.logger_response import LoggerResponse
+from ...models.logger_source_services_response import LoggerSourceServicesResponse
 
 
-def _get_kwargs(
-    *,
-    body: LoggerResponse,
-) -> dict[str, Any]:
-    headers: dict[str, Any] = {}
+def _get_kwargs() -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
-        "method": "post",
-        "url": "/api/v1/loggers",
+        "method": "get",
+        "url": "/api/v1/logger_sources/services",
     }
 
-    _kwargs["json"] = body.to_dict()
-
-    headers["Content-Type"] = "application/vnd.api+json"
-
-    _kwargs["headers"] = headers
     return _kwargs
 
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse | LoggerResponse | None:
-    if response.status_code == 201:
-        response_201 = LoggerResponse.from_dict(response.json())
+) -> ErrorResponse | LoggerSourceServicesResponse | None:
+    if response.status_code == 200:
+        response_200 = LoggerSourceServicesResponse.from_dict(response.json())
 
-        return response_201
+        return response_200
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
@@ -66,7 +57,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse | LoggerResponse]:
+) -> Response[ErrorResponse | LoggerSourceServicesResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -78,26 +69,20 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: LoggerResponse,
-) -> Response[ErrorResponse | LoggerResponse]:
-    """Create Logger
+) -> Response[ErrorResponse | LoggerSourceServicesResponse]:
+    """List Logger Source Services
 
-     Create a new logger. The caller provides the id (key) in the request body.
-
-    Args:
-        body (LoggerResponse):
+     Return the distinct service names observed across all logger sources for the account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | LoggerResponse]
+        Response[ErrorResponse | LoggerSourceServicesResponse]
     """
 
-    kwargs = _get_kwargs(
-        body=body,
-    )
+    kwargs = _get_kwargs()
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -109,52 +94,41 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: LoggerResponse,
-) -> ErrorResponse | LoggerResponse | None:
-    """Create Logger
+) -> ErrorResponse | LoggerSourceServicesResponse | None:
+    """List Logger Source Services
 
-     Create a new logger. The caller provides the id (key) in the request body.
-
-    Args:
-        body (LoggerResponse):
+     Return the distinct service names observed across all logger sources for the account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | LoggerResponse
+        ErrorResponse | LoggerSourceServicesResponse
     """
 
     return sync_detailed(
         client=client,
-        body=body,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: LoggerResponse,
-) -> Response[ErrorResponse | LoggerResponse]:
-    """Create Logger
+) -> Response[ErrorResponse | LoggerSourceServicesResponse]:
+    """List Logger Source Services
 
-     Create a new logger. The caller provides the id (key) in the request body.
-
-    Args:
-        body (LoggerResponse):
+     Return the distinct service names observed across all logger sources for the account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | LoggerResponse]
+        Response[ErrorResponse | LoggerSourceServicesResponse]
     """
 
-    kwargs = _get_kwargs(
-        body=body,
-    )
+    kwargs = _get_kwargs()
 
     response = await client.get_async_httpx_client().request(**kwargs)
 
@@ -164,26 +138,21 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: LoggerResponse,
-) -> ErrorResponse | LoggerResponse | None:
-    """Create Logger
+) -> ErrorResponse | LoggerSourceServicesResponse | None:
+    """List Logger Source Services
 
-     Create a new logger. The caller provides the id (key) in the request body.
-
-    Args:
-        body (LoggerResponse):
+     Return the distinct service names observed across all logger sources for the account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | LoggerResponse
+        ErrorResponse | LoggerSourceServicesResponse
     """
 
     return (
         await asyncio_detailed(
             client=client,
-            body=body,
         )
     ).parsed

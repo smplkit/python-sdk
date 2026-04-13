@@ -1,39 +1,36 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-if TYPE_CHECKING:
-    from ..models.log_group_resource import LogGroupResource
+from typing import cast
 
 
-T = TypeVar("T", bound="LogGroupResponse")
+T = TypeVar("T", bound="LoggerSourceServicesResponse")
 
 
 @_attrs_define
-class LogGroupResponse:
+class LoggerSourceServicesResponse:
     """
     Attributes:
-        data (LogGroupResource):  Example: {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments':
-            {'production': {'level': 'ERROR'}}, 'key': 'database-loggers', 'level': 'WARN', 'name': 'Database Loggers',
-            'updated_at': '2026-04-01T10:00:00Z'}, 'id': 'database-loggers', 'type': 'log_group'}.
+        services (list[str]):
     """
 
-    data: LogGroupResource
+    services: list[str]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = self.data.to_dict()
+        services = self.services
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "data": data,
+                "services": services,
             }
         )
 
@@ -41,17 +38,15 @@ class LogGroupResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.log_group_resource import LogGroupResource
-
         d = dict(src_dict)
-        data = LogGroupResource.from_dict(d.pop("data"))
+        services = cast(list[str], d.pop("services"))
 
-        log_group_response = cls(
-            data=data,
+        logger_source_services_response = cls(
+            services=services,
         )
 
-        log_group_response.additional_properties = d
-        return log_group_response
+        logger_source_services_response.additional_properties = d
+        return logger_source_services_response
 
     @property
     def additional_keys(self) -> list[str]:

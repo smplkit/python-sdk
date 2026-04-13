@@ -87,7 +87,7 @@ def sync_detailed(
 ) -> Response[ErrorResponse | LoggerResponse]:
     """Update Logger
 
-     Replace a logger entirely.
+     Update a logger. Fields absent from the body are preserved; explicit null clears them.
 
     Args:
         id (str):
@@ -121,7 +121,7 @@ def sync(
 ) -> ErrorResponse | LoggerResponse | None:
     """Update Logger
 
-     Replace a logger entirely.
+     Update a logger. Fields absent from the body are preserved; explicit null clears them.
 
     Args:
         id (str):
@@ -150,7 +150,7 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | LoggerResponse]:
     """Update Logger
 
-     Replace a logger entirely.
+     Update a logger. Fields absent from the body are preserved; explicit null clears them.
 
     Args:
         id (str):
@@ -182,7 +182,7 @@ async def asyncio(
 ) -> ErrorResponse | LoggerResponse | None:
     """Update Logger
 
-     Replace a logger entirely.
+     Update a logger. Fields absent from the body are preserved; explicit null clears them.
 
     Args:
         id (str):
