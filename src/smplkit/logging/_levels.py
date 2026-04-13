@@ -12,6 +12,7 @@ PYTHON_TO_SMPL: dict[int, str] = {
     30: "WARN",
     40: "ERROR",
     50: "FATAL",
+    99: "SILENT",
 }
 
 # smplkit level → Python level

@@ -23,21 +23,23 @@ T = TypeVar("T", bound="LogGroup")
 class LogGroup:
     """
     Example:
-        {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'ERROR'}}, 'level': 'WARN',
-            'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}
+        {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'ERROR'}}, 'key': 'database-
+            loggers', 'level': 'WARN', 'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}
 
     Attributes:
         name (str):
+        key (None | str | Unset):
         level (None | str | Unset):
-        group (None | str | Unset):
+        parent_id (None | str | Unset):
         environments (LogGroupEnvironmentsType0 | None | Unset):
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
     """
 
     name: str
+    key: None | str | Unset = UNSET
     level: None | str | Unset = UNSET
-    group: None | str | Unset = UNSET
+    parent_id: None | str | Unset = UNSET
     environments: LogGroupEnvironmentsType0 | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
@@ -48,17 +50,23 @@ class LogGroup:
 
         name = self.name
 
+        key: None | str | Unset
+        if isinstance(self.key, Unset):
+            key = UNSET
+        else:
+            key = self.key
+
         level: None | str | Unset
         if isinstance(self.level, Unset):
             level = UNSET
         else:
             level = self.level
 
-        group: None | str | Unset
-        if isinstance(self.group, Unset):
-            group = UNSET
+        parent_id: None | str | Unset
+        if isinstance(self.parent_id, Unset):
+            parent_id = UNSET
         else:
-            group = self.group
+            parent_id = self.parent_id
 
         environments: dict[str, Any] | None | Unset
         if isinstance(self.environments, Unset):
@@ -91,10 +99,12 @@ class LogGroup:
                 "name": name,
             }
         )
+        if key is not UNSET:
+            field_dict["key"] = key
         if level is not UNSET:
             field_dict["level"] = level
-        if group is not UNSET:
-            field_dict["group"] = group
+        if parent_id is not UNSET:
+            field_dict["parent_id"] = parent_id
         if environments is not UNSET:
             field_dict["environments"] = environments
         if created_at is not UNSET:
@@ -111,6 +121,15 @@ class LogGroup:
         d = dict(src_dict)
         name = d.pop("name")
 
+        def _parse_key(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        key = _parse_key(d.pop("key", UNSET))
+
         def _parse_level(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -120,14 +139,14 @@ class LogGroup:
 
         level = _parse_level(d.pop("level", UNSET))
 
-        def _parse_group(data: object) -> None | str | Unset:
+        def _parse_parent_id(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             return cast(None | str | Unset, data)
 
-        group = _parse_group(d.pop("group", UNSET))
+        parent_id = _parse_parent_id(d.pop("parent_id", UNSET))
 
         def _parse_environments(data: object) -> LogGroupEnvironmentsType0 | None | Unset:
             if data is None:
@@ -182,8 +201,9 @@ class LogGroup:
 
         log_group = cls(
             name=name,
+            key=key,
             level=level,
-            group=group,
+            parent_id=parent_id,
             environments=environments,
             created_at=created_at,
             updated_at=updated_at,

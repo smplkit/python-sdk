@@ -549,21 +549,7 @@ class TestFlagsClientErrors:
 
 
 class TestLoggingClientErrors:
-    @patch("smplkit.logging.client.create_logger.sync_detailed")
-    def test_create_logger_400_surfaces_detail(self, mock_create):
-        mock_create.return_value = _make_error_response(
-            400,
-            {
-                "errors": [
-                    {
-                        "status": "400",
-                        "title": "Validation Error",
-                        "detail": "The 'name' field is required.",
-                        "source": {"pointer": "/data/attributes/name"},
-                    }
-                ]
-            },
-        )
+    def test_save_new_logger_raises_before_http(self):
         from smplkit.client import SmplClient
 
         client = SmplClient(api_key="sk_test", environment="test")
@@ -571,8 +557,8 @@ class TestLoggingClientErrors:
         with pytest.raises(SmplValidationError) as exc_info:
             lg.save()
         exc = exc_info.value
-        assert exc.status_code == 400
-        assert "The 'name' field is required." in str(exc)
+        assert exc.status_code == 422
+        assert "Register it via bulk first" in str(exc)
 
     @patch("smplkit.logging.client.get_logger.sync_detailed")
     def test_get_logger_404_surfaces_detail(self, mock_get):

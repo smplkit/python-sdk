@@ -82,7 +82,7 @@ def _make_logging_client(**kwargs):
 class TestSyncOnNewLogger:
     def test_callback_adds_to_buffer(self):
         client = _make_logging_client()
-        client._on_new_logger("my.sync.logger", 20)
+        client._on_new_logger("my.sync.logger", 20, 20)
         assert client._buffer.pending_count == 1
         assert "my.sync.logger" in client._name_map
 
@@ -101,18 +101,18 @@ class TestSyncOnNewLogger:
             }
         }
         client._groups_cache = {}
-        client._on_new_logger(test_name, 20)
+        client._on_new_logger(test_name, 20, 20)
         mock_adapter.apply_level.assert_called_once_with(test_name, 40)
 
     @patch("smplkit.logging.client.threading.Thread")
     def test_callback_triggers_flush_at_threshold(self, mock_thread):
         client = _make_logging_client()
         for i in range(50):
-            client._buffer.add(f"logger.{i}", "INFO", None)
+            client._buffer.add(f"logger.{i}", "INFO", "INFO", None)
         client._buffer.drain()
         for i in range(50):
-            client._buffer.add(f"logger.thresh.{i}", "INFO", None)
-        client._on_new_logger("trigger.flush", 20)
+            client._buffer.add(f"logger.thresh.{i}", "INFO", "INFO", None)
+        client._on_new_logger("trigger.flush", 20, 20)
         mock_thread.assert_called()
 
 
@@ -179,12 +179,10 @@ class TestSyncFetchAndApply:
 
 
 class TestSyncErrorPaths:
-    @patch("smplkit.logging.client.create_logger.sync_detailed")
-    def test_save_create_null_parsed(self, mock_create):
-        mock_create.return_value = _ok_response(None, HTTPStatus.CREATED)
+    def test_save_new_logger_raises_validation_error(self):
         client = _make_logging_client()
         lg = client.management.new("sql", name="SQL")
-        with pytest.raises(SmplValidationError):
+        with pytest.raises(SmplValidationError, match="Register it via bulk first"):
             lg.save()
 
     @patch("smplkit.logging.client.get_logger.sync_detailed")

@@ -1,57 +1,35 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-if TYPE_CHECKING:
-    from ..models.log_group_resource import LogGroupResource
-
-
-T = TypeVar("T", bound="LogGroupResponse")
+T = TypeVar("T", bound="LoggerEffectiveLevelsType0")
 
 
 @_attrs_define
-class LogGroupResponse:
-    """
-    Attributes:
-        data (LogGroupResource):  Example: {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments':
-            {'production': {'level': 'ERROR'}}, 'key': 'database-loggers', 'level': 'WARN', 'name': 'Database Loggers',
-            'updated_at': '2026-04-01T10:00:00Z'}, 'id': 'database-loggers', 'type': 'log_group'}.
-    """
+class LoggerEffectiveLevelsType0:
+    """ """
 
-    data: LogGroupResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = self.data.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "data": data,
-            }
-        )
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.log_group_resource import LogGroupResource
-
         d = dict(src_dict)
-        data = LogGroupResource.from_dict(d.pop("data"))
+        logger_effective_levels_type_0 = cls()
 
-        log_group_response = cls(
-            data=data,
-        )
-
-        log_group_response.additional_properties = d
-        return log_group_response
+        logger_effective_levels_type_0.additional_properties = d
+        return logger_effective_levels_type_0
 
     @property
     def additional_keys(self) -> list[str]:

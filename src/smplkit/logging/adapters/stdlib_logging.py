@@ -29,24 +29,26 @@ class StdlibLoggingAdapter(LoggingAdapter):
     def name(self) -> str:
         return "stdlib-logging"
 
-    def discover(self) -> list[tuple[str, int]]:
+    def discover(self) -> list[tuple[str, int | None, int]]:
         if not self._discover_existing:
             return []
-        loggers: list[tuple[str, int]] = []
+        loggers: list[tuple[str, int | None, int]] = []
         root = stdlib_logging.getLogger()
         if self._prefix is None:
-            loggers.append(("root", root.getEffectiveLevel()))
+            # Root logger always has an explicit level (WARNING by default).
+            loggers.append(("root", root.level if root.level > 0 else None, root.getEffectiveLevel()))
         for name, obj in stdlib_logging.root.manager.loggerDict.items():
             if isinstance(obj, stdlib_logging.Logger):
                 if self._prefix is not None and not name.startswith(self._prefix):
                     continue
-                loggers.append((name, obj.getEffectiveLevel()))
+                explicit = obj.level if obj.level > 0 else None
+                loggers.append((name, explicit, obj.getEffectiveLevel()))
         return loggers
 
     def apply_level(self, logger_name: str, level: int) -> None:
         stdlib_logging.getLogger(logger_name).setLevel(level)
 
-    def install_hook(self, on_new_logger: Callable[[str, int], None]) -> None:
+    def install_hook(self, on_new_logger: Callable[[str, int | None, int], None]) -> None:
         if self._original_getLogger is not None:
             return  # Already patched
 
@@ -59,7 +61,8 @@ class StdlibLoggingAdapter(LoggingAdapter):
             logger = original(self_mgr, name)  # type: ignore[misc]
             if is_new and isinstance(logger, stdlib_logging.Logger):
                 if prefix is None or name.startswith(prefix):
-                    on_new_logger(name, logger.getEffectiveLevel())
+                    explicit = logger.level if logger.level > 0 else None
+                    on_new_logger(name, explicit, logger.getEffectiveLevel())
             return logger
 
         stdlib_logging.Manager.getLogger = _patched_getLogger  # type: ignore[assignment]

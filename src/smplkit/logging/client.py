@@ -21,7 +21,6 @@ from smplkit._helpers import key_to_display_name
 from smplkit._generated.logging.client import AuthenticatedClient
 from smplkit._generated.logging.api.loggers import (
     bulk_register_loggers,
-    create_logger,
     delete_logger,
     get_logger,
     list_loggers,
@@ -183,7 +182,7 @@ def _build_group_body(
     attrs = GenLogGroup(
         name=name,
         level=level,
-        group=group,
+        parent_id=group,
         environments=_make_group_environments(environments),
     )
     resource = LogGroupResource(attributes=attrs, id=group_id, type_="log_group")
@@ -516,16 +515,32 @@ class _LoggerRegistrationBuffer:
     """Batches discovered loggers for bulk registration."""
 
     def __init__(self) -> None:
-        self._seen: OrderedDict[str, str] = OrderedDict()  # normalized_id → smpl_level
+        self._seen: OrderedDict[str, str] = OrderedDict()  # normalized_id → resolved_level
         self._pending: list[dict[str, Any]] = []
         self._lock = threading.Lock()
 
-    def add(self, normalized_id: str, smpl_level: str, service: str | None) -> None:
-        """Queue a logger for registration if not already seen."""
+    def add(
+        self,
+        normalized_id: str,
+        smpl_level: str | None,
+        smpl_resolved_level: str,
+        service: str | None,
+    ) -> None:
+        """Queue a logger for registration if not already seen.
+
+        Args:
+            normalized_id: Normalized logger name.
+            smpl_level: Explicit smplkit level string, or None if the logger
+                inherits its level from a parent.
+            smpl_resolved_level: Effective smplkit level string (always non-None).
+            service: Service name to include in the payload, or None.
+        """
         with self._lock:
             if normalized_id not in self._seen:
-                self._seen[normalized_id] = smpl_level
-                item: dict[str, Any] = {"id": normalized_id, "level": smpl_level}
+                self._seen[normalized_id] = smpl_resolved_level
+                item: dict[str, Any] = {"id": normalized_id, "resolved_level": smpl_resolved_level}
+                if smpl_level is not None:
+                    item["level"] = smpl_level
                 if service is not None:
                     item["service"] = service
                 self._pending.append(item)
@@ -699,7 +714,12 @@ class LoggingClient:
         self.management = LoggingManagementClient(self)
 
     def _save_logger(self, lg: SmplLogger) -> SmplLogger:
-        """Create or update a logger. Called by SmplLogger.save()."""
+        """Update a logger. Called by SmplLogger.save()."""
+        if lg.created_at is None:
+            raise SmplValidationError(
+                "Logger has not been created yet. Register it via bulk first.",
+                status_code=422,
+            )
         body = _build_logger_body(
             logger_id=lg.id,
             name=lg.name,
@@ -709,10 +729,7 @@ class LoggingClient:
             environments=lg.environments if lg.environments else None,
         )
         try:
-            if lg.created_at is None:
-                response = create_logger.sync_detailed(client=self._logging_http, body=body)
-            else:
-                response = update_logger.sync_detailed(lg.id, client=self._logging_http, body=body)
+            response = update_logger.sync_detailed(lg.id, client=self._logging_http, body=body)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
@@ -816,11 +833,12 @@ class LoggingClient:
         for adapter in self._adapters:
             try:
                 existing = adapter.discover()
-                for name, level in existing:
+                for name, explicit_level, effective_level in existing:
                     normalized = normalize_logger_name(name)
                     self._name_map[name] = normalized
-                    smpl_level = python_level_to_smpl(level)
-                    self._buffer.add(normalized, smpl_level, self._parent._service)
+                    smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
+                    smpl_effective = python_level_to_smpl(effective_level)
+                    self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service)
             except Exception:
                 logger.warning("Adapter %s discover() failed", adapter.name, exc_info=True)
 
@@ -862,12 +880,13 @@ class LoggingClient:
 
     # --- Internal ---
 
-    def _on_new_logger(self, name: str, level: int) -> None:
+    def _on_new_logger(self, name: str, explicit_level: int | None, effective_level: int) -> None:
         """Callback from adapters when a new logger is created."""
         normalized = normalize_logger_name(name)
         self._name_map[name] = normalized
-        smpl_level = python_level_to_smpl(level)
-        self._buffer.add(normalized, smpl_level, self._parent._service)
+        smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
+        smpl_effective = python_level_to_smpl(effective_level)
+        self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service)
 
         if self._buffer.pending_count >= _BULK_FLUSH_THRESHOLD:
             threading.Thread(target=self._flush_bulk_sync, daemon=True).start()
@@ -889,7 +908,15 @@ class LoggingClient:
         batch = self._buffer.drain()
         if not batch:
             return
-        items = [LoggerBulkItem(id=b["id"], level=b["level"], service=b.get("service")) for b in batch]
+        items = [
+            LoggerBulkItem(
+                id=b["id"],
+                level=b.get("level"),
+                resolved_level=b["resolved_level"],
+                service=b.get("service"),
+            )
+            for b in batch
+        ]
         body = LoggerBulkRequest(loggers=items)
         try:
             response = bulk_register_loggers.sync_detailed(client=self._logging_http, body=body)
@@ -1147,7 +1174,12 @@ class AsyncLoggingClient:
         self.management = AsyncLoggingManagementClient(self)
 
     async def _save_logger(self, lg: AsyncSmplLogger) -> AsyncSmplLogger:
-        """Create or update a logger. Called by AsyncSmplLogger.save()."""
+        """Update a logger. Called by AsyncSmplLogger.save()."""
+        if lg.created_at is None:
+            raise SmplValidationError(
+                "Logger has not been created yet. Register it via bulk first.",
+                status_code=422,
+            )
         body = _build_logger_body(
             logger_id=lg.id,
             name=lg.name,
@@ -1157,10 +1189,7 @@ class AsyncLoggingClient:
             environments=lg.environments if lg.environments else None,
         )
         try:
-            if lg.created_at is None:
-                response = await create_logger.asyncio_detailed(client=self._logging_http, body=body)
-            else:
-                response = await update_logger.asyncio_detailed(lg.id, client=self._logging_http, body=body)
+            response = await update_logger.asyncio_detailed(lg.id, client=self._logging_http, body=body)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
             raise
@@ -1264,11 +1293,12 @@ class AsyncLoggingClient:
         for adapter in self._adapters:
             try:
                 existing = adapter.discover()
-                for name, level in existing:
+                for name, explicit_level, effective_level in existing:
                     normalized = normalize_logger_name(name)
                     self._name_map[name] = normalized
-                    smpl_level = python_level_to_smpl(level)
-                    self._buffer.add(normalized, smpl_level, self._parent._service)
+                    smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
+                    smpl_effective = python_level_to_smpl(effective_level)
+                    self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service)
             except Exception:
                 logger.warning("Adapter %s discover() failed", adapter.name, exc_info=True)
 
@@ -1306,12 +1336,13 @@ class AsyncLoggingClient:
 
     # --- Internal ---
 
-    def _on_new_logger(self, name: str, level: int) -> None:
+    def _on_new_logger(self, name: str, explicit_level: int | None, effective_level: int) -> None:
         """Callback from adapters when a new logger is created."""
         normalized = normalize_logger_name(name)
         self._name_map[name] = normalized
-        smpl_level = python_level_to_smpl(level)
-        self._buffer.add(normalized, smpl_level, self._parent._service)
+        smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
+        smpl_effective = python_level_to_smpl(effective_level)
+        self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service)
 
         if self._connected and normalized in self._loggers_cache:
             entry = self._loggers_cache[normalized]
@@ -1329,7 +1360,15 @@ class AsyncLoggingClient:
         batch = self._buffer.drain()
         if not batch:
             return
-        items = [LoggerBulkItem(id=b["id"], level=b["level"], service=b.get("service")) for b in batch]
+        items = [
+            LoggerBulkItem(
+                id=b["id"],
+                level=b.get("level"),
+                resolved_level=b["resolved_level"],
+                service=b.get("service"),
+            )
+            for b in batch
+        ]
         body = LoggerBulkRequest(loggers=items)
         try:
             response = await bulk_register_loggers.asyncio_detailed(client=self._logging_http, body=body)
@@ -1352,7 +1391,15 @@ class AsyncLoggingClient:
         batch = self._buffer.drain()
         if not batch:
             return
-        items = [LoggerBulkItem(id=b["id"], level=b["level"], service=b.get("service")) for b in batch]
+        items = [
+            LoggerBulkItem(
+                id=b["id"],
+                level=b.get("level"),
+                resolved_level=b["resolved_level"],
+                service=b.get("service"),
+            )
+            for b in batch
+        ]
         body = LoggerBulkRequest(loggers=items)
         try:
             response = bulk_register_loggers.sync_detailed(client=self._logging_http, body=body)

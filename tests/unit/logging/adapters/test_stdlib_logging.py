@@ -13,13 +13,13 @@ class TestDiscover:
         stdlib_logging.getLogger(test_name)
         adapter = StdlibLoggingAdapter()
         result = adapter.discover()
-        names = [n for n, _ in result]
+        names = [n for n, _exp, _eff in result]
         assert test_name in names
 
     def test_finds_root(self):
         adapter = StdlibLoggingAdapter()
         result = adapter.discover()
-        names = [n for n, _ in result]
+        names = [n for n, _exp, _eff in result]
         assert "root" in names
 
     def test_skips_placeholders(self):
@@ -27,7 +27,7 @@ class TestDiscover:
         stdlib_logging.getLogger(test_name)
         adapter = StdlibLoggingAdapter()
         result = adapter.discover()
-        for name, _ in result:
+        for name, _exp, _eff in result:
             obj = stdlib_logging.root.manager.loggerDict.get(name)
             if obj is not None:
                 assert isinstance(obj, stdlib_logging.Logger)
@@ -39,7 +39,7 @@ class TestDiscover:
         stdlib_logging.getLogger(other_name)
         adapter = StdlibLoggingAdapter(prefix="test.stdlib_adapter.prefix")
         result = adapter.discover()
-        names = [n for n, _ in result]
+        names = [n for n, _exp, _eff in result]
         assert test_name in names
         assert other_name not in names
         # root should not be included when prefix is set
@@ -52,14 +52,43 @@ class TestDiscover:
         result = adapter.discover()
         assert result == []
 
-    def test_returns_effective_level(self):
+    def test_returns_explicit_and_effective_level(self):
+        """Logger with explicit level returns it; loggers without one return None."""
         test_name = "test.stdlib_adapter.level_check_005"
         lg = stdlib_logging.getLogger(test_name)
         lg.setLevel(stdlib_logging.ERROR)
         adapter = StdlibLoggingAdapter()
         result = adapter.discover()
-        level_map = dict(result)
-        assert level_map[test_name] == stdlib_logging.ERROR
+        level_map = {n: (exp, eff) for n, exp, eff in result}
+        explicit, effective = level_map[test_name]
+        assert explicit == stdlib_logging.ERROR
+        assert effective == stdlib_logging.ERROR
+
+    def test_inherited_logger_has_null_explicit_level(self):
+        """Logger with no explicit level has explicit=None, effective=parent level."""
+        parent_name = "test.stdlib_adapter.inherit_parent_005b"
+        child_name = "test.stdlib_adapter.inherit_parent_005b.child"
+        parent_lg = stdlib_logging.getLogger(parent_name)
+        parent_lg.setLevel(stdlib_logging.WARNING)
+        child_lg = stdlib_logging.getLogger(child_name)
+        child_lg.setLevel(0)  # NOTSET — will inherit from parent
+
+        adapter = StdlibLoggingAdapter()
+        result = adapter.discover()
+        level_map = {n: (exp, eff) for n, exp, eff in result}
+        assert child_name in level_map
+        explicit, effective = level_map[child_name]
+        assert explicit is None  # not explicitly set
+        assert effective == stdlib_logging.WARNING  # inherits parent's level
+
+    def test_root_logger_has_non_null_explicit_level(self):
+        """Root logger always has an explicit level."""
+        adapter = StdlibLoggingAdapter()
+        result = adapter.discover()
+        level_map = {n: (exp, eff) for n, exp, eff in result}
+        assert "root" in level_map
+        explicit, _effective = level_map["root"]
+        assert explicit is not None  # root always has explicit level
 
 
 class TestApplyLevel:
@@ -82,20 +111,36 @@ class TestInstallHook:
     def test_detects_new_loggers(self):
         discovered = []
 
-        def on_new(name, level):
-            discovered.append((name, level))
+        def on_new(name, explicit, effective):
+            discovered.append((name, explicit, effective))
 
         self.adapter.install_hook(on_new)
         test_name = "test.stdlib_adapter.hook.new_007"
         stdlib_logging.getLogger(test_name)
-        assert any(name == test_name for name, _ in discovered)
+        assert any(name == test_name for name, _exp, _eff in discovered)
+
+    def test_hook_passes_explicit_and_effective(self):
+        """Hook receives explicit_level (None when NOTSET) and effective_level."""
+        parent_name = "test.stdlib_adapter.hook.levels_007b"
+        parent_lg = stdlib_logging.getLogger(parent_name)
+        parent_lg.setLevel(stdlib_logging.INFO)
+
+        calls = []
+        self.adapter.install_hook(lambda n, exp, eff: calls.append((n, exp, eff)))
+        child_name = "test.stdlib_adapter.hook.levels_007b.child"
+        stdlib_logging.getLogger(child_name)
+        match = next((c for c in calls if c[0] == child_name), None)
+        assert match is not None
+        _name, explicit, effective = match
+        assert explicit is None  # child has no explicit level
+        assert effective == stdlib_logging.INFO  # inherits parent's INFO
 
     def test_does_not_fire_for_existing(self):
         test_name = "test.stdlib_adapter.hook.existing_008"
         stdlib_logging.getLogger(test_name)
 
         discovered = []
-        self.adapter.install_hook(lambda n, _lv: discovered.append(n))
+        self.adapter.install_hook(lambda n, _exp, _eff: discovered.append(n))
         stdlib_logging.getLogger(test_name)
         assert test_name not in discovered
 
@@ -103,8 +148,8 @@ class TestInstallHook:
         calls_1 = []
         calls_2 = []
 
-        self.adapter.install_hook(lambda n, _: calls_1.append(n))
-        self.adapter.install_hook(lambda n, _: calls_2.append(n))
+        self.adapter.install_hook(lambda n, _exp, _eff: calls_1.append(n))
+        self.adapter.install_hook(lambda n, _exp, _eff: calls_2.append(n))
 
         test_name = "test.stdlib_adapter.hook.idempotent_009"
         stdlib_logging.getLogger(test_name)
@@ -114,7 +159,7 @@ class TestInstallHook:
     def test_prefix_filter_in_hook(self):
         adapter = StdlibLoggingAdapter(prefix="test.stdlib_adapter.hook.prefix")
         discovered = []
-        adapter.install_hook(lambda n, _: discovered.append(n))
+        adapter.install_hook(lambda n, _exp, _eff: discovered.append(n))
 
         match_name = "test.stdlib_adapter.hook.prefix.match_010"
         no_match = "other.no_match_010"
@@ -130,7 +175,7 @@ class TestUninstallHook:
     def test_restores_original(self):
         adapter = StdlibLoggingAdapter()
         discovered = []
-        adapter.install_hook(lambda n, _: discovered.append(n))
+        adapter.install_hook(lambda n, _exp, _eff: discovered.append(n))
         adapter.uninstall_hook()
 
         test_name = "test.stdlib_adapter.uninstall_011"

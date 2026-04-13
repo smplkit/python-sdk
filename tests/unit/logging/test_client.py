@@ -210,19 +210,11 @@ class TestGet:
 
 
 class TestSaveLogger:
-    @patch("smplkit.logging.client.create_logger.sync_detailed")
-    def test_save_creates_when_id_is_none(self, mock_create):
-        attrs = _make_logger_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
-
+    def test_save_raises_when_created_at_is_none(self):
         client = _make_logging_client()
         lg = client.management.new("sql", name="SQL Logger")
-        lg.save()
-
-        mock_create.assert_called_once()
-        assert lg.id == _TEST_UUID  # populated from server response
+        with pytest.raises(SmplValidationError, match="Register it via bulk first"):
+            lg.save()
 
     @patch("smplkit.logging.client.update_logger.sync_detailed")
     def test_save_updates_when_id_is_set(self, mock_update):
@@ -506,7 +498,7 @@ class TestSaveGroup:
         body_attrs = body.data.attributes
         assert body_attrs.name == "DB Loggers"
         assert body_attrs.level == "WARN"
-        assert body_attrs.group is None
+        assert body_attrs.parent_id is None
 
     @patch("smplkit.logging.client.update_log_group.sync_detailed")
     def test_save_with_level_none(self, mock_update):
@@ -767,41 +759,49 @@ class TestManagementWithoutConnect:
 class TestLoggerRegistrationBuffer:
     def test_add_and_drain(self):
         buf = _LoggerRegistrationBuffer()
-        buf.add("com.example", "INFO", "my-service")
+        buf.add("com.example", "INFO", "INFO", "my-service")
         batch = buf.drain()
         assert len(batch) == 1
-        assert batch[0] == {"id": "com.example", "level": "INFO", "service": "my-service"}
+        assert batch[0] == {"id": "com.example", "level": "INFO", "resolved_level": "INFO", "service": "my-service"}
+
+    def test_null_explicit_level_omitted(self):
+        """When explicit level is None, 'level' key is absent from item dict."""
+        buf = _LoggerRegistrationBuffer()
+        buf.add("com.example", None, "INFO", "svc")
+        batch = buf.drain()
+        assert "level" not in batch[0]
+        assert batch[0]["resolved_level"] == "INFO"
 
     def test_dedup(self):
         buf = _LoggerRegistrationBuffer()
-        buf.add("com.example", "INFO", "svc")
-        buf.add("com.example", "DEBUG", "svc")
+        buf.add("com.example", "INFO", "INFO", "svc")
+        buf.add("com.example", "DEBUG", "DEBUG", "svc")
         batch = buf.drain()
         assert len(batch) == 1
 
     def test_service_omitted_when_none(self):
         buf = _LoggerRegistrationBuffer()
-        buf.add("com.example", "INFO", None)
+        buf.add("com.example", "INFO", "INFO", None)
         batch = buf.drain()
         assert "service" not in batch[0]
 
     def test_drain_clears_pending(self):
         buf = _LoggerRegistrationBuffer()
-        buf.add("a", "INFO", None)
+        buf.add("a", "INFO", "INFO", None)
         buf.drain()
         assert buf.drain() == []
 
     def test_pending_count(self):
         buf = _LoggerRegistrationBuffer()
         assert buf.pending_count == 0
-        buf.add("a", "INFO", None)
+        buf.add("a", "INFO", "INFO", None)
         assert buf.pending_count == 1
-        buf.add("b", "DEBUG", None)
+        buf.add("b", "DEBUG", "DEBUG", None)
         assert buf.pending_count == 2
 
     def test_includes_service_when_provided(self):
         buf = _LoggerRegistrationBuffer()
-        buf.add("x", "WARN", "api-gateway")
+        buf.add("x", "WARN", "WARN", "api-gateway")
         batch = buf.drain()
         assert batch[0]["service"] == "api-gateway"
 
@@ -816,7 +816,7 @@ class TestBulkFlush:
     def test_flush_sends_batch(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_logging_client()
-        client._buffer.add("com.test", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None)
         client._flush_bulk_sync()
         mock_bulk.assert_called_once()
 
@@ -831,7 +831,7 @@ class TestBulkFlush:
         """Flush should not raise even if the HTTP call fails."""
         mock_bulk.side_effect = Exception("network error")
         client = _make_logging_client()
-        client._buffer.add("com.test", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None)
         client._flush_bulk_sync()
 
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
@@ -842,7 +842,7 @@ class TestBulkFlush:
         )
         mock_bulk.return_value.content = b'{"errors":[{"detail":"Invalid level"}]}'
         client = _make_logging_client()
-        client._buffer.add("com.test", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None)
         with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
             client._flush_bulk_sync()
         assert len(caplog.records) == 1
@@ -855,7 +855,7 @@ class TestBulkFlush:
         """Flush should log a WARNING on network-level exceptions."""
         mock_bulk.side_effect = Exception("connection refused")
         client = _make_logging_client()
-        client._buffer.add("com.test", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None)
         with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
             client._flush_bulk_sync()
         assert len(caplog.records) == 1
@@ -867,9 +867,117 @@ class TestBulkFlush:
         mock_bulk.return_value = _ok_response(status=HTTPStatus.BAD_REQUEST)
         mock_bulk.return_value.content = b'{"errors":[]}'
         client = _make_logging_client()
-        client._buffer.add("com.test", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None)
         client._flush_bulk_sync()
         client._parent._metrics.record.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Payload assembly — resolved_level and level
+# ---------------------------------------------------------------------------
+
+
+class TestPayloadAssembly:
+    """Verify correct level/resolved_level values in the bulk registration payload."""
+
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    def test_logger_with_explicit_level_sends_both(self, mock_bulk):
+        """Logger with explicit level: both level and resolved_level are non-null."""
+        mock_bulk.return_value = _ok_response()
+        import logging as _log
+
+        lg = _log.getLogger("test.payload.explicit")
+        lg.setLevel(_log.ERROR)  # explicitly set
+
+        from smplkit.logging.adapters.stdlib_logging import StdlibLoggingAdapter
+
+        client = _make_logging_client()
+        adapter = StdlibLoggingAdapter(prefix="test.payload.explicit")
+        discovered = adapter.discover()
+        assert len(discovered) >= 1
+        name, explicit, effective = next(t for t in discovered if t[0] == "test.payload.explicit")
+        assert explicit == _log.ERROR
+        assert effective == _log.ERROR
+
+        # Buffer and flush
+        from smplkit.logging._levels import python_level_to_smpl
+
+        smpl_explicit = python_level_to_smpl(explicit) if explicit else None
+        smpl_effective = python_level_to_smpl(effective)
+        client._buffer.add("test.payload.explicit", smpl_explicit, smpl_effective, None)
+        client._flush_bulk_sync()
+
+        call_kwargs = mock_bulk.call_args
+        body = call_kwargs[1]["body"] if "body" in call_kwargs[1] else call_kwargs[0][1]
+        item = body.loggers[0]
+        assert item.level == "ERROR"
+        assert item.resolved_level == "ERROR"
+
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    def test_logger_without_explicit_level_sends_null_level(self, mock_bulk):
+        """Logger with no explicit level: level is null, resolved_level is parent's level."""
+        mock_bulk.return_value = _ok_response()
+        import logging as _log
+
+        parent_lg = _log.getLogger("test.payload.inherit_parent")
+        parent_lg.setLevel(_log.WARNING)
+        child_lg = _log.getLogger("test.payload.inherit_parent.child")
+        child_lg.setLevel(0)  # NOTSET
+
+        from smplkit.logging.adapters.stdlib_logging import StdlibLoggingAdapter
+
+        client = _make_logging_client()
+        adapter = StdlibLoggingAdapter(prefix="test.payload.inherit_parent.child")
+        discovered = adapter.discover()
+        match = next((t for t in discovered if t[0] == "test.payload.inherit_parent.child"), None)
+        assert match is not None
+        _name, explicit, effective = match
+        assert explicit is None
+        assert effective == _log.WARNING
+
+        from smplkit.logging._levels import python_level_to_smpl
+
+        smpl_explicit = python_level_to_smpl(explicit) if explicit is not None else None
+        smpl_effective = python_level_to_smpl(effective)
+        client._buffer.add("test.payload.inherit_parent.child", smpl_explicit, smpl_effective, None)
+        client._flush_bulk_sync()
+
+        call_kwargs = mock_bulk.call_args
+        body = call_kwargs[1]["body"] if "body" in call_kwargs[1] else call_kwargs[0][1]
+        item = body.loggers[0]
+        # level must be absent/None (not explicitly set)
+        from smplkit._generated.logging.types import UNSET
+
+        assert item.level is None or item.level is UNSET
+        assert item.resolved_level == "WARN"
+
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    def test_root_logger_has_non_null_level(self, mock_bulk):
+        """Root logger always has an explicit level."""
+        mock_bulk.return_value = _ok_response()
+
+        from smplkit.logging.adapters.stdlib_logging import StdlibLoggingAdapter
+
+        client = _make_logging_client()
+        adapter = StdlibLoggingAdapter()
+        discovered = adapter.discover()
+        root_entry = next((t for t in discovered if t[0] == "root"), None)
+        assert root_entry is not None
+        _name, explicit, effective = root_entry
+        assert explicit is not None  # root always has explicit level
+
+        from smplkit.logging._levels import python_level_to_smpl
+
+        smpl_explicit = python_level_to_smpl(explicit)
+        smpl_effective = python_level_to_smpl(effective)
+        client._buffer.add("root", smpl_explicit, smpl_effective, None)
+        client._flush_bulk_sync()
+
+        call_kwargs = mock_bulk.call_args
+        body = call_kwargs[1]["body"] if "body" in call_kwargs[1] else call_kwargs[0][1]
+        item = body.loggers[0]
+        assert item.level is not None
+        assert item.resolved_level is not None
 
 
 # ---------------------------------------------------------------------------
@@ -973,7 +1081,7 @@ class TestConnectFlow:
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_runs_full_flow(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
-        mock_adapter.discover.return_value = [("root", 30), ("myapp.db", 10)]
+        mock_adapter.discover.return_value = [("root", 30, 30), ("myapp.db", 10, 10)]
         mock_auto_load.return_value = [mock_adapter]
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -999,7 +1107,7 @@ class TestConnectFlow:
         stdlib_logging.getLogger(test_name).setLevel(stdlib_logging.DEBUG)
 
         mock_adapter = MagicMock()
-        mock_adapter.discover.return_value = [(test_name, stdlib_logging.DEBUG)]
+        mock_adapter.discover.return_value = [(test_name, stdlib_logging.DEBUG, stdlib_logging.DEBUG)]
         mock_auto_load.return_value = [mock_adapter]
         mock_bulk.return_value = _ok_response()
 

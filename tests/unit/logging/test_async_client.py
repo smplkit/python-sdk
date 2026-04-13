@@ -205,19 +205,11 @@ class TestAsyncGet:
 
 
 class TestAsyncSaveLogger:
-    @patch("smplkit.logging.client.create_logger.asyncio_detailed")
-    def test_save_creates_when_id_is_none(self, mock_create):
-        attrs = _make_logger_attrs()
-        resource = _make_resource(attrs)
-        parsed = _make_parsed(resource)
-        mock_create.return_value = _ok_response(parsed, HTTPStatus.CREATED)
-
+    def test_save_raises_when_created_at_is_none(self):
         client = _make_async_logging_client()
         lg = client.management.new("sql", name="SQL Logger")
-        asyncio.run(lg.save())
-
-        mock_create.assert_called_once()
-        assert lg.id == _TEST_UUID
+        with pytest.raises(SmplValidationError, match="Register it via bulk first"):
+            asyncio.run(lg.save())
 
     @patch("smplkit.logging.client.update_logger.asyncio_detailed")
     def test_save_updates_when_id_is_set(self, mock_update):
@@ -583,7 +575,7 @@ class TestAsyncConnectFlow:
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_full_flow(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
-        mock_adapter.discover.return_value = [("root", 30), ("myapp.db", 10)]
+        mock_adapter.discover.return_value = [("root", 30, 30), ("myapp.db", 10, 10)]
         mock_auto_load.return_value = [mock_adapter]
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -604,7 +596,7 @@ class TestAsyncConnectFlow:
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_with_service(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
-        mock_adapter.discover.return_value = [("root", 30)]
+        mock_adapter.discover.return_value = [("root", 30, 30)]
         mock_auto_load.return_value = [mock_adapter]
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -692,7 +684,7 @@ class TestAsyncBulkFlush:
     def test_async_flush(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_async_logging_client()
-        client._buffer.add("com.test", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None)
         asyncio.run(client._flush_bulk_async())
         mock_bulk.assert_called_once()
 
@@ -706,14 +698,14 @@ class TestAsyncBulkFlush:
     def test_async_flush_error_swallowed(self, mock_bulk):
         mock_bulk.side_effect = Exception("fail")
         client = _make_async_logging_client()
-        client._buffer.add("com.test", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None)
         asyncio.run(client._flush_bulk_async())
 
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
     def test_sync_flush_on_timer(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_async_logging_client()
-        client._buffer.add("com.test", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None)
         client._flush_bulk_sync()
         mock_bulk.assert_called_once()
 
@@ -727,7 +719,7 @@ class TestAsyncBulkFlush:
     def test_sync_flush_error_swallowed(self, mock_bulk):
         mock_bulk.side_effect = Exception("fail")
         client = _make_async_logging_client()
-        client._buffer.add("com.test", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None)
         client._flush_bulk_sync()
 
     @patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed")
@@ -737,7 +729,7 @@ class TestAsyncBulkFlush:
         mock_bulk.return_value = _ok_response(status=HTTPStatus.BAD_REQUEST)
         mock_bulk.return_value.content = b'{"errors":[{"detail":"bad"}]}'
         client = _make_async_logging_client()
-        client._buffer.add("com.test", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None)
         with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
             asyncio.run(client._flush_bulk_async())
         assert len(caplog.records) == 1
@@ -751,7 +743,7 @@ class TestAsyncBulkFlush:
         mock_bulk.return_value = _ok_response(status=HTTPStatus.BAD_REQUEST)
         mock_bulk.return_value.content = b'{"errors":[{"detail":"bad"}]}'
         client = _make_async_logging_client()
-        client._buffer.add("com.test", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None)
         with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
             client._flush_bulk_sync()
         assert len(caplog.records) == 1
@@ -767,7 +759,7 @@ class TestAsyncBulkFlush:
 class TestAsyncOnNewLogger:
     def test_callback_adds_to_buffer(self):
         client = _make_async_logging_client()
-        client._on_new_logger("my.new.logger", 20)
+        client._on_new_logger("my.new.logger", 20, 20)
         assert client._buffer.pending_count == 1
         assert "my.new.logger" in client._name_map
 
@@ -786,7 +778,7 @@ class TestAsyncOnNewLogger:
             }
         }
         client._groups_cache = {}
-        client._on_new_logger(test_name, 20)
+        client._on_new_logger(test_name, 20, 20)
         mock_adapter.apply_level.assert_called_once_with(test_name, 40)
 
 
