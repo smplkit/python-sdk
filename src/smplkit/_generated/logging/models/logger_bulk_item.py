@@ -18,17 +18,21 @@ T = TypeVar("T", bound="LoggerBulkItem")
 class LoggerBulkItem:
     """
     Example:
-        {'environment': 'production', 'id': 'sqlalchemy.engine', 'level': 'WARN', 'service': 'api-gateway'}
+        {'environment': 'production', 'id': 'sqlalchemy.engine', 'level': 'WARN', 'resolved_level': 'WARN', 'service':
+            'api-gateway'}
 
     Attributes:
         id (str): Normalized logger name
-        level (str): Observed log level in smplkit canonical format
+        level (None | str | Unset): The explicitly-set level on this logger. Null if inherited.
+        resolved_level (None | str | Unset): The effective level after framework inheritance. Never null in compliant
+            SDKs.
         service (None | str | Unset): Service name that discovered this logger
         environment (None | str | Unset): Environment where this logger was observed
     """
 
     id: str
-    level: str
+    level: None | str | Unset = UNSET
+    resolved_level: None | str | Unset = UNSET
     service: None | str | Unset = UNSET
     environment: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -36,7 +40,17 @@ class LoggerBulkItem:
     def to_dict(self) -> dict[str, Any]:
         id = self.id
 
-        level = self.level
+        level: None | str | Unset
+        if isinstance(self.level, Unset):
+            level = UNSET
+        else:
+            level = self.level
+
+        resolved_level: None | str | Unset
+        if isinstance(self.resolved_level, Unset):
+            resolved_level = UNSET
+        else:
+            resolved_level = self.resolved_level
 
         service: None | str | Unset
         if isinstance(self.service, Unset):
@@ -55,9 +69,12 @@ class LoggerBulkItem:
         field_dict.update(
             {
                 "id": id,
-                "level": level,
             }
         )
+        if level is not UNSET:
+            field_dict["level"] = level
+        if resolved_level is not UNSET:
+            field_dict["resolved_level"] = resolved_level
         if service is not UNSET:
             field_dict["service"] = service
         if environment is not UNSET:
@@ -70,7 +87,23 @@ class LoggerBulkItem:
         d = dict(src_dict)
         id = d.pop("id")
 
-        level = d.pop("level")
+        def _parse_level(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        level = _parse_level(d.pop("level", UNSET))
+
+        def _parse_resolved_level(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        resolved_level = _parse_resolved_level(d.pop("resolved_level", UNSET))
 
         def _parse_service(data: object) -> None | str | Unset:
             if data is None:
@@ -93,6 +126,7 @@ class LoggerBulkItem:
         logger_bulk_item = cls(
             id=id,
             level=level,
+            resolved_level=resolved_level,
             service=service,
             environment=environment,
         )

@@ -20,10 +20,15 @@ class LoggingAdapter(abc.ABC):
         """Human-readable adapter name for diagnostics (e.g., 'stdlib-logging')."""
 
     @abc.abstractmethod
-    def discover(self) -> list[tuple[str, int]]:
+    def discover(self) -> list[tuple[str, int | None, int]]:
         """Scan the runtime for existing loggers.
 
-        Returns a list of (logger_name, python_numeric_level) tuples.
+        Returns a list of (logger_name, explicit_level_or_None, effective_level) tuples.
+
+        - explicit_level_or_None: the raw numeric level set on the logger, or None if
+          the logger has no explicit level (inherits from parent / framework default).
+        - effective_level: the resolved numeric level the framework uses for this logger,
+          accounting for inheritance. Always non-None.
         """
 
     @abc.abstractmethod
@@ -36,11 +41,12 @@ class LoggingAdapter(abc.ABC):
         """
 
     @abc.abstractmethod
-    def install_hook(self, on_new_logger: Callable[[str, int], None]) -> None:
+    def install_hook(self, on_new_logger: Callable[[str, int | None, int], None]) -> None:
         """Install continuous discovery hook.
 
-        The callback should be invoked with (logger_name, python_numeric_level)
-        whenever a new logger is created in the framework.
+        The callback should be invoked with (logger_name, explicit_level_or_None,
+        effective_level) whenever a new logger is created in the framework.
+        explicit_level_or_None is None when the logger has no explicitly set level.
 
         May be a no-op if the framework doesn't support creation interception.
         """

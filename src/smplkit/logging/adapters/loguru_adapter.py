@@ -38,13 +38,13 @@ class LoguruAdapter(LoggingAdapter):
         self._name_field = name_field
         self._original_bind: Callable | None = None
         self._known_names: dict[str, int] = {}
-        self._callback: Callable[[str, int], None] | None = None
+        self._callback: Callable[[str, int | None, int], None] | None = None
 
     @property
     def name(self) -> str:
         return "loguru"
 
-    def discover(self) -> list[tuple[str, int]]:
+    def discover(self) -> list[tuple[str, int | None, int]]:
         # Loguru has no registry to scan; discovery happens via install_hook.
         return []
 
@@ -54,7 +54,7 @@ class LoguruAdapter(LoggingAdapter):
         else:
             _loguru_logger.enable(logger_name)
 
-    def install_hook(self, on_new_logger: Callable[[str, int], None]) -> None:
+    def install_hook(self, on_new_logger: Callable[[str, int | None, int], None]) -> None:
         if self._original_bind is not None:
             return  # Already patched
 
@@ -70,7 +70,8 @@ class LoguruAdapter(LoggingAdapter):
             bound_name = kwargs.get(name_field)
             if bound_name is not None and isinstance(bound_name, str) and bound_name not in known:
                 known[bound_name] = stdlib_logging.DEBUG
-                callback(bound_name, stdlib_logging.DEBUG)
+                # Loguru has no level inheritance; explicit == effective.
+                callback(bound_name, stdlib_logging.DEBUG, stdlib_logging.DEBUG)
             return result
 
         # Use type: ignore because loguru.logger is a special object

@@ -273,7 +273,7 @@ class TestAdapterErrorResilience:
             test_name: {"level": "ERROR", "group": None, "managed": True, "environments": {}},
         }
         client._groups_cache = {}
-        client._on_new_logger(test_name, 20)  # Should not raise
+        client._on_new_logger(test_name, 20, 20)  # Should not raise
 
 
 class TestAsyncAdapterErrorResilience:
@@ -354,4 +354,4 @@ class TestAsyncAdapterErrorResilience:
             test_name: {"level": "ERROR", "group": None, "managed": True, "environments": {}},
         }
         client._groups_cache = {}
-        client._on_new_logger(test_name, 20)  # Should not raise
+        client._on_new_logger(test_name, 20, 20)  # Should not raise

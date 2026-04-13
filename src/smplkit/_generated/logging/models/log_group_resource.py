@@ -22,14 +22,15 @@ T = TypeVar("T", bound="LogGroupResource")
 class LogGroupResource:
     """
     Example:
-        {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'ERROR'}},
-            'level': 'WARN', 'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}, 'id': 'database-loggers',
-            'type': 'log_group'}
+        {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'ERROR'}}, 'key':
+            'database-loggers', 'level': 'WARN', 'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}, 'id':
+            'database-loggers', 'type': 'log_group'}
 
     Attributes:
         type_ (Literal['log_group']):
         attributes (LogGroup):  Example: {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level':
-            'ERROR'}}, 'level': 'WARN', 'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}.
+            'ERROR'}}, 'key': 'database-loggers', 'level': 'WARN', 'name': 'Database Loggers', 'updated_at':
+            '2026-04-01T10:00:00Z'}.
         id (None | str | Unset):
     """
 
