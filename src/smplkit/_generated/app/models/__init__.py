@@ -45,7 +45,11 @@ from .create_subscription_attributes import CreateSubscriptionAttributes
 from .create_subscription_body import CreateSubscriptionBody
 from .create_subscription_data import CreateSubscriptionData
 from .environment import Environment
+from .environment_add_body import EnvironmentAddBody
+from .environment_column_item import EnvironmentColumnItem
+from .environment_columns_response import EnvironmentColumnsResponse
 from .environment_list_response import EnvironmentListResponse
+from .environment_order_body import EnvironmentOrderBody
 from .environment_resource import EnvironmentResource
 from .environment_resource_type import EnvironmentResourceType
 from .environment_response import EnvironmentResponse
@@ -168,7 +172,11 @@ __all__ = (
     "CreateSubscriptionBody",
     "CreateSubscriptionData",
     "Environment",
+    "EnvironmentAddBody",
+    "EnvironmentColumnItem",
+    "EnvironmentColumnsResponse",
     "EnvironmentListResponse",
+    "EnvironmentOrderBody",
     "EnvironmentResource",
     "EnvironmentResourceType",
     "EnvironmentResponse",
