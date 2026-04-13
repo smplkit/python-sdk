@@ -13,6 +13,7 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
+    from ..models.logger_effective_levels_type_0 import LoggerEffectiveLevelsType0
     from ..models.logger_environments_type_0 import LoggerEnvironmentsType0
     from ..models.logger_sources_type_0_item import LoggerSourcesType0Item
 
@@ -35,6 +36,7 @@ class Logger:
         managed (bool | None | Unset):
         sources (list[LoggerSourcesType0Item] | None | Unset):
         environments (LoggerEnvironmentsType0 | None | Unset):
+        effective_levels (LoggerEffectiveLevelsType0 | None | Unset):
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
     """
@@ -45,11 +47,13 @@ class Logger:
     managed: bool | None | Unset = UNSET
     sources: list[LoggerSourcesType0Item] | None | Unset = UNSET
     environments: LoggerEnvironmentsType0 | None | Unset = UNSET
+    effective_levels: LoggerEffectiveLevelsType0 | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.logger_effective_levels_type_0 import LoggerEffectiveLevelsType0
         from ..models.logger_environments_type_0 import LoggerEnvironmentsType0
 
         name = self.name
@@ -92,6 +96,14 @@ class Logger:
         else:
             environments = self.environments
 
+        effective_levels: dict[str, Any] | None | Unset
+        if isinstance(self.effective_levels, Unset):
+            effective_levels = UNSET
+        elif isinstance(self.effective_levels, LoggerEffectiveLevelsType0):
+            effective_levels = self.effective_levels.to_dict()
+        else:
+            effective_levels = self.effective_levels
+
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
             created_at = UNSET
@@ -125,6 +137,8 @@ class Logger:
             field_dict["sources"] = sources
         if environments is not UNSET:
             field_dict["environments"] = environments
+        if effective_levels is not UNSET:
+            field_dict["effective_levels"] = effective_levels
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
         if updated_at is not UNSET:
@@ -134,6 +148,7 @@ class Logger:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.logger_effective_levels_type_0 import LoggerEffectiveLevelsType0
         from ..models.logger_environments_type_0 import LoggerEnvironmentsType0
         from ..models.logger_sources_type_0_item import LoggerSourcesType0Item
 
@@ -206,6 +221,23 @@ class Logger:
 
         environments = _parse_environments(d.pop("environments", UNSET))
 
+        def _parse_effective_levels(data: object) -> LoggerEffectiveLevelsType0 | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                effective_levels_type_0 = LoggerEffectiveLevelsType0.from_dict(data)
+
+                return effective_levels_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(LoggerEffectiveLevelsType0 | None | Unset, data)
+
+        effective_levels = _parse_effective_levels(d.pop("effective_levels", UNSET))
+
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
@@ -247,6 +279,7 @@ class Logger:
             managed=managed,
             sources=sources,
             environments=environments,
+            effective_levels=effective_levels,
             created_at=created_at,
             updated_at=updated_at,
         )
