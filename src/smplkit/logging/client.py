@@ -981,7 +981,7 @@ class LoggingClient:
                 gid = _unset_to_none(r.id) or ""
                 groups_data[gid] = {
                     "level": _unset_to_none(attrs.level),
-                    "group": _unset_to_none(attrs.group),
+                    "group": _unset_to_none(attrs.parent_id),
                     "environments": _extract_environments(attrs.environments),
                 }
 
@@ -1462,7 +1462,7 @@ class AsyncLoggingClient:
                 gid = _unset_to_none(r.id) or ""
                 groups_data[gid] = {
                     "level": _unset_to_none(attrs.level),
-                    "group": _unset_to_none(attrs.group),
+                    "group": _unset_to_none(attrs.parent_id),
                     "environments": _extract_environments(attrs.environments),
                 }
 

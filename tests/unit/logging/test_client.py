@@ -37,14 +37,14 @@ def _make_logger_attrs(*, name="SQL Logger", level="DEBUG", group=None, managed=
     return attrs
 
 
-def _make_group_attrs(*, name="DB Loggers", level="WARN", group=None):
+def _make_group_attrs(*, name="DB Loggers", level="WARN", parent_id=None):
     """Build mock log group attributes."""
     from smplkit._generated.logging.types import UNSET
 
     attrs = MagicMock()
     attrs.name = name
     attrs.level = level
-    attrs.group = group if group is not None else UNSET
+    attrs.parent_id = parent_id if parent_id is not None else UNSET
     attrs.environments = UNSET
     attrs.created_at = UNSET
     attrs.updated_at = UNSET

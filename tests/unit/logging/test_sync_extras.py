@@ -29,13 +29,13 @@ def _make_logger_attrs(*, name="SQL Logger", level="DEBUG", group=None, managed=
     return attrs
 
 
-def _make_group_attrs(*, name="DB Loggers", level="WARN", group=None):
+def _make_group_attrs(*, name="DB Loggers", level="WARN", parent_id=None):
     from smplkit._generated.logging.types import UNSET
 
     attrs = MagicMock()
     attrs.name = name
     attrs.level = level
-    attrs.group = group if group is not None else UNSET
+    attrs.parent_id = parent_id if parent_id is not None else UNSET
     attrs.environments = UNSET
     attrs.created_at = UNSET
     attrs.updated_at = UNSET
@@ -176,6 +176,21 @@ class TestSyncFetchAndApply:
 
         assert "com.test" in client._loggers_cache
         assert "grp-1" in client._groups_cache
+
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    def test_group_parent_id_stored_as_group_key(self, mock_loggers, mock_groups):
+        """groups_cache['group'] must come from parent_id, not a nonexistent 'group' attr."""
+        mock_loggers.return_value = _ok_response(_make_list_parsed([]))
+
+        group_attrs = _make_group_attrs(parent_id="parent-grp-id")
+        group_resource = _make_resource(group_attrs, id="child-grp")
+        mock_groups.return_value = _ok_response(_make_list_parsed([group_resource]))
+
+        client = _make_logging_client()
+        client._fetch_and_apply()
+
+        assert client._groups_cache["child-grp"]["group"] == "parent-grp-id"
 
 
 class TestSyncErrorPaths:
