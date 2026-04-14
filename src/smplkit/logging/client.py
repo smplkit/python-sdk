@@ -718,12 +718,19 @@ class LoggingClient:
         self.management = LoggingManagementClient(self)
 
     def _save_logger(self, lg: SmplLogger) -> SmplLogger:
-        """Update a logger. Called by SmplLogger.save()."""
+        """Create or update a logger. Called by SmplLogger.save()."""
         if lg.created_at is None:
-            raise SmplValidationError(
-                "Logger has not been created yet. Register it via bulk first.",
-                status_code=422,
-            )
+            # Logger has not been registered yet. Bulk-register it first to
+            # create the record, then fall through to the PUT to apply name,
+            # level, managed, group, and environment overrides.
+            bulk_item = LoggerBulkItem(id=lg.id, level=lg.level, resolved_level=lg.level)
+            bulk_body = LoggerBulkRequest(loggers=[bulk_item])
+            try:
+                bulk_resp = bulk_register_loggers.sync_detailed(client=self._logging_http, body=bulk_body)
+            except Exception as exc:
+                _maybe_reraise_network_error(exc)
+                raise
+            _check_response_status(bulk_resp.status_code, bulk_resp.content)
         body = _build_logger_body(
             logger_id=lg.id,
             name=lg.name,
@@ -1181,12 +1188,19 @@ class AsyncLoggingClient:
         self.management = AsyncLoggingManagementClient(self)
 
     async def _save_logger(self, lg: AsyncSmplLogger) -> AsyncSmplLogger:
-        """Update a logger. Called by AsyncSmplLogger.save()."""
+        """Create or update a logger. Called by AsyncSmplLogger.save()."""
         if lg.created_at is None:
-            raise SmplValidationError(
-                "Logger has not been created yet. Register it via bulk first.",
-                status_code=422,
-            )
+            # Logger has not been registered yet. Bulk-register it first to
+            # create the record, then fall through to the PUT to apply name,
+            # level, managed, group, and environment overrides.
+            bulk_item = LoggerBulkItem(id=lg.id, level=lg.level, resolved_level=lg.level)
+            bulk_body = LoggerBulkRequest(loggers=[bulk_item])
+            try:
+                bulk_resp = await bulk_register_loggers.asyncio_detailed(client=self._logging_http, body=bulk_body)
+            except Exception as exc:
+                _maybe_reraise_network_error(exc)
+                raise
+            _check_response_status(bulk_resp.status_code, bulk_resp.content)
         body = _build_logger_body(
             logger_id=lg.id,
             name=lg.name,

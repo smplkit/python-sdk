@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from smplkit._errors import SmplConnectionError, SmplValidationError
+from smplkit._errors import SmplConnectionError
 from smplkit.logging.client import (
     AsyncLoggingClient,
     AsyncSmplLogGroup,
@@ -126,10 +126,12 @@ class TestSyncBareRaise:
         with pytest.raises(RuntimeError, match="boom"):
             client._save_logger(lg)
 
-    def test_save_logger_create_raises_validation_error(self):
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    def test_save_logger_create_bulk_unknown_error(self, mock_bulk):
+        mock_bulk.side_effect = RuntimeError("boom")
         client = _make_sync_client()
-        lg = SmplLogger(client, id=None, name="SQL Logger")
-        with pytest.raises(SmplValidationError, match="Register it via bulk first"):
+        lg = SmplLogger(client, id=_TEST_UUID, name="SQL Logger")
+        with pytest.raises(RuntimeError, match="boom"):
             client._save_logger(lg)
 
     @patch("smplkit.logging.client.delete_logger.sync_detailed")
@@ -230,10 +232,12 @@ class TestAsyncBareRaise:
         with pytest.raises(RuntimeError, match="boom"):
             asyncio.run(client._save_logger(lg))
 
-    def test_save_logger_create_raises_validation_error(self):
+    @patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed")
+    def test_save_logger_create_bulk_unknown_error(self, mock_bulk):
+        mock_bulk.side_effect = RuntimeError("boom")
         client = _make_async_client()
-        lg = AsyncSmplLogger(client, id=None, name="SQL Logger")
-        with pytest.raises(SmplValidationError, match="Register it via bulk first"):
+        lg = AsyncSmplLogger(client, id=_TEST_UUID, name="SQL Logger")
+        with pytest.raises(RuntimeError, match="boom"):
             asyncio.run(client._save_logger(lg))
 
     @patch("smplkit.logging.client.update_log_group.asyncio_detailed")
@@ -358,10 +362,12 @@ class TestAsyncNetworkErrors:
         with pytest.raises(SmplConnectionError):
             asyncio.run(client.management.delete("sql"))
 
-    def test_save_logger_create_raises_validation_error(self):
+    @patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed")
+    def test_save_logger_create_network_error(self, mock_bulk):
+        mock_bulk.side_effect = httpx.ConnectError("refused")
         client = _make_async_client()
-        lg = AsyncSmplLogger(client, id=None, name="SQL Logger")
-        with pytest.raises(SmplValidationError, match="Register it via bulk first"):
+        lg = AsyncSmplLogger(client, id=_TEST_UUID, name="SQL Logger")
+        with pytest.raises(SmplConnectionError):
             asyncio.run(client._save_logger(lg))
 
     @patch("smplkit.logging.client.update_logger.asyncio_detailed")
@@ -437,10 +443,12 @@ class TestSyncNetworkErrors:
         with pytest.raises(SmplConnectionError):
             client.management.delete("sql")
 
-    def test_save_logger_create_raises_validation_error(self):
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    def test_save_logger_create_network_error(self, mock_bulk):
+        mock_bulk.side_effect = httpx.ConnectError("refused")
         client = _make_sync_client()
-        lg = SmplLogger(client, id=None, name="SQL Logger")
-        with pytest.raises(SmplValidationError, match="Register it via bulk first"):
+        lg = SmplLogger(client, id=_TEST_UUID, name="SQL Logger")
+        with pytest.raises(SmplConnectionError):
             client._save_logger(lg)
 
     @patch("smplkit.logging.client.update_logger.sync_detailed")

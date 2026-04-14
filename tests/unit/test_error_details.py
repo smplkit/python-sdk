@@ -549,16 +549,20 @@ class TestFlagsClientErrors:
 
 
 class TestLoggingClientErrors:
-    def test_save_new_logger_raises_before_http(self):
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    def test_save_new_logger_bulk_registers_first(self, mock_bulk):
         from smplkit.client import SmplClient
+        from smplkit._errors import SmplConnectionError
+        import httpx
 
+        # Simulate bulk register failing with a network error to verify
+        # that it is called (not an error raised before any HTTP call).
+        mock_bulk.side_effect = httpx.ConnectError("refused")
         client = SmplClient(api_key="sk_test", environment="test")
         lg = client.logging.management.new("test-key", name="Test")
-        with pytest.raises(SmplValidationError) as exc_info:
+        with pytest.raises(SmplConnectionError):
             lg.save()
-        exc = exc_info.value
-        assert exc.status_code == 422
-        assert "Register it via bulk first" in str(exc)
+        mock_bulk.assert_called_once()
 
     @patch("smplkit.logging.client.get_logger.sync_detailed")
     def test_get_logger_404_surfaces_detail(self, mock_get):

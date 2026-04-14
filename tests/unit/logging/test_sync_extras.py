@@ -194,10 +194,14 @@ class TestSyncFetchAndApply:
 
 
 class TestSyncErrorPaths:
-    def test_save_new_logger_raises_validation_error(self):
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    def test_save_new_logger_bulk_raises_connection_error(self, mock_bulk):
+        import httpx
+        mock_bulk.side_effect = httpx.ConnectError("refused")
         client = _make_logging_client()
+        from smplkit._errors import SmplConnectionError
         lg = client.management.new("sql", name="SQL")
-        with pytest.raises(SmplValidationError, match="Register it via bulk first"):
+        with pytest.raises(SmplConnectionError):
             lg.save()
 
     @patch("smplkit.logging.client.get_logger.sync_detailed")
