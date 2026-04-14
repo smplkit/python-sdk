@@ -197,9 +197,11 @@ class TestSyncErrorPaths:
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
     def test_save_new_logger_bulk_raises_connection_error(self, mock_bulk):
         import httpx
+
         mock_bulk.side_effect = httpx.ConnectError("refused")
         client = _make_logging_client()
         from smplkit._errors import SmplConnectionError
+
         lg = client.management.new("sql", name="SQL")
         with pytest.raises(SmplConnectionError):
             lg.save()

@@ -205,11 +205,24 @@ class TestAsyncGet:
 
 
 class TestAsyncSaveLogger:
-    def test_save_raises_when_created_at_is_none(self):
+    @patch("smplkit.logging.client.update_logger.asyncio_detailed")
+    @patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed")
+    def test_save_bulk_registers_then_puts_when_not_created(self, mock_bulk, mock_update):
+        attrs = _make_logger_attrs(level="DEBUG")
+        resource = _make_resource(attrs)
+        parsed = _make_parsed(resource)
+        mock_bulk.return_value = _ok_response(None)
+        mock_update.return_value = _ok_response(parsed)
+
         client = _make_async_logging_client()
         lg = client.management.new("sql", name="SQL Logger")
-        with pytest.raises(SmplValidationError, match="Register it via bulk first"):
-            asyncio.run(lg.save())
+        assert lg.created_at is None
+        asyncio.run(lg.save())
+
+        mock_bulk.assert_called_once()
+        bulk_body = mock_bulk.call_args.kwargs["body"]
+        assert bulk_body.loggers[0].id == "sql"
+        mock_update.assert_called_once()
 
     @patch("smplkit.logging.client.update_logger.asyncio_detailed")
     def test_save_updates_when_id_is_set(self, mock_update):
