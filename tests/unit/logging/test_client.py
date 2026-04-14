@@ -762,7 +762,13 @@ class TestLoggerRegistrationBuffer:
         buf.add("com.example", "INFO", "INFO", "my-service", "production")
         batch = buf.drain()
         assert len(batch) == 1
-        assert batch[0] == {"id": "com.example", "level": "INFO", "resolved_level": "INFO", "service": "my-service", "environment": "production"}
+        assert batch[0] == {
+            "id": "com.example",
+            "level": "INFO",
+            "resolved_level": "INFO",
+            "service": "my-service",
+            "environment": "production",
+        }
 
     def test_null_explicit_level_omitted(self):
         """When explicit level is None, 'level' key is absent from item dict."""

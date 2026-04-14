@@ -842,7 +842,9 @@ class LoggingClient:
                     self._name_map[name] = normalized
                     smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
                     smpl_effective = python_level_to_smpl(effective_level)
-                    self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment)
+                    self._buffer.add(
+                        normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment
+                    )
             except Exception:
                 logger.warning("Adapter %s discover() failed", adapter.name, exc_info=True)
 
@@ -1303,7 +1305,9 @@ class AsyncLoggingClient:
                     self._name_map[name] = normalized
                     smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
                     smpl_effective = python_level_to_smpl(effective_level)
-                    self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment)
+                    self._buffer.add(
+                        normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment
+                    )
             except Exception:
                 logger.warning("Adapter %s discover() failed", adapter.name, exc_info=True)
 
