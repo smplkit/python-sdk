@@ -142,7 +142,7 @@ def test_async_smpl_client_no_connect_method():
 
 @patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
 def test_service_context_registered_on_init(mock_bulk):
-    """Service context is registered during __init__ (fire-and-forget)."""
+    """Environment and service contexts are registered during __init__ (fire-and-forget)."""
     mock_bulk.return_value = MagicMock()
 
     client = SmplClient(api_key="sk_api_test", environment="test", service="my-svc")
@@ -151,8 +151,11 @@ def test_service_context_registered_on_init(mock_bulk):
     mock_bulk.assert_called_once()
     _, kwargs = mock_bulk.call_args
     body = kwargs["body"]
-    assert body.contexts[0].type_ == "service"
-    assert body.contexts[0].key == "my-svc"
+    assert len(body.contexts) == 2
+    assert body.contexts[0].type_ == "environment"
+    assert body.contexts[0].key == "test"
+    assert body.contexts[1].type_ == "service"
+    assert body.contexts[1].key == "my-svc"
     assert client._api_key == "sk_api_test"
 
 
@@ -168,7 +171,7 @@ def test_service_registration_failure_on_init_is_swallowed(mock_bulk):
 
 @patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
 def test_async_service_context_registered_on_init(mock_bulk):
-    """AsyncSmplClient also registers service context via background thread."""
+    """AsyncSmplClient also registers environment and service contexts via background thread."""
     mock_bulk.return_value = MagicMock()
 
     client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
@@ -177,8 +180,11 @@ def test_async_service_context_registered_on_init(mock_bulk):
     mock_bulk.assert_called_once()
     _, kwargs = mock_bulk.call_args
     body = kwargs["body"]
-    assert body.contexts[0].type_ == "service"
-    assert body.contexts[0].key == "my-svc"
+    assert len(body.contexts) == 2
+    assert body.contexts[0].type_ == "environment"
+    assert body.contexts[0].key == "test"
+    assert body.contexts[1].type_ == "service"
+    assert body.contexts[1].key == "my-svc"
     assert client._api_key == "sk_api_test"
 
 
@@ -205,8 +211,11 @@ def test_async_register_service_context_success(mock_bulk):
     mock_bulk.assert_called_once()
     _, kwargs = mock_bulk.call_args
     body = kwargs["body"]
-    assert body.contexts[0].type_ == "service"
-    assert body.contexts[0].key == "my-svc"
+    assert len(body.contexts) == 2
+    assert body.contexts[0].type_ == "environment"
+    assert body.contexts[0].key == "test"
+    assert body.contexts[1].type_ == "service"
+    assert body.contexts[1].key == "my-svc"
 
 
 @patch("smplkit.client.gen_bulk_register_contexts.asyncio_detailed")

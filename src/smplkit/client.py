@@ -131,12 +131,13 @@ class SmplClient:
         self._init_thread.start()
 
     def _register_service_context(self) -> None:
-        """Register the service as a context instance on the app service."""
+        """Register the environment and service as context instances on the app service."""
         try:
-            attrs = ContextBulkItemAttributes()
-            attrs.additional_properties = {"name": self._service}
-            item = ContextBulkItem(type_="service", key=self._service, attributes=attrs)
-            body = ContextBulkRegister(contexts=[item])
+            svc_attrs = ContextBulkItemAttributes()
+            svc_attrs.additional_properties = {"name": self._service}
+            svc_item = ContextBulkItem(type_="service", key=self._service, attributes=svc_attrs)
+            env_item = ContextBulkItem(type_="environment", key=self._environment)
+            body = ContextBulkRegister(contexts=[env_item, svc_item])
             gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         except Exception:
             logger.warning("Failed to register service context", exc_info=True)
@@ -255,23 +256,25 @@ class AsyncSmplClient:
         self._init_thread.start()
 
     def _register_service_context_sync(self) -> None:
-        """Sync wrapper for service context registration (runs in background thread)."""
+        """Sync wrapper for context registration (runs in background thread)."""
         try:
-            attrs = ContextBulkItemAttributes()
-            attrs.additional_properties = {"name": self._service}
-            item = ContextBulkItem(type_="service", key=self._service, attributes=attrs)
-            body = ContextBulkRegister(contexts=[item])
+            svc_attrs = ContextBulkItemAttributes()
+            svc_attrs.additional_properties = {"name": self._service}
+            svc_item = ContextBulkItem(type_="service", key=self._service, attributes=svc_attrs)
+            env_item = ContextBulkItem(type_="environment", key=self._environment)
+            body = ContextBulkRegister(contexts=[env_item, svc_item])
             gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         except Exception:
             logger.warning("Failed to register service context", exc_info=True)
 
     async def _register_service_context(self) -> None:
-        """Register the service as a context instance on the app service."""
+        """Register the environment and service as context instances on the app service."""
         try:
-            attrs = ContextBulkItemAttributes()
-            attrs.additional_properties = {"name": self._service}
-            item = ContextBulkItem(type_="service", key=self._service, attributes=attrs)
-            body = ContextBulkRegister(contexts=[item])
+            svc_attrs = ContextBulkItemAttributes()
+            svc_attrs.additional_properties = {"name": self._service}
+            svc_item = ContextBulkItem(type_="service", key=self._service, attributes=svc_attrs)
+            env_item = ContextBulkItem(type_="environment", key=self._environment)
+            body = ContextBulkRegister(contexts=[env_item, svc_item])
             await gen_bulk_register_contexts.asyncio_detailed(client=self._app_http, body=body)
         except Exception:
             logger.warning("Failed to register service context", exc_info=True)
