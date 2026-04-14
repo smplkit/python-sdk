@@ -21,6 +21,9 @@ from .logger_source import LoggerSource
 from .logger_source_list_response import LoggerSourceListResponse
 from .logger_source_resource import LoggerSourceResource
 from .logger_sources_type_0_item import LoggerSourcesType0Item
+from .service_attributes import ServiceAttributes
+from .service_list_response import ServiceListResponse
+from .service_resource import ServiceResource
 from .usage_attributes import UsageAttributes
 from .usage_list_response import UsageListResponse
 from .usage_resource import UsageResource
@@ -47,6 +50,9 @@ __all__ = (
     "LogGroupListResponse",
     "LogGroupResource",
     "LogGroupResponse",
+    "ServiceAttributes",
+    "ServiceListResponse",
+    "ServiceResource",
     "UsageAttributes",
     "UsageListResponse",
     "UsageResource",
