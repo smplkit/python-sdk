@@ -7,46 +7,29 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-from typing import cast
-
-
-T = TypeVar("T", bound="EnvironmentOrderBody")
+T = TypeVar("T", bound="GetUserSettingsResponseGetUserSettings")
 
 
 @_attrs_define
-class EnvironmentOrderBody:
-    """
-    Attributes:
-        environment_order (list[str]):
-    """
+class GetUserSettingsResponseGetUserSettings:
+    """ """
 
-    environment_order: list[str]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        environment_order = self.environment_order
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "environment_order": environment_order,
-            }
-        )
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        environment_order = cast(list[str], d.pop("environment_order"))
+        get_user_settings_response_get_user_settings = cls()
 
-        environment_order_body = cls(
-            environment_order=environment_order,
-        )
-
-        environment_order_body.additional_properties = d
-        return environment_order_body
+        get_user_settings_response_get_user_settings.additional_properties = d
+        return get_user_settings_response_get_user_settings
 
     @property
     def additional_keys(self) -> list[str]:
