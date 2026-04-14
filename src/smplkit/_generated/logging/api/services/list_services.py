@@ -8,21 +8,25 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
+from ...models.service_list_response import ServiceListResponse
 
 
 def _get_kwargs() -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/api/v1/logger_sources/services",
+        "url": "/api/v1/services",
     }
 
     return _kwargs
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | ErrorResponse | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ErrorResponse | ServiceListResponse | None:
     if response.status_code == 200:
-        response_200 = response.json()
+        response_200 = ServiceListResponse.from_dict(response.json())
+
         return response_200
 
     if response.status_code == 400:
@@ -51,7 +55,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | ErrorResponse]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ErrorResponse | ServiceListResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -63,8 +69,8 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-) -> Response[Any | ErrorResponse]:
-    """List Logger Source Services
+) -> Response[ErrorResponse | ServiceListResponse]:
+    """List Services
 
      Return the distinct service names observed across all logger sources for the account.
 
@@ -73,7 +79,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse]
+        Response[ErrorResponse | ServiceListResponse]
     """
 
     kwargs = _get_kwargs()
@@ -88,8 +94,8 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-) -> Any | ErrorResponse | None:
-    """List Logger Source Services
+) -> ErrorResponse | ServiceListResponse | None:
+    """List Services
 
      Return the distinct service names observed across all logger sources for the account.
 
@@ -98,7 +104,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse
+        ErrorResponse | ServiceListResponse
     """
 
     return sync_detailed(
@@ -109,8 +115,8 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-) -> Response[Any | ErrorResponse]:
-    """List Logger Source Services
+) -> Response[ErrorResponse | ServiceListResponse]:
+    """List Services
 
      Return the distinct service names observed across all logger sources for the account.
 
@@ -119,7 +125,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorResponse]
+        Response[ErrorResponse | ServiceListResponse]
     """
 
     kwargs = _get_kwargs()
@@ -132,8 +138,8 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-) -> Any | ErrorResponse | None:
-    """List Logger Source Services
+) -> ErrorResponse | ServiceListResponse | None:
+    """List Services
 
      Return the distinct service names observed across all logger sources for the account.
 
@@ -142,7 +148,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorResponse
+        ErrorResponse | ServiceListResponse
     """
 
     return (
