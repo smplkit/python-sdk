@@ -85,9 +85,10 @@ def sync_detailed(
     client: AuthenticatedClient,
     body: LoggerResponse,
 ) -> Response[ErrorResponse | LoggerResponse]:
-    """Update Logger
+    """Update or Create Logger
 
-     Update a logger. Fields absent from the body are preserved; explicit null clears them.
+     Create or update a logger (upsert). If the logger does not exist it is created.
+    Fields absent from the body are preserved on update; explicit null clears them.
 
     Args:
         id (str):
@@ -119,9 +120,10 @@ def sync(
     client: AuthenticatedClient,
     body: LoggerResponse,
 ) -> ErrorResponse | LoggerResponse | None:
-    """Update Logger
+    """Update or Create Logger
 
-     Update a logger. Fields absent from the body are preserved; explicit null clears them.
+     Create or update a logger (upsert). If the logger does not exist it is created.
+    Fields absent from the body are preserved on update; explicit null clears them.
 
     Args:
         id (str):
@@ -148,9 +150,10 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     body: LoggerResponse,
 ) -> Response[ErrorResponse | LoggerResponse]:
-    """Update Logger
+    """Update or Create Logger
 
-     Update a logger. Fields absent from the body are preserved; explicit null clears them.
+     Create or update a logger (upsert). If the logger does not exist it is created.
+    Fields absent from the body are preserved on update; explicit null clears them.
 
     Args:
         id (str):
@@ -180,9 +183,10 @@ async def asyncio(
     client: AuthenticatedClient,
     body: LoggerResponse,
 ) -> ErrorResponse | LoggerResponse | None:
-    """Update Logger
+    """Update or Create Logger
 
-     Update a logger. Fields absent from the body are preserved; explicit null clears them.
+     Create or update a logger (upsert). If the logger does not exist it is created.
+    Fields absent from the body are preserved on update; explicit null clears them.
 
     Args:
         id (str):
