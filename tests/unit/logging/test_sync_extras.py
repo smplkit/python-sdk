@@ -108,10 +108,10 @@ class TestSyncOnNewLogger:
     def test_callback_triggers_flush_at_threshold(self, mock_thread):
         client = _make_logging_client()
         for i in range(50):
-            client._buffer.add(f"logger.{i}", "INFO", "INFO", None)
+            client._buffer.add(f"logger.{i}", "INFO", "INFO", None, None)
         client._buffer.drain()
         for i in range(50):
-            client._buffer.add(f"logger.thresh.{i}", "INFO", "INFO", None)
+            client._buffer.add(f"logger.thresh.{i}", "INFO", "INFO", None, None)
         client._on_new_logger("trigger.flush", 20, 20)
         mock_thread.assert_called()
 

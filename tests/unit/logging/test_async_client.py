@@ -684,7 +684,7 @@ class TestAsyncBulkFlush:
     def test_async_flush(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_async_logging_client()
-        client._buffer.add("com.test", "INFO", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None, None)
         asyncio.run(client._flush_bulk_async())
         mock_bulk.assert_called_once()
 
@@ -698,14 +698,14 @@ class TestAsyncBulkFlush:
     def test_async_flush_error_swallowed(self, mock_bulk):
         mock_bulk.side_effect = Exception("fail")
         client = _make_async_logging_client()
-        client._buffer.add("com.test", "INFO", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None, None)
         asyncio.run(client._flush_bulk_async())
 
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
     def test_sync_flush_on_timer(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_async_logging_client()
-        client._buffer.add("com.test", "INFO", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None, None)
         client._flush_bulk_sync()
         mock_bulk.assert_called_once()
 
@@ -719,7 +719,7 @@ class TestAsyncBulkFlush:
     def test_sync_flush_error_swallowed(self, mock_bulk):
         mock_bulk.side_effect = Exception("fail")
         client = _make_async_logging_client()
-        client._buffer.add("com.test", "INFO", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None, None)
         client._flush_bulk_sync()
 
     @patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed")
@@ -729,7 +729,7 @@ class TestAsyncBulkFlush:
         mock_bulk.return_value = _ok_response(status=HTTPStatus.BAD_REQUEST)
         mock_bulk.return_value.content = b'{"errors":[{"detail":"bad"}]}'
         client = _make_async_logging_client()
-        client._buffer.add("com.test", "INFO", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None, None)
         with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
             asyncio.run(client._flush_bulk_async())
         assert len(caplog.records) == 1
@@ -743,7 +743,7 @@ class TestAsyncBulkFlush:
         mock_bulk.return_value = _ok_response(status=HTTPStatus.BAD_REQUEST)
         mock_bulk.return_value.content = b'{"errors":[{"detail":"bad"}]}'
         client = _make_async_logging_client()
-        client._buffer.add("com.test", "INFO", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None, None)
         with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
             client._flush_bulk_sync()
         assert len(caplog.records) == 1

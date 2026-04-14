@@ -264,7 +264,7 @@ class TestTickCallback:
         mock_bulk.return_value = _ok_response()
         client = _make_sync_client()
         client._connected = True
-        client._buffer.add("a", "INFO", "INFO", None)
+        client._buffer.add("a", "INFO", "INFO", None, None)
 
         client._schedule_flush()
         timer = client._flush_timer
@@ -278,7 +278,7 @@ class TestTickCallback:
         mock_bulk.return_value = _ok_response()
         client = _make_async_client()
         client._connected = True
-        client._buffer.add("a", "INFO", "INFO", None)
+        client._buffer.add("a", "INFO", "INFO", None, None)
 
         client._schedule_flush()
         timer = client._flush_timer

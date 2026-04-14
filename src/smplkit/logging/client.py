@@ -525,6 +525,7 @@ class _LoggerRegistrationBuffer:
         smpl_level: str | None,
         smpl_resolved_level: str,
         service: str | None,
+        environment: str | None,
     ) -> None:
         """Queue a logger for registration if not already seen.
 
@@ -534,6 +535,7 @@ class _LoggerRegistrationBuffer:
                 inherits its level from a parent.
             smpl_resolved_level: Effective smplkit level string (always non-None).
             service: Service name to include in the payload, or None.
+            environment: Environment name to include in the payload, or None.
         """
         with self._lock:
             if normalized_id not in self._seen:
@@ -543,6 +545,8 @@ class _LoggerRegistrationBuffer:
                     item["level"] = smpl_level
                 if service is not None:
                     item["service"] = service
+                if environment is not None:
+                    item["environment"] = environment
                 self._pending.append(item)
 
     def drain(self) -> list[dict[str, Any]]:
@@ -838,7 +842,7 @@ class LoggingClient:
                     self._name_map[name] = normalized
                     smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
                     smpl_effective = python_level_to_smpl(effective_level)
-                    self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service)
+                    self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment)
             except Exception:
                 logger.warning("Adapter %s discover() failed", adapter.name, exc_info=True)
 
@@ -886,7 +890,7 @@ class LoggingClient:
         self._name_map[name] = normalized
         smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
         smpl_effective = python_level_to_smpl(effective_level)
-        self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service)
+        self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment)
 
         if self._buffer.pending_count >= _BULK_FLUSH_THRESHOLD:
             threading.Thread(target=self._flush_bulk_sync, daemon=True).start()
@@ -914,6 +918,7 @@ class LoggingClient:
                 level=b.get("level"),
                 resolved_level=b["resolved_level"],
                 service=b.get("service"),
+                environment=b.get("environment"),
             )
             for b in batch
         ]
@@ -1298,7 +1303,7 @@ class AsyncLoggingClient:
                     self._name_map[name] = normalized
                     smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
                     smpl_effective = python_level_to_smpl(effective_level)
-                    self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service)
+                    self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment)
             except Exception:
                 logger.warning("Adapter %s discover() failed", adapter.name, exc_info=True)
 
@@ -1342,7 +1347,7 @@ class AsyncLoggingClient:
         self._name_map[name] = normalized
         smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
         smpl_effective = python_level_to_smpl(effective_level)
-        self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service)
+        self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment)
 
         if self._connected and normalized in self._loggers_cache:
             entry = self._loggers_cache[normalized]
@@ -1366,6 +1371,7 @@ class AsyncLoggingClient:
                 level=b.get("level"),
                 resolved_level=b["resolved_level"],
                 service=b.get("service"),
+                environment=b.get("environment"),
             )
             for b in batch
         ]
@@ -1397,6 +1403,7 @@ class AsyncLoggingClient:
                 level=b.get("level"),
                 resolved_level=b["resolved_level"],
                 service=b.get("service"),
+                environment=b.get("environment"),
             )
             for b in batch
         ]

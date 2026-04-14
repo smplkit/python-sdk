@@ -759,51 +759,60 @@ class TestManagementWithoutConnect:
 class TestLoggerRegistrationBuffer:
     def test_add_and_drain(self):
         buf = _LoggerRegistrationBuffer()
-        buf.add("com.example", "INFO", "INFO", "my-service")
+        buf.add("com.example", "INFO", "INFO", "my-service", "production")
         batch = buf.drain()
         assert len(batch) == 1
-        assert batch[0] == {"id": "com.example", "level": "INFO", "resolved_level": "INFO", "service": "my-service"}
+        assert batch[0] == {"id": "com.example", "level": "INFO", "resolved_level": "INFO", "service": "my-service", "environment": "production"}
 
     def test_null_explicit_level_omitted(self):
         """When explicit level is None, 'level' key is absent from item dict."""
         buf = _LoggerRegistrationBuffer()
-        buf.add("com.example", None, "INFO", "svc")
+        buf.add("com.example", None, "INFO", "svc", "staging")
         batch = buf.drain()
         assert "level" not in batch[0]
         assert batch[0]["resolved_level"] == "INFO"
+        assert batch[0]["environment"] == "staging"
 
     def test_dedup(self):
         buf = _LoggerRegistrationBuffer()
-        buf.add("com.example", "INFO", "INFO", "svc")
-        buf.add("com.example", "DEBUG", "DEBUG", "svc")
+        buf.add("com.example", "INFO", "INFO", "svc", "prod")
+        buf.add("com.example", "DEBUG", "DEBUG", "svc", "prod")
         batch = buf.drain()
         assert len(batch) == 1
 
     def test_service_omitted_when_none(self):
         buf = _LoggerRegistrationBuffer()
-        buf.add("com.example", "INFO", "INFO", None)
+        buf.add("com.example", "INFO", "INFO", None, "prod")
         batch = buf.drain()
         assert "service" not in batch[0]
 
+    def test_environment_omitted_when_none(self):
+        buf = _LoggerRegistrationBuffer()
+        buf.add("com.example", "INFO", "INFO", "svc", None)
+        batch = buf.drain()
+        assert "environment" not in batch[0]
+        assert batch[0]["service"] == "svc"
+
     def test_drain_clears_pending(self):
         buf = _LoggerRegistrationBuffer()
-        buf.add("a", "INFO", "INFO", None)
+        buf.add("a", "INFO", "INFO", None, None)
         buf.drain()
         assert buf.drain() == []
 
     def test_pending_count(self):
         buf = _LoggerRegistrationBuffer()
         assert buf.pending_count == 0
-        buf.add("a", "INFO", "INFO", None)
+        buf.add("a", "INFO", "INFO", None, None)
         assert buf.pending_count == 1
-        buf.add("b", "DEBUG", "DEBUG", None)
+        buf.add("b", "DEBUG", "DEBUG", None, None)
         assert buf.pending_count == 2
 
     def test_includes_service_when_provided(self):
         buf = _LoggerRegistrationBuffer()
-        buf.add("x", "WARN", "WARN", "api-gateway")
+        buf.add("x", "WARN", "WARN", "api-gateway", "production")
         batch = buf.drain()
         assert batch[0]["service"] == "api-gateway"
+        assert batch[0]["environment"] == "production"
 
 
 # ---------------------------------------------------------------------------
@@ -816,9 +825,23 @@ class TestBulkFlush:
     def test_flush_sends_batch(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_logging_client()
-        client._buffer.add("com.test", "INFO", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None, None)
         client._flush_bulk_sync()
         mock_bulk.assert_called_once()
+
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    def test_flush_includes_service_and_environment(self, mock_bulk):
+        """Flush payload includes service and environment when provided."""
+        mock_bulk.return_value = _ok_response()
+        client = _make_logging_client()
+        client._buffer.add("com.test", "INFO", "INFO", "my-svc", "production")
+        client._flush_bulk_sync()
+
+        call_kwargs = mock_bulk.call_args
+        body = call_kwargs[1]["body"] if "body" in call_kwargs[1] else call_kwargs[0][1]
+        item = body.loggers[0]
+        assert item.service == "my-svc"
+        assert item.environment == "production"
 
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
     def test_flush_noop_when_empty(self, mock_bulk):
@@ -831,7 +854,7 @@ class TestBulkFlush:
         """Flush should not raise even if the HTTP call fails."""
         mock_bulk.side_effect = Exception("network error")
         client = _make_logging_client()
-        client._buffer.add("com.test", "INFO", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None, None)
         client._flush_bulk_sync()
 
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
@@ -842,7 +865,7 @@ class TestBulkFlush:
         )
         mock_bulk.return_value.content = b'{"errors":[{"detail":"Invalid level"}]}'
         client = _make_logging_client()
-        client._buffer.add("com.test", "INFO", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None, None)
         with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
             client._flush_bulk_sync()
         assert len(caplog.records) == 1
@@ -855,7 +878,7 @@ class TestBulkFlush:
         """Flush should log a WARNING on network-level exceptions."""
         mock_bulk.side_effect = Exception("connection refused")
         client = _make_logging_client()
-        client._buffer.add("com.test", "INFO", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None, None)
         with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
             client._flush_bulk_sync()
         assert len(caplog.records) == 1
@@ -867,7 +890,7 @@ class TestBulkFlush:
         mock_bulk.return_value = _ok_response(status=HTTPStatus.BAD_REQUEST)
         mock_bulk.return_value.content = b'{"errors":[]}'
         client = _make_logging_client()
-        client._buffer.add("com.test", "INFO", "INFO", None)
+        client._buffer.add("com.test", "INFO", "INFO", None, None)
         client._flush_bulk_sync()
         client._parent._metrics.record.assert_not_called()
 
@@ -904,7 +927,7 @@ class TestPayloadAssembly:
 
         smpl_explicit = python_level_to_smpl(explicit) if explicit else None
         smpl_effective = python_level_to_smpl(effective)
-        client._buffer.add("test.payload.explicit", smpl_explicit, smpl_effective, None)
+        client._buffer.add("test.payload.explicit", smpl_explicit, smpl_effective, None, None)
         client._flush_bulk_sync()
 
         call_kwargs = mock_bulk.call_args
@@ -939,7 +962,7 @@ class TestPayloadAssembly:
 
         smpl_explicit = python_level_to_smpl(explicit) if explicit is not None else None
         smpl_effective = python_level_to_smpl(effective)
-        client._buffer.add("test.payload.inherit_parent.child", smpl_explicit, smpl_effective, None)
+        client._buffer.add("test.payload.inherit_parent.child", smpl_explicit, smpl_effective, None, None)
         client._flush_bulk_sync()
 
         call_kwargs = mock_bulk.call_args
@@ -970,7 +993,7 @@ class TestPayloadAssembly:
 
         smpl_explicit = python_level_to_smpl(explicit)
         smpl_effective = python_level_to_smpl(effective)
-        client._buffer.add("root", smpl_explicit, smpl_effective, None)
+        client._buffer.add("root", smpl_explicit, smpl_effective, None, None)
         client._flush_bulk_sync()
 
         call_kwargs = mock_bulk.call_args
