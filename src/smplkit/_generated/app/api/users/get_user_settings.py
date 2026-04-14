@@ -7,15 +7,15 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
-from ...models.environment_columns_response import EnvironmentColumnsResponse
 from ...models.error_response import ErrorResponse
+from ...models.get_user_settings_response_get_user_settings import GetUserSettingsResponseGetUserSettings
 
 
 def _get_kwargs() -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
-        "method": "delete",
-        "url": "/api/v1/me/environment-order",
+        "method": "get",
+        "url": "/api/v1/users/current/settings",
     }
 
     return _kwargs
@@ -23,9 +23,9 @@ def _get_kwargs() -> dict[str, Any]:
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> EnvironmentColumnsResponse | ErrorResponse | None:
+) -> ErrorResponse | GetUserSettingsResponseGetUserSettings | None:
     if response.status_code == 200:
-        response_200 = EnvironmentColumnsResponse.from_dict(response.json())
+        response_200 = GetUserSettingsResponseGetUserSettings.from_dict(response.json())
 
         return response_200
 
@@ -57,7 +57,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[EnvironmentColumnsResponse | ErrorResponse]:
+) -> Response[ErrorResponse | GetUserSettingsResponseGetUserSettings]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,17 +69,17 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-) -> Response[EnvironmentColumnsResponse | ErrorResponse]:
-    """Reset Personal Environment Order
+) -> Response[ErrorResponse | GetUserSettingsResponseGetUserSettings]:
+    """Get User Settings
 
-     Reset the current user's personal environment order to the account default.
+     Return the current user's settings as plain JSON.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[EnvironmentColumnsResponse | ErrorResponse]
+        Response[ErrorResponse | GetUserSettingsResponseGetUserSettings]
     """
 
     kwargs = _get_kwargs()
@@ -94,17 +94,17 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-) -> EnvironmentColumnsResponse | ErrorResponse | None:
-    """Reset Personal Environment Order
+) -> ErrorResponse | GetUserSettingsResponseGetUserSettings | None:
+    """Get User Settings
 
-     Reset the current user's personal environment order to the account default.
+     Return the current user's settings as plain JSON.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        EnvironmentColumnsResponse | ErrorResponse
+        ErrorResponse | GetUserSettingsResponseGetUserSettings
     """
 
     return sync_detailed(
@@ -115,17 +115,17 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-) -> Response[EnvironmentColumnsResponse | ErrorResponse]:
-    """Reset Personal Environment Order
+) -> Response[ErrorResponse | GetUserSettingsResponseGetUserSettings]:
+    """Get User Settings
 
-     Reset the current user's personal environment order to the account default.
+     Return the current user's settings as plain JSON.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[EnvironmentColumnsResponse | ErrorResponse]
+        Response[ErrorResponse | GetUserSettingsResponseGetUserSettings]
     """
 
     kwargs = _get_kwargs()
@@ -138,17 +138,17 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-) -> EnvironmentColumnsResponse | ErrorResponse | None:
-    """Reset Personal Environment Order
+) -> ErrorResponse | GetUserSettingsResponseGetUserSettings | None:
+    """Get User Settings
 
-     Reset the current user's personal environment order to the account default.
+     Return the current user's settings as plain JSON.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        EnvironmentColumnsResponse | ErrorResponse
+        ErrorResponse | GetUserSettingsResponseGetUserSettings
     """
 
     return (

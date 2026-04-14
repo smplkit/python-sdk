@@ -7,15 +7,15 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
-from ...models.environment_columns_response import EnvironmentColumnsResponse
 from ...models.error_response import ErrorResponse
+from ...models.put_account_settings_response_put_account_settings import PutAccountSettingsResponsePutAccountSettings
 
 
 def _get_kwargs() -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
-        "method": "get",
-        "url": "/api/v1/me/environment-columns",
+        "method": "put",
+        "url": "/api/v1/accounts/current/settings",
     }
 
     return _kwargs
@@ -23,9 +23,9 @@ def _get_kwargs() -> dict[str, Any]:
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> EnvironmentColumnsResponse | ErrorResponse | None:
+) -> ErrorResponse | PutAccountSettingsResponsePutAccountSettings | None:
     if response.status_code == 200:
-        response_200 = EnvironmentColumnsResponse.from_dict(response.json())
+        response_200 = PutAccountSettingsResponsePutAccountSettings.from_dict(response.json())
 
         return response_200
 
@@ -57,7 +57,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[EnvironmentColumnsResponse | ErrorResponse]:
+) -> Response[ErrorResponse | PutAccountSettingsResponsePutAccountSettings]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,17 +69,17 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-) -> Response[EnvironmentColumnsResponse | ErrorResponse]:
-    """Get Environment Columns
+) -> Response[ErrorResponse | PutAccountSettingsResponsePutAccountSettings]:
+    """Update Account Settings
 
-     Return the resolved ordered list of environment columns for the current user.
+     Replace the current account's settings with the provided JSON object. Requires admin role.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[EnvironmentColumnsResponse | ErrorResponse]
+        Response[ErrorResponse | PutAccountSettingsResponsePutAccountSettings]
     """
 
     kwargs = _get_kwargs()
@@ -94,17 +94,17 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-) -> EnvironmentColumnsResponse | ErrorResponse | None:
-    """Get Environment Columns
+) -> ErrorResponse | PutAccountSettingsResponsePutAccountSettings | None:
+    """Update Account Settings
 
-     Return the resolved ordered list of environment columns for the current user.
+     Replace the current account's settings with the provided JSON object. Requires admin role.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        EnvironmentColumnsResponse | ErrorResponse
+        ErrorResponse | PutAccountSettingsResponsePutAccountSettings
     """
 
     return sync_detailed(
@@ -115,17 +115,17 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-) -> Response[EnvironmentColumnsResponse | ErrorResponse]:
-    """Get Environment Columns
+) -> Response[ErrorResponse | PutAccountSettingsResponsePutAccountSettings]:
+    """Update Account Settings
 
-     Return the resolved ordered list of environment columns for the current user.
+     Replace the current account's settings with the provided JSON object. Requires admin role.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[EnvironmentColumnsResponse | ErrorResponse]
+        Response[ErrorResponse | PutAccountSettingsResponsePutAccountSettings]
     """
 
     kwargs = _get_kwargs()
@@ -138,17 +138,17 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-) -> EnvironmentColumnsResponse | ErrorResponse | None:
-    """Get Environment Columns
+) -> ErrorResponse | PutAccountSettingsResponsePutAccountSettings | None:
+    """Update Account Settings
 
-     Return the resolved ordered list of environment columns for the current user.
+     Replace the current account's settings with the provided JSON object. Requires admin role.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        EnvironmentColumnsResponse | ErrorResponse
+        ErrorResponse | PutAccountSettingsResponsePutAccountSettings
     """
 
     return (

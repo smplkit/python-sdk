@@ -7,35 +7,25 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
-from ...models.environment_columns_response import EnvironmentColumnsResponse
-from ...models.environment_order_body import EnvironmentOrderBody
 from ...models.error_response import ErrorResponse
+from ...models.put_user_settings_response_put_user_settings import PutUserSettingsResponsePutUserSettings
 
 
-def _get_kwargs(
-    *,
-    body: EnvironmentOrderBody,
-) -> dict[str, Any]:
-    headers: dict[str, Any] = {}
+def _get_kwargs() -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
         "method": "put",
-        "url": "/api/v1/me/environment-order",
+        "url": "/api/v1/users/current/settings",
     }
 
-    _kwargs["json"] = body.to_dict()
-
-    headers["Content-Type"] = "application/vnd.api+json"
-
-    _kwargs["headers"] = headers
     return _kwargs
 
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> EnvironmentColumnsResponse | ErrorResponse | None:
+) -> ErrorResponse | PutUserSettingsResponsePutUserSettings | None:
     if response.status_code == 200:
-        response_200 = EnvironmentColumnsResponse.from_dict(response.json())
+        response_200 = PutUserSettingsResponsePutUserSettings.from_dict(response.json())
 
         return response_200
 
@@ -67,7 +57,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[EnvironmentColumnsResponse | ErrorResponse]:
+) -> Response[ErrorResponse | PutUserSettingsResponsePutUserSettings]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -79,26 +69,20 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: EnvironmentOrderBody,
-) -> Response[EnvironmentColumnsResponse | ErrorResponse]:
-    """Set Personal Environment Order
+) -> Response[ErrorResponse | PutUserSettingsResponsePutUserSettings]:
+    """Update User Settings
 
-     Set the current user's personal environment column order and visibility.
-
-    Args:
-        body (EnvironmentOrderBody):
+     Replace the current user's settings with the provided JSON object.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[EnvironmentColumnsResponse | ErrorResponse]
+        Response[ErrorResponse | PutUserSettingsResponsePutUserSettings]
     """
 
-    kwargs = _get_kwargs(
-        body=body,
-    )
+    kwargs = _get_kwargs()
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -110,52 +94,41 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: EnvironmentOrderBody,
-) -> EnvironmentColumnsResponse | ErrorResponse | None:
-    """Set Personal Environment Order
+) -> ErrorResponse | PutUserSettingsResponsePutUserSettings | None:
+    """Update User Settings
 
-     Set the current user's personal environment column order and visibility.
-
-    Args:
-        body (EnvironmentOrderBody):
+     Replace the current user's settings with the provided JSON object.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        EnvironmentColumnsResponse | ErrorResponse
+        ErrorResponse | PutUserSettingsResponsePutUserSettings
     """
 
     return sync_detailed(
         client=client,
-        body=body,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: EnvironmentOrderBody,
-) -> Response[EnvironmentColumnsResponse | ErrorResponse]:
-    """Set Personal Environment Order
+) -> Response[ErrorResponse | PutUserSettingsResponsePutUserSettings]:
+    """Update User Settings
 
-     Set the current user's personal environment column order and visibility.
-
-    Args:
-        body (EnvironmentOrderBody):
+     Replace the current user's settings with the provided JSON object.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[EnvironmentColumnsResponse | ErrorResponse]
+        Response[ErrorResponse | PutUserSettingsResponsePutUserSettings]
     """
 
-    kwargs = _get_kwargs(
-        body=body,
-    )
+    kwargs = _get_kwargs()
 
     response = await client.get_async_httpx_client().request(**kwargs)
 
@@ -165,26 +138,21 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: EnvironmentOrderBody,
-) -> EnvironmentColumnsResponse | ErrorResponse | None:
-    """Set Personal Environment Order
+) -> ErrorResponse | PutUserSettingsResponsePutUserSettings | None:
+    """Update User Settings
 
-     Set the current user's personal environment column order and visibility.
-
-    Args:
-        body (EnvironmentOrderBody):
+     Replace the current user's settings with the provided JSON object.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        EnvironmentColumnsResponse | ErrorResponse
+        ErrorResponse | PutUserSettingsResponsePutUserSettings
     """
 
     return (
         await asyncio_detailed(
             client=client,
-            body=body,
         )
     ).parsed
