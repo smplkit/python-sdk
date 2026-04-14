@@ -206,12 +206,11 @@ class TestAsyncGet:
 
 class TestAsyncSaveLogger:
     @patch("smplkit.logging.client.update_logger.asyncio_detailed")
-    @patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed")
-    def test_save_bulk_registers_then_puts_when_not_created(self, mock_bulk, mock_update):
+    def test_save_puts_directly_when_not_created(self, mock_update):
+        """PUT is the only call for a new logger — server handles upsert."""
         attrs = _make_logger_attrs(level="DEBUG")
         resource = _make_resource(attrs)
         parsed = _make_parsed(resource)
-        mock_bulk.return_value = _ok_response(None)
         mock_update.return_value = _ok_response(parsed)
 
         client = _make_async_logging_client()
@@ -219,10 +218,26 @@ class TestAsyncSaveLogger:
         assert lg.created_at is None
         asyncio.run(lg.save())
 
-        mock_bulk.assert_called_once()
-        bulk_body = mock_bulk.call_args.kwargs["body"]
-        assert bulk_body.loggers[0].id == "sql"
         mock_update.assert_called_once()
+        assert mock_update.call_args.args[0] == "sql"
+
+    @patch("smplkit.logging.client.update_logger.asyncio_detailed")
+    def test_save_puts_with_null_level_when_not_created(self, mock_update):
+        """A new logger with no level is sent as null — server upserts without a level."""
+        attrs = _make_logger_attrs(level=None)
+        resource = _make_resource(attrs)
+        parsed = _make_parsed(resource)
+        mock_update.return_value = _ok_response(parsed)
+
+        client = _make_async_logging_client()
+        lg = client.management.new("app.payments", name="Payments", managed=True)
+        assert lg.level is None
+        assert lg.created_at is None
+        asyncio.run(lg.save())
+
+        mock_update.assert_called_once()
+        body = mock_update.call_args.kwargs["body"]
+        assert body.data.attributes.level is None
 
     @patch("smplkit.logging.client.update_logger.asyncio_detailed")
     def test_save_updates_when_id_is_set(self, mock_update):

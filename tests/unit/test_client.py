@@ -146,19 +146,13 @@ def test_service_context_registered_on_init(mock_bulk):
     mock_bulk.return_value = MagicMock()
 
     client = SmplClient(api_key="sk_api_test", environment="test", service="my-svc")
-    # Wait for the background thread to finish
-    import threading
-
-    for t in threading.enumerate():
-        if t.daemon and t.is_alive():
-            t.join(timeout=2.0)
+    client._init_thread.join(timeout=2.0)
 
     mock_bulk.assert_called_once()
     _, kwargs = mock_bulk.call_args
     body = kwargs["body"]
     assert body.contexts[0].type_ == "service"
     assert body.contexts[0].key == "my-svc"
-    # keep reference to avoid unused-variable warnings
     assert client._api_key == "sk_api_test"
 
 
@@ -167,13 +161,8 @@ def test_service_registration_failure_on_init_is_swallowed(mock_bulk):
     """Init succeeds even if service registration fails."""
     mock_bulk.side_effect = Exception("network error")
 
-    # Should not raise
     client = SmplClient(api_key="sk_api_test", environment="test", service="my-svc")
-    import threading
-
-    for t in threading.enumerate():
-        if t.daemon and t.is_alive():
-            t.join(timeout=2.0)
+    client._init_thread.join(timeout=2.0)
     assert client._api_key == "sk_api_test"
 
 
@@ -183,11 +172,7 @@ def test_async_service_context_registered_on_init(mock_bulk):
     mock_bulk.return_value = MagicMock()
 
     client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
-    import threading
-
-    for t in threading.enumerate():
-        if t.daemon and t.is_alive():
-            t.join(timeout=2.0)
+    client._init_thread.join(timeout=2.0)
 
     mock_bulk.assert_called_once()
     _, kwargs = mock_bulk.call_args
@@ -203,11 +188,7 @@ def test_async_service_registration_failure_on_init_is_swallowed(mock_bulk):
     mock_bulk.side_effect = Exception("network error")
 
     client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
-    import threading
-
-    for t in threading.enumerate():
-        if t.daemon and t.is_alive():
-            t.join(timeout=2.0)
+    client._init_thread.join(timeout=2.0)
     assert client._api_key == "sk_api_test"
 
 
@@ -218,11 +199,7 @@ def test_async_register_service_context_success(mock_bulk):
 
     client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
     # Wait for the sync background thread (from __init__) to finish first
-    import threading
-
-    for t in threading.enumerate():
-        if t.daemon and t.is_alive():
-            t.join(timeout=2.0)
+    client._init_thread.join(timeout=2.0)
 
     asyncio.run(client._register_service_context())
     mock_bulk.assert_called_once()
@@ -238,11 +215,7 @@ def test_async_register_service_context_failure_swallowed(mock_bulk):
     mock_bulk.side_effect = Exception("network error")
 
     client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
-    import threading
-
-    for t in threading.enumerate():
-        if t.daemon and t.is_alive():
-            t.join(timeout=2.0)
+    client._init_thread.join(timeout=2.0)
 
     # Should not raise
     asyncio.run(client._register_service_context())

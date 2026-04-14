@@ -549,20 +549,20 @@ class TestFlagsClientErrors:
 
 
 class TestLoggingClientErrors:
-    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
-    def test_save_new_logger_bulk_registers_first(self, mock_bulk):
+    @patch("smplkit.logging.client.update_logger.sync_detailed")
+    def test_save_new_logger_upserts_via_put(self, mock_update):
         from smplkit.client import SmplClient
         from smplkit._errors import SmplConnectionError
         import httpx
 
-        # Simulate bulk register failing with a network error to verify
-        # that it is called (not an error raised before any HTTP call).
-        mock_bulk.side_effect = httpx.ConnectError("refused")
+        # Simulate PUT failing with a network error to verify a single
+        # HTTP call is made (upsert — no bulk pre-step).
+        mock_update.side_effect = httpx.ConnectError("refused")
         client = SmplClient(api_key="sk_test", environment="test")
         lg = client.logging.management.new("test-key", name="Test")
         with pytest.raises(SmplConnectionError):
             lg.save()
-        mock_bulk.assert_called_once()
+        mock_update.assert_called_once()
 
     @patch("smplkit.logging.client.get_logger.sync_detailed")
     def test_get_logger_404_surfaces_detail(self, mock_get):

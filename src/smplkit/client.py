@@ -127,7 +127,8 @@ class SmplClient:
         self.logging = LoggingClient(self)
 
         # Register service context (fire-and-forget, non-blocking)
-        threading.Thread(target=self._register_service_context, daemon=True).start()
+        self._init_thread = threading.Thread(target=self._register_service_context, daemon=True)
+        self._init_thread.start()
 
     def _register_service_context(self) -> None:
         """Register the service as a context instance on the app service."""
@@ -250,7 +251,8 @@ class AsyncSmplClient:
         self.logging = AsyncLoggingClient(self)
 
         # Register service context (fire-and-forget, non-blocking)
-        threading.Thread(target=self._register_service_context_sync, daemon=True).start()
+        self._init_thread = threading.Thread(target=self._register_service_context_sync, daemon=True)
+        self._init_thread.start()
 
     def _register_service_context_sync(self) -> None:
         """Sync wrapper for service context registration (runs in background thread)."""

@@ -126,9 +126,9 @@ class TestSyncBareRaise:
         with pytest.raises(RuntimeError, match="boom"):
             client._save_logger(lg)
 
-    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
-    def test_save_logger_create_bulk_unknown_error(self, mock_bulk):
-        mock_bulk.side_effect = RuntimeError("boom")
+    @patch("smplkit.logging.client.update_logger.sync_detailed")
+    def test_save_logger_create_upsert_unknown_error(self, mock_update):
+        mock_update.side_effect = RuntimeError("boom")
         client = _make_sync_client()
         lg = SmplLogger(client, id=_TEST_UUID, name="SQL Logger")
         with pytest.raises(RuntimeError, match="boom"):
@@ -232,9 +232,9 @@ class TestAsyncBareRaise:
         with pytest.raises(RuntimeError, match="boom"):
             asyncio.run(client._save_logger(lg))
 
-    @patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed")
-    def test_save_logger_create_bulk_unknown_error(self, mock_bulk):
-        mock_bulk.side_effect = RuntimeError("boom")
+    @patch("smplkit.logging.client.update_logger.asyncio_detailed")
+    def test_save_logger_create_upsert_unknown_error(self, mock_update):
+        mock_update.side_effect = RuntimeError("boom")
         client = _make_async_client()
         lg = AsyncSmplLogger(client, id=_TEST_UUID, name="SQL Logger")
         with pytest.raises(RuntimeError, match="boom"):
@@ -362,9 +362,9 @@ class TestAsyncNetworkErrors:
         with pytest.raises(SmplConnectionError):
             asyncio.run(client.management.delete("sql"))
 
-    @patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed")
-    def test_save_logger_create_network_error(self, mock_bulk):
-        mock_bulk.side_effect = httpx.ConnectError("refused")
+    @patch("smplkit.logging.client.update_logger.asyncio_detailed")
+    def test_save_logger_create_upsert_network_error(self, mock_update):
+        mock_update.side_effect = httpx.ConnectError("refused")
         client = _make_async_client()
         lg = AsyncSmplLogger(client, id=_TEST_UUID, name="SQL Logger")
         with pytest.raises(SmplConnectionError):
@@ -443,9 +443,9 @@ class TestSyncNetworkErrors:
         with pytest.raises(SmplConnectionError):
             client.management.delete("sql")
 
-    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
-    def test_save_logger_create_network_error(self, mock_bulk):
-        mock_bulk.side_effect = httpx.ConnectError("refused")
+    @patch("smplkit.logging.client.update_logger.sync_detailed")
+    def test_save_logger_create_upsert_network_error(self, mock_update):
+        mock_update.side_effect = httpx.ConnectError("refused")
         client = _make_sync_client()
         lg = SmplLogger(client, id=_TEST_UUID, name="SQL Logger")
         with pytest.raises(SmplConnectionError):

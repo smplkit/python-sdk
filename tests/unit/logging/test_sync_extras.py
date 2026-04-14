@@ -194,11 +194,11 @@ class TestSyncFetchAndApply:
 
 
 class TestSyncErrorPaths:
-    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
-    def test_save_new_logger_bulk_raises_connection_error(self, mock_bulk):
+    @patch("smplkit.logging.client.update_logger.sync_detailed")
+    def test_save_new_logger_upsert_raises_connection_error(self, mock_update):
         import httpx
 
-        mock_bulk.side_effect = httpx.ConnectError("refused")
+        mock_update.side_effect = httpx.ConnectError("refused")
         client = _make_logging_client()
         from smplkit._errors import SmplConnectionError
 
