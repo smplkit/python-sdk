@@ -1384,6 +1384,7 @@ class AsyncLoggingClient:
 
         def _run() -> None:
             import asyncio as _asyncio
+
             loop = _asyncio.new_event_loop()
             try:
                 loop.run_until_complete(self._fetch_and_apply(trigger=f"websocket event {event!r}"))

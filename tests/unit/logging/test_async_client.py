@@ -982,6 +982,7 @@ class TestWebSocketEventHandling:
 
         # Give the daemon thread time to run
         import time
+
         time.sleep(0.2)
 
         mock_loggers.assert_called_once()
@@ -1011,4 +1012,5 @@ class TestWebSocketEventHandling:
         client._handle_ws_event({"event": "logger_changed", "id": "abc"})
 
         import time
+
         time.sleep(0.2)  # let thread finish
