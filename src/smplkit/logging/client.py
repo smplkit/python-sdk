@@ -1550,9 +1550,7 @@ class AsyncLoggingClient:
         self._flush_timer.daemon = True
         self._flush_timer.start()
 
-    async def _fetch_and_apply(
-        self, trigger: str = "unknown", http_client: AuthenticatedClient | None = None
-    ) -> None:
+    async def _fetch_and_apply(self, trigger: str = "unknown", http_client: AuthenticatedClient | None = None) -> None:
         """Fetch all loggers/groups, resolve levels, apply to runtime.
 
         ``http_client``, when supplied, is used instead of ``self._logging_http``.
