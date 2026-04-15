@@ -72,6 +72,10 @@ class SharedWebSocket:
         """Dispatch an event to all registered listeners."""
         with self._listeners_lock:
             callbacks = list(self._listeners.get(event_name, []))
+        if not callbacks:
+            debug("websocket", f"no handler registered for event: {event_name!r}")
+            return
+        debug("websocket", f"routing {event_name!r} to {len(callbacks)} handler(s)")
         for cb in callbacks:
             try:
                 cb(data)

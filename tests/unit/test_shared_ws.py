@@ -669,3 +669,28 @@ class TestWebSocketMetrics:
 
         asyncio.run(_run())
         metrics.record_gauge.assert_called_with("platform.websocket_connections", 0, unit="connections")
+
+
+# ===================================================================
+# 5. Dispatch: unmatched event debug
+# ===================================================================
+
+
+class TestDispatchUnmatchedEvent:
+    def test_unmatched_event_does_not_call_any_callback(self):
+        """Dispatching an unknown event silently no-ops (no registered handlers)."""
+        ws = _make_ws()
+        cb = MagicMock()
+        ws.on("flag_changed", cb)
+
+        ws._dispatch("logger_updated", {"id": "abc"})  # not registered
+        cb.assert_not_called()
+
+    def test_matched_event_calls_callback(self):
+        """Dispatching a known event calls the registered callback."""
+        ws = _make_ws()
+        cb = MagicMock()
+        ws.on("logger_changed", cb)
+
+        ws._dispatch("logger_changed", {"id": "abc"})
+        cb.assert_called_once_with({"id": "abc"})

@@ -1236,3 +1236,84 @@ class TestCheckResponseStatus:
 
     def test_200_no_raise(self):
         _check_response_status(HTTPStatus.OK, b"")
+
+
+# ---------------------------------------------------------------------------
+# WebSocket event handling
+# ---------------------------------------------------------------------------
+
+
+class TestWebSocketEventHandling:
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    @patch("smplkit.logging.client._auto_load_adapters")
+    def test_connect_registers_ws_handlers(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
+        """_connect_internal registers handlers for all four logger events."""
+        mock_adapter = MagicMock()
+        mock_adapter.discover.return_value = []
+        mock_auto_load.return_value = [mock_adapter]
+        mock_bulk.return_value = _ok_response()
+        mock_loggers.return_value = _ok_response(_make_list_parsed([]))
+        mock_groups.return_value = _ok_response(_make_list_parsed([]))
+
+        client = _make_logging_client()
+        mock_ws = MagicMock()
+        client._parent._ensure_ws.return_value = mock_ws
+
+        client._connect_internal()
+
+        assert mock_ws.on.call_count == 4
+        registered_events = {call[0][0] for call in mock_ws.on.call_args_list}
+        assert registered_events == {"logger_changed", "logger_deleted", "group_changed", "group_deleted"}
+        client._close()
+
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    def test_handle_ws_event_triggers_refetch(self, mock_loggers, mock_groups):
+        """_handle_ws_event calls _fetch_and_apply."""
+        mock_loggers.return_value = _ok_response(_make_list_parsed([]))
+        mock_groups.return_value = _ok_response(_make_list_parsed([]))
+
+        client = _make_logging_client()
+        client._handle_ws_event({"event": "logger_changed", "id": "abc"})
+
+        mock_loggers.assert_called_once()
+        mock_groups.assert_called_once()
+
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    def test_handle_ws_event_all_event_types_trigger_refetch(self, mock_loggers, mock_groups):
+        """All four event types call _fetch_and_apply."""
+        mock_loggers.return_value = _ok_response(_make_list_parsed([]))
+        mock_groups.return_value = _ok_response(_make_list_parsed([]))
+
+        client = _make_logging_client()
+        for event in ("logger_changed", "logger_deleted", "group_changed", "group_deleted"):
+            mock_loggers.reset_mock()
+            mock_groups.reset_mock()
+            client._handle_ws_event({"event": event, "id": "x"})
+            mock_loggers.assert_called_once()
+
+    def test_close_deregisters_ws_handlers(self):
+        """_close calls off() for all four events on the ws manager."""
+        client = _make_logging_client()
+        mock_ws = MagicMock()
+        client._ws_manager = mock_ws
+
+        client._close()
+
+        assert mock_ws.off.call_count == 4
+        deregistered_events = {call[0][0] for call in mock_ws.off.call_args_list}
+        assert deregistered_events == {"logger_changed", "logger_deleted", "group_changed", "group_deleted"}
+        assert client._ws_manager is None
+
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    def test_handle_ws_event_swallows_fetch_errors(self, mock_loggers, mock_groups):
+        """_handle_ws_event catches exceptions from _fetch_and_apply."""
+        mock_loggers.side_effect = RuntimeError("network failure")
+
+        client = _make_logging_client()
+        # Should not raise
+        client._handle_ws_event({"event": "logger_changed", "id": "abc"})

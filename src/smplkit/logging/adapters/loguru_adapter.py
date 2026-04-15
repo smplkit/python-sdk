@@ -7,6 +7,7 @@ from collections.abc import Callable
 
 from loguru import logger as _loguru_logger
 
+from smplkit._debug import debug
 from smplkit.logging.adapters.base import LoggingAdapter
 
 # Loguru level name → Python numeric level mapping
@@ -50,8 +51,10 @@ class LoguruAdapter(LoggingAdapter):
 
     def apply_level(self, logger_name: str, level: int) -> None:
         if level >= stdlib_logging.CRITICAL:
+            debug("adapter", f'loguru: disabling "{logger_name}" (level={level})')
             _loguru_logger.disable(logger_name)
         else:
+            debug("adapter", f'loguru: enabling "{logger_name}" (level={level})')
             _loguru_logger.enable(logger_name)
 
     def install_hook(self, on_new_logger: Callable[[str, int | None, int], None]) -> None:

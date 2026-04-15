@@ -716,6 +716,7 @@ class LoggingClient:
         self._key_listeners: dict[str, list[Callable[..., Any]]] = {}
         self._adapters: list[LoggingAdapter] = []
         self._explicit_adapters = False
+        self._ws_manager: Any = None
         self.management = LoggingManagementClient(self)
 
     def _save_logger(self, lg: SmplLogger) -> SmplLogger:
@@ -858,18 +859,36 @@ class LoggingClient:
 
         # 4-6. Fetch, resolve, apply
         try:
-            self._fetch_and_apply()
+            self._fetch_and_apply(trigger="start()")
         except Exception:
             logger.warning("Failed to fetch/apply logging levels during connect", exc_info=True)
 
         # 7. Start periodic flush timer
         self._schedule_flush()
 
+        # 8. Register WebSocket event handlers for real-time level updates
+        self._ws_manager = self._parent._ensure_ws()
+        self._ws_manager.on("logger_changed", self._handle_ws_event)
+        self._ws_manager.on("logger_deleted", self._handle_ws_event)
+        self._ws_manager.on("group_changed", self._handle_ws_event)
+        self._ws_manager.on("group_deleted", self._handle_ws_event)
+
         self._connected = True
+
+    def _handle_ws_event(self, data: dict) -> None:
+        """Handle a logger_changed / logger_deleted / group_changed / group_deleted event."""
+        event = data.get("event", "unknown")
+        resource_id = data.get("id", "")
+        debug("websocket", f"logger event received: {event!r} id={resource_id!r}, triggering re-fetch")
+        try:
+            self._fetch_and_apply(trigger=f"websocket event {event!r}")
+        except Exception:
+            logger.warning("Failed to re-fetch/apply logging levels after %r event", event, exc_info=True)
 
     def refresh(self) -> None:
         """Re-fetch all loggers and groups and update log levels."""
-        self._fetch_and_apply()
+        debug("resolution", "refresh() called, triggering full resolution pass")
+        self._fetch_and_apply(trigger="refresh()")
 
     def _close(self) -> None:
         """Called by ``SmplClient.close()``."""
@@ -879,6 +898,12 @@ class LoggingClient:
                 adapter.uninstall_hook()
             except Exception:
                 logger.debug("Adapter %s uninstall_hook() failed", adapter.name, exc_info=True)
+        if self._ws_manager is not None:
+            self._ws_manager.off("logger_changed", self._handle_ws_event)
+            self._ws_manager.off("logger_deleted", self._handle_ws_event)
+            self._ws_manager.off("group_changed", self._handle_ws_event)
+            self._ws_manager.off("group_deleted", self._handle_ws_event)
+            self._ws_manager = None
         if self._flush_timer is not None:
             self._flush_timer.cancel()
             self._flush_timer = None
@@ -963,8 +988,9 @@ class LoggingClient:
         self._flush_timer.daemon = True
         self._flush_timer.start()
 
-    def _fetch_and_apply(self) -> None:
+    def _fetch_and_apply(self, trigger: str = "unknown") -> None:
         """Fetch all loggers/groups, resolve levels, apply to runtime."""
+        debug("resolution", f"full resolution pass starting (trigger: {trigger})")
         # Fetch loggers
         debug("api", "GET /api/v1/loggers")
         try:
@@ -984,6 +1010,7 @@ class LoggingClient:
                     "managed": _unset_to_none(attrs.managed),
                     "environments": _extract_environments(attrs.environments),
                 }
+        debug("api", f"GET /api/v1/loggers -> {response.status_code.value} ({len(loggers_data)} loggers)")
 
         # Fetch groups
         debug("api", "GET /api/v1/log-groups")
@@ -1003,11 +1030,8 @@ class LoggingClient:
                     "group": _unset_to_none(attrs.parent_id),
                     "environments": _extract_environments(attrs.environments),
                 }
+        debug("api", f"GET /api/v1/log-groups -> {grp_response.status_code.value} ({len(groups_data)} groups)")
 
-        debug(
-            "api",
-            f"GET /api/v1/loggers -> {response.status_code.value} ({len(loggers_data)} loggers, {len(groups_data)} groups)",
-        )
         self._loggers_cache = loggers_data
         self._groups_cache = groups_data
 
@@ -1195,6 +1219,7 @@ class AsyncLoggingClient:
         self._key_listeners: dict[str, list[Callable[..., Any]]] = {}
         self._adapters: list[LoggingAdapter] = []
         self._explicit_adapters = False
+        self._ws_manager: Any = None
         self.management = AsyncLoggingManagementClient(self)
 
     async def _save_logger(self, lg: AsyncSmplLogger) -> AsyncSmplLogger:
@@ -1335,16 +1360,44 @@ class AsyncLoggingClient:
         await self._flush_bulk_async()
 
         try:
-            await self._fetch_and_apply()
+            await self._fetch_and_apply(trigger="start()")
         except Exception:
             logger.warning("Failed to fetch/apply logging levels during connect", exc_info=True)
 
         self._schedule_flush()
+
+        # Register WebSocket event handlers for real-time level updates
+        self._ws_manager = self._parent._ensure_ws()
+        self._ws_manager.on("logger_changed", self._handle_ws_event)
+        self._ws_manager.on("logger_deleted", self._handle_ws_event)
+        self._ws_manager.on("group_changed", self._handle_ws_event)
+        self._ws_manager.on("group_deleted", self._handle_ws_event)
+
         self._connected = True
+
+    def _handle_ws_event(self, data: dict) -> None:
+        """Handle a logger_changed / logger_deleted / group_changed / group_deleted event."""
+        event = data.get("event", "unknown")
+        resource_id = data.get("id", "")
+        debug("websocket", f"logger event received: {event!r} id={resource_id!r}, triggering re-fetch")
+        import threading as _threading
+
+        def _run() -> None:
+            import asyncio as _asyncio
+            loop = _asyncio.new_event_loop()
+            try:
+                loop.run_until_complete(self._fetch_and_apply(trigger=f"websocket event {event!r}"))
+            except Exception:
+                logger.warning("Failed to re-fetch/apply logging levels after %r event", event, exc_info=True)
+            finally:
+                loop.close()
+
+        _threading.Thread(target=_run, name="smplkit-logging-ws-refresh", daemon=True).start()
 
     async def refresh(self) -> None:
         """Re-fetch all loggers and groups and update log levels."""
-        await self._fetch_and_apply()
+        debug("resolution", "refresh() called, triggering full resolution pass")
+        await self._fetch_and_apply(trigger="refresh()")
 
     def _close(self) -> None:
         """Called by ``AsyncSmplClient.close()``."""
@@ -1354,6 +1407,12 @@ class AsyncLoggingClient:
                 adapter.uninstall_hook()
             except Exception:
                 logger.debug("Adapter %s uninstall_hook() failed", adapter.name, exc_info=True)
+        if self._ws_manager is not None:
+            self._ws_manager.off("logger_changed", self._handle_ws_event)
+            self._ws_manager.off("logger_deleted", self._handle_ws_event)
+            self._ws_manager.off("group_changed", self._handle_ws_event)
+            self._ws_manager.off("group_deleted", self._handle_ws_event)
+            self._ws_manager = None
         if self._flush_timer is not None:
             self._flush_timer.cancel()
             self._flush_timer = None
@@ -1472,8 +1531,9 @@ class AsyncLoggingClient:
         self._flush_timer.daemon = True
         self._flush_timer.start()
 
-    async def _fetch_and_apply(self) -> None:
+    async def _fetch_and_apply(self, trigger: str = "unknown") -> None:
         """Fetch all loggers/groups, resolve levels, apply to runtime."""
+        debug("resolution", f"full resolution pass starting (trigger: {trigger})")
         debug("api", "GET /api/v1/loggers")
         try:
             response = await list_loggers.asyncio_detailed(client=self._logging_http)
@@ -1492,6 +1552,7 @@ class AsyncLoggingClient:
                     "managed": _unset_to_none(attrs.managed),
                     "environments": _extract_environments(attrs.environments),
                 }
+        debug("api", f"GET /api/v1/loggers -> {response.status_code.value} ({len(loggers_data)} loggers)")
 
         debug("api", "GET /api/v1/log-groups")
         try:
@@ -1510,11 +1571,8 @@ class AsyncLoggingClient:
                     "group": _unset_to_none(attrs.parent_id),
                     "environments": _extract_environments(attrs.environments),
                 }
+        debug("api", f"GET /api/v1/log-groups -> {grp_response.status_code.value} ({len(groups_data)} groups)")
 
-        debug(
-            "api",
-            f"GET /api/v1/loggers -> {response.status_code.value} ({len(loggers_data)} loggers, {len(groups_data)} groups)",
-        )
         self._loggers_cache = loggers_data
         self._groups_cache = groups_data
         self._apply_levels()
