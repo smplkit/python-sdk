@@ -139,10 +139,11 @@ class _MetricsReporter:
         self._timer.start()
 
     def _tick(self) -> None:
-        self._timer = None
         self._flush()
-        if not self._closed:
-            self._start_timer()
+        with self._lock:
+            self._timer = None
+            if not self._closed:
+                self._start_timer()
 
     def _flush(self) -> None:
         with self._lock:
@@ -306,10 +307,11 @@ class _AsyncMetricsReporter:
         self._timer.start()
 
     def _tick(self) -> None:
-        self._timer = None
         self._flush_sync()
-        if not self._closed:
-            self._start_timer()
+        with self._lock:
+            self._timer = None
+            if not self._closed:
+                self._start_timer()
 
     def _snapshot(
         self,

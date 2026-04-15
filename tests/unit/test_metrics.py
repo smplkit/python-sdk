@@ -362,6 +362,48 @@ class TestMetricsReporterThreadSafety:
 
 
 class TestMetricsReporterTick:
+    def test_tick_concurrent_record_creates_only_one_timer(self):
+        """Regression: record() called while a tick flush is in-flight must not start
+        a second timer, which would result in two concurrent timers and two POSTs per
+        interval."""
+        reporter = _make_reporter()
+        mock_httpx = MagicMock()
+        reporter._http_client.get_httpx_client.return_value = mock_httpx
+        reporter.record("flags.evaluations")  # populate buffer + start initial timer
+
+        flush_started = threading.Event()
+        flush_can_finish = threading.Event()
+        timer_start_count = [0]
+
+        original_start_timer = reporter._start_timer
+
+        def counting_start_timer():
+            timer_start_count[0] += 1
+            original_start_timer()
+
+        reporter._start_timer = counting_start_timer
+
+        original_post = mock_httpx.post
+
+        def blocking_post(*args, **kwargs):
+            flush_started.set()
+            flush_can_finish.wait()
+            return original_post(*args, **kwargs)
+
+        mock_httpx.post = blocking_post
+
+        tick_thread = threading.Thread(target=reporter._tick)
+        tick_thread.start()
+
+        flush_started.wait()
+        # Race: record() sees the in-flight timer; must NOT start a second one.
+        reporter.record("flags.evaluations")
+        flush_can_finish.set()
+        tick_thread.join()
+
+        assert timer_start_count[0] == 1  # only _tick itself restarted the timer
+        reporter.close()
+
     def test_tick_flushes_and_restarts_timer(self):
         reporter = _make_reporter()
         mock_httpx = MagicMock()
@@ -543,6 +585,46 @@ class TestAsyncMetricsReporterTimer:
         assert reporter._timer is None
         reporter.record("flags.evaluations")
         assert reporter._timer is not None
+        asyncio.run(reporter.close())
+
+    def test_tick_concurrent_record_creates_only_one_timer(self):
+        """Regression: record() called while a tick flush is in-flight must not start
+        a second timer."""
+        reporter = _make_async_reporter()
+        mock_httpx = MagicMock()
+        reporter._http_client.get_httpx_client.return_value = mock_httpx
+        reporter.record("flags.evaluations")  # populate buffer + start initial timer
+
+        flush_started = threading.Event()
+        flush_can_finish = threading.Event()
+        timer_start_count = [0]
+
+        original_start_timer = reporter._start_timer
+
+        def counting_start_timer():
+            timer_start_count[0] += 1
+            original_start_timer()
+
+        reporter._start_timer = counting_start_timer
+
+        original_post = mock_httpx.post
+
+        def blocking_post(*args, **kwargs):
+            flush_started.set()
+            flush_can_finish.wait()
+            return original_post(*args, **kwargs)
+
+        mock_httpx.post = blocking_post
+
+        tick_thread = threading.Thread(target=reporter._tick)
+        tick_thread.start()
+
+        flush_started.wait()
+        reporter.record("flags.evaluations")
+        flush_can_finish.set()
+        tick_thread.join()
+
+        assert timer_start_count[0] == 1
         asyncio.run(reporter.close())
 
     def test_tick_flushes_and_restarts(self):
