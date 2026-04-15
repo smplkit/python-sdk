@@ -99,6 +99,7 @@ from .product_plans import ProductPlans
 from .product_resource import ProductResource
 from .product_resource_type import ProductResourceType
 from .put_account_settings_response_put_account_settings import PutAccountSettingsResponsePutAccountSettings
+from .put_user_settings_key_response_put_user_settings_key import PutUserSettingsKeyResponsePutUserSettingsKey
 from .put_user_settings_response_put_user_settings import PutUserSettingsResponsePutUserSettings
 from .register_request import RegisterRequest
 from .service import Service
@@ -226,6 +227,7 @@ __all__ = (
     "ProductResource",
     "ProductResourceType",
     "PutAccountSettingsResponsePutAccountSettings",
+    "PutUserSettingsKeyResponsePutUserSettingsKey",
     "PutUserSettingsResponsePutUserSettings",
     "RegisterRequest",
     "Service",
