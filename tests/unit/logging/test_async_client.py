@@ -977,10 +977,7 @@ class TestWebSocketEventHandling:
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
         mock_groups.return_value = _ok_response(_make_list_parsed([]))
 
-        import threading
-
         client = _make_async_logging_client()
-        threads_before = threading.active_count()
         client._handle_ws_event({"event": "logger_changed", "id": "abc"})
 
         # Give the daemon thread time to run
