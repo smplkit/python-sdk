@@ -941,7 +941,10 @@ class LoggingClient:
                 )
                 debug("api", f"POST /api/v1/loggers/bulk -> {response.status_code.value} (error)")
             else:
-                debug("api", f"POST /api/v1/loggers/bulk -> {response.status_code.value} ({len(items)} loggers registered)")
+                debug(
+                    "api",
+                    f"POST /api/v1/loggers/bulk -> {response.status_code.value} ({len(items)} loggers registered)",
+                )
                 metrics = self._parent._metrics
                 if metrics is not None:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
@@ -1408,7 +1411,10 @@ class AsyncLoggingClient:
                 )
                 debug("api", f"POST /api/v1/loggers/bulk -> {response.status_code.value} (error)")
             else:
-                debug("api", f"POST /api/v1/loggers/bulk -> {response.status_code.value} ({len(items)} loggers registered)")
+                debug(
+                    "api",
+                    f"POST /api/v1/loggers/bulk -> {response.status_code.value} ({len(items)} loggers registered)",
+                )
                 metrics = self._parent._metrics
                 if metrics is not None:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
@@ -1444,7 +1450,10 @@ class AsyncLoggingClient:
                 )
                 debug("api", f"POST /api/v1/loggers/bulk -> {response.status_code.value} (error)")
             else:
-                debug("api", f"POST /api/v1/loggers/bulk -> {response.status_code.value} ({len(items)} loggers registered)")
+                debug(
+                    "api",
+                    f"POST /api/v1/loggers/bulk -> {response.status_code.value} ({len(items)} loggers registered)",
+                )
                 metrics = self._parent._metrics
                 if metrics is not None:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")

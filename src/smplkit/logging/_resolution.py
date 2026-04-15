@@ -39,7 +39,7 @@ def resolve_level(
     if result is not None:
         if is_debug_enabled():
             source = _find_resolution_source(logger_id, environment, loggers, groups)
-            debug("resolution", f'{logger_id} -> {result} (source: {source})')
+            debug("resolution", f"{logger_id} -> {result} (source: {source})")
         return result
 
     # Dot-notation ancestry: walk up the hierarchy
@@ -51,7 +51,7 @@ def resolve_level(
             debug("resolution", f'{logger_id} -> {result} (source: ancestor "{ancestor_id}")')
             return result
 
-    debug("resolution", f'{logger_id} -> {_FALLBACK_LEVEL} (source: system default)')
+    debug("resolution", f"{logger_id} -> {_FALLBACK_LEVEL} (source: system default)")
     return _FALLBACK_LEVEL
 
 

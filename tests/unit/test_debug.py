@@ -91,9 +91,7 @@ class TestDebugNoOp:
 class TestDebugOutput:
     def _capture_debug(self, subsystem: str, message: str) -> str:
         buf = StringIO()
-        with patch.object(_debug_mod, "_DEBUG_ENABLED", True), patch.object(
-            sys, "stderr", buf
-        ):
+        with patch.object(_debug_mod, "_DEBUG_ENABLED", True), patch.object(sys, "stderr", buf):
             _debug_mod.debug(subsystem, message)
         return buf.getvalue()
 
@@ -142,9 +140,7 @@ class TestDebugOutput:
 
     def test_does_not_write_to_stdout(self) -> None:
         captured_stdout = StringIO()
-        with patch.object(_debug_mod, "_DEBUG_ENABLED", True), patch.object(
-            sys, "stdout", captured_stdout
-        ):
+        with patch.object(_debug_mod, "_DEBUG_ENABLED", True), patch.object(sys, "stdout", captured_stdout):
             _debug_mod.debug("api", "GET /test")
         assert captured_stdout.getvalue() == ""
 
