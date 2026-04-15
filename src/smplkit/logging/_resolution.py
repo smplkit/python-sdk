@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from smplkit._debug import debug, is_debug_enabled
+
 _FALLBACK_LEVEL = "INFO"
 
 
@@ -35,6 +37,9 @@ def resolve_level(
     """
     result = _resolve_for_entry(logger_id, environment, loggers, groups)
     if result is not None:
+        if is_debug_enabled():
+            source = _find_resolution_source(logger_id, environment, loggers, groups)
+            debug("resolution", f'{logger_id} -> {result} (source: {source})')
         return result
 
     # Dot-notation ancestry: walk up the hierarchy
@@ -43,8 +48,10 @@ def resolve_level(
         ancestor_id = ".".join(parts[:i])
         result = _resolve_for_entry(ancestor_id, environment, loggers, groups)
         if result is not None:
+            debug("resolution", f'{logger_id} -> {result} (source: ancestor "{ancestor_id}")')
             return result
 
+    debug("resolution", f'{logger_id} -> {_FALLBACK_LEVEL} (source: system default)')
     return _FALLBACK_LEVEL
 
 
@@ -72,6 +79,37 @@ def _resolve_for_entry(
     # Step 3: group chain
     group_id = entry.get("group")
     return _resolve_group_chain(group_id, environment, groups)
+
+
+def _find_resolution_source(
+    logger_id: str,
+    environment: str,
+    loggers: dict[str, dict[str, Any]],
+    groups: dict[str, dict[str, Any]],
+) -> str:
+    """Return a human-readable string describing which resolution step produced the level.
+
+    Only called when debug is enabled — re-runs the same checks as
+    :func:`_resolve_for_entry` to identify the winning step.
+    """
+    entry = loggers.get(logger_id)
+    if entry is None:
+        return "not found"
+
+    env_level = _env_level(entry, environment)
+    if env_level is not None:
+        return f'env override "{environment}"'
+
+    base = entry.get("level")
+    if base is not None:
+        return "base level"
+
+    group_id = entry.get("group")
+    result = _resolve_group_chain(group_id, environment, groups)
+    if result is not None:
+        return f'group "{group_id}"'
+
+    return "unknown"
 
 
 def _resolve_group_chain(

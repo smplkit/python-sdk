@@ -19,6 +19,8 @@ from typing import Any
 import websockets
 import websockets.asyncio.client
 
+from smplkit._debug import debug
+
 logger = logging.getLogger("smplkit.ws")
 
 _BACKOFF_SCHEDULE = [1, 2, 4, 8, 16, 32, 60]
@@ -91,6 +93,7 @@ class SharedWebSocket:
 
     def start(self) -> None:
         """Start the background WebSocket thread."""
+        debug("websocket", "starting shared WebSocket background thread")
         self._closed = False
         thread = threading.Thread(
             target=self._ws_thread_entry,
@@ -102,6 +105,7 @@ class SharedWebSocket:
 
     def stop(self) -> None:
         """Stop the WebSocket connection and background thread."""
+        debug("websocket", "stopping shared WebSocket")
         self._closed = True
         self._connection_status = "disconnected"
 
@@ -170,7 +174,9 @@ class SharedWebSocket:
         """Open a WebSocket connection and wait for the connected confirmation."""
         url = self._build_ws_url()
         self._connection_status = "connecting"
-        logger.debug("Connecting to shared WebSocket: %s", url.split("?")[0])
+        safe_url = url.split("?")[0]
+        logger.debug("Connecting to shared WebSocket: %s", safe_url)
+        debug("websocket", f"connecting to {safe_url}")
 
         self._ws = await websockets.asyncio.client.connect(url)
         logger.debug("WebSocket connected, waiting for confirmation")
@@ -179,9 +185,12 @@ class SharedWebSocket:
         raw = await self._ws.recv()
         data = json.loads(raw)
         if data.get("type") == "error":
-            raise RuntimeError(f"Connection error: {data.get('message')}")
+            err_msg = data.get("message")
+            debug("websocket", f"connection error from server: {err_msg!r}")
+            raise RuntimeError(f"Connection error: {err_msg}")
 
         self._connection_status = "connected"
+        debug("websocket", f"connected to {safe_url}")
         if self._metrics is not None:
             self._metrics.record_gauge("platform.websocket_connections", 1, unit="connections")
         logger.debug("Shared WebSocket connection confirmed")
@@ -195,9 +204,11 @@ class SharedWebSocket:
 
                 # Heartbeat: server sends "ping" (text), we respond with "pong"
                 if message == "ping":
+                    debug("websocket", "ping received, sending pong")
                     await self._ws.send("pong")
                     continue
 
+                debug("websocket", f"event received: {message}")
                 data = json.loads(message)
                 event = data.get("event")
                 if event:
@@ -210,18 +221,20 @@ class SharedWebSocket:
                     "Shared WebSocket closed (code=%s), reconnecting...",
                     close_code,
                 )
+                debug("websocket", f"connection closed (code={close_code}), reconnecting")
                 self._connection_status = "reconnecting"
                 if self._metrics is not None:
                     self._metrics.record_gauge("platform.websocket_connections", 0, unit="connections")
                 await self._reconnect()
                 break
-            except Exception:
+            except Exception as exc:
                 if self._closed:
                     break
                 logger.error(
                     "Unexpected error in shared WebSocket receive loop",
                     exc_info=True,
                 )
+                debug("websocket", f"unexpected error in receive loop: {exc!r}")
                 self._connection_status = "reconnecting"
                 if self._metrics is not None:
                     self._metrics.record_gauge("platform.websocket_connections", 0, unit="connections")
@@ -238,13 +251,16 @@ class SharedWebSocket:
                 delay,
                 attempt + 1,
             )
+            debug("websocket", f"reconnecting in {delay}s (attempt {attempt + 1})")
             await asyncio.sleep(delay)
             if self._closed:
                 return
             try:
                 await self._connect()
+                debug("websocket", "reconnected successfully")
                 logger.info("Shared WebSocket reconnected successfully.")
                 return
-            except Exception:
+            except Exception as exc:
                 logger.warning("Shared WebSocket reconnect attempt %d failed.", attempt + 1)
+                debug("websocket", f"reconnect attempt {attempt + 1} failed: {exc!r}")
                 attempt += 1

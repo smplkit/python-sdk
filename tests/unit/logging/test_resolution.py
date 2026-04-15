@@ -1,6 +1,9 @@
 """Tests for the level resolution algorithm."""
 
-from smplkit.logging._resolution import resolve_level
+from unittest.mock import patch
+
+import smplkit._debug as _debug_mod
+from smplkit.logging._resolution import _find_resolution_source, resolve_level
 
 
 class TestResolveLevelBasic:
@@ -228,3 +231,74 @@ class TestResolveLevelEdgeCases:
             }
         }
         assert resolve_level("test", "prod", loggers, {}) == "WARN"
+
+
+class TestFindResolutionSource:
+    """Coverage for _find_resolution_source — the debug-only source detector."""
+
+    _LOGGERS = {
+        "with.env": {
+            "level": "DEBUG",
+            "group": None,
+            "environments": {"production": {"level": "ERROR"}},
+        },
+        "with.base": {
+            "level": "WARN",
+            "group": None,
+            "environments": {},
+        },
+        "with.group": {
+            "level": None,
+            "group": "g1",
+            "environments": {},
+        },
+        "no.resolution": {
+            "level": None,
+            "group": None,
+            "environments": {},
+        },
+    }
+    _GROUPS = {
+        "g1": {"level": "DEBUG", "group": None, "environments": {}},
+    }
+
+    def test_env_override_source(self):
+        source = _find_resolution_source("with.env", "production", self._LOGGERS, self._GROUPS)
+        assert source == 'env override "production"'
+
+    def test_base_level_source(self):
+        source = _find_resolution_source("with.base", "production", self._LOGGERS, self._GROUPS)
+        assert source == "base level"
+
+    def test_group_source(self):
+        source = _find_resolution_source("with.group", "production", self._LOGGERS, self._GROUPS)
+        assert source == 'group "g1"'
+
+    def test_unknown_source_when_no_resolution(self):
+        source = _find_resolution_source("no.resolution", "production", self._LOGGERS, self._GROUPS)
+        assert source == "unknown"
+
+    def test_not_found_when_logger_missing(self):
+        source = _find_resolution_source("missing", "production", {}, {})
+        assert source == "not found"
+
+
+class TestResolveLevelDebugOutput:
+    """Verify resolve_level emits debug output when enabled."""
+
+    def test_debug_output_for_direct_resolution(self, capsys):
+        loggers = {
+            "sql": {
+                "level": "DEBUG",
+                "group": None,
+                "environments": {"prod": {"level": "ERROR"}},
+            }
+        }
+        with patch.object(_debug_mod, "_DEBUG_ENABLED", True):
+            result = resolve_level("sql", "prod", loggers, {})
+
+        assert result == "ERROR"
+        captured = capsys.readouterr()
+        assert "[smplkit:resolution]" in captured.err
+        assert "sql" in captured.err
+        assert "ERROR" in captured.err

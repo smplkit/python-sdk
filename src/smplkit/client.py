@@ -6,6 +6,7 @@ import logging
 import os
 import threading
 
+from smplkit._debug import debug
 from smplkit._errors import SmplError
 from smplkit._generated.app.api.contexts import bulk_register_contexts as gen_bulk_register_contexts
 from smplkit._generated.app.models.context_bulk_item import ContextBulkItem
@@ -101,6 +102,11 @@ class SmplClient:
         if resolved is None:
             raise SmplError(_no_api_key_message(self._environment))
         self._api_key = resolved
+        debug(
+            "lifecycle",
+            f"SmplClient init: api_key={resolved[:10]}...{resolved[-4:]}"
+            f" env={self._environment!r} service={self._service!r}",
+        )
 
         self._http_client = AuthenticatedClient(
             base_url=_DEFAULT_BASE_URL,
@@ -155,6 +161,7 @@ class SmplClient:
 
     def close(self) -> None:
         """Release all resources held by this client."""
+        debug("lifecycle", "SmplClient.close() called")
         if self._metrics is not None:
             self._metrics.close()
         self.logging._close()
@@ -226,6 +233,11 @@ class AsyncSmplClient:
         if resolved is None:
             raise SmplError(_no_api_key_message(self._environment))
         self._api_key = resolved
+        debug(
+            "lifecycle",
+            f"AsyncSmplClient init: api_key={resolved[:10]}...{resolved[-4:]}"
+            f" env={self._environment!r} service={self._service!r}",
+        )
 
         self._http_client = AuthenticatedClient(
             base_url=_DEFAULT_BASE_URL,
@@ -292,6 +304,7 @@ class AsyncSmplClient:
 
     async def close(self) -> None:
         """Release all resources held by this client."""
+        debug("lifecycle", "AsyncSmplClient.close() called")
         if self._metrics is not None:
             await self._metrics.close()
         self.logging._close()

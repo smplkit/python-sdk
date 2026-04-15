@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging as stdlib_logging
+from unittest.mock import patch
 
+import smplkit._debug as _debug_mod
 from smplkit.logging.adapters.stdlib_logging import StdlibLoggingAdapter
 
 
@@ -185,3 +187,61 @@ class TestUninstallHook:
     def test_uninstall_without_install_is_noop(self):
         adapter = StdlibLoggingAdapter()
         adapter.uninstall_hook()  # Should not raise
+
+
+class TestApplyLevelGuard:
+    """Verify the applying guard suppresses re-reporting during apply_level."""
+
+    def setup_method(self):
+        self.adapter = StdlibLoggingAdapter()
+
+    def teardown_method(self):
+        self.adapter.uninstall_hook()
+
+    def test_guard_suppresses_callback_during_apply(self):
+        """When apply_level calls getLogger internally, the hook callback must not fire."""
+        discovered = []
+        self.adapter.install_hook(lambda n, exp, eff: discovered.append(n))
+
+        # Use a logger name that does NOT yet exist so getLogger creates it during apply_level
+        guard_test_name = "test.stdlib_adapter.guard.apply_level_new_012"
+        # Pre-emptively make sure it doesn't exist in loggerDict
+        stdlib_logging.root.manager.loggerDict.pop(guard_test_name, None)
+
+        # The adapter tracks that we're "applying" this logger via the guard set
+        self.adapter._applying_level.add(guard_test_name)
+        try:
+            # Simulate what apply_level does: call getLogger which triggers the patch
+            stdlib_logging.getLogger(guard_test_name)
+            # Guard is active — callback must NOT have fired
+            assert guard_test_name not in discovered
+        finally:
+            self.adapter._applying_level.discard(guard_test_name)
+
+    def test_guard_allows_callback_when_not_applying(self):
+        """Without the guard, a new logger triggers the callback normally."""
+        discovered = []
+        self.adapter.install_hook(lambda n, exp, eff: discovered.append(n))
+
+        normal_new = "test.stdlib_adapter.guard.normal_new_013"
+        stdlib_logging.root.manager.loggerDict.pop(normal_new, None)
+        stdlib_logging.getLogger(normal_new)
+        assert normal_new in discovered
+
+    def test_guard_debug_output_when_enabled(self, capsys):
+        """When debug is enabled, the suppressed path emits a debug line."""
+        discovered = []
+        self.adapter.install_hook(lambda n, exp, eff: discovered.append(n))
+
+        guard_name = "test.stdlib_adapter.guard.debug_014"
+        stdlib_logging.root.manager.loggerDict.pop(guard_name, None)
+        self.adapter._applying_level.add(guard_name)
+        try:
+            with patch.object(_debug_mod, "_DEBUG_ENABLED", True):
+                stdlib_logging.getLogger(guard_name)
+        finally:
+            self.adapter._applying_level.discard(guard_name)
+
+        captured = capsys.readouterr()
+        assert "suppressed" in captured.err
+        assert guard_name not in discovered

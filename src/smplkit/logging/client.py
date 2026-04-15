@@ -9,6 +9,7 @@ from collections import OrderedDict
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Callable
 
+from smplkit._debug import debug
 from smplkit._errors import (
     SmplConflictError,
     SmplConnectionError,
@@ -785,6 +786,7 @@ class LoggingClient:
 
         Idempotent — safe to call multiple times.
         """
+        debug("lifecycle", "LoggingClient.start() called")
         self._connect_internal()
 
     def on_change(self, fn_or_key: Callable[..., Any] | str | None = None) -> Any:
@@ -832,6 +834,7 @@ class LoggingClient:
         for adapter in self._adapters:
             try:
                 existing = adapter.discover()
+                debug("discovery", f"adapter {adapter.name!r} discovered {len(existing)} existing loggers")
                 for name, explicit_level, effective_level in existing:
                     normalized = normalize_logger_name(name)
                     self._name_map[name] = normalized
@@ -870,6 +873,7 @@ class LoggingClient:
 
     def _close(self) -> None:
         """Called by ``SmplClient.close()``."""
+        debug("lifecycle", "LoggingClient._close() called")
         for adapter in self._adapters:
             try:
                 adapter.uninstall_hook()
@@ -884,18 +888,22 @@ class LoggingClient:
     def _on_new_logger(self, name: str, explicit_level: int | None, effective_level: int) -> None:
         """Callback from adapters when a new logger is created."""
         normalized = normalize_logger_name(name)
+        debug("discovery", f"new logger intercepted via callback: {name!r} (normalized: {normalized!r})")
         self._name_map[name] = normalized
         smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
         smpl_effective = python_level_to_smpl(effective_level)
         self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment)
+        debug("registration", f"queued {name!r} for bulk registration (buffer size: {self._buffer.pending_count})")
 
         if self._buffer.pending_count >= _BULK_FLUSH_THRESHOLD:
+            debug("registration", f"buffer threshold reached ({_BULK_FLUSH_THRESHOLD}), flushing")
             threading.Thread(target=self._flush_bulk_sync, daemon=True).start()
 
         # If connected, try to apply level from cache
         if self._connected and normalized in self._loggers_cache:
             entry = self._loggers_cache[normalized]
             if entry.get("managed"):
+                debug("resolution", f"applying immediate level for newly discovered managed logger {name!r}")
                 resolved = resolve_level(normalized, self._parent._environment, self._loggers_cache, self._groups_cache)
                 python_level = smpl_level_to_python(resolved)
                 for adapter in self._adapters:
@@ -909,6 +917,7 @@ class LoggingClient:
         batch = self._buffer.drain()
         if not batch:
             return
+        debug("registration", f"flushing {len(batch)} loggers to POST /api/v1/loggers/bulk")
         items = [
             LoggerBulkItem(
                 id=b["id"],
@@ -921,6 +930,7 @@ class LoggingClient:
         ]
         body = LoggerBulkRequest(loggers=items)
         try:
+            debug("api", f"POST /api/v1/loggers/bulk ({len(items)} loggers)")
             response = bulk_register_loggers.sync_detailed(client=self._logging_http, body=body)
             if response.status_code.value >= 300:
                 detail = response.content[:500] if response.content else b""
@@ -929,7 +939,9 @@ class LoggingClient:
                     response.status_code.value,
                     detail.decode("utf-8", errors="replace"),
                 )
+                debug("api", f"POST /api/v1/loggers/bulk -> {response.status_code.value} (error)")
             else:
+                debug("api", f"POST /api/v1/loggers/bulk -> {response.status_code.value} ({len(items)} loggers registered)")
                 metrics = self._parent._metrics
                 if metrics is not None:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
@@ -951,6 +963,7 @@ class LoggingClient:
     def _fetch_and_apply(self) -> None:
         """Fetch all loggers/groups, resolve levels, apply to runtime."""
         # Fetch loggers
+        debug("api", "GET /api/v1/loggers")
         try:
             response = list_loggers.sync_detailed(client=self._logging_http)
             _check_response_status(response.status_code, response.content)
@@ -970,6 +983,7 @@ class LoggingClient:
                 }
 
         # Fetch groups
+        debug("api", "GET /api/v1/log-groups")
         try:
             grp_response = list_log_groups.sync_detailed(client=self._logging_http)
             _check_response_status(grp_response.status_code, grp_response.content)
@@ -987,6 +1001,10 @@ class LoggingClient:
                     "environments": _extract_environments(attrs.environments),
                 }
 
+        debug(
+            "api",
+            f"GET /api/v1/loggers -> {response.status_code.value} ({len(loggers_data)} loggers, {len(groups_data)} groups)",
+        )
         self._loggers_cache = loggers_data
         self._groups_cache = groups_data
 
@@ -995,6 +1013,7 @@ class LoggingClient:
 
     def _apply_levels(self) -> None:
         """Apply resolved levels to all managed, locally-present loggers."""
+        debug("resolution", f"running full resolution pass for {len(self._name_map)} local loggers")
         for original_name, normalized_id in self._name_map.items():
             entry = self._loggers_cache.get(normalized_id)
             if entry is None:
@@ -1243,6 +1262,7 @@ class AsyncLoggingClient:
 
         Idempotent — safe to call multiple times.
         """
+        debug("lifecycle", "AsyncLoggingClient.start() called")
         await self._connect_internal()
 
     def on_change(self, fn_or_key: Callable[..., Any] | str | None = None) -> Any:
@@ -1290,6 +1310,7 @@ class AsyncLoggingClient:
         for adapter in self._adapters:
             try:
                 existing = adapter.discover()
+                debug("discovery", f"adapter {adapter.name!r} discovered {len(existing)} existing loggers")
                 for name, explicit_level, effective_level in existing:
                     normalized = normalize_logger_name(name)
                     self._name_map[name] = normalized
@@ -1324,6 +1345,7 @@ class AsyncLoggingClient:
 
     def _close(self) -> None:
         """Called by ``AsyncSmplClient.close()``."""
+        debug("lifecycle", "AsyncLoggingClient._close() called")
         for adapter in self._adapters:
             try:
                 adapter.uninstall_hook()
@@ -1338,14 +1360,17 @@ class AsyncLoggingClient:
     def _on_new_logger(self, name: str, explicit_level: int | None, effective_level: int) -> None:
         """Callback from adapters when a new logger is created."""
         normalized = normalize_logger_name(name)
+        debug("discovery", f"new logger intercepted via callback: {name!r} (normalized: {normalized!r})")
         self._name_map[name] = normalized
         smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
         smpl_effective = python_level_to_smpl(effective_level)
         self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment)
+        debug("registration", f"queued {name!r} for bulk registration (buffer size: {self._buffer.pending_count})")
 
         if self._connected and normalized in self._loggers_cache:
             entry = self._loggers_cache[normalized]
             if entry.get("managed"):
+                debug("resolution", f"applying immediate level for newly discovered managed logger {name!r}")
                 resolved = resolve_level(normalized, self._parent._environment, self._loggers_cache, self._groups_cache)
                 python_level = smpl_level_to_python(resolved)
                 for adapter in self._adapters:
@@ -1359,6 +1384,7 @@ class AsyncLoggingClient:
         batch = self._buffer.drain()
         if not batch:
             return
+        debug("registration", f"flushing {len(batch)} loggers to POST /api/v1/loggers/bulk")
         items = [
             LoggerBulkItem(
                 id=b["id"],
@@ -1371,6 +1397,7 @@ class AsyncLoggingClient:
         ]
         body = LoggerBulkRequest(loggers=items)
         try:
+            debug("api", f"POST /api/v1/loggers/bulk ({len(items)} loggers)")
             response = await bulk_register_loggers.asyncio_detailed(client=self._logging_http, body=body)
             if response.status_code.value >= 300:
                 detail = response.content[:500] if response.content else b""
@@ -1379,7 +1406,9 @@ class AsyncLoggingClient:
                     response.status_code.value,
                     detail.decode("utf-8", errors="replace"),
                 )
+                debug("api", f"POST /api/v1/loggers/bulk -> {response.status_code.value} (error)")
             else:
+                debug("api", f"POST /api/v1/loggers/bulk -> {response.status_code.value} ({len(items)} loggers registered)")
                 metrics = self._parent._metrics
                 if metrics is not None:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
@@ -1391,6 +1420,7 @@ class AsyncLoggingClient:
         batch = self._buffer.drain()
         if not batch:
             return
+        debug("registration", f"flushing {len(batch)} loggers to POST /api/v1/loggers/bulk (sync timer)")
         items = [
             LoggerBulkItem(
                 id=b["id"],
@@ -1403,6 +1433,7 @@ class AsyncLoggingClient:
         ]
         body = LoggerBulkRequest(loggers=items)
         try:
+            debug("api", f"POST /api/v1/loggers/bulk ({len(items)} loggers)")
             response = bulk_register_loggers.sync_detailed(client=self._logging_http, body=body)
             if response.status_code.value >= 300:
                 detail = response.content[:500] if response.content else b""
@@ -1411,7 +1442,9 @@ class AsyncLoggingClient:
                     response.status_code.value,
                     detail.decode("utf-8", errors="replace"),
                 )
+                debug("api", f"POST /api/v1/loggers/bulk -> {response.status_code.value} (error)")
             else:
+                debug("api", f"POST /api/v1/loggers/bulk -> {response.status_code.value} ({len(items)} loggers registered)")
                 metrics = self._parent._metrics
                 if metrics is not None:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
@@ -1432,6 +1465,7 @@ class AsyncLoggingClient:
 
     async def _fetch_and_apply(self) -> None:
         """Fetch all loggers/groups, resolve levels, apply to runtime."""
+        debug("api", "GET /api/v1/loggers")
         try:
             response = await list_loggers.asyncio_detailed(client=self._logging_http)
             _check_response_status(response.status_code, response.content)
@@ -1450,6 +1484,7 @@ class AsyncLoggingClient:
                     "environments": _extract_environments(attrs.environments),
                 }
 
+        debug("api", "GET /api/v1/log-groups")
         try:
             grp_response = await list_log_groups.asyncio_detailed(client=self._logging_http)
             _check_response_status(grp_response.status_code, grp_response.content)
@@ -1467,12 +1502,17 @@ class AsyncLoggingClient:
                     "environments": _extract_environments(attrs.environments),
                 }
 
+        debug(
+            "api",
+            f"GET /api/v1/loggers -> {response.status_code.value} ({len(loggers_data)} loggers, {len(groups_data)} groups)",
+        )
         self._loggers_cache = loggers_data
         self._groups_cache = groups_data
         self._apply_levels()
 
     def _apply_levels(self) -> None:
         """Apply resolved levels to all managed, locally-present loggers."""
+        debug("resolution", f"running full resolution pass for {len(self._name_map)} local loggers")
         for original_name, normalized_id in self._name_map.items():
             entry = self._loggers_cache.get(normalized_id)
             if entry is None:
