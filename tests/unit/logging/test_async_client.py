@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from http import HTTPStatus
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -1014,3 +1014,78 @@ class TestWebSocketEventHandling:
         import time
 
         time.sleep(0.2)  # let thread finish
+
+    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
+    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
+    def test_handle_ws_event_successive_events_no_event_loop_error(self, mock_loggers, mock_groups):
+        """Successive WS events must not raise 'RuntimeError: Event loop is closed'.
+
+        Regression test: previously _fetch_and_apply reused self._logging_http
+        (a shared AuthenticatedClient) across different temporary event loops.
+        The httpx AsyncClient caches asyncio transports bound to the first loop;
+        when that loop is closed and a second loop reuses the same client,
+        cleanup callbacks fire against the now-closed loop.
+        """
+        import time
+
+        mock_loggers.return_value = _ok_response(_make_list_parsed([]))
+        mock_groups.return_value = _ok_response(_make_list_parsed([]))
+
+        client = _make_async_logging_client()
+
+        client._handle_ws_event({"event": "logger_changed", "id": "ghi"})
+        client._handle_ws_event({"event": "logger_changed", "id": "abc"})
+
+        time.sleep(0.4)  # let both daemon threads finish
+
+        # Both events must have triggered a full refresh cycle.
+        assert mock_loggers.call_count == 2
+        assert mock_groups.call_count == 2
+
+    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
+    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
+    @patch("smplkit.logging.client.AuthenticatedClient")
+    def test_handle_ws_event_closes_fresh_http_client(self, mock_ac_cls, mock_loggers, mock_groups):
+        """The underlying httpx AsyncClient of the fresh client is closed after refresh."""
+        import time
+
+        mock_loggers.return_value = _ok_response(_make_list_parsed([]))
+        mock_groups.return_value = _ok_response(_make_list_parsed([]))
+
+        # Provide a mock http instance with a non-None _async_client so that the
+        # `if ac is not None: await ac.aclose()` branch is exercised.
+        mock_async_client = AsyncMock()
+        mock_http_instance = MagicMock()
+        mock_http_instance._async_client = mock_async_client
+        mock_ac_cls.return_value = mock_http_instance
+
+        # _make_async_logging_client() opens its own nested patch for AuthenticatedClient
+        # (to set up _logging_http), temporarily overriding mock_ac_cls.  After it
+        # exits the constructor, mock_ac_cls is restored and is what _handle_ws_event
+        # will see when it calls AuthenticatedClient(...).
+        client = _make_async_logging_client()
+        client._handle_ws_event({"event": "logger_changed", "id": "abc"})
+
+        time.sleep(0.3)  # let the daemon thread finish
+
+        mock_async_client.aclose.assert_called_once()
+
+    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
+    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
+    def test_handle_ws_event_uses_fresh_http_client(self, mock_loggers, mock_groups):
+        """Each WS-triggered refresh must use a fresh AuthenticatedClient, not self._logging_http."""
+        import time
+
+        mock_loggers.return_value = _ok_response(_make_list_parsed([]))
+        mock_groups.return_value = _ok_response(_make_list_parsed([]))
+
+        client = _make_async_logging_client()
+        client._handle_ws_event({"event": "logger_changed", "id": "abc"})
+
+        time.sleep(0.2)
+
+        mock_loggers.assert_called_once()
+        # The client passed to the API call must NOT be self._logging_http;
+        # it must be a fresh AuthenticatedClient scoped to the thread's event loop.
+        call_client = mock_loggers.call_args.kwargs.get("client") or mock_loggers.call_args.args[0]
+        assert call_client is not client._logging_http

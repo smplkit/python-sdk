@@ -1380,20 +1380,38 @@ class AsyncLoggingClient:
         event = data.get("event", "unknown")
         resource_id = data.get("id", "")
         debug("websocket", f"logger event received: {event!r} id={resource_id!r}, triggering re-fetch")
-        import threading as _threading
+
+        # Capture these before the thread starts to avoid closure over mutable state.
+        api_key = self._parent._api_key
+
+        async def _do_refresh() -> None:
+            # Create a fresh AuthenticatedClient for this event loop. Reusing
+            # self._logging_http across different event loops causes
+            # "RuntimeError: Event loop is closed" because httpcore binds its
+            # asyncio transports to the loop that first uses the client; when
+            # that loop is closed and a new loop reuses the same cached
+            # httpx.AsyncClient, cleanup callbacks fire against the old,
+            # now-closed loop.
+            http = AuthenticatedClient(
+                base_url=_DEFAULT_LOGGING_BASE_URL,
+                token=api_key,
+            )
+            try:
+                await self._fetch_and_apply(trigger=f"websocket event {event!r}", http_client=http)
+            finally:
+                ac = http._async_client
+                if ac is not None:
+                    await ac.aclose()
 
         def _run() -> None:
             import asyncio as _asyncio
 
-            loop = _asyncio.new_event_loop()
             try:
-                loop.run_until_complete(self._fetch_and_apply(trigger=f"websocket event {event!r}"))
+                _asyncio.run(_do_refresh())
             except Exception:
                 logger.warning("Failed to re-fetch/apply logging levels after %r event", event, exc_info=True)
-            finally:
-                loop.close()
 
-        _threading.Thread(target=_run, name="smplkit-logging-ws-refresh", daemon=True).start()
+        threading.Thread(target=_run, name="smplkit-logging-ws-refresh", daemon=True).start()
 
     async def refresh(self) -> None:
         """Re-fetch all loggers and groups and update log levels."""
@@ -1532,12 +1550,20 @@ class AsyncLoggingClient:
         self._flush_timer.daemon = True
         self._flush_timer.start()
 
-    async def _fetch_and_apply(self, trigger: str = "unknown") -> None:
-        """Fetch all loggers/groups, resolve levels, apply to runtime."""
+    async def _fetch_and_apply(
+        self, trigger: str = "unknown", http_client: AuthenticatedClient | None = None
+    ) -> None:
+        """Fetch all loggers/groups, resolve levels, apply to runtime.
+
+        ``http_client``, when supplied, is used instead of ``self._logging_http``.
+        Pass a fresh client when calling from a temporary event loop (e.g. the
+        WS-event refresh thread) to prevent cross-loop httpx transport reuse.
+        """
+        http = http_client if http_client is not None else self._logging_http
         debug("resolution", f"full resolution pass starting (trigger: {trigger})")
         debug("api", "GET /api/v1/loggers")
         try:
-            response = await list_loggers.asyncio_detailed(client=self._logging_http)
+            response = await list_loggers.asyncio_detailed(client=http)
             _check_response_status(response.status_code, response.content)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
@@ -1557,7 +1583,7 @@ class AsyncLoggingClient:
 
         debug("api", "GET /api/v1/log-groups")
         try:
-            grp_response = await list_log_groups.asyncio_detailed(client=self._logging_http)
+            grp_response = await list_log_groups.asyncio_detailed(client=http)
             _check_response_status(grp_response.status_code, grp_response.content)
         except Exception as exc:
             _maybe_reraise_network_error(exc)
