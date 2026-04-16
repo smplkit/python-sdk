@@ -20,9 +20,7 @@ class UsageListResponse:
     Example:
         {'data': [{'attributes': {'limit_key': 'logging.items', 'period': 'current', 'value': 8}, 'id':
             'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type': 'usage'}, {'attributes': {'limit_key': 'logging.groups',
-            'period': 'current', 'value': 2}, 'id': 'b2c3d4e5-f6a7-8901-bcde-f12345678901', 'type': 'usage'}, {'attributes':
-            {'limit_key': 'logging.group_nesting_depth', 'period': 'current', 'value': 2}, 'id':
-            'c3d4e5f6-a7b8-9012-cdef-123456789012', 'type': 'usage'}]}
+            'period': 'current', 'value': 2}, 'id': 'b2c3d4e5-f6a7-8901-bcde-f12345678901', 'type': 'usage'}]}
 
     Attributes:
         data (list[UsageResource]):
