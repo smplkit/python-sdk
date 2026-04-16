@@ -102,14 +102,15 @@ async def main() -> None:
         await app_lg.save()
         step(f"Created: id={app_lg.id}, managed={app_lg.managed}, level={app_lg.level}")
 
-        payments_lg = client.logging.management.new("app.payments", name="app.payments", managed=True)
-        # No level — will inherit via dot-notation from "app"
+        payments_lg = client.logging.management.new("app.payments", name="app.payments")
+        # No level — unmanaged, inherits effective level from dot-notation ancestor "app"
         await payments_lg.save()
         step(f"Created: id={payments_lg.id}, managed={payments_lg.managed}, level={payments_lg.level or '(null)'}")
 
         sqla_lg = client.logging.management.new("sqlalchemy.engine", name="sqlalchemy.engine", managed=True)
+        sqla_lg.setLevel(LogLevel.WARN)
         await sqla_lg.save()
-        step(f"Created: id={sqla_lg.id}, managed={sqla_lg.managed}, level={sqla_lg.level or '(null)'}")
+        step(f"Created: id={sqla_lg.id}, managed={sqla_lg.managed}, level={sqla_lg.level}")
 
         section("2b. Create an Unmanaged Logger")
 
@@ -169,6 +170,7 @@ async def main() -> None:
         sqla_lg.clearLevel()
         await sqla_lg.save()
         step(f"Cleared sqlalchemy.engine level → {sqla_lg.level or '(null)'}")
+        step(f"  managed={sqla_lg.managed} — auto-demoted when all configuration is cleared")
         step("  Now inherits from group, dot-notation ancestor, or system default")
 
         app_lg.clearAllEnvironmentLevels()
@@ -220,6 +222,7 @@ async def main() -> None:
         # ==================================================================
         section("6. Group Assignment")
 
+        sqla_lg.managed = True  # re-promote before group assignment (auto-demoted in 4c)
         sqla_lg.group = db_group.id
         await sqla_lg.save()
         step(f"Assigned sqlalchemy.engine → group '{db_group.id}'")
