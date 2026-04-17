@@ -14,6 +14,7 @@ import datetime
 
 if TYPE_CHECKING:
     from ..models.flag_environments import FlagEnvironments
+    from ..models.flag_sources_type_0_item import FlagSourcesType0Item
     from ..models.flag_value import FlagValue
 
 
@@ -27,8 +28,9 @@ class Flag:
         {'created_at': '2026-03-27T10:00:00Z', 'default': False, 'description': 'Enable dark mode for the application
             UI', 'environments': {'production': {'default': False, 'enabled': True, 'rules': [{'description': 'Beta users
             get dark mode', 'logic': {'attribute': 'beta', 'op': 'eq', 'value': True}, 'value': True}]}, 'staging':
-            {'default': True, 'enabled': True, 'rules': []}}, 'name': 'Dark Mode', 'type': 'BOOLEAN', 'updated_at':
-            '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value': False}]}
+            {'default': True, 'enabled': True, 'rules': []}}, 'managed': True, 'name': 'Dark Mode', 'type': 'BOOLEAN',
+            'updated_at': '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value':
+            False}]}
 
     Attributes:
         name (str): Human-readable display name
@@ -38,6 +40,8 @@ class Flag:
         description (None | str | Unset):
         values (list[FlagValue] | None | Unset): Ordered set of allowed values (constrained), or null (unconstrained)
         environments (FlagEnvironments | Unset):
+        managed (bool | None | Unset): True if admin-managed, false if auto-discovered
+        sources (list[FlagSourcesType0Item] | None | Unset):
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
     """
@@ -48,6 +52,8 @@ class Flag:
     description: None | str | Unset = UNSET
     values: list[FlagValue] | None | Unset = UNSET
     environments: FlagEnvironments | Unset = UNSET
+    managed: bool | None | Unset = UNSET
+    sources: list[FlagSourcesType0Item] | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -81,6 +87,24 @@ class Flag:
         if not isinstance(self.environments, Unset):
             environments = self.environments.to_dict()
 
+        managed: bool | None | Unset
+        if isinstance(self.managed, Unset):
+            managed = UNSET
+        else:
+            managed = self.managed
+
+        sources: list[dict[str, Any]] | None | Unset
+        if isinstance(self.sources, Unset):
+            sources = UNSET
+        elif isinstance(self.sources, list):
+            sources = []
+            for sources_type_0_item_data in self.sources:
+                sources_type_0_item = sources_type_0_item_data.to_dict()
+                sources.append(sources_type_0_item)
+
+        else:
+            sources = self.sources
+
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
             created_at = UNSET
@@ -112,6 +136,10 @@ class Flag:
             field_dict["values"] = values
         if environments is not UNSET:
             field_dict["environments"] = environments
+        if managed is not UNSET:
+            field_dict["managed"] = managed
+        if sources is not UNSET:
+            field_dict["sources"] = sources
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
         if updated_at is not UNSET:
@@ -122,6 +150,7 @@ class Flag:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.flag_environments import FlagEnvironments
+        from ..models.flag_sources_type_0_item import FlagSourcesType0Item
         from ..models.flag_value import FlagValue
 
         d = dict(src_dict)
@@ -169,6 +198,37 @@ class Flag:
         else:
             environments = FlagEnvironments.from_dict(_environments)
 
+        def _parse_managed(data: object) -> bool | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(bool | None | Unset, data)
+
+        managed = _parse_managed(d.pop("managed", UNSET))
+
+        def _parse_sources(data: object) -> list[FlagSourcesType0Item] | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                sources_type_0 = []
+                _sources_type_0 = data
+                for sources_type_0_item_data in _sources_type_0:
+                    sources_type_0_item = FlagSourcesType0Item.from_dict(sources_type_0_item_data)
+
+                    sources_type_0.append(sources_type_0_item)
+
+                return sources_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[FlagSourcesType0Item] | None | Unset, data)
+
+        sources = _parse_sources(d.pop("sources", UNSET))
+
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
@@ -210,6 +270,8 @@ class Flag:
             description=description,
             values=values,
             environments=environments,
+            managed=managed,
+            sources=sources,
             created_at=created_at,
             updated_at=updated_at,
         )

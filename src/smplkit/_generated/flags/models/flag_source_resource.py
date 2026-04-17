@@ -12,35 +12,31 @@ from typing import cast
 from typing import Literal
 
 if TYPE_CHECKING:
-    from ..models.flag import Flag
+    from ..models.flag_source import FlagSource
 
 
-T = TypeVar("T", bound="FlagResource")
+T = TypeVar("T", bound="FlagSourceResource")
 
 
 @_attrs_define
-class FlagResource:
+class FlagSourceResource:
     """
     Example:
-        {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'default': False, 'description': 'Enable dark mode for the
-            application UI', 'environments': {'production': {'default': False, 'enabled': True, 'rules': [{'description':
-            'Beta users get dark mode', 'logic': {'attribute': 'beta', 'op': 'eq', 'value': True}, 'value': True}]}},
-            'managed': True, 'name': 'Dark Mode', 'type': 'BOOLEAN', 'updated_at': '2026-03-27T10:00:00Z', 'values':
-            [{'name': 'on', 'value': True}, {'name': 'off', 'value': False}]}, 'id': 'dark-mode', 'type': 'flag'}
+        {'attributes': {'created_at': '2026-04-17T10:00:00Z', 'data': {'default': True, 'type': 'BOOLEAN'},
+            'environment': 'production', 'first_observed': '2026-04-17T10:00:00Z', 'last_seen': '2026-04-17T15:30:00Z',
+            'service': 'api-gateway', 'updated_at': '2026-04-17T15:30:00Z'}, 'id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+            'type': 'flag_source'}
 
     Attributes:
-        type_ (Literal['flag']):
-        attributes (Flag):  Example: {'created_at': '2026-03-27T10:00:00Z', 'default': False, 'description': 'Enable
-            dark mode for the application UI', 'environments': {'production': {'default': False, 'enabled': True, 'rules':
-            [{'description': 'Beta users get dark mode', 'logic': {'attribute': 'beta', 'op': 'eq', 'value': True}, 'value':
-            True}]}, 'staging': {'default': True, 'enabled': True, 'rules': []}}, 'managed': True, 'name': 'Dark Mode',
-            'type': 'BOOLEAN', 'updated_at': '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name':
-            'off', 'value': False}]}.
+        type_ (Literal['flag_source']):
+        attributes (FlagSource):  Example: {'created_at': '2026-04-17T10:00:00Z', 'data': {'default': True, 'type':
+            'BOOLEAN'}, 'environment': 'production', 'first_observed': '2026-04-17T10:00:00Z', 'last_seen':
+            '2026-04-17T15:30:00Z', 'service': 'api-gateway', 'updated_at': '2026-04-17T15:30:00Z'}.
         id (None | str | Unset):
     """
 
-    type_: Literal["flag"]
-    attributes: Flag
+    type_: Literal["flag_source"]
+    attributes: FlagSource
     id: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -70,14 +66,14 @@ class FlagResource:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.flag import Flag
+        from ..models.flag_source import FlagSource
 
         d = dict(src_dict)
-        type_ = cast(Literal["flag"], d.pop("type"))
-        if type_ != "flag":
-            raise ValueError(f"type must match const 'flag', got '{type_}'")
+        type_ = cast(Literal["flag_source"], d.pop("type"))
+        if type_ != "flag_source":
+            raise ValueError(f"type must match const 'flag_source', got '{type_}'")
 
-        attributes = Flag.from_dict(d.pop("attributes"))
+        attributes = FlagSource.from_dict(d.pop("attributes"))
 
         def _parse_id(data: object) -> None | str | Unset:
             if data is None:
@@ -88,14 +84,14 @@ class FlagResource:
 
         id = _parse_id(d.pop("id", UNSET))
 
-        flag_resource = cls(
+        flag_source_resource = cls(
             type_=type_,
             attributes=attributes,
             id=id,
         )
 
-        flag_resource.additional_properties = d
-        return flag_resource
+        flag_source_resource.additional_properties = d
+        return flag_source_resource
 
     @property
     def additional_keys(self) -> list[str]:

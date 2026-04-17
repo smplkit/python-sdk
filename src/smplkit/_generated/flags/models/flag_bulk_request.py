@@ -8,35 +8,38 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.flag_resource import FlagResource
+    from ..models.flag_bulk_item import FlagBulkItem
 
 
-T = TypeVar("T", bound="FlagResponse")
+T = TypeVar("T", bound="FlagBulkRequest")
 
 
 @_attrs_define
-class FlagResponse:
+class FlagBulkRequest:
     """
+    Example:
+        {'flags': [{'default': False, 'environment': 'production', 'id': 'dark-mode', 'service': 'api-gateway', 'type':
+            'BOOLEAN'}, {'default': 3, 'environment': 'production', 'id': 'max-retries', 'service': 'api-gateway', 'type':
+            'NUMERIC'}]}
+
     Attributes:
-        data (FlagResource):  Example: {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'default': False,
-            'description': 'Enable dark mode for the application UI', 'environments': {'production': {'default': False,
-            'enabled': True, 'rules': [{'description': 'Beta users get dark mode', 'logic': {'attribute': 'beta', 'op':
-            'eq', 'value': True}, 'value': True}]}}, 'managed': True, 'name': 'Dark Mode', 'type': 'BOOLEAN', 'updated_at':
-            '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value': False}]}, 'id':
-            'dark-mode', 'type': 'flag'}.
+        flags (list[FlagBulkItem]):
     """
 
-    data: FlagResource
+    flags: list[FlagBulkItem]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = self.data.to_dict()
+        flags = []
+        for flags_item_data in self.flags:
+            flags_item = flags_item_data.to_dict()
+            flags.append(flags_item)
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "data": data,
+                "flags": flags,
             }
         )
 
@@ -44,17 +47,22 @@ class FlagResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.flag_resource import FlagResource
+        from ..models.flag_bulk_item import FlagBulkItem
 
         d = dict(src_dict)
-        data = FlagResource.from_dict(d.pop("data"))
+        flags = []
+        _flags = d.pop("flags")
+        for flags_item_data in _flags:
+            flags_item = FlagBulkItem.from_dict(flags_item_data)
 
-        flag_response = cls(
-            data=data,
+            flags.append(flags_item)
+
+        flag_bulk_request = cls(
+            flags=flags,
         )
 
-        flag_response.additional_properties = d
-        return flag_response
+        flag_bulk_request.additional_properties = d
+        return flag_bulk_request
 
     @property
     def additional_keys(self) -> list[str]:
