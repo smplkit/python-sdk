@@ -806,6 +806,7 @@ class FlagsClient:
 
     def _schedule_flag_flush(self) -> None:
         """Schedule periodic flag registration flush."""
+
         def _tick() -> None:
             self._flush_flags_sync()
             if self._connected:
@@ -1340,6 +1341,7 @@ class AsyncFlagsClient:
 
     def _schedule_flag_flush(self) -> None:
         """Schedule periodic flag registration flush."""
+
         def _tick() -> None:
             self._flush_flags_sync()
             if self._connected:
