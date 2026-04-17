@@ -18,7 +18,7 @@ T = TypeVar("T", bound="UsageListResponse")
 class UsageListResponse:
     """
     Example:
-        {'data': [{'attributes': {'limit_key': 'logging.items', 'period': 'current', 'value': 8}, 'id':
+        {'data': [{'attributes': {'limit_key': 'logging.managed_loggers', 'period': 'current', 'value': 8}, 'id':
             'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type': 'usage'}, {'attributes': {'limit_key': 'logging.groups',
             'period': 'current', 'value': 2}, 'id': 'b2c3d4e5-f6a7-8901-bcde-f12345678901', 'type': 'usage'}]}
 
