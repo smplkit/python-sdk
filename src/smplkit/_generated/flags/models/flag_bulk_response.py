@@ -1,42 +1,36 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-if TYPE_CHECKING:
-    from ..models.flag_resource import FlagResource
-
-
-T = TypeVar("T", bound="FlagResponse")
+T = TypeVar("T", bound="FlagBulkResponse")
 
 
 @_attrs_define
-class FlagResponse:
+class FlagBulkResponse:
     """
+    Example:
+        {'registered': 5}
+
     Attributes:
-        data (FlagResource):  Example: {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'default': False,
-            'description': 'Enable dark mode for the application UI', 'environments': {'production': {'default': False,
-            'enabled': True, 'rules': [{'description': 'Beta users get dark mode', 'logic': {'attribute': 'beta', 'op':
-            'eq', 'value': True}, 'value': True}]}}, 'managed': True, 'name': 'Dark Mode', 'type': 'BOOLEAN', 'updated_at':
-            '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value': False}]}, 'id':
-            'dark-mode', 'type': 'flag'}.
+        registered (int):
     """
 
-    data: FlagResource
+    registered: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = self.data.to_dict()
+        registered = self.registered
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "data": data,
+                "registered": registered,
             }
         )
 
@@ -44,17 +38,15 @@ class FlagResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.flag_resource import FlagResource
-
         d = dict(src_dict)
-        data = FlagResource.from_dict(d.pop("data"))
+        registered = d.pop("registered")
 
-        flag_response = cls(
-            data=data,
+        flag_bulk_response = cls(
+            registered=registered,
         )
 
-        flag_response.additional_properties = d
-        return flag_response
+        flag_bulk_response.additional_properties = d
+        return flag_bulk_response
 
     @property
     def additional_keys(self) -> list[str]:

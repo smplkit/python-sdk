@@ -14,6 +14,7 @@ from ...types import Unset
 def _get_kwargs(
     *,
     filtertype: None | str | Unset = UNSET,
+    filtermanaged: bool | None | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -24,6 +25,13 @@ def _get_kwargs(
     else:
         json_filtertype = filtertype
     params["filter[type]"] = json_filtertype
+
+    json_filtermanaged: bool | None | Unset
+    if isinstance(filtermanaged, Unset):
+        json_filtermanaged = UNSET
+    else:
+        json_filtermanaged = filtermanaged
+    params["filter[managed]"] = json_filtermanaged
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -61,6 +69,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     filtertype: None | str | Unset = UNSET,
+    filtermanaged: bool | None | Unset = UNSET,
 ) -> Response[FlagListResponse]:
     """List Flags
 
@@ -68,6 +77,7 @@ def sync_detailed(
 
     Args:
         filtertype (None | str | Unset):
+        filtermanaged (bool | None | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -79,6 +89,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         filtertype=filtertype,
+        filtermanaged=filtermanaged,
     )
 
     response = client.get_httpx_client().request(
@@ -92,6 +103,7 @@ def sync(
     *,
     client: AuthenticatedClient,
     filtertype: None | str | Unset = UNSET,
+    filtermanaged: bool | None | Unset = UNSET,
 ) -> FlagListResponse | None:
     """List Flags
 
@@ -99,6 +111,7 @@ def sync(
 
     Args:
         filtertype (None | str | Unset):
+        filtermanaged (bool | None | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -111,6 +124,7 @@ def sync(
     return sync_detailed(
         client=client,
         filtertype=filtertype,
+        filtermanaged=filtermanaged,
     ).parsed
 
 
@@ -118,6 +132,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     filtertype: None | str | Unset = UNSET,
+    filtermanaged: bool | None | Unset = UNSET,
 ) -> Response[FlagListResponse]:
     """List Flags
 
@@ -125,6 +140,7 @@ async def asyncio_detailed(
 
     Args:
         filtertype (None | str | Unset):
+        filtermanaged (bool | None | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -136,6 +152,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         filtertype=filtertype,
+        filtermanaged=filtermanaged,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -147,6 +164,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     filtertype: None | str | Unset = UNSET,
+    filtermanaged: bool | None | Unset = UNSET,
 ) -> FlagListResponse | None:
     """List Flags
 
@@ -154,6 +172,7 @@ async def asyncio(
 
     Args:
         filtertype (None | str | Unset):
+        filtermanaged (bool | None | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -167,5 +186,6 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             filtertype=filtertype,
+            filtermanaged=filtermanaged,
         )
     ).parsed

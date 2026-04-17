@@ -8,29 +8,27 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.flag_resource import FlagResource
+    from ..models.flag_source_resource import FlagSourceResource
 
 
-T = TypeVar("T", bound="FlagResponse")
+T = TypeVar("T", bound="FlagSourceListResponse")
 
 
 @_attrs_define
-class FlagResponse:
+class FlagSourceListResponse:
     """
     Attributes:
-        data (FlagResource):  Example: {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'default': False,
-            'description': 'Enable dark mode for the application UI', 'environments': {'production': {'default': False,
-            'enabled': True, 'rules': [{'description': 'Beta users get dark mode', 'logic': {'attribute': 'beta', 'op':
-            'eq', 'value': True}, 'value': True}]}}, 'managed': True, 'name': 'Dark Mode', 'type': 'BOOLEAN', 'updated_at':
-            '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value': False}]}, 'id':
-            'dark-mode', 'type': 'flag'}.
+        data (list[FlagSourceResource]):
     """
 
-    data: FlagResource
+    data: list[FlagSourceResource]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = self.data.to_dict()
+        data = []
+        for data_item_data in self.data:
+            data_item = data_item_data.to_dict()
+            data.append(data_item)
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -44,17 +42,22 @@ class FlagResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.flag_resource import FlagResource
+        from ..models.flag_source_resource import FlagSourceResource
 
         d = dict(src_dict)
-        data = FlagResource.from_dict(d.pop("data"))
+        data = []
+        _data = d.pop("data")
+        for data_item_data in _data:
+            data_item = FlagSourceResource.from_dict(data_item_data)
 
-        flag_response = cls(
+            data.append(data_item)
+
+        flag_source_list_response = cls(
             data=data,
         )
 
-        flag_response.additional_properties = d
-        return flag_response
+        flag_source_list_response.additional_properties = d
+        return flag_source_list_response
 
     @property
     def additional_keys(self) -> list[str]:
