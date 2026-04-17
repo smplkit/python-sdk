@@ -21,8 +21,8 @@ T = TypeVar("T", bound="UsageResource")
 class UsageResource:
     """
     Example:
-        {'attributes': {'limit_key': 'logging.items', 'period': 'current', 'value': 8}, 'id': 'a1b2c3d4-e5f6-7890-abcd-
-            ef1234567890', 'type': 'usage'}
+        {'attributes': {'limit_key': 'logging.managed_loggers', 'period': 'current', 'value': 8}, 'id':
+            'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type': 'usage'}
 
     Attributes:
         id (str):
