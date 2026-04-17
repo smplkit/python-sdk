@@ -165,6 +165,7 @@ class SmplClient:
         if self._metrics is not None:
             self._metrics.close()
         self.logging._close()
+        self.flags._close()
         if self._ws_manager is not None:
             self._ws_manager.stop()
             self._ws_manager = None
@@ -308,6 +309,7 @@ class AsyncSmplClient:
         if self._metrics is not None:
             await self._metrics.close()
         self.logging._close()
+        self.flags._close()
         if self._ws_manager is not None:
             self._ws_manager.stop()
             self._ws_manager = None

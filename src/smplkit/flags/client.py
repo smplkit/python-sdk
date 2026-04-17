@@ -25,12 +25,15 @@ from smplkit._generated.app.models.context_bulk_item import ContextBulkItem
 from smplkit._generated.app.models.context_bulk_item_attributes import ContextBulkItemAttributes
 from smplkit._generated.app.models.context_bulk_register import ContextBulkRegister
 from smplkit._generated.flags.api.flags import (
+    bulk_register_flags,
     create_flag,
     delete_flag,
     get_flag,
     list_flags,
     update_flag,
 )
+from smplkit._generated.flags.models.flag_bulk_item import FlagBulkItem
+from smplkit._generated.flags.models.flag_bulk_request import FlagBulkRequest
 from smplkit._generated.flags.client import AuthenticatedClient
 from smplkit._generated.flags.models.flag import Flag as GenFlag
 from smplkit._generated.flags.models.flag_environment import FlagEnvironment as GenFlagEnvironment
@@ -66,6 +69,8 @@ _DEFAULT_APP_BASE_URL = "https://app.smplkit.com"
 _CACHE_MAX_SIZE = 10_000
 _CONTEXT_REGISTRATION_LRU_SIZE = 10_000
 _CONTEXT_BATCH_FLUSH_SIZE = 100
+_FLAG_BULK_FLUSH_THRESHOLD = 50
+_FLAG_BULK_FLUSH_INTERVAL = 30.0  # seconds
 
 
 # ---------------------------------------------------------------------------
@@ -376,6 +381,55 @@ class _ContextRegistrationBuffer:
 
 
 # ---------------------------------------------------------------------------
+# Flag registration buffer
+# ---------------------------------------------------------------------------
+
+
+class _FlagRegistrationBuffer:
+    """Batches declared flags for bulk registration."""
+
+    def __init__(self) -> None:
+        self._seen: OrderedDict[str, bool] = OrderedDict()
+        self._pending: list[dict[str, Any]] = []
+        self._lock = threading.Lock()
+
+    def add(
+        self,
+        flag_id: str,
+        flag_type: str,
+        default: Any,
+        service: str | None,
+        environment: str | None,
+    ) -> None:
+        """Queue a flag for registration if not already seen."""
+        with self._lock:
+            if flag_id not in self._seen:
+                self._seen[flag_id] = True
+                item: dict[str, Any] = {
+                    "id": flag_id,
+                    "type": flag_type,
+                    "default": default,
+                }
+                if service is not None:
+                    item["service"] = service
+                if environment is not None:
+                    item["environment"] = environment
+                self._pending.append(item)
+
+    def drain(self) -> list[dict[str, Any]]:
+        """Return and clear the pending batch."""
+        with self._lock:
+            batch = self._pending
+            self._pending = []
+            return batch
+
+    @property
+    def pending_count(self) -> int:
+        with self._lock:
+            return len(self._pending)
+
+
+# ---------------------------------------------------------------------------
 # FlagsClient (sync)
 # ---------------------------------------------------------------------------
 
@@ -521,6 +575,8 @@ class FlagsClient:
         self._cache = _ResolutionCache()
         self._context_provider: Callable[[], list[Context]] | None = None
         self._context_buffer = _ContextRegistrationBuffer()
+        self._flag_buffer = _FlagRegistrationBuffer()
+        self._flag_flush_timer: threading.Timer | None = None
         self._handles: dict[str, Flag] = {}
         self._global_listeners: list[Callable[[FlagChangeEvent], None]] = []
         self._key_listeners: dict[str, list[Callable[[FlagChangeEvent], None]]] = {}
@@ -529,6 +585,12 @@ class FlagsClient:
         self._ws_manager: SharedWebSocket | None = None
 
         self.management = FlagsManagementClient(self)
+
+    def _close(self) -> None:
+        """Release resources held by this client."""
+        if self._flag_flush_timer is not None:
+            self._flag_flush_timer.cancel()
+            self._flag_flush_timer = None
 
     def _create_flag(self, flag: Flag) -> Flag:
         """Internal: POST a new flag.  Called by Flag.save() when created_at is None."""
@@ -578,24 +640,36 @@ class FlagsClient:
         """Declare a boolean flag handle for runtime evaluation."""
         handle = BooleanFlag(self, id=id, name=id, type="BOOLEAN", default=default)
         self._handles[id] = handle
+        self._flag_buffer.add(id, "BOOLEAN", default, self._parent._service, self._parent._environment)
+        if self._flag_buffer.pending_count >= _FLAG_BULK_FLUSH_THRESHOLD:
+            threading.Thread(target=self._flush_flags_sync, daemon=True).start()
         return handle
 
     def stringFlag(self, id: str, *, default: str) -> StringFlag:
         """Declare a string flag handle for runtime evaluation."""
         handle = StringFlag(self, id=id, name=id, type="STRING", default=default)
         self._handles[id] = handle
+        self._flag_buffer.add(id, "STRING", default, self._parent._service, self._parent._environment)
+        if self._flag_buffer.pending_count >= _FLAG_BULK_FLUSH_THRESHOLD:
+            threading.Thread(target=self._flush_flags_sync, daemon=True).start()
         return handle
 
     def numberFlag(self, id: str, *, default: int | float) -> NumberFlag:
         """Declare a numeric flag handle for runtime evaluation."""
         handle = NumberFlag(self, id=id, name=id, type="NUMERIC", default=default)
         self._handles[id] = handle
+        self._flag_buffer.add(id, "NUMERIC", default, self._parent._service, self._parent._environment)
+        if self._flag_buffer.pending_count >= _FLAG_BULK_FLUSH_THRESHOLD:
+            threading.Thread(target=self._flush_flags_sync, daemon=True).start()
         return handle
 
     def jsonFlag(self, id: str, *, default: dict[str, Any]) -> JsonFlag:
         """Declare a JSON flag handle for runtime evaluation."""
         handle = JsonFlag(self, id=id, name=id, type="JSON", default=default)
         self._handles[id] = handle
+        self._flag_buffer.add(id, "JSON", default, self._parent._service, self._parent._environment)
+        if self._flag_buffer.pending_count >= _FLAG_BULK_FLUSH_THRESHOLD:
+            threading.Thread(target=self._flush_flags_sync, daemon=True).start()
         return handle
 
     # ------------------------------------------------------------------
@@ -619,6 +693,10 @@ class FlagsClient:
         if self._connected:
             return
         self._environment = self._parent._environment
+
+        # Flush discovered flags BEFORE fetching definitions
+        self._flush_flags_sync()
+
         self._fetch_all_flags()
         self._connected = True
         self._cache.clear()
@@ -627,6 +705,9 @@ class FlagsClient:
         self._ws_manager = self._parent._ensure_ws()
         self._ws_manager.on("flag_changed", self._handle_flag_changed)
         self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
+
+        # Start periodic flush timer
+        self._schedule_flag_flush()
 
     def refresh(self) -> None:
         """Re-fetch all flag definitions and clear cache."""
@@ -695,6 +776,44 @@ class FlagsClient:
             gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         except Exception:
             logger.debug("Context registration flush failed", exc_info=True)
+
+    # ------------------------------------------------------------------
+    # Runtime: flag registration flush
+    # ------------------------------------------------------------------
+
+    def _flush_flags_sync(self) -> None:
+        """Flush the flag registration buffer to the flags service."""
+        batch = self._flag_buffer.drain()
+        if not batch:
+            return
+        items = [
+            FlagBulkItem(
+                id=b["id"],
+                type_=b["type"],
+                default=b["default"],
+                service=b.get("service"),
+                environment=b.get("environment"),
+            )
+            for b in batch
+        ]
+        body = FlagBulkRequest(flags=items)
+        try:
+            response = bulk_register_flags.sync_detailed(client=self._flags_http, body=body)
+            if response.status_code.value >= 300:
+                logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
+        except Exception:
+            logger.warning("Bulk flag registration failed", exc_info=True)
+
+    def _schedule_flag_flush(self) -> None:
+        """Schedule periodic flag registration flush."""
+        def _tick() -> None:
+            self._flush_flags_sync()
+            if self._connected:
+                self._schedule_flag_flush()
+
+        self._flag_flush_timer = threading.Timer(_FLAG_BULK_FLUSH_INTERVAL, _tick)
+        self._flag_flush_timer.daemon = True
+        self._flag_flush_timer.start()
 
     # ------------------------------------------------------------------
     # Internal: evaluation
@@ -988,6 +1107,8 @@ class AsyncFlagsClient:
         self._cache = _ResolutionCache()
         self._context_provider: Callable[[], list[Context]] | None = None
         self._context_buffer = _ContextRegistrationBuffer()
+        self._flag_buffer = _FlagRegistrationBuffer()
+        self._flag_flush_timer: threading.Timer | None = None
         self._handles: dict[str, AsyncFlag] = {}
         self._global_listeners: list[Callable[[FlagChangeEvent], None]] = []
         self._key_listeners: dict[str, list[Callable[[FlagChangeEvent], None]]] = {}
@@ -996,6 +1117,12 @@ class AsyncFlagsClient:
         self._ws_manager: SharedWebSocket | None = None
 
         self.management = AsyncFlagsManagementClient(self)
+
+    def _close(self) -> None:
+        """Release resources held by this client."""
+        if self._flag_flush_timer is not None:
+            self._flag_flush_timer.cancel()
+            self._flag_flush_timer = None
 
     async def _create_flag(self, flag: AsyncFlag) -> AsyncFlag:
         """Internal: POST a new flag."""
@@ -1044,21 +1171,33 @@ class AsyncFlagsClient:
     def booleanFlag(self, id: str, *, default: bool) -> AsyncBooleanFlag:
         handle = AsyncBooleanFlag(self, id=id, name=id, type="BOOLEAN", default=default)
         self._handles[id] = handle
+        self._flag_buffer.add(id, "BOOLEAN", default, self._parent._service, self._parent._environment)
+        if self._flag_buffer.pending_count >= _FLAG_BULK_FLUSH_THRESHOLD:
+            threading.Thread(target=self._flush_flags_sync, daemon=True).start()
         return handle
 
     def stringFlag(self, id: str, *, default: str) -> AsyncStringFlag:
         handle = AsyncStringFlag(self, id=id, name=id, type="STRING", default=default)
         self._handles[id] = handle
+        self._flag_buffer.add(id, "STRING", default, self._parent._service, self._parent._environment)
+        if self._flag_buffer.pending_count >= _FLAG_BULK_FLUSH_THRESHOLD:
+            threading.Thread(target=self._flush_flags_sync, daemon=True).start()
         return handle
 
     def numberFlag(self, id: str, *, default: int | float) -> AsyncNumberFlag:
         handle = AsyncNumberFlag(self, id=id, name=id, type="NUMERIC", default=default)
         self._handles[id] = handle
+        self._flag_buffer.add(id, "NUMERIC", default, self._parent._service, self._parent._environment)
+        if self._flag_buffer.pending_count >= _FLAG_BULK_FLUSH_THRESHOLD:
+            threading.Thread(target=self._flush_flags_sync, daemon=True).start()
         return handle
 
     def jsonFlag(self, id: str, *, default: dict[str, Any]) -> AsyncJsonFlag:
         handle = AsyncJsonFlag(self, id=id, name=id, type="JSON", default=default)
         self._handles[id] = handle
+        self._flag_buffer.add(id, "JSON", default, self._parent._service, self._parent._environment)
+        if self._flag_buffer.pending_count >= _FLAG_BULK_FLUSH_THRESHOLD:
+            threading.Thread(target=self._flush_flags_sync, daemon=True).start()
         return handle
 
     # ------------------------------------------------------------------
@@ -1078,6 +1217,10 @@ class AsyncFlagsClient:
         if self._connected:
             return
         self._environment = self._parent._environment
+
+        # Flush discovered flags BEFORE fetching definitions
+        await self._flush_flags_async()
+
         await self._fetch_all_flags()
         self._connected = True
         self._cache.clear()
@@ -1085,6 +1228,9 @@ class AsyncFlagsClient:
         self._ws_manager = self._parent._ensure_ws()
         self._ws_manager.on("flag_changed", self._handle_flag_changed)
         self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
+
+        # Start periodic flush timer
+        self._schedule_flag_flush()
 
     async def refresh(self) -> None:
         await self._fetch_all_flags()
@@ -1143,6 +1289,67 @@ class AsyncFlagsClient:
             logger.debug("Context registration flush failed", exc_info=True)
 
     # ------------------------------------------------------------------
+    # Runtime: flag registration flush
+    # ------------------------------------------------------------------
+
+    async def _flush_flags_async(self) -> None:
+        """Flush the flag registration buffer to the flags service (async)."""
+        batch = self._flag_buffer.drain()
+        if not batch:
+            return
+        items = [
+            FlagBulkItem(
+                id=b["id"],
+                type_=b["type"],
+                default=b["default"],
+                service=b.get("service"),
+                environment=b.get("environment"),
+            )
+            for b in batch
+        ]
+        body = FlagBulkRequest(flags=items)
+        try:
+            response = await bulk_register_flags.asyncio_detailed(client=self._flags_http, body=body)
+            if response.status_code.value >= 300:
+                logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
+        except Exception:
+            logger.warning("Bulk flag registration failed", exc_info=True)
+
+    def _flush_flags_sync(self) -> None:
+        """Sync flush for periodic timer (runs in background thread)."""
+        batch = self._flag_buffer.drain()
+        if not batch:
+            return
+        items = [
+            FlagBulkItem(
+                id=b["id"],
+                type_=b["type"],
+                default=b["default"],
+                service=b.get("service"),
+                environment=b.get("environment"),
+            )
+            for b in batch
+        ]
+        body = FlagBulkRequest(flags=items)
+        try:
+            response = bulk_register_flags.sync_detailed(client=self._flags_http, body=body)
+            if response.status_code.value >= 300:
+                logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
+        except Exception:
+            logger.warning("Bulk flag registration failed", exc_info=True)
+
+    def _schedule_flag_flush(self) -> None:
+        """Schedule periodic flag registration flush."""
+        def _tick() -> None:
+            self._flush_flags_sync()
+            if self._connected:
+                self._schedule_flag_flush()
+
+        self._flag_flush_timer = threading.Timer(_FLAG_BULK_FLUSH_INTERVAL, _tick)
+        self._flag_flush_timer.daemon = True
+        self._flag_flush_timer.start()
+
+    # ------------------------------------------------------------------
     # Internal: evaluation
     # ------------------------------------------------------------------
 
@@ -1156,12 +1363,14 @@ class AsyncFlagsClient:
         if not self._connected:
             # Lazy init using sync HTTP (safe from any thread)
             self._environment = self._parent._environment
+            self._flush_flags_sync()
             self._fetch_all_flags_sync()
             self._connected = True
             self._cache.clear()
             self._ws_manager = self._parent._ensure_ws()
             self._ws_manager.on("flag_changed", self._handle_flag_changed)
             self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
+            self._schedule_flag_flush()
 
         if context is not None:
             eval_dict = _contexts_to_eval_dict(context)
