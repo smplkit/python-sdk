@@ -3,50 +3,22 @@
 from __future__ import annotations
 
 import logging
-import os
 import threading
 
+from smplkit._config import ResolvedConfig, _service_url, resolve_config
 from smplkit._debug import debug
-from smplkit._errors import SmplError
 from smplkit._generated.app.api.contexts import bulk_register_contexts as gen_bulk_register_contexts
 from smplkit._generated.app.models.context_bulk_item import ContextBulkItem
 from smplkit._generated.app.models.context_bulk_item_attributes import ContextBulkItemAttributes
 from smplkit._generated.app.models.context_bulk_register import ContextBulkRegister
 from smplkit._generated.config.client import AuthenticatedClient
 from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
-from smplkit._resolve import _resolve_api_key
 from smplkit._ws import SharedWebSocket
 from smplkit.config.client import AsyncConfigClient, ConfigClient
 from smplkit.flags.client import AsyncFlagsClient, FlagsClient
 from smplkit.logging.client import AsyncLoggingClient, LoggingClient
 
 logger = logging.getLogger("smplkit")
-
-_DEFAULT_DOMAIN = "smplkit.com"
-_DEFAULT_SCHEME = "https"
-
-_NO_ENVIRONMENT_MESSAGE = (
-    "No environment provided. Set one of:\n"
-    "  1. Pass environment to the constructor\n"
-    "  2. Set the SMPLKIT_ENVIRONMENT environment variable"
-)
-
-_NO_SERVICE_MESSAGE = (
-    "No service provided. Set one of:\n"
-    "  1. Pass service to the constructor\n"
-    "  2. Set the SMPLKIT_SERVICE environment variable"
-)
-
-
-def _no_api_key_message(environment: str) -> str:
-    return (
-        "No API key provided. Set one of:\n"
-        "  1. Pass api_key to the constructor\n"
-        "  2. Set the SMPLKIT_API_KEY environment variable\n"
-        "  3. Create a ~/.smplkit file with:\n"
-        f"     [{environment}]\n"
-        "     api_key = your_key_here"
-    )
 
 
 class SmplClient:
@@ -56,27 +28,23 @@ class SmplClient:
 
         from smplkit import SmplClient
 
-        with SmplClient("sk_api_...", environment="production", service="my-svc") as client:
+        with SmplClient(environment="production", service="my-svc") as client:
             checkout_v2 = client.flags.booleanFlag("checkout-v2", default=False)
             if checkout_v2.get(): ...
 
-    The API key is optional. When omitted, it is resolved from the
-    ``SMPLKIT_API_KEY`` environment variable or the ``~/.smplkit``
-    configuration file (``[{environment}]`` section, then ``[default]``).
+    All parameters are optional. When omitted, the SDK resolves them from
+    environment variables (``SMPLKIT_*``) or the ``~/.smplkit`` configuration
+    file. See ADR-021 for the full resolution algorithm.
 
     Args:
         api_key: API key for authenticating with the smplkit platform.
-            When *None*, the SDK resolves it automatically.
         environment: The environment to connect to (e.g. ``"production"``).
-            Required — resolved from ``SMPLKIT_ENVIRONMENT`` if not provided.
-        service: Service name (e.g. ``"user-service"``). Required — resolved
-            from ``SMPLKIT_SERVICE`` if not provided.
-        base_domain: Base domain for all service URLs. Defaults to
-            ``"smplkit.com"``, producing ``config.smplkit.com``,
-            ``app.smplkit.com``, ``flags.smplkit.com``, and
-            ``logging.smplkit.com``.  Override to ``"localhost"`` for local
-            development (e.g. ``http://config.localhost``).
-        scheme: URL scheme — ``"https"`` (default) or ``"http"``.
+        service: Service name (e.g. ``"user-service"``).
+        profile: Named profile section to read from ``~/.smplkit``.
+        base_domain: Base domain for API requests (default ``"smplkit.com"``).
+        scheme: URL scheme (default ``"https"``).
+        debug: Enable debug logging in the SDK.
+        disable_telemetry: Disable anonymous usage telemetry.
     """
 
     config: ConfigClient
@@ -89,61 +57,70 @@ class SmplClient:
         *,
         environment: str | None = None,
         service: str | None = None,
-        disable_telemetry: bool = False,
-        base_domain: str = _DEFAULT_DOMAIN,
-        scheme: str = _DEFAULT_SCHEME,
+        profile: str | None = None,
+        base_domain: str | None = None,
+        scheme: str | None = None,
+        debug: bool | None = None,
+        disable_telemetry: bool | None = None,
     ) -> None:
-        # 1. Resolve environment
-        resolved_env = environment or os.environ.get("SMPLKIT_ENVIRONMENT")
-        if not resolved_env:
-            raise SmplError(_NO_ENVIRONMENT_MESSAGE)
-        self._environment = resolved_env
-
-        # 2. Resolve service
-        resolved_svc = service or os.environ.get("SMPLKIT_SERVICE")
-        if not resolved_svc:
-            raise SmplError(_NO_SERVICE_MESSAGE)
-        self._service = resolved_svc
-
-        # 3. Resolve API key (needs environment for ~/.smplkit section lookup)
-        resolved = _resolve_api_key(api_key, self._environment)
-        if resolved is None:
-            raise SmplError(_no_api_key_message(self._environment))
-        self._api_key = resolved
-        debug(
-            "lifecycle",
-            f"SmplClient init: api_key={resolved[:10]}...{resolved[-4:]}"
-            f" env={self._environment!r} service={self._service!r}",
+        cfg = resolve_config(
+            profile=profile,
+            api_key=api_key,
+            base_domain=base_domain,
+            scheme=scheme,
+            environment=environment,
+            service=service,
+            debug=debug,
+            disable_telemetry=disable_telemetry,
         )
 
-        config_base_url = f"{scheme}://config.{base_domain}"
-        self._app_base_url = f"{scheme}://app.{base_domain}"
-        flags_base_url = f"{scheme}://flags.{base_domain}"
-        logging_base_url = f"{scheme}://logging.{base_domain}"
+        self._api_key = cfg.api_key
+        self._environment = cfg.environment
+        self._service = cfg.service
+        self._base_domain = cfg.base_domain
+        self._scheme = cfg.scheme
+
+        if cfg.debug:
+            logger.setLevel(logging.DEBUG)
+
+        masked_key = cfg.api_key[:10] + "..." if len(cfg.api_key) > 10 else cfg.api_key
+        _debug(
+            "lifecycle",
+            f"SmplClient init: api_key={masked_key}"
+            f" env={cfg.environment!r} service={cfg.service!r}"
+            f" base_domain={cfg.base_domain!r} scheme={cfg.scheme!r}"
+            f" debug={cfg.debug} disable_telemetry={cfg.disable_telemetry}",
+        )
+
+        config_url = _service_url(cfg.scheme, "config", cfg.base_domain)
+        app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
+        flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
+        logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
 
         self._http_client = AuthenticatedClient(
-            base_url=config_base_url,
-            token=resolved,
+            base_url=config_url,
+            token=cfg.api_key,
         )
         self._app_http = AuthenticatedClient(
-            base_url=self._app_base_url,
-            token=resolved,
+            base_url=app_url,
+            token=cfg.api_key,
         )
+        self._app_base_url = app_url
 
-        # 4. Metrics reporter
-        if disable_telemetry:
+        # Metrics reporter
+        if cfg.disable_telemetry:
             self._metrics: _MetricsReporter | None = None
         else:
             self._metrics = _MetricsReporter(
                 http_client=self._app_http,
-                environment=self._environment,
-                service=self._service,
+                environment=cfg.environment,
+                service=cfg.service,
             )
 
         self._ws_manager: SharedWebSocket | None = None
         self.config = ConfigClient(self)
-        self.flags = FlagsClient(self, flags_base_url=flags_base_url, app_base_url=self._app_base_url)
-        self.logging = LoggingClient(self, logging_base_url=logging_base_url, app_base_url=self._app_base_url)
+        self.flags = FlagsClient(self, flags_base_url=flags_url, app_base_url=app_url)
+        self.logging = LoggingClient(self, logging_base_url=logging_url, app_base_url=app_url)
 
         # Register service context (fire-and-forget, non-blocking)
         self._init_thread = threading.Thread(target=self._register_service_context, daemon=True)
@@ -174,7 +151,7 @@ class SmplClient:
 
     def close(self) -> None:
         """Release all resources held by this client."""
-        debug("lifecycle", "SmplClient.close() called")
+        _debug("lifecycle", "SmplClient.close() called")
         if self._metrics is not None:
             self._metrics.close()
         self.logging._close()
@@ -201,27 +178,13 @@ class AsyncSmplClient:
 
         from smplkit import AsyncSmplClient
 
-        async with AsyncSmplClient("sk_api_...", environment="production", service="my-svc") as client:
+        async with AsyncSmplClient(environment="production", service="my-svc") as client:
             checkout_v2 = client.flags.booleanFlag("checkout-v2", default=False)
             if checkout_v2.get(): ...
 
-    The API key is optional. When omitted, it is resolved from the
-    ``SMPLKIT_API_KEY`` environment variable or the ``~/.smplkit``
-    configuration file (``[{environment}]`` section, then ``[default]``).
-
-    Args:
-        api_key: API key for authenticating with the smplkit platform.
-            When *None*, the SDK resolves it automatically.
-        environment: The environment to connect to (e.g. ``"production"``).
-            Required — resolved from ``SMPLKIT_ENVIRONMENT`` if not provided.
-        service: Service name (e.g. ``"user-service"``). Required — resolved
-            from ``SMPLKIT_SERVICE`` if not provided.
-        base_domain: Base domain for all service URLs. Defaults to
-            ``"smplkit.com"``, producing ``config.smplkit.com``,
-            ``app.smplkit.com``, ``flags.smplkit.com``, and
-            ``logging.smplkit.com``.  Override to ``"localhost"`` for local
-            development (e.g. ``http://config.localhost``).
-        scheme: URL scheme — ``"https"`` (default) or ``"http"``.
+    All parameters are optional. When omitted, the SDK resolves them from
+    environment variables (``SMPLKIT_*``) or the ``~/.smplkit`` configuration
+    file. See ADR-021 for the full resolution algorithm.
     """
 
     config: AsyncConfigClient
@@ -234,61 +197,70 @@ class AsyncSmplClient:
         *,
         environment: str | None = None,
         service: str | None = None,
-        disable_telemetry: bool = False,
-        base_domain: str = _DEFAULT_DOMAIN,
-        scheme: str = _DEFAULT_SCHEME,
+        profile: str | None = None,
+        base_domain: str | None = None,
+        scheme: str | None = None,
+        debug: bool | None = None,
+        disable_telemetry: bool | None = None,
     ) -> None:
-        # 1. Resolve environment
-        resolved_env = environment or os.environ.get("SMPLKIT_ENVIRONMENT")
-        if not resolved_env:
-            raise SmplError(_NO_ENVIRONMENT_MESSAGE)
-        self._environment = resolved_env
-
-        # 2. Resolve service
-        resolved_svc = service or os.environ.get("SMPLKIT_SERVICE")
-        if not resolved_svc:
-            raise SmplError(_NO_SERVICE_MESSAGE)
-        self._service = resolved_svc
-
-        # 3. Resolve API key (needs environment for ~/.smplkit section lookup)
-        resolved = _resolve_api_key(api_key, self._environment)
-        if resolved is None:
-            raise SmplError(_no_api_key_message(self._environment))
-        self._api_key = resolved
-        debug(
-            "lifecycle",
-            f"AsyncSmplClient init: api_key={resolved[:10]}...{resolved[-4:]}"
-            f" env={self._environment!r} service={self._service!r}",
+        cfg = resolve_config(
+            profile=profile,
+            api_key=api_key,
+            base_domain=base_domain,
+            scheme=scheme,
+            environment=environment,
+            service=service,
+            debug=debug,
+            disable_telemetry=disable_telemetry,
         )
 
-        config_base_url = f"{scheme}://config.{base_domain}"
-        self._app_base_url = f"{scheme}://app.{base_domain}"
-        flags_base_url = f"{scheme}://flags.{base_domain}"
-        logging_base_url = f"{scheme}://logging.{base_domain}"
+        self._api_key = cfg.api_key
+        self._environment = cfg.environment
+        self._service = cfg.service
+        self._base_domain = cfg.base_domain
+        self._scheme = cfg.scheme
+
+        if cfg.debug:
+            logger.setLevel(logging.DEBUG)
+
+        masked_key = cfg.api_key[:10] + "..." if len(cfg.api_key) > 10 else cfg.api_key
+        _debug(
+            "lifecycle",
+            f"AsyncSmplClient init: api_key={masked_key}"
+            f" env={cfg.environment!r} service={cfg.service!r}"
+            f" base_domain={cfg.base_domain!r} scheme={cfg.scheme!r}"
+            f" debug={cfg.debug} disable_telemetry={cfg.disable_telemetry}",
+        )
+
+        config_url = _service_url(cfg.scheme, "config", cfg.base_domain)
+        app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
+        flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
+        logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
 
         self._http_client = AuthenticatedClient(
-            base_url=config_base_url,
-            token=resolved,
+            base_url=config_url,
+            token=cfg.api_key,
         )
         self._app_http = AuthenticatedClient(
-            base_url=self._app_base_url,
-            token=resolved,
+            base_url=app_url,
+            token=cfg.api_key,
         )
+        self._app_base_url = app_url
 
-        # 4. Metrics reporter
-        if disable_telemetry:
+        # Metrics reporter
+        if cfg.disable_telemetry:
             self._metrics: _AsyncMetricsReporter | None = None
         else:
             self._metrics = _AsyncMetricsReporter(
                 http_client=self._app_http,
-                environment=self._environment,
-                service=self._service,
+                environment=cfg.environment,
+                service=cfg.service,
             )
 
         self._ws_manager: SharedWebSocket | None = None
         self.config = AsyncConfigClient(self)
-        self.flags = AsyncFlagsClient(self, flags_base_url=flags_base_url, app_base_url=self._app_base_url)
-        self.logging = AsyncLoggingClient(self, logging_base_url=logging_base_url, app_base_url=self._app_base_url)
+        self.flags = AsyncFlagsClient(self, flags_base_url=flags_url, app_base_url=app_url)
+        self.logging = AsyncLoggingClient(self, logging_base_url=logging_url, app_base_url=app_url)
 
         # Register service context (fire-and-forget, non-blocking)
         self._init_thread = threading.Thread(target=self._register_service_context_sync, daemon=True)
@@ -331,7 +303,7 @@ class AsyncSmplClient:
 
     async def close(self) -> None:
         """Release all resources held by this client."""
-        debug("lifecycle", "AsyncSmplClient.close() called")
+        _debug("lifecycle", "AsyncSmplClient.close() called")
         if self._metrics is not None:
             await self._metrics.close()
         self.logging._close()
@@ -349,3 +321,7 @@ class AsyncSmplClient:
 
     async def __aexit__(self, *args: object) -> None:
         await self.close()
+
+
+# Use the existing debug function from _debug module.
+_debug = debug
