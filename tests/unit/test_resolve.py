@@ -32,10 +32,7 @@ class TestSmplClientResolution:
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config_file = tmp_path / ".smplkit"
-        config_file.write_text(
-            "[default]\napi_key = sk_api_default\n\n"
-            "[local]\napi_key = sk_api_local\n"
-        )
+        config_file.write_text("[default]\napi_key = sk_api_default\n\n[local]\napi_key = sk_api_local\n")
         monkeypatch.setattr("smplkit._config.Path.home", lambda: tmp_path)
         client = SmplClient(profile="local", environment="test")
         assert client._api_key == "sk_api_local"
@@ -165,9 +162,7 @@ class TestAsyncSmplClientResolution:
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config_file = tmp_path / ".smplkit"
-        config_file.write_text(
-            "[local]\napi_key = sk_api_local\nenvironment = dev\nservice = svc\n"
-        )
+        config_file.write_text("[local]\napi_key = sk_api_local\nenvironment = dev\nservice = svc\n")
         monkeypatch.setattr("smplkit._config.Path.home", lambda: tmp_path)
         client = AsyncSmplClient(profile="local")
         assert client._api_key == "sk_api_local"

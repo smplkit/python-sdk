@@ -45,10 +45,7 @@ def _parse_bool(value: str, key: str) -> bool:
         return True
     if lower in _BOOL_FALSE:
         return False
-    raise SmplError(
-        f"Invalid boolean value for {key}: {value!r}. "
-        f"Expected one of: true, false, 1, 0, yes, no"
-    )
+    raise SmplError(f"Invalid boolean value for {key}: {value!r}. Expected one of: true, false, 1, 0, yes, no")
 
 
 def _read_config_file(
@@ -89,8 +86,7 @@ def _read_config_file(
         non_common_sections = [s for s in parser.sections() if s != "common"]
         if non_common_sections and profile != "default":
             raise SmplError(
-                f"Profile [{profile}] not found in ~/.smplkit. "
-                f"Available profiles: {', '.join(non_common_sections)}"
+                f"Profile [{profile}] not found in ~/.smplkit. Available profiles: {', '.join(non_common_sections)}"
             )
         if non_common_sections and profile == "default":
             # default profile missing but other profiles exist — proceed silently

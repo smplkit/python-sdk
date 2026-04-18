@@ -39,12 +39,7 @@ class TestResolveConfigFile:
         monkeypatch.delenv("SMPLKIT_SERVICE", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config = tmp_path / ".smplkit"
-        config.write_text(
-            "[default]\n"
-            "api_key = sk_api_file\n"
-            "environment = production\n"
-            "service = my-svc\n"
-        )
+        config.write_text("[default]\napi_key = sk_api_file\nenvironment = production\nservice = my-svc\n")
         cfg = resolve_config(_home_dir=tmp_path)
         assert cfg.api_key == "sk_api_file"
         assert cfg.environment == "production"
@@ -57,12 +52,7 @@ class TestResolveConfigFile:
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config = tmp_path / ".smplkit"
         config.write_text(
-            "[common]\n"
-            "environment = production\n"
-            "service = my-app\n"
-            "\n"
-            "[default]\n"
-            "api_key = sk_api_default\n"
+            "[common]\nenvironment = production\nservice = my-app\n\n[default]\napi_key = sk_api_default\n"
         )
         cfg = resolve_config(_home_dir=tmp_path)
         assert cfg.environment == "production"
@@ -99,14 +89,7 @@ class TestResolveConfigFile:
         monkeypatch.delenv("SMPLKIT_SERVICE", raising=False)
         monkeypatch.setenv("SMPLKIT_PROFILE", "staging")
         config = tmp_path / ".smplkit"
-        config.write_text(
-            "[common]\n"
-            "service = my-app\n"
-            "\n"
-            "[staging]\n"
-            "api_key = sk_api_staging\n"
-            "environment = staging\n"
-        )
+        config.write_text("[common]\nservice = my-app\n\n[staging]\napi_key = sk_api_staging\nenvironment = staging\n")
         cfg = resolve_config(_home_dir=tmp_path)
         assert cfg.api_key == "sk_api_staging"
         assert cfg.environment == "staging"
@@ -139,13 +122,7 @@ class TestResolveConfigFile:
         monkeypatch.delenv("SMPLKIT_SERVICE", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config = tmp_path / ".smplkit"
-        config.write_text(
-            "[default]\n"
-            "api_key = sk_api_default\n"
-            "\n"
-            "[staging]\n"
-            "api_key = sk_api_staging\n"
-        )
+        config.write_text("[default]\napi_key = sk_api_default\n\n[staging]\napi_key = sk_api_staging\n")
         with pytest.raises(SmplError, match="Profile \\[nonexistent\\] not found"):
             resolve_config(
                 profile="nonexistent",
@@ -211,12 +188,7 @@ class TestResolveConfigFile:
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config = tmp_path / ".smplkit"
-        config.write_text(
-            "[default]\n"
-            "api_key = \n"
-            "environment = production\n"
-            "service = svc\n"
-        )
+        config.write_text("[default]\napi_key = \nenvironment = production\nservice = svc\n")
         # api_key is empty in file, should still be unset
         with pytest.raises(SmplError, match="No API key provided"):
             resolve_config(_home_dir=tmp_path)
@@ -276,12 +248,7 @@ class TestResolveConfigEnvVars:
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         monkeypatch.delenv("SMPLKIT_SERVICE", raising=False)
         config = tmp_path / ".smplkit"
-        config.write_text(
-            "[default]\n"
-            "api_key = sk_api_file\n"
-            "environment = production\n"
-            "service = file-svc\n"
-        )
+        config.write_text("[default]\napi_key = sk_api_file\nenvironment = production\nservice = file-svc\n")
         monkeypatch.setenv("SMPLKIT_API_KEY", "sk_api_env")
         monkeypatch.setenv("SMPLKIT_ENVIRONMENT", "staging")
         cfg = resolve_config(_home_dir=tmp_path)
@@ -293,12 +260,7 @@ class TestResolveConfigEnvVars:
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         monkeypatch.setenv("SMPLKIT_API_KEY", "")
         config = tmp_path / ".smplkit"
-        config.write_text(
-            "[default]\n"
-            "api_key = sk_api_file\n"
-            "environment = test\n"
-            "service = svc\n"
-        )
+        config.write_text("[default]\napi_key = sk_api_file\nenvironment = test\nservice = svc\n")
         cfg = resolve_config(_home_dir=tmp_path)
         assert cfg.api_key == "sk_api_file"
 
@@ -337,12 +299,7 @@ class TestResolveConfigConstructorArgs:
         monkeypatch.setenv("SMPLKIT_API_KEY", "sk_api_env")
         monkeypatch.setenv("SMPLKIT_ENVIRONMENT", "env-env")
         config = tmp_path / ".smplkit"
-        config.write_text(
-            "[default]\n"
-            "api_key = sk_api_file\n"
-            "environment = file-env\n"
-            "service = file-svc\n"
-        )
+        config.write_text("[default]\napi_key = sk_api_file\nenvironment = file-env\nservice = file-svc\n")
         cfg = resolve_config(
             api_key="sk_api_explicit",
             environment="explicit-env",
@@ -365,13 +322,7 @@ class TestResolveConfigConstructorArgs:
         monkeypatch.delenv("SMPLKIT_DEBUG", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config = tmp_path / ".smplkit"
-        config.write_text(
-            "[default]\n"
-            "api_key = sk_api_test\n"
-            "environment = test\n"
-            "service = svc\n"
-            "debug = true\n"
-        )
+        config.write_text("[default]\napi_key = sk_api_test\nenvironment = test\nservice = svc\ndebug = true\n")
         cfg = resolve_config(debug=False, _home_dir=tmp_path)
         assert cfg.debug is False
 
@@ -440,11 +391,7 @@ class TestResolveConfigErrors:
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config = tmp_path / ".smplkit"
-        config.write_text(
-            "[local]\n"
-            "environment = dev\n"
-            "service = svc\n"
-        )
+        config.write_text("[local]\nenvironment = dev\nservice = svc\n")
         with pytest.raises(SmplError, match=r"\[local\]"):
             resolve_config(
                 profile="local",
@@ -454,13 +401,7 @@ class TestResolveConfigErrors:
     def test_invalid_boolean_raises_error(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config = tmp_path / ".smplkit"
-        config.write_text(
-            "[default]\n"
-            "api_key = sk_api_test\n"
-            "environment = test\n"
-            "service = svc\n"
-            "debug = maybe\n"
-        )
+        config.write_text("[default]\napi_key = sk_api_test\nenvironment = test\nservice = svc\ndebug = maybe\n")
         with pytest.raises(SmplError, match="Invalid boolean value"):
             resolve_config(_home_dir=tmp_path)
 
