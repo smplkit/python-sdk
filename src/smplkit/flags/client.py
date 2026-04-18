@@ -827,9 +827,7 @@ class FlagsClient:
             if response.status_code.value >= 300:
                 logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
         except Exception:
-            logger.warning(
-                "Bulk flag registration failed (flags: %s)", self._flags_http._base_url, exc_info=True
-            )
+            logger.warning("Bulk flag registration failed (flags: %s)", self._flags_http._base_url, exc_info=True)
 
     def _schedule_flag_flush(self) -> None:
         """Schedule periodic flag registration flush."""
@@ -1347,9 +1345,7 @@ class AsyncFlagsClient:
             if response.status_code.value >= 300:
                 logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
         except Exception:
-            logger.warning(
-                "Bulk flag registration failed (flags: %s)", self._flags_http._base_url, exc_info=True
-            )
+            logger.warning("Bulk flag registration failed (flags: %s)", self._flags_http._base_url, exc_info=True)
 
     def _flush_flags_sync(self) -> None:
         """Sync flush for periodic timer (runs in background thread)."""
@@ -1372,9 +1368,7 @@ class AsyncFlagsClient:
             if response.status_code.value >= 300:
                 logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
         except Exception:
-            logger.warning(
-                "Bulk flag registration failed (flags: %s)", self._flags_http._base_url, exc_info=True
-            )
+            logger.warning("Bulk flag registration failed (flags: %s)", self._flags_http._base_url, exc_info=True)
 
     def _schedule_flag_flush(self) -> None:
         """Schedule periodic flag registration flush."""

@@ -1004,9 +1004,7 @@ class LoggingClient:
                 if metrics is not None:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
         except Exception:
-            logger.warning(
-                "Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True
-            )
+            logger.warning("Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True)
 
     def _schedule_flush(self) -> None:
         """Schedule the next periodic flush."""
@@ -1541,9 +1539,7 @@ class AsyncLoggingClient:
                 if metrics is not None:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
         except Exception:
-            logger.warning(
-                "Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True
-            )
+            logger.warning("Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True)
 
     def _flush_bulk_sync(self) -> None:
         """Sync flush for the timer thread."""
@@ -1582,9 +1578,7 @@ class AsyncLoggingClient:
                 if metrics is not None:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
         except Exception:
-            logger.warning(
-                "Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True
-            )
+            logger.warning("Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True)
 
     def _schedule_flush(self) -> None:
         """Schedule the next periodic flush."""
