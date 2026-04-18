@@ -557,14 +557,20 @@ class FlagsManagementClient:
 class FlagsClient:
     """Synchronous flags namespace.  Obtained via ``SmplClient(...).flags``."""
 
-    def __init__(self, parent: SmplClient) -> None:
+    def __init__(
+        self,
+        parent: SmplClient,
+        *,
+        flags_base_url: str = _DEFAULT_FLAGS_BASE_URL,
+        app_base_url: str = _DEFAULT_APP_BASE_URL,
+    ) -> None:
         self._parent = parent
         self._flags_http = AuthenticatedClient(
-            base_url=_DEFAULT_FLAGS_BASE_URL,
+            base_url=flags_base_url,
             token=parent._api_key,
         )
         self._app_http = AuthenticatedClient(
-            base_url=_DEFAULT_APP_BASE_URL,
+            base_url=app_base_url,
             token=parent._api_key,
         )
 
@@ -1090,14 +1096,20 @@ class AsyncFlagsManagementClient:
 class AsyncFlagsClient:
     """Asynchronous flags namespace.  Obtained via ``AsyncSmplClient(...).flags``."""
 
-    def __init__(self, parent: AsyncSmplClient) -> None:
+    def __init__(
+        self,
+        parent: AsyncSmplClient,
+        *,
+        flags_base_url: str = _DEFAULT_FLAGS_BASE_URL,
+        app_base_url: str = _DEFAULT_APP_BASE_URL,
+    ) -> None:
         self._parent = parent
         self._flags_http = AuthenticatedClient(
-            base_url=_DEFAULT_FLAGS_BASE_URL,
+            base_url=flags_base_url,
             token=parent._api_key,
         )
         self._app_http = AuthenticatedClient(
-            base_url=_DEFAULT_APP_BASE_URL,
+            base_url=app_base_url,
             token=parent._api_key,
         )
 

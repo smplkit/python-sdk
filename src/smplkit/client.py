@@ -22,8 +22,8 @@ from smplkit.logging.client import AsyncLoggingClient, LoggingClient
 
 logger = logging.getLogger("smplkit")
 
-_DEFAULT_BASE_URL = "https://config.smplkit.com"
-_APP_BASE_URL = "https://app.smplkit.com"
+_DEFAULT_DOMAIN = "smplkit.com"
+_DEFAULT_SCHEME = "https"
 
 _NO_ENVIRONMENT_MESSAGE = (
     "No environment provided. Set one of:\n"
@@ -71,6 +71,12 @@ class SmplClient:
             Required — resolved from ``SMPLKIT_ENVIRONMENT`` if not provided.
         service: Service name (e.g. ``"user-service"``). Required — resolved
             from ``SMPLKIT_SERVICE`` if not provided.
+        base_domain: Base domain for all service URLs. Defaults to
+            ``"smplkit.com"``, producing ``config.smplkit.com``,
+            ``app.smplkit.com``, ``flags.smplkit.com``, and
+            ``logging.smplkit.com``.  Override to ``"localhost"`` for local
+            development (e.g. ``http://config.localhost``).
+        scheme: URL scheme — ``"https"`` (default) or ``"http"``.
     """
 
     config: ConfigClient
@@ -84,6 +90,8 @@ class SmplClient:
         environment: str | None = None,
         service: str | None = None,
         disable_telemetry: bool = False,
+        base_domain: str = _DEFAULT_DOMAIN,
+        scheme: str = _DEFAULT_SCHEME,
     ) -> None:
         # 1. Resolve environment
         resolved_env = environment or os.environ.get("SMPLKIT_ENVIRONMENT")
@@ -108,12 +116,17 @@ class SmplClient:
             f" env={self._environment!r} service={self._service!r}",
         )
 
+        config_base_url = f"{scheme}://config.{base_domain}"
+        self._app_base_url = f"{scheme}://app.{base_domain}"
+        flags_base_url = f"{scheme}://flags.{base_domain}"
+        logging_base_url = f"{scheme}://logging.{base_domain}"
+
         self._http_client = AuthenticatedClient(
-            base_url=_DEFAULT_BASE_URL,
+            base_url=config_base_url,
             token=resolved,
         )
         self._app_http = AuthenticatedClient(
-            base_url=_APP_BASE_URL,
+            base_url=self._app_base_url,
             token=resolved,
         )
 
@@ -129,8 +142,8 @@ class SmplClient:
 
         self._ws_manager: SharedWebSocket | None = None
         self.config = ConfigClient(self)
-        self.flags = FlagsClient(self)
-        self.logging = LoggingClient(self)
+        self.flags = FlagsClient(self, flags_base_url=flags_base_url, app_base_url=self._app_base_url)
+        self.logging = LoggingClient(self, logging_base_url=logging_base_url, app_base_url=self._app_base_url)
 
         # Register service context (fire-and-forget, non-blocking)
         self._init_thread = threading.Thread(target=self._register_service_context, daemon=True)
@@ -152,7 +165,7 @@ class SmplClient:
         """Lazily create and start the shared WebSocket."""
         if self._ws_manager is None:
             self._ws_manager = SharedWebSocket(
-                app_base_url=_APP_BASE_URL,
+                app_base_url=self._app_base_url,
                 api_key=self._api_key,
                 metrics=self._metrics,
             )
@@ -203,6 +216,12 @@ class AsyncSmplClient:
             Required — resolved from ``SMPLKIT_ENVIRONMENT`` if not provided.
         service: Service name (e.g. ``"user-service"``). Required — resolved
             from ``SMPLKIT_SERVICE`` if not provided.
+        base_domain: Base domain for all service URLs. Defaults to
+            ``"smplkit.com"``, producing ``config.smplkit.com``,
+            ``app.smplkit.com``, ``flags.smplkit.com``, and
+            ``logging.smplkit.com``.  Override to ``"localhost"`` for local
+            development (e.g. ``http://config.localhost``).
+        scheme: URL scheme — ``"https"`` (default) or ``"http"``.
     """
 
     config: AsyncConfigClient
@@ -216,6 +235,8 @@ class AsyncSmplClient:
         environment: str | None = None,
         service: str | None = None,
         disable_telemetry: bool = False,
+        base_domain: str = _DEFAULT_DOMAIN,
+        scheme: str = _DEFAULT_SCHEME,
     ) -> None:
         # 1. Resolve environment
         resolved_env = environment or os.environ.get("SMPLKIT_ENVIRONMENT")
@@ -240,12 +261,17 @@ class AsyncSmplClient:
             f" env={self._environment!r} service={self._service!r}",
         )
 
+        config_base_url = f"{scheme}://config.{base_domain}"
+        self._app_base_url = f"{scheme}://app.{base_domain}"
+        flags_base_url = f"{scheme}://flags.{base_domain}"
+        logging_base_url = f"{scheme}://logging.{base_domain}"
+
         self._http_client = AuthenticatedClient(
-            base_url=_DEFAULT_BASE_URL,
+            base_url=config_base_url,
             token=resolved,
         )
         self._app_http = AuthenticatedClient(
-            base_url=_APP_BASE_URL,
+            base_url=self._app_base_url,
             token=resolved,
         )
 
@@ -261,8 +287,8 @@ class AsyncSmplClient:
 
         self._ws_manager: SharedWebSocket | None = None
         self.config = AsyncConfigClient(self)
-        self.flags = AsyncFlagsClient(self)
-        self.logging = AsyncLoggingClient(self)
+        self.flags = AsyncFlagsClient(self, flags_base_url=flags_base_url, app_base_url=self._app_base_url)
+        self.logging = AsyncLoggingClient(self, logging_base_url=logging_base_url, app_base_url=self._app_base_url)
 
         # Register service context (fire-and-forget, non-blocking)
         self._init_thread = threading.Thread(target=self._register_service_context_sync, daemon=True)
@@ -296,7 +322,7 @@ class AsyncSmplClient:
         """Lazily create and start the shared WebSocket."""
         if self._ws_manager is None:
             self._ws_manager = SharedWebSocket(
-                app_base_url=_APP_BASE_URL,
+                app_base_url=self._app_base_url,
                 api_key=self._api_key,
                 metrics=self._metrics,
             )

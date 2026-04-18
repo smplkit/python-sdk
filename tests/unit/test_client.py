@@ -228,3 +228,94 @@ def test_async_register_service_context_failure_swallowed(mock_bulk):
 
     # Should not raise
     asyncio.run(client._register_service_context())
+
+
+# ---------------------------------------------------------------------------
+# base_domain / scheme tests
+# ---------------------------------------------------------------------------
+
+
+def test_smpl_client_default_urls():
+    """Default URLs are production smplkit.com with https."""
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    assert client._http_client._base_url == "https://config.smplkit.com"
+    assert client._app_base_url == "https://app.smplkit.com"
+    assert client.flags._flags_http._base_url == "https://flags.smplkit.com"
+    assert client.flags._app_http._base_url == "https://app.smplkit.com"
+    assert client.logging._logging_http._base_url == "https://logging.smplkit.com"
+
+
+def test_smpl_client_custom_base_domain():
+    """Custom base_domain overrides all service URLs."""
+    client = SmplClient(
+        api_key="sk_api_test",
+        environment="test",
+        base_domain="localhost",
+        scheme="http",
+    )
+    assert client._http_client._base_url == "http://config.localhost"
+    assert client._app_base_url == "http://app.localhost"
+    assert client.flags._flags_http._base_url == "http://flags.localhost"
+    assert client.flags._app_http._base_url == "http://app.localhost"
+    assert client.logging._logging_http._base_url == "http://logging.localhost"
+
+
+def test_smpl_client_custom_domain_ws_url():
+    """_ensure_ws uses the computed app URL."""
+    client = SmplClient(
+        api_key="sk_api_test",
+        environment="test",
+        base_domain="localhost",
+        scheme="http",
+    )
+    with patch.object(SharedWebSocket, "start"):
+        ws = client._ensure_ws()
+    assert ws._app_base_url == "http://app.localhost"
+
+
+def test_async_smpl_client_default_urls():
+    """AsyncSmplClient default URLs are production smplkit.com with https."""
+    client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+    assert client._http_client._base_url == "https://config.smplkit.com"
+    assert client._app_base_url == "https://app.smplkit.com"
+    assert client.flags._flags_http._base_url == "https://flags.smplkit.com"
+    assert client.logging._logging_http._base_url == "https://logging.smplkit.com"
+
+
+def test_async_smpl_client_custom_base_domain():
+    """AsyncSmplClient custom base_domain overrides all service URLs."""
+    client = AsyncSmplClient(
+        api_key="sk_api_test",
+        environment="test",
+        base_domain="localhost",
+        scheme="http",
+    )
+    assert client._http_client._base_url == "http://config.localhost"
+    assert client._app_base_url == "http://app.localhost"
+    assert client.flags._flags_http._base_url == "http://flags.localhost"
+    assert client.flags._app_http._base_url == "http://app.localhost"
+    assert client.logging._logging_http._base_url == "http://logging.localhost"
+
+
+def test_async_smpl_client_custom_domain_ws_url():
+    """AsyncSmplClient _ensure_ws uses the computed app URL."""
+    client = AsyncSmplClient(
+        api_key="sk_api_test",
+        environment="test",
+        base_domain="localhost",
+        scheme="http",
+    )
+    with patch.object(SharedWebSocket, "start"):
+        ws = client._ensure_ws()
+    assert ws._app_base_url == "http://app.localhost"
+
+
+def test_async_logging_client_stores_logging_base_url():
+    """AsyncLoggingClient stores logging_base_url for WS refresh thread."""
+    client = AsyncSmplClient(
+        api_key="sk_api_test",
+        environment="test",
+        base_domain="localhost",
+        scheme="http",
+    )
+    assert client.logging._logging_base_url == "http://logging.localhost"

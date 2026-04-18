@@ -700,10 +700,16 @@ class LoggingManagementClient:
 class LoggingClient:
     """Synchronous logging namespace.  Obtained via ``SmplClient(...).logging``."""
 
-    def __init__(self, parent: SmplClient) -> None:
+    def __init__(
+        self,
+        parent: SmplClient,
+        *,
+        logging_base_url: str = _DEFAULT_LOGGING_BASE_URL,
+        app_base_url: str | None = None,
+    ) -> None:
         self._parent = parent
         self._logging_http = AuthenticatedClient(
-            base_url=_DEFAULT_LOGGING_BASE_URL,
+            base_url=logging_base_url,
             token=parent._api_key,
         )
         self._connected = False
@@ -1203,10 +1209,17 @@ class AsyncLoggingManagementClient:
 class AsyncLoggingClient:
     """Asynchronous logging namespace.  Obtained via ``AsyncSmplClient(...).logging``."""
 
-    def __init__(self, parent: AsyncSmplClient) -> None:
+    def __init__(
+        self,
+        parent: AsyncSmplClient,
+        *,
+        logging_base_url: str = _DEFAULT_LOGGING_BASE_URL,
+        app_base_url: str | None = None,
+    ) -> None:
         self._parent = parent
+        self._logging_base_url = logging_base_url
         self._logging_http = AuthenticatedClient(
-            base_url=_DEFAULT_LOGGING_BASE_URL,
+            base_url=logging_base_url,
             token=parent._api_key,
         )
         self._connected = False
@@ -1383,6 +1396,7 @@ class AsyncLoggingClient:
 
         # Capture these before the thread starts to avoid closure over mutable state.
         api_key = self._parent._api_key
+        logging_base_url = self._logging_base_url
 
         async def _do_refresh() -> None:
             # Create a fresh AuthenticatedClient for this event loop. Reusing
@@ -1393,7 +1407,7 @@ class AsyncLoggingClient:
             # httpx.AsyncClient, cleanup callbacks fire against the old,
             # now-closed loop.
             http = AuthenticatedClient(
-                base_url=_DEFAULT_LOGGING_BASE_URL,
+                base_url=logging_base_url,
                 token=api_key,
             )
             try:
