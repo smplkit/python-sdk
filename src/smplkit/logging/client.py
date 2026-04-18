@@ -886,8 +886,13 @@ class LoggingClient:
         # 4-6. Fetch, resolve, apply
         try:
             self._fetch_and_apply(trigger="start()")
-        except Exception:
+        except Exception as exc:
             logger.warning(
+                "Failed to fetch/apply logging levels during connect (logging: %s): %s",
+                self._logging_base_url,
+                exc,
+            )
+            logger.debug(
                 "Failed to fetch/apply logging levels during connect (logging: %s)",
                 self._logging_base_url,
                 exc_info=True,
@@ -912,8 +917,9 @@ class LoggingClient:
         debug("websocket", f"logger event received: {event!r} id={resource_id!r}, triggering re-fetch")
         try:
             self._fetch_and_apply(trigger=f"websocket event {event!r}")
-        except Exception:
-            logger.warning("Failed to re-fetch/apply logging levels after %r event", event, exc_info=True)
+        except Exception as exc:
+            logger.warning("Failed to re-fetch/apply logging levels after %r event: %s", event, exc)
+            logger.debug("Failed to re-fetch/apply logging levels after %r event", event, exc_info=True)
 
     def refresh(self) -> None:
         """Re-fetch all loggers and groups and update log levels."""
@@ -1003,8 +1009,9 @@ class LoggingClient:
                 metrics = self._parent._metrics
                 if metrics is not None:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
-        except Exception:
-            logger.warning("Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True)
+        except Exception as exc:
+            logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
+            logger.debug("Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True)
 
     def _schedule_flush(self) -> None:
         """Schedule the next periodic flush."""
@@ -1398,8 +1405,13 @@ class AsyncLoggingClient:
 
         try:
             await self._fetch_and_apply(trigger="start()")
-        except Exception:
+        except Exception as exc:
             logger.warning(
+                "Failed to fetch/apply logging levels during connect (logging: %s): %s",
+                self._logging_base_url,
+                exc,
+            )
+            logger.debug(
                 "Failed to fetch/apply logging levels during connect (logging: %s)",
                 self._logging_base_url,
                 exc_info=True,
@@ -1450,8 +1462,9 @@ class AsyncLoggingClient:
 
             try:
                 _asyncio.run(_do_refresh())
-            except Exception:
-                logger.warning("Failed to re-fetch/apply logging levels after %r event", event, exc_info=True)
+            except Exception as exc:
+                logger.warning("Failed to re-fetch/apply logging levels after %r event: %s", event, exc)
+                logger.debug("Failed to re-fetch/apply logging levels after %r event", event, exc_info=True)
 
         threading.Thread(target=_run, name="smplkit-logging-ws-refresh", daemon=True).start()
 
@@ -1538,8 +1551,9 @@ class AsyncLoggingClient:
                 metrics = self._parent._metrics
                 if metrics is not None:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
-        except Exception:
-            logger.warning("Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True)
+        except Exception as exc:
+            logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
+            logger.debug("Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True)
 
     def _flush_bulk_sync(self) -> None:
         """Sync flush for the timer thread."""
@@ -1577,8 +1591,9 @@ class AsyncLoggingClient:
                 metrics = self._parent._metrics
                 if metrics is not None:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
-        except Exception:
-            logger.warning("Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True)
+        except Exception as exc:
+            logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
+            logger.debug("Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True)
 
     def _schedule_flush(self) -> None:
         """Schedule the next periodic flush."""

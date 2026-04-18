@@ -147,9 +147,14 @@ class SharedWebSocket:
         """Main async routine: connect and enter the receive loop."""
         try:
             await self._connect()
-        except Exception:
+        except Exception as exc:
             safe_url = self._build_ws_url().split("?")[0]
             logger.warning(
+                "Shared WebSocket connection failed on startup (url: %s), will attempt reconnection: %s",
+                safe_url,
+                exc,
+            )
+            logger.debug(
                 "Shared WebSocket connection failed on startup (url: %s), will attempt reconnection",
                 safe_url,
                 exc_info=True,
