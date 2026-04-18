@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import threading
 
-from smplkit._config import ResolvedConfig, _service_url, resolve_config
+from smplkit._config import _service_url, resolve_config
 from smplkit._debug import debug
 from smplkit._generated.app.api.contexts import bulk_register_contexts as gen_bulk_register_contexts
 from smplkit._generated.app.models.context_bulk_item import ContextBulkItem
