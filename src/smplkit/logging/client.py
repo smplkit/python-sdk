@@ -138,14 +138,33 @@ def _check_response_status(status_code: HTTPStatus, content: bytes) -> None:
     _raise_for_status(int(status_code), content)
 
 
-def _maybe_reraise_network_error(exc: Exception) -> None:
-    """Re-raise httpx exceptions as SDK exceptions if applicable."""
+def _exc_url(exc: Exception) -> str | None:
+    """Extract URL from an httpx exception's associated request, if available."""
+    try:
+        return str(exc.request.url)  # type: ignore[attr-defined]
+    except Exception:
+        return None
+
+
+def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) -> None:
+    """Re-raise httpx exceptions as SDK exceptions if applicable.
+
+    Args:
+        exc: The exception to inspect.
+        base_url: Fallback URL to include in the error message when the exception
+            does not carry request context (e.g. DNS failures before a request
+            object is attached by httpx).
+    """
     import httpx
 
     if isinstance(exc, httpx.TimeoutException):
-        raise SmplTimeoutError(str(exc)) from exc
+        url = _exc_url(exc) or base_url
+        msg = f"Request timed out connecting to {url}" if url else f"Request timed out: {exc}"
+        raise SmplTimeoutError(msg) from exc
     if isinstance(exc, httpx.HTTPError):
-        raise SmplConnectionError(str(exc)) from exc
+        url = _exc_url(exc) or base_url
+        msg = f"Cannot connect to {url}: {exc}" if url else f"Connection error: {exc}"
+        raise SmplConnectionError(msg) from exc
     if isinstance(exc, (SmplNotFoundError, SmplConflictError, SmplValidationError)):
         raise exc
 
@@ -623,7 +642,7 @@ class LoggingManagementClient:
         try:
             response = list_loggers.sync_detailed(client=self._parent._logging_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
@@ -635,7 +654,7 @@ class LoggingManagementClient:
         try:
             response = get_logger.sync_detailed(id, client=self._parent._logging_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
@@ -647,7 +666,7 @@ class LoggingManagementClient:
         try:
             response = delete_logger.sync_detailed(id, client=self._parent._logging_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
             raise
         _check_response_status(response.status_code, response.content)
 
@@ -668,7 +687,7 @@ class LoggingManagementClient:
         try:
             response = list_log_groups.sync_detailed(client=self._parent._logging_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
@@ -680,7 +699,7 @@ class LoggingManagementClient:
         try:
             response = get_log_group.sync_detailed(id, client=self._parent._logging_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
@@ -692,7 +711,7 @@ class LoggingManagementClient:
         try:
             response = delete_log_group.sync_detailed(id, client=self._parent._logging_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
             raise
         _check_response_status(response.status_code, response.content)
 
@@ -708,6 +727,7 @@ class LoggingClient:
         app_base_url: str | None = None,
     ) -> None:
         self._parent = parent
+        self._logging_base_url = logging_base_url
         self._logging_http = AuthenticatedClient(
             base_url=logging_base_url,
             token=parent._api_key,
@@ -738,7 +758,7 @@ class LoggingClient:
         try:
             response = update_logger.sync_detailed(lg.id, client=self._logging_http, body=body)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._logging_base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
@@ -763,7 +783,7 @@ class LoggingClient:
             else:
                 response = update_log_group.sync_detailed(grp.id, client=self._logging_http, body=body)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._logging_base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
@@ -867,7 +887,11 @@ class LoggingClient:
         try:
             self._fetch_and_apply(trigger="start()")
         except Exception:
-            logger.warning("Failed to fetch/apply logging levels during connect", exc_info=True)
+            logger.warning(
+                "Failed to fetch/apply logging levels during connect (logging: %s)",
+                self._logging_base_url,
+                exc_info=True,
+            )
 
         # 7. Start periodic flush timer
         self._schedule_flush()
@@ -980,7 +1004,9 @@ class LoggingClient:
                 if metrics is not None:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
         except Exception:
-            logger.warning("Bulk logger registration failed", exc_info=True)
+            logger.warning(
+                "Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True
+            )
 
     def _schedule_flush(self) -> None:
         """Schedule the next periodic flush."""
@@ -1003,7 +1029,7 @@ class LoggingClient:
             response = list_loggers.sync_detailed(client=self._logging_http)
             _check_response_status(response.status_code, response.content)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._logging_base_url)
             raise
         loggers_data: dict[str, dict[str, Any]] = {}
         if response.parsed is not None and hasattr(response.parsed, "data"):
@@ -1024,7 +1050,7 @@ class LoggingClient:
             grp_response = list_log_groups.sync_detailed(client=self._logging_http)
             _check_response_status(grp_response.status_code, grp_response.content)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._logging_base_url)
             raise
         groups_data: dict[str, dict[str, Any]] = {}
         if grp_response.parsed is not None and hasattr(grp_response.parsed, "data"):
@@ -1132,7 +1158,7 @@ class AsyncLoggingManagementClient:
         try:
             response = await list_loggers.asyncio_detailed(client=self._parent._logging_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
@@ -1144,7 +1170,7 @@ class AsyncLoggingManagementClient:
         try:
             response = await get_logger.asyncio_detailed(id, client=self._parent._logging_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
@@ -1156,7 +1182,7 @@ class AsyncLoggingManagementClient:
         try:
             response = await delete_logger.asyncio_detailed(id, client=self._parent._logging_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
             raise
         _check_response_status(response.status_code, response.content)
 
@@ -1177,7 +1203,7 @@ class AsyncLoggingManagementClient:
         try:
             response = await list_log_groups.asyncio_detailed(client=self._parent._logging_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
@@ -1189,7 +1215,7 @@ class AsyncLoggingManagementClient:
         try:
             response = await get_log_group.asyncio_detailed(id, client=self._parent._logging_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
@@ -1201,7 +1227,7 @@ class AsyncLoggingManagementClient:
         try:
             response = await delete_log_group.asyncio_detailed(id, client=self._parent._logging_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
             raise
         _check_response_status(response.status_code, response.content)
 
@@ -1248,7 +1274,7 @@ class AsyncLoggingClient:
         try:
             response = await update_logger.asyncio_detailed(lg.id, client=self._logging_http, body=body)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._logging_base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
@@ -1273,7 +1299,7 @@ class AsyncLoggingClient:
             else:
                 response = await update_log_group.asyncio_detailed(grp.id, client=self._logging_http, body=body)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._logging_base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
@@ -1375,7 +1401,11 @@ class AsyncLoggingClient:
         try:
             await self._fetch_and_apply(trigger="start()")
         except Exception:
-            logger.warning("Failed to fetch/apply logging levels during connect", exc_info=True)
+            logger.warning(
+                "Failed to fetch/apply logging levels during connect (logging: %s)",
+                self._logging_base_url,
+                exc_info=True,
+            )
 
         self._schedule_flush()
 
@@ -1511,7 +1541,9 @@ class AsyncLoggingClient:
                 if metrics is not None:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
         except Exception:
-            logger.warning("Bulk logger registration failed", exc_info=True)
+            logger.warning(
+                "Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True
+            )
 
     def _flush_bulk_sync(self) -> None:
         """Sync flush for the timer thread."""
@@ -1550,7 +1582,9 @@ class AsyncLoggingClient:
                 if metrics is not None:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
         except Exception:
-            logger.warning("Bulk logger registration failed", exc_info=True)
+            logger.warning(
+                "Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True
+            )
 
     def _schedule_flush(self) -> None:
         """Schedule the next periodic flush."""
@@ -1578,7 +1612,7 @@ class AsyncLoggingClient:
             response = await list_loggers.asyncio_detailed(client=http)
             _check_response_status(response.status_code, response.content)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, http._base_url)
             raise
         loggers_data: dict[str, dict[str, Any]] = {}
         if response.parsed is not None and hasattr(response.parsed, "data"):
@@ -1598,7 +1632,7 @@ class AsyncLoggingClient:
             grp_response = await list_log_groups.asyncio_detailed(client=http)
             _check_response_status(grp_response.status_code, grp_response.content)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, http._base_url)
             raise
         groups_data: dict[str, dict[str, Any]] = {}
         if grp_response.parsed is not None and hasattr(grp_response.parsed, "data"):

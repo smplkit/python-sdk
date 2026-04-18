@@ -214,9 +214,42 @@ class TestMaybeReraiseNetworkError:
         with pytest.raises(SmplTimeoutError):
             _maybe_reraise_network_error(httpx.TimeoutException("timed out"))
 
+    def test_timeout_includes_url_when_available(self):
+        exc = httpx.TimeoutException("timed out")
+        exc.request = httpx.Request("GET", "http://flags.localhost/api/v1/flags")
+        with pytest.raises(SmplTimeoutError, match="http://flags.localhost/api/v1/flags"):
+            _maybe_reraise_network_error(exc)
+
     def test_connect_error(self):
         with pytest.raises(SmplConnectionError):
             _maybe_reraise_network_error(httpx.ConnectError("refused"))
+
+    def test_connect_error_includes_url_when_available(self):
+        exc = httpx.ConnectError("nodename nor servname provided, or not known")
+        exc.request = httpx.Request("GET", "http://flags.localhost/api/v1/flags")
+        with pytest.raises(SmplConnectionError, match="http://flags.localhost/api/v1/flags"):
+            _maybe_reraise_network_error(exc)
+
+    def test_connect_error_fallback_message_without_url(self):
+        exc = httpx.ConnectError("nodename nor servname provided, or not known")
+        with pytest.raises(SmplConnectionError, match="Connection error"):
+            _maybe_reraise_network_error(exc)
+
+    def test_connection_error_uses_base_url_when_request_not_attached(self):
+        exc = httpx.ConnectError("nodename nor servname provided, or not known")
+        with pytest.raises(SmplConnectionError, match="http://flags.localhost"):
+            _maybe_reraise_network_error(exc, "http://flags.localhost")
+
+    def test_timeout_uses_base_url_when_request_not_attached(self):
+        exc = httpx.TimeoutException("timed out")
+        with pytest.raises(SmplTimeoutError, match="http://flags.localhost"):
+            _maybe_reraise_network_error(exc, "http://flags.localhost")
+
+    def test_exc_url_takes_precedence_over_base_url(self):
+        exc = httpx.ConnectError("refused")
+        exc.request = httpx.Request("GET", "http://flags.localhost/api/v1/flags")
+        with pytest.raises(SmplConnectionError, match="http://flags.localhost/api/v1/flags"):
+            _maybe_reraise_network_error(exc, "http://other.host")
 
     def test_reraises_not_found(self):
         with pytest.raises(SmplNotFoundError):

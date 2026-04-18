@@ -386,7 +386,7 @@ class ConfigManagementClient:
                 client=self._parent._parent._http_client,
             )
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
@@ -404,7 +404,7 @@ class ConfigManagementClient:
                 client=self._parent._parent._http_client,
             )
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
@@ -427,7 +427,7 @@ class ConfigManagementClient:
                 client=self._parent._parent._http_client,
             )
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
             raise
         _check_response_status(response.status_code, response.content)
 
@@ -632,7 +632,7 @@ class ConfigClient:
                 body=body,
             )
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
@@ -659,7 +659,7 @@ class ConfigClient:
                 body=body,
             )
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
@@ -749,7 +749,7 @@ class AsyncConfigManagementClient:
                 client=self._parent._parent._http_client,
             )
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
@@ -767,7 +767,7 @@ class AsyncConfigManagementClient:
                 client=self._parent._parent._http_client,
             )
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
@@ -790,7 +790,7 @@ class AsyncConfigManagementClient:
                 client=self._parent._parent._http_client,
             )
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
             raise
         _check_response_status(response.status_code, response.content)
 
@@ -994,7 +994,7 @@ class AsyncConfigClient:
                 body=body,
             )
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
@@ -1021,7 +1021,7 @@ class AsyncConfigClient:
                 body=body,
             )
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None:
@@ -1055,13 +1055,32 @@ class AsyncConfigClient:
         )
 
 
-def _maybe_reraise_network_error(exc: Exception) -> None:
-    """Re-raise httpx exceptions as SDK exceptions if applicable."""
+def _exc_url(exc: Exception) -> str | None:
+    """Extract URL from an httpx exception's associated request, if available."""
+    try:
+        return str(exc.request.url)  # type: ignore[attr-defined]
+    except Exception:
+        return None
+
+
+def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) -> None:
+    """Re-raise httpx exceptions as SDK exceptions if applicable.
+
+    Args:
+        exc: The exception to inspect.
+        base_url: Fallback URL to include in the error message when the exception
+            does not carry request context (e.g. DNS failures before a request
+            object is attached by httpx).
+    """
     import httpx
 
     if isinstance(exc, httpx.TimeoutException):
-        raise SmplTimeoutError(str(exc)) from exc
+        url = _exc_url(exc) or base_url
+        msg = f"Request timed out connecting to {url}" if url else f"Request timed out: {exc}"
+        raise SmplTimeoutError(msg) from exc
     if isinstance(exc, httpx.HTTPError):
-        raise SmplConnectionError(str(exc)) from exc
+        url = _exc_url(exc) or base_url
+        msg = f"Cannot connect to {url}: {exc}" if url else f"Connection error: {exc}"
+        raise SmplConnectionError(msg) from exc
     if isinstance(exc, (SmplNotFoundError, SmplConflictError, SmplValidationError)):
         raise exc

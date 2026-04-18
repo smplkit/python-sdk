@@ -136,7 +136,7 @@ class SmplClient:
             body = ContextBulkRegister(contexts=[env_item, svc_item])
             gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         except Exception:
-            logger.warning("Failed to register service context", exc_info=True)
+            logger.warning("Failed to register service context (app: %s)", self._app_base_url, exc_info=True)
 
     def _ensure_ws(self) -> SharedWebSocket:
         """Lazily create and start the shared WebSocket."""
@@ -276,7 +276,7 @@ class AsyncSmplClient:
             body = ContextBulkRegister(contexts=[env_item, svc_item])
             gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         except Exception:
-            logger.warning("Failed to register service context", exc_info=True)
+            logger.warning("Failed to register service context (app: %s)", self._app_base_url, exc_info=True)
 
     async def _register_service_context(self) -> None:
         """Register the environment and service as context instances on the app service."""
@@ -288,7 +288,7 @@ class AsyncSmplClient:
             body = ContextBulkRegister(contexts=[env_item, svc_item])
             await gen_bulk_register_contexts.asyncio_detailed(client=self._app_http, body=body)
         except Exception:
-            logger.warning("Failed to register service context", exc_info=True)
+            logger.warning("Failed to register service context (app: %s)", self._app_base_url, exc_info=True)
 
     def _ensure_ws(self) -> SharedWebSocket:
         """Lazily create and start the shared WebSocket."""

@@ -83,14 +83,33 @@ def _check_response_status(status_code: Any, content: bytes) -> None:
     _raise_for_status(int(status_code), content)
 
 
-def _maybe_reraise_network_error(exc: Exception) -> None:
-    """Re-raise httpx exceptions as SDK exceptions if applicable."""
+def _exc_url(exc: Exception) -> str | None:
+    """Extract URL from an httpx exception's associated request, if available."""
+    try:
+        return str(exc.request.url)  # type: ignore[attr-defined]
+    except Exception:
+        return None
+
+
+def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) -> None:
+    """Re-raise httpx exceptions as SDK exceptions if applicable.
+
+    Args:
+        exc: The exception to inspect.
+        base_url: Fallback URL to include in the error message when the exception
+            does not carry request context (e.g. DNS failures before a request
+            object is attached by httpx).
+    """
     import httpx
 
     if isinstance(exc, httpx.TimeoutException):
-        raise SmplTimeoutError(str(exc)) from exc
+        url = _exc_url(exc) or base_url
+        msg = f"Request timed out connecting to {url}" if url else f"Request timed out: {exc}"
+        raise SmplTimeoutError(msg) from exc
     if isinstance(exc, httpx.HTTPError):
-        raise SmplConnectionError(str(exc)) from exc
+        url = _exc_url(exc) or base_url
+        msg = f"Cannot connect to {url}: {exc}" if url else f"Connection error: {exc}"
+        raise SmplConnectionError(msg) from exc
     if isinstance(exc, (SmplNotFoundError, SmplValidationError)):
         raise exc
 
@@ -527,7 +546,7 @@ class FlagsManagementClient:
         try:
             response = get_flag.sync_detailed(id, client=self._parent._flags_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._flags_http._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         body = json.loads(response.content)
@@ -538,7 +557,7 @@ class FlagsManagementClient:
         try:
             response = list_flags.sync_detailed(client=self._parent._flags_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._flags_http._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         body = json.loads(response.content)
@@ -549,7 +568,7 @@ class FlagsManagementClient:
         try:
             response = delete_flag.sync_detailed(id, client=self._parent._flags_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._flags_http._base_url)
             raise
         _check_response_status(response.status_code, response.content)
 
@@ -612,7 +631,7 @@ class FlagsClient:
         try:
             response = create_flag.sync_detailed(client=self._flags_http, body=body)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._flags_http._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         resp_body = json.loads(response.content)
@@ -632,7 +651,7 @@ class FlagsClient:
         try:
             response = update_flag.sync_detailed(flag.id, client=self._flags_http, body=body)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._flags_http._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         resp_body = json.loads(response.content)
@@ -808,7 +827,9 @@ class FlagsClient:
             if response.status_code.value >= 300:
                 logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
         except Exception:
-            logger.warning("Bulk flag registration failed", exc_info=True)
+            logger.warning(
+                "Bulk flag registration failed (flags: %s)", self._flags_http._base_url, exc_info=True
+            )
 
     def _schedule_flag_flush(self) -> None:
         """Schedule periodic flag registration flush."""
@@ -902,7 +923,7 @@ class FlagsClient:
         try:
             response = list_flags.sync_detailed(client=self._flags_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._flags_http._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         body = json.loads(response.content)
@@ -1066,7 +1087,7 @@ class AsyncFlagsManagementClient:
         try:
             response = await get_flag.asyncio_detailed(id, client=self._parent._flags_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._flags_http._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         body = json.loads(response.content)
@@ -1077,7 +1098,7 @@ class AsyncFlagsManagementClient:
         try:
             response = await list_flags.asyncio_detailed(client=self._parent._flags_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._flags_http._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         body = json.loads(response.content)
@@ -1088,7 +1109,7 @@ class AsyncFlagsManagementClient:
         try:
             response = await delete_flag.asyncio_detailed(id, client=self._parent._flags_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._parent._flags_http._base_url)
             raise
         _check_response_status(response.status_code, response.content)
 
@@ -1151,7 +1172,7 @@ class AsyncFlagsClient:
         try:
             response = await create_flag.asyncio_detailed(client=self._flags_http, body=body)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._flags_http._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         resp_body = json.loads(response.content)
@@ -1171,7 +1192,7 @@ class AsyncFlagsClient:
         try:
             response = await update_flag.asyncio_detailed(flag.id, client=self._flags_http, body=body)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._flags_http._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         resp_body = json.loads(response.content)
@@ -1326,7 +1347,9 @@ class AsyncFlagsClient:
             if response.status_code.value >= 300:
                 logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
         except Exception:
-            logger.warning("Bulk flag registration failed", exc_info=True)
+            logger.warning(
+                "Bulk flag registration failed (flags: %s)", self._flags_http._base_url, exc_info=True
+            )
 
     def _flush_flags_sync(self) -> None:
         """Sync flush for periodic timer (runs in background thread)."""
@@ -1349,7 +1372,9 @@ class AsyncFlagsClient:
             if response.status_code.value >= 300:
                 logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
         except Exception:
-            logger.warning("Bulk flag registration failed", exc_info=True)
+            logger.warning(
+                "Bulk flag registration failed (flags: %s)", self._flags_http._base_url, exc_info=True
+            )
 
     def _schedule_flag_flush(self) -> None:
         """Schedule periodic flag registration flush."""
@@ -1450,7 +1475,7 @@ class AsyncFlagsClient:
         try:
             response = await list_flags.asyncio_detailed(client=self._flags_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._flags_http._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         body = json.loads(response.content)
@@ -1475,7 +1500,7 @@ class AsyncFlagsClient:
         try:
             response = list_flags.sync_detailed(client=self._flags_http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc)
+            _maybe_reraise_network_error(exc, self._flags_http._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         body = json.loads(response.content)

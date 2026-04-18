@@ -148,8 +148,10 @@ class SharedWebSocket:
         try:
             await self._connect()
         except Exception:
+            safe_url = self._build_ws_url().split("?")[0]
             logger.warning(
-                "Shared WebSocket connection failed on startup, will attempt reconnection",
+                "Shared WebSocket connection failed on startup (url: %s), will attempt reconnection",
+                safe_url,
                 exc_info=True,
             )
             await self._reconnect()
