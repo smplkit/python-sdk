@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from smplkit import SmplError
-from smplkit._config import ResolvedConfig, _parse_bool, resolve_config
+from smplkit._config import _parse_bool, resolve_config
 
 
 class TestResolveConfigDefaults:

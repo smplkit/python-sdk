@@ -318,7 +318,7 @@ def test_smpl_client_debug_enables_logger():
     original_level = smplkit_logger.level
     try:
         smplkit_logger.setLevel(logging.WARNING)  # reset to non-DEBUG
-        client = SmplClient(api_key="sk_api_test", environment="test", debug=True)
+        SmplClient(api_key="sk_api_test", environment="test", debug=True)
         assert smplkit_logger.level == logging.DEBUG
     finally:
         smplkit_logger.setLevel(original_level)
@@ -332,7 +332,7 @@ def test_async_smpl_client_debug_enables_logger():
     original_level = smplkit_logger.level
     try:
         smplkit_logger.setLevel(logging.WARNING)  # reset to non-DEBUG
-        client = AsyncSmplClient(api_key="sk_api_test", environment="test", debug=True)
+        AsyncSmplClient(api_key="sk_api_test", environment="test", debug=True)
         assert smplkit_logger.level == logging.DEBUG
     finally:
         smplkit_logger.setLevel(original_level)

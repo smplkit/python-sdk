@@ -81,8 +81,6 @@ def _read_config_file(
                 values[key] = val
 
     # Step 2: Overlay the selected profile section
-    has_any_section = len(parser.sections()) > 0
-    has_common = parser.has_section("common")
     has_profile = parser.has_section(profile)
 
     if not has_profile:
