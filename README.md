@@ -80,20 +80,48 @@ async with AsyncSmplClient(api_key="sk_api_...") as client:
 
 ## Configuration
 
-The API key is resolved using the following priority:
+All settings are resolved from three sources, in order of precedence:
 
-1. **Explicit argument:** Pass `api_key` directly to the constructor.
-2. **Environment variable:** Set `SMPLKIT_API_KEY`.
-3. **Configuration file:** Add `api_key` under `[default]` in `~/.smplkit`:
+1. **Constructor arguments** — highest priority, always wins.
+2. **Environment variables** — e.g. `SMPLKIT_API_KEY`, `SMPLKIT_ENVIRONMENT`.
+3. **Configuration file** (`~/.smplkit`) — INI-format with profile support.
+4. **Defaults** — built-in SDK defaults.
+
+### Configuration File
+
+The `~/.smplkit` file supports a `[common]` section (applied to all profiles) and named profiles:
 
 ```ini
-# ~/.smplkit
+[common]
+environment = production
+service = my-app
 
 [default]
-api_key = sk_api_your_key_here
+api_key = sk_api_abc123
+
+[local]
+base_domain = localhost
+scheme = http
+api_key = sk_api_local_xyz
+environment = development
+debug = true
 ```
 
-If none of these are set, the SDK raises `SmplError` with a message listing all three methods.
+### Constructor Examples
+
+```python
+# Use a named profile
+client = SmplClient(profile="local")
+
+# Or configure explicitly
+client = SmplClient(
+    api_key="sk_api_...",
+    environment="production",
+    service="my-service",
+)
+```
+
+For the complete configuration reference, see the [Configuration Guide](https://docs.smplkit.com/getting-started/configuration).
 
 ## Error Handling
 
