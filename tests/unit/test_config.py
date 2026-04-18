@@ -154,6 +154,47 @@ class TestResolveConfigFile:
                 _home_dir=tmp_path,
             )
 
+    def test_malformed_file_silently_skipped(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
+        monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
+        config = tmp_path / ".smplkit"
+        # Write binary garbage that configparser cannot parse
+        config.write_bytes(b"\x80\x81\x82\x00\xff")
+        cfg = resolve_config(
+            api_key="sk_api_explicit",
+            environment="test",
+            service="svc",
+            _home_dir=tmp_path,
+        )
+        assert cfg.api_key == "sk_api_explicit"
+
+    def test_default_profile_missing_with_other_profiles(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
+        monkeypatch.delenv("SMPLKIT_ENVIRONMENT", raising=False)
+        monkeypatch.delenv("SMPLKIT_SERVICE", raising=False)
+        monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
+        config = tmp_path / ".smplkit"
+        # File has [local] and [staging] but no [default] section
+        config.write_text(
+            "[local]\n"
+            "api_key = sk_api_local\n"
+            "environment = development\n"
+            "service = svc\n"
+            "\n"
+            "[staging]\n"
+            "api_key = sk_api_staging\n"
+            "environment = staging\n"
+            "service = svc\n"
+        )
+        # Should proceed silently — not raise an error
+        cfg = resolve_config(
+            api_key="sk_api_explicit",
+            environment="test",
+            service="svc",
+            _home_dir=tmp_path,
+        )
+        assert cfg.api_key == "sk_api_explicit"
+
     def test_missing_file_silently_skipped(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)

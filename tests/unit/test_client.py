@@ -310,6 +310,34 @@ def test_async_smpl_client_custom_domain_ws_url():
     assert ws._app_base_url == "http://app.localhost"
 
 
+def test_smpl_client_debug_enables_logger():
+    """debug=True sets the smplkit logger to DEBUG level."""
+    import logging
+
+    smplkit_logger = logging.getLogger("smplkit")
+    original_level = smplkit_logger.level
+    try:
+        smplkit_logger.setLevel(logging.WARNING)  # reset to non-DEBUG
+        client = SmplClient(api_key="sk_api_test", environment="test", debug=True)
+        assert smplkit_logger.level == logging.DEBUG
+    finally:
+        smplkit_logger.setLevel(original_level)
+
+
+def test_async_smpl_client_debug_enables_logger():
+    """debug=True sets the smplkit logger to DEBUG level for AsyncSmplClient."""
+    import logging
+
+    smplkit_logger = logging.getLogger("smplkit")
+    original_level = smplkit_logger.level
+    try:
+        smplkit_logger.setLevel(logging.WARNING)  # reset to non-DEBUG
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test", debug=True)
+        assert smplkit_logger.level == logging.DEBUG
+    finally:
+        smplkit_logger.setLevel(original_level)
+
+
 def test_async_logging_client_stores_logging_base_url():
     """AsyncLoggingClient stores logging_base_url for WS refresh thread."""
     client = AsyncSmplClient(
