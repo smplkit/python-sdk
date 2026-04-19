@@ -186,11 +186,10 @@ class SharedWebSocket:
         url = self._build_ws_url()
         self._connection_status = "connecting"
         safe_url = url.split("?")[0]
-        logger.debug("Connecting to shared WebSocket: %s", safe_url)
         debug("websocket", f"connecting to {safe_url}")
 
         self._ws = await websockets.asyncio.client.connect(url)
-        logger.debug("WebSocket connected, waiting for confirmation")
+        debug("websocket", "WebSocket connected, waiting for confirmation")
 
         # Wait for {"type": "connected"} confirmation
         raw = await self._ws.recv()
@@ -204,7 +203,6 @@ class SharedWebSocket:
         debug("websocket", f"connected to {safe_url}")
         if self._metrics is not None:
             self._metrics.record_gauge("platform.websocket_connections", 1, unit="connections")
-        logger.debug("Shared WebSocket connection confirmed")
         await self._receive_loop()
 
     async def _receive_loop(self) -> None:

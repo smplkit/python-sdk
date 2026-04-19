@@ -164,7 +164,7 @@ class _MetricsReporter:
                 headers={"Content-Type": "application/vnd.api+json"},
             )
         except Exception:
-            logger.debug("Metrics flush failed", exc_info=True)
+            logger.warning("Metrics flush failed", exc_info=True)
 
     def _build_payload(
         self,
@@ -340,7 +340,7 @@ class _AsyncMetricsReporter:
                 headers={"Content-Type": "application/vnd.api+json"},
             )
         except Exception:
-            logger.debug("Metrics flush failed", exc_info=True)
+            logger.warning("Metrics flush failed", exc_info=True)
 
     async def _flush_async(self) -> None:
         """Async flush used by explicit flush()/close()."""
@@ -356,7 +356,7 @@ class _AsyncMetricsReporter:
                 headers={"Content-Type": "application/vnd.api+json"},
             )
         except Exception:
-            logger.debug("Metrics flush failed", exc_info=True)
+            logger.warning("Metrics flush failed", exc_info=True)
 
     def _build_payload(
         self,

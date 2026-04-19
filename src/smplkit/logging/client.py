@@ -601,9 +601,9 @@ def _auto_load_adapters() -> list[LoggingAdapter]:
             module = importlib.import_module(module_path)
             cls = getattr(module, class_name)
             adapters.append(cls())
-            logger.debug("Loaded logging adapter: %s", class_name)
+            debug("lifecycle", f"Loaded logging adapter: {class_name}")
         except ImportError:
-            logger.debug("Skipped logging adapter %s (dependency not installed)", class_name)
+            debug("lifecycle", f"Skipped logging adapter {class_name} (dependency not installed)")
         except Exception:
             logger.warning("Failed to load logging adapter %s", class_name, exc_info=True)
     if not adapters:
@@ -933,7 +933,7 @@ class LoggingClient:
             try:
                 adapter.uninstall_hook()
             except Exception:
-                logger.debug("Adapter %s uninstall_hook() failed", adapter.name, exc_info=True)
+                logger.warning("Adapter %s uninstall_hook() failed", adapter.name, exc_info=True)
         if self._ws_manager is not None:
             self._ws_manager.off("logger_changed", self._handle_ws_event)
             self._ws_manager.off("logger_deleted", self._handle_ws_event)
@@ -971,7 +971,7 @@ class LoggingClient:
                     try:
                         adapter.apply_level(name, python_level)
                     except Exception:
-                        logger.debug("Adapter %s apply_level() failed for %s", adapter.name, name, exc_info=True)
+                        logger.warning("Adapter %s apply_level() failed for %s", adapter.name, name, exc_info=True)
 
     def _flush_bulk_sync(self) -> None:
         """Flush the registration buffer to the logging service."""
@@ -1090,7 +1090,7 @@ class LoggingClient:
                 try:
                     adapter.apply_level(original_name, python_level)
                 except Exception:
-                    logger.debug("Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True)
+                    logger.warning("Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True)
             metrics = self._parent._metrics
             if metrics is not None:
                 metrics.record("logging.level_changes", unit="changes", dimensions={"logger": normalized_id})
@@ -1480,7 +1480,7 @@ class AsyncLoggingClient:
             try:
                 adapter.uninstall_hook()
             except Exception:
-                logger.debug("Adapter %s uninstall_hook() failed", adapter.name, exc_info=True)
+                logger.warning("Adapter %s uninstall_hook() failed", adapter.name, exc_info=True)
         if self._ws_manager is not None:
             self._ws_manager.off("logger_changed", self._handle_ws_event)
             self._ws_manager.off("logger_deleted", self._handle_ws_event)
@@ -1513,7 +1513,7 @@ class AsyncLoggingClient:
                     try:
                         adapter.apply_level(name, python_level)
                     except Exception:
-                        logger.debug("Adapter %s apply_level() failed for %s", adapter.name, name, exc_info=True)
+                        logger.warning("Adapter %s apply_level() failed for %s", adapter.name, name, exc_info=True)
 
     async def _flush_bulk_async(self) -> None:
         """Flush the registration buffer to the logging service."""
@@ -1674,7 +1674,7 @@ class AsyncLoggingClient:
                 try:
                     adapter.apply_level(original_name, python_level)
                 except Exception:
-                    logger.debug("Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True)
+                    logger.warning("Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True)
             metrics = self._parent._metrics
             if metrics is not None:
                 metrics.record("logging.level_changes", unit="changes", dimensions={"logger": normalized_id})

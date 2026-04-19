@@ -800,7 +800,7 @@ class FlagsClient:
             body = _build_bulk_register_body(batch)
             gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         except Exception:
-            logger.debug("Context registration flush failed", exc_info=True)
+            logger.warning("Context registration flush failed", exc_info=True)
 
     # ------------------------------------------------------------------
     # Runtime: flag registration flush
@@ -1319,7 +1319,7 @@ class AsyncFlagsClient:
             body = _build_bulk_register_body(batch)
             await gen_bulk_register_contexts.asyncio_detailed(client=self._app_http, body=body)
         except Exception:
-            logger.debug("Context registration flush failed", exc_info=True)
+            logger.warning("Context registration flush failed", exc_info=True)
 
     # ------------------------------------------------------------------
     # Runtime: flag registration flush
@@ -1458,7 +1458,7 @@ class AsyncFlagsClient:
             body = _build_bulk_register_body(batch)
             gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         except Exception:
-            logger.debug("Context registration flush failed", exc_info=True)
+            logger.warning("Context registration flush failed", exc_info=True)
 
     # ------------------------------------------------------------------
     # Internal: flag store
@@ -1671,7 +1671,7 @@ def _evaluate_flag(flag_def: dict[str, Any], environment: str | None, eval_dict:
             if result:
                 return rule.get("value")
         except Exception:
-            logger.debug("JSON Logic evaluation error for rule %r", rule, exc_info=True)
+            logger.warning("JSON Logic evaluation error for rule %r", rule, exc_info=True)
             continue
 
     return fallback
