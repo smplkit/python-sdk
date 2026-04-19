@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import logging as stdlib_logging
 import threading
+import traceback
 from collections import OrderedDict
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Callable
@@ -892,11 +893,7 @@ class LoggingClient:
                 self._logging_base_url,
                 exc,
             )
-            logger.debug(
-                "Failed to fetch/apply logging levels during connect (logging: %s)",
-                self._logging_base_url,
-                exc_info=True,
-            )
+            debug("resolution", traceback.format_exc().strip())
 
         # 7. Start periodic flush timer
         self._schedule_flush()
@@ -919,7 +916,7 @@ class LoggingClient:
             self._fetch_and_apply(trigger=f"websocket event {event!r}")
         except Exception as exc:
             logger.warning("Failed to re-fetch/apply logging levels after %r event: %s", event, exc)
-            logger.debug("Failed to re-fetch/apply logging levels after %r event", event, exc_info=True)
+            debug("websocket", traceback.format_exc().strip())
 
     def refresh(self) -> None:
         """Re-fetch all loggers and groups and update log levels."""
@@ -1011,7 +1008,7 @@ class LoggingClient:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
         except Exception as exc:
             logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
-            logger.debug("Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True)
+            debug("registration", traceback.format_exc().strip())
 
     def _schedule_flush(self) -> None:
         """Schedule the next periodic flush."""
@@ -1411,11 +1408,7 @@ class AsyncLoggingClient:
                 self._logging_base_url,
                 exc,
             )
-            logger.debug(
-                "Failed to fetch/apply logging levels during connect (logging: %s)",
-                self._logging_base_url,
-                exc_info=True,
-            )
+            debug("resolution", traceback.format_exc().strip())
 
         self._schedule_flush()
 
@@ -1464,7 +1457,7 @@ class AsyncLoggingClient:
                 _asyncio.run(_do_refresh())
             except Exception as exc:
                 logger.warning("Failed to re-fetch/apply logging levels after %r event: %s", event, exc)
-                logger.debug("Failed to re-fetch/apply logging levels after %r event", event, exc_info=True)
+                debug("websocket", traceback.format_exc().strip())
 
         threading.Thread(target=_run, name="smplkit-logging-ws-refresh", daemon=True).start()
 
@@ -1553,7 +1546,7 @@ class AsyncLoggingClient:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
         except Exception as exc:
             logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
-            logger.debug("Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True)
+            debug("registration", traceback.format_exc().strip())
 
     def _flush_bulk_sync(self) -> None:
         """Sync flush for the timer thread."""
@@ -1593,7 +1586,7 @@ class AsyncLoggingClient:
                     metrics.record("logging.loggers_discovered", len(items), unit="loggers")
         except Exception as exc:
             logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
-            logger.debug("Bulk logger registration failed (logging: %s)", self._logging_base_url, exc_info=True)
+            debug("registration", traceback.format_exc().strip())
 
     def _schedule_flush(self) -> None:
         """Schedule the next periodic flush."""

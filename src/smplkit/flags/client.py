@@ -6,10 +6,12 @@ import hashlib
 import json
 import logging
 import threading
+import traceback
 from collections import OrderedDict
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from smplkit._debug import debug
 from smplkit._errors import (
     SmplConnectionError,
     SmplNotFoundError,
@@ -828,7 +830,7 @@ class FlagsClient:
                 logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
         except Exception as exc:
             logger.warning("Bulk flag registration failed (flags: %s): %s", self._flags_http._base_url, exc)
-            logger.debug("Bulk flag registration failed (flags: %s)", self._flags_http._base_url, exc_info=True)
+            debug("registration", traceback.format_exc().strip())
 
     def _schedule_flag_flush(self) -> None:
         """Schedule periodic flag registration flush."""
@@ -1347,7 +1349,7 @@ class AsyncFlagsClient:
                 logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
         except Exception as exc:
             logger.warning("Bulk flag registration failed (flags: %s): %s", self._flags_http._base_url, exc)
-            logger.debug("Bulk flag registration failed (flags: %s)", self._flags_http._base_url, exc_info=True)
+            debug("registration", traceback.format_exc().strip())
 
     def _flush_flags_sync(self) -> None:
         """Sync flush for periodic timer (runs in background thread)."""
@@ -1371,7 +1373,7 @@ class AsyncFlagsClient:
                 logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
         except Exception as exc:
             logger.warning("Bulk flag registration failed (flags: %s): %s", self._flags_http._base_url, exc)
-            logger.debug("Bulk flag registration failed (flags: %s)", self._flags_http._base_url, exc_info=True)
+            debug("registration", traceback.format_exc().strip())
 
     def _schedule_flag_flush(self) -> None:
         """Schedule periodic flag registration flush."""

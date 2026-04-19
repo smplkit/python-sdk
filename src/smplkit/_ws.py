@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import threading
+import traceback
 from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
@@ -154,11 +155,7 @@ class SharedWebSocket:
                 safe_url,
                 exc,
             )
-            logger.debug(
-                "Shared WebSocket connection failed on startup (url: %s), will attempt reconnection",
-                safe_url,
-                exc_info=True,
-            )
+            debug("websocket", traceback.format_exc().strip())
             await self._reconnect()
 
     # ------------------------------------------------------------------
