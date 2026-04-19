@@ -7,7 +7,7 @@ import threading
 import traceback
 
 from smplkit._config import _service_url, resolve_config
-from smplkit._debug import debug
+from smplkit._debug import debug, enable_debug
 from smplkit._generated.app.api.contexts import bulk_register_contexts as gen_bulk_register_contexts
 from smplkit._generated.app.models.context_bulk_item import ContextBulkItem
 from smplkit._generated.app.models.context_bulk_item_attributes import ContextBulkItemAttributes
@@ -74,6 +74,8 @@ class SmplClient:
             debug=debug,
             disable_telemetry=disable_telemetry,
         )
+        if cfg.debug:
+            enable_debug()
 
         self._api_key = cfg.api_key
         self._environment = cfg.environment
@@ -215,6 +217,8 @@ class AsyncSmplClient:
             debug=debug,
             disable_telemetry=disable_telemetry,
         )
+        if cfg.debug:
+            enable_debug()
 
         self._api_key = cfg.api_key
         self._environment = cfg.environment

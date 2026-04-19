@@ -25,6 +25,12 @@ def _parse_debug_env(value: str) -> bool:
 _DEBUG_ENABLED: bool = _parse_debug_env(os.environ.get("SMPLKIT_DEBUG", ""))
 
 
+def enable_debug() -> None:
+    """Enable debug output (called when config file or constructor sets debug=True)."""
+    global _DEBUG_ENABLED
+    _DEBUG_ENABLED = True
+
+
 def is_debug_enabled() -> bool:
     """Return True if SMPLKIT_DEBUG is enabled."""
     return _DEBUG_ENABLED
