@@ -915,8 +915,9 @@ class TestBulkFlush:
         client._buffer.add("com.test", "INFO", "INFO", None, None)
         with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
             client._flush_bulk_sync()
-        assert len(caplog.records) == 1
-        assert caplog.records[0].levelno == stdlib_logging.WARNING
+        records = [r for r in caplog.records if r.name == "smplkit"]
+        assert len(records) == 1
+        assert records[0].levelno == stdlib_logging.WARNING
 
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
     def test_flush_no_metrics_on_http_error(self, mock_bulk):
