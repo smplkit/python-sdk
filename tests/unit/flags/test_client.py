@@ -1162,6 +1162,8 @@ class TestFlagsClientLifecycle:
         assert client._environment == "staging"
         assert client._ws_manager is mock_ws
         assert mock_ws.on.call_count == 2
+        registered_events = {call.args[0] for call in mock_ws.on.call_args_list}
+        assert registered_events == {"flag_changed", "flag_deleted"}
         assert _TEST_UUID in client._flag_store
         assert client._flag_flush_timer is not None
         client._flag_flush_timer.cancel()
@@ -1447,6 +1449,8 @@ class TestFlagsClientEventHandlers:
         client._handle_flag_changed({"id": "test-flag"})
         mock_list.assert_called_once()
         listener.assert_called_once()
+        event = listener.call_args[0][0]
+        assert event.source == "websocket"
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_handle_flag_changed_fetch_error_propagates(self, mock_list):
@@ -2035,6 +2039,8 @@ class TestAsyncFlagsClientLifecycle:
             assert client._environment == "staging"
             assert client._ws_manager is mock_ws
             assert mock_ws.on.call_count == 2
+            registered_events = {call.args[0] for call in mock_ws.on.call_args_list}
+            assert registered_events == {"flag_changed", "flag_deleted"}
             assert client._flag_flush_timer is not None
             client._flag_flush_timer.cancel()
 
@@ -2300,6 +2306,8 @@ class TestAsyncFlagsClientEventHandlers:
         client._global_listeners.append(listener)
         client._handle_flag_changed({"id": "test-flag"})
         listener.assert_called_once()
+        event = listener.call_args[0][0]
+        assert event.source == "websocket"
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_handle_flag_changed_fetch_error(self, mock_list):
