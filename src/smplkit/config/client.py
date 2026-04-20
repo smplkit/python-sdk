@@ -36,9 +36,11 @@ from smplkit._generated.config.models.config_response import ConfigResponse
 from smplkit.config.models import AsyncConfig, Config
 
 if TYPE_CHECKING:
+    from smplkit._ws import SharedWebSocket
     from smplkit.client import AsyncSmplClient, SmplClient
 
 logger = logging.getLogger("smplkit")
+ws_logger = logging.getLogger("smplkit.config.ws")
 
 
 def _make_items(items: dict[str, Any] | None) -> ConfigItemsType0 | None:
@@ -226,6 +228,19 @@ def _unflatten(flat: dict[str, Any]) -> dict[str, Any]:
             current = current.setdefault(part, {})
         current[parts[-1]] = value
     return nested
+
+
+def _build_chain_sync(model: Any, models_by_id: dict[str, Any]) -> list[dict[str, Any]]:
+    """Build a parent chain from pre-fetched models without async calls."""
+    chain = [{"id": model.id, "items": model._items_raw, "environments": model.environments}]
+    current = model
+    while current.parent is not None:
+        parent = models_by_id.get(current.parent)
+        if parent is None:
+            break
+        chain.append({"id": parent.id, "items": parent._items_raw, "environments": parent.environments})
+        current = parent
+    return chain
 
 
 class ConfigChangeEvent:
@@ -444,6 +459,7 @@ class ConfigClient:
         self._connected = False
         self._cache_lock = threading.Lock()
         self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
+        self._ws_manager: SharedWebSocket | None = None
         self.management = ConfigManagementClient(self)
 
     def _connect_internal(self) -> None:
@@ -462,6 +478,9 @@ class ConfigClient:
         with self._cache_lock:
             self._config_cache = cache
         self._connected = True
+
+        self._ws_manager = self._parent._ensure_ws()
+        self._ws_manager.on("config_changed", self._handle_config_changed)
 
     # ------------------------------------------------------------------
     # Runtime: get / subscribe
@@ -525,6 +544,9 @@ class ConfigClient:
         Raises:
             SmplConnectionError: If the fetch fails.
         """
+        self._do_refresh("manual")
+
+    def _do_refresh(self, source: str) -> None:
         configs = self.management.list()
         environment = self._parent._environment
         new_cache: dict[str, dict[str, Any]] = {}
@@ -534,7 +556,7 @@ class ConfigClient:
         with self._cache_lock:
             old_cache = self._config_cache
             self._config_cache = new_cache
-        self._fire_change_listeners(old_cache, new_cache, source="manual")
+        self._fire_change_listeners(old_cache, new_cache, source=source)
 
     def on_change(
         self, fn_or_id: Callable[[ConfigChangeEvent], None] | str | None = None, *, item_key: str | None = None
@@ -611,6 +633,16 @@ class ConfigClient:
                             i_key,
                             exc_info=True,
                         )
+
+    # ------------------------------------------------------------------
+    # Internal: event handlers (called by SharedWebSocket)
+    # ------------------------------------------------------------------
+
+    def _handle_config_changed(self, data: dict[str, Any]) -> None:
+        try:
+            self._do_refresh("websocket")
+        except Exception:
+            ws_logger.error("Failed to refresh configs after WS event", exc_info=True)
 
     # ------------------------------------------------------------------
     # Internal: create / update for Config.save()
@@ -807,6 +839,7 @@ class AsyncConfigClient:
         self._connected = False
         self._cache_lock = threading.Lock()
         self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
+        self._ws_manager: SharedWebSocket | None = None
         self.management = AsyncConfigManagementClient(self)
 
     async def _connect_internal(self) -> None:
@@ -825,6 +858,9 @@ class AsyncConfigClient:
         with self._cache_lock:
             self._config_cache = cache
         self._connected = True
+
+        self._ws_manager = self._parent._ensure_ws()
+        self._ws_manager.on("config_changed", self._handle_config_changed)
 
     # ------------------------------------------------------------------
     # Runtime: get / subscribe
@@ -887,6 +923,9 @@ class AsyncConfigClient:
         Raises:
             SmplConnectionError: If the fetch fails.
         """
+        await self._do_refresh("manual")
+
+    async def _do_refresh(self, source: str) -> None:
         configs = await self.management.list()
         environment = self._parent._environment
         new_cache: dict[str, dict[str, Any]] = {}
@@ -896,7 +935,7 @@ class AsyncConfigClient:
         with self._cache_lock:
             old_cache = self._config_cache
             self._config_cache = new_cache
-        self._fire_change_listeners(old_cache, new_cache, source="manual")
+        self._fire_change_listeners(old_cache, new_cache, source=source)
 
     def on_change(
         self, fn_or_id: Callable[[ConfigChangeEvent], None] | str | None = None, *, item_key: str | None = None
@@ -973,6 +1012,30 @@ class AsyncConfigClient:
                             i_key,
                             exc_info=True,
                         )
+
+    # ------------------------------------------------------------------
+    # Internal: event handlers (called by SharedWebSocket)
+    # ------------------------------------------------------------------
+
+    def _handle_config_changed(self, data: dict[str, Any]) -> None:
+        try:
+            response = list_configs.sync_detailed(client=self._parent._http_client)
+            _check_response_status(response.status_code, response.content)
+            if response.parsed is None or not hasattr(response.parsed, "data"):
+                return
+            models = [self._resource_to_model(r) for r in response.parsed.data]
+            environment = self._parent._environment
+            models_by_id = {m.id: m for m in models}
+            new_cache: dict[str, dict[str, Any]] = {}
+            for m in models:
+                chain = _build_chain_sync(m, models_by_id)
+                new_cache[m.id] = resolve(chain, environment)
+            with self._cache_lock:
+                old_cache = self._config_cache
+                self._config_cache = new_cache
+            self._fire_change_listeners(old_cache, new_cache, source="websocket")
+        except Exception:
+            ws_logger.error("Failed to refresh configs after WS event", exc_info=True)
 
     # ------------------------------------------------------------------
     # Internal: create / update for AsyncConfig.save()
