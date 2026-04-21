@@ -6,6 +6,8 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..types import UNSET, Unset
+
 
 T = TypeVar("T", bound="ConfigItemOverride")
 
@@ -15,10 +17,10 @@ class ConfigItemOverride:
     """Schema for an environment override — value only, no type/description.
 
     Attributes:
-        value (Any):
+        value (Any | Unset):
     """
 
-    value: Any
+    value: Any | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -26,18 +28,16 @@ class ConfigItemOverride:
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "value": value,
-            }
-        )
+        field_dict.update({})
+        if value is not UNSET:
+            field_dict["value"] = value
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        value = d.pop("value")
+        value = d.pop("value", UNSET)
 
         config_item_override = cls(
             value=value,

@@ -20,13 +20,17 @@ T = TypeVar("T", bound="ConfigItemDefinition")
 class ConfigItemDefinition:
     """Schema for a single config item.
 
-    Attributes:
-        value (Any):
-        type_ (ConfigItemDefinitionTypeType0 | None | Unset):
-        description (None | str | Unset):
+    ``value`` may be ``None`` to represent a cleared (typed but unset)
+    slot — e.g. after a type change that could not coerce the previous
+    value. See ADR-024.
+
+        Attributes:
+            value (Any | Unset):
+            type_ (ConfigItemDefinitionTypeType0 | None | Unset):
+            description (None | str | Unset):
     """
 
-    value: Any
+    value: Any | Unset = UNSET
     type_: ConfigItemDefinitionTypeType0 | None | Unset = UNSET
     description: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -50,11 +54,9 @@ class ConfigItemDefinition:
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "value": value,
-            }
-        )
+        field_dict.update({})
+        if value is not UNSET:
+            field_dict["value"] = value
         if type_ is not UNSET:
             field_dict["type"] = type_
         if description is not UNSET:
@@ -65,7 +67,7 @@ class ConfigItemDefinition:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        value = d.pop("value")
+        value = d.pop("value", UNSET)
 
         def _parse_type_(data: object) -> ConfigItemDefinitionTypeType0 | None | Unset:
             if data is None:
