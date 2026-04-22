@@ -21,6 +21,7 @@ from .bundle_response import BundleResponse
 from .catalog_bundle_attributes import CatalogBundleAttributes
 from .catalog_bundle_resource import CatalogBundleResource
 from .catalog_bundle_resource_type import CatalogBundleResourceType
+from .contact_topic import ContactTopic
 from .context import Context
 from .context_attributes import ContextAttributes
 from .context_batch_response import ContextBatchResponse
@@ -44,6 +45,10 @@ from .create_bundle_data_type import CreateBundleDataType
 from .create_subscription_attributes import CreateSubscriptionAttributes
 from .create_subscription_body import CreateSubscriptionBody
 from .create_subscription_data import CreateSubscriptionData
+from .email import Email
+from .email_resource import EmailResource
+from .email_resource_type import EmailResourceType
+from .email_response import EmailResponse
 from .environment import Environment
 from .environment_list_response import EnvironmentListResponse
 from .environment_resource import EnvironmentResource
@@ -102,6 +107,7 @@ from .put_account_settings_response_put_account_settings import PutAccountSettin
 from .put_user_settings_key_response_put_user_settings_key import PutUserSettingsKeyResponsePutUserSettingsKey
 from .put_user_settings_response_put_user_settings import PutUserSettingsResponsePutUserSettings
 from .register_request import RegisterRequest
+from .send_contact_email_body import SendContactEmailBody
 from .service import Service
 from .service_list_response import ServiceListResponse
 from .service_resource import ServiceResource
@@ -149,6 +155,7 @@ __all__ = (
     "CatalogBundleAttributes",
     "CatalogBundleResource",
     "CatalogBundleResourceType",
+    "ContactTopic",
     "Context",
     "ContextAttributes",
     "ContextBatchResponse",
@@ -172,6 +179,10 @@ __all__ = (
     "CreateSubscriptionAttributes",
     "CreateSubscriptionBody",
     "CreateSubscriptionData",
+    "Email",
+    "EmailResource",
+    "EmailResourceType",
+    "EmailResponse",
     "Environment",
     "EnvironmentListResponse",
     "EnvironmentResource",
@@ -230,6 +241,7 @@ __all__ = (
     "PutUserSettingsKeyResponsePutUserSettingsKey",
     "PutUserSettingsResponsePutUserSettings",
     "RegisterRequest",
+    "SendContactEmailBody",
     "Service",
     "ServiceListResponse",
     "ServiceResource",
