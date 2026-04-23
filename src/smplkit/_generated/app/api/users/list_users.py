@@ -16,6 +16,9 @@ def _get_kwargs(
     *,
     filteraccount: None | str | Unset = UNSET,
     filteremail: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
+    pagenumber: int | Unset = 1,
+    pagesize: int | Unset = 50,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -33,6 +36,17 @@ def _get_kwargs(
     else:
         json_filteremail = filteremail
     params["filter[email]"] = json_filteremail
+
+    json_filtersearch: None | str | Unset
+    if isinstance(filtersearch, Unset):
+        json_filtersearch = UNSET
+    else:
+        json_filtersearch = filtersearch
+    params["filter[search]"] = json_filtersearch
+
+    params["page[number]"] = pagenumber
+
+    params["page[size]"] = pagesize
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -95,6 +109,9 @@ def sync_detailed(
     client: AuthenticatedClient,
     filteraccount: None | str | Unset = UNSET,
     filteremail: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
+    pagenumber: int | Unset = 1,
+    pagesize: int | Unset = 50,
 ) -> Response[ErrorResponse | UserListResponse]:
     """List Users
 
@@ -103,6 +120,10 @@ def sync_detailed(
     Args:
         filteraccount (None | str | Unset):
         filteremail (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match against display_name
+            and email. If the value is a valid UUID, also matches user id exactly.
+        pagenumber (int | Unset): 1-based page number Default: 1.
+        pagesize (int | Unset): Items per page Default: 50.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -115,6 +136,9 @@ def sync_detailed(
     kwargs = _get_kwargs(
         filteraccount=filteraccount,
         filteremail=filteremail,
+        filtersearch=filtersearch,
+        pagenumber=pagenumber,
+        pagesize=pagesize,
     )
 
     response = client.get_httpx_client().request(
@@ -129,6 +153,9 @@ def sync(
     client: AuthenticatedClient,
     filteraccount: None | str | Unset = UNSET,
     filteremail: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
+    pagenumber: int | Unset = 1,
+    pagesize: int | Unset = 50,
 ) -> ErrorResponse | UserListResponse | None:
     """List Users
 
@@ -137,6 +164,10 @@ def sync(
     Args:
         filteraccount (None | str | Unset):
         filteremail (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match against display_name
+            and email. If the value is a valid UUID, also matches user id exactly.
+        pagenumber (int | Unset): 1-based page number Default: 1.
+        pagesize (int | Unset): Items per page Default: 50.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -150,6 +181,9 @@ def sync(
         client=client,
         filteraccount=filteraccount,
         filteremail=filteremail,
+        filtersearch=filtersearch,
+        pagenumber=pagenumber,
+        pagesize=pagesize,
     ).parsed
 
 
@@ -158,6 +192,9 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     filteraccount: None | str | Unset = UNSET,
     filteremail: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
+    pagenumber: int | Unset = 1,
+    pagesize: int | Unset = 50,
 ) -> Response[ErrorResponse | UserListResponse]:
     """List Users
 
@@ -166,6 +203,10 @@ async def asyncio_detailed(
     Args:
         filteraccount (None | str | Unset):
         filteremail (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match against display_name
+            and email. If the value is a valid UUID, also matches user id exactly.
+        pagenumber (int | Unset): 1-based page number Default: 1.
+        pagesize (int | Unset): Items per page Default: 50.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -178,6 +219,9 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         filteraccount=filteraccount,
         filteremail=filteremail,
+        filtersearch=filtersearch,
+        pagenumber=pagenumber,
+        pagesize=pagesize,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -190,6 +234,9 @@ async def asyncio(
     client: AuthenticatedClient,
     filteraccount: None | str | Unset = UNSET,
     filteremail: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
+    pagenumber: int | Unset = 1,
+    pagesize: int | Unset = 50,
 ) -> ErrorResponse | UserListResponse | None:
     """List Users
 
@@ -198,6 +245,10 @@ async def asyncio(
     Args:
         filteraccount (None | str | Unset):
         filteremail (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match against display_name
+            and email. If the value is a valid UUID, also matches user id exactly.
+        pagenumber (int | Unset): 1-based page number Default: 1.
+        pagesize (int | Unset): Items per page Default: 50.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -212,5 +263,8 @@ async def asyncio(
             client=client,
             filteraccount=filteraccount,
             filteremail=filteremail,
+            filtersearch=filtersearch,
+            pagenumber=pagenumber,
+            pagesize=pagesize,
         )
     ).parsed
