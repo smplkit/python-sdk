@@ -18,8 +18,8 @@ def _get_kwargs(
 ) -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
-        "method": "post",
-        "url": "/api/v1/payment_methods/{id}/actions/set_default".format(
+        "method": "get",
+        "url": "/api/v1/payment_methods/{id}".format(
             id=quote(str(id), safe=""),
         ),
     }
@@ -77,9 +77,9 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
 ) -> Response[ErrorResponse | PaymentMethodResponse]:
-    """Set Default Payment Method
+    """Get Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Return a payment method by id.
 
     Args:
         id (UUID):
@@ -108,9 +108,9 @@ def sync(
     *,
     client: AuthenticatedClient,
 ) -> ErrorResponse | PaymentMethodResponse | None:
-    """Set Default Payment Method
+    """Get Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Return a payment method by id.
 
     Args:
         id (UUID):
@@ -134,9 +134,9 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
 ) -> Response[ErrorResponse | PaymentMethodResponse]:
-    """Set Default Payment Method
+    """Get Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Return a payment method by id.
 
     Args:
         id (UUID):
@@ -163,9 +163,9 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
 ) -> ErrorResponse | PaymentMethodResponse | None:
-    """Set Default Payment Method
+    """Get Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Return a payment method by id.
 
     Args:
         id (UUID):

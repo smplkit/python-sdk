@@ -13,7 +13,7 @@ from ..models.payment_method_resource_type import PaymentMethodResourceType
 from typing import cast
 
 if TYPE_CHECKING:
-    from ..models.payment_method_attributes import PaymentMethodAttributes
+    from ..models.payment_method import PaymentMethod
 
 
 T = TypeVar("T", bound="PaymentMethodResource")
@@ -23,17 +23,24 @@ T = TypeVar("T", bound="PaymentMethodResource")
 class PaymentMethodResource:
     """
     Example:
-        {'attributes': {'brand': 'visa', 'exp_month': 12, 'exp_year': 2028, 'is_default': True, 'last4': '4242'}, 'id':
-            'pm_1234567890abcdef', 'type': 'payment_method'}
+        {'attributes': {'billing_details': {'email': 'jane@example.com', 'name': 'Jane Doe'}, 'brand': 'visa',
+            'created_at': '2026-04-23T12:34:56Z', 'default': True, 'exp_month': 8, 'exp_year': 2028, 'last4': '4242',
+            'updated_at': '2026-04-23T12:34:56Z'}, 'id': '0b8a9c9e-1111-2222-3333-444455556666', 'type': 'payment_method'}
 
     Attributes:
         type_ (PaymentMethodResourceType):
-        attributes (PaymentMethodAttributes):
+        attributes (PaymentMethod): Attributes for a saved card payment method.
+
+            ``default`` is the API-facing name; the underlying column is ``is_default``
+            per ADR-013 (reserved-word exception) and ADR-014 (unprefixed API fields). Example: {'billing_details':
+            {'address': {'city': 'Leesburg', 'country': 'US', 'line1': '123 Main St', 'postal_code': '20175', 'state':
+            'VA'}, 'email': 'jane@example.com', 'name': 'Jane Doe'}, 'brand': 'visa', 'created_at': '2026-04-23T12:34:56Z',
+            'default': True, 'exp_month': 8, 'exp_year': 2028, 'last4': '4242', 'updated_at': '2026-04-23T12:34:56Z'}.
         id (None | str | Unset):
     """
 
     type_: PaymentMethodResourceType
-    attributes: PaymentMethodAttributes
+    attributes: PaymentMethod
     id: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -63,12 +70,12 @@ class PaymentMethodResource:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.payment_method_attributes import PaymentMethodAttributes
+        from ..models.payment_method import PaymentMethod
 
         d = dict(src_dict)
         type_ = check_payment_method_resource_type(d.pop("type"))
 
-        attributes = PaymentMethodAttributes.from_dict(d.pop("attributes"))
+        attributes = PaymentMethod.from_dict(d.pop("attributes"))
 
         def _parse_id(data: object) -> None | str | Unset:
             if data is None:

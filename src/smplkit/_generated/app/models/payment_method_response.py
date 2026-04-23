@@ -8,20 +8,23 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.set_default_payment_method_data import SetDefaultPaymentMethodData
+    from ..models.payment_method_resource import PaymentMethodResource
 
 
-T = TypeVar("T", bound="SetDefaultPaymentMethodRequest")
+T = TypeVar("T", bound="PaymentMethodResponse")
 
 
 @_attrs_define
-class SetDefaultPaymentMethodRequest:
+class PaymentMethodResponse:
     """
     Attributes:
-        data (SetDefaultPaymentMethodData):
+        data (PaymentMethodResource):  Example: {'attributes': {'billing_details': {'email': 'jane@example.com', 'name':
+            'Jane Doe'}, 'brand': 'visa', 'created_at': '2026-04-23T12:34:56Z', 'default': True, 'exp_month': 8, 'exp_year':
+            2028, 'last4': '4242', 'updated_at': '2026-04-23T12:34:56Z'}, 'id': '0b8a9c9e-1111-2222-3333-444455556666',
+            'type': 'payment_method'}.
     """
 
-    data: SetDefaultPaymentMethodData
+    data: PaymentMethodResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -39,17 +42,17 @@ class SetDefaultPaymentMethodRequest:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.set_default_payment_method_data import SetDefaultPaymentMethodData
+        from ..models.payment_method_resource import PaymentMethodResource
 
         d = dict(src_dict)
-        data = SetDefaultPaymentMethodData.from_dict(d.pop("data"))
+        data = PaymentMethodResource.from_dict(d.pop("data"))
 
-        set_default_payment_method_request = cls(
+        payment_method_response = cls(
             data=data,
         )
 
-        set_default_payment_method_request.additional_properties = d
-        return set_default_payment_method_request
+        payment_method_response.additional_properties = d
+        return payment_method_response
 
     @property
     def additional_keys(self) -> list[str]:

@@ -22,7 +22,8 @@ class CreateBundleData:
     """
     Attributes:
         type_ (CreateBundleDataType):
-        attributes (CreateBundleAttributes):  Example: {'bundle': 'standard', 'payment_method': 'pm_1234567890abcdef'}.
+        attributes (CreateBundleAttributes):  Example: {'bundle': 'standard', 'payment_method':
+            'a1b2c3d4-e5f6-7890-abcd-ef1234567890'}.
     """
 
     type_: CreateBundleDataType

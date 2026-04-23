@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote
 
 import httpx
@@ -9,7 +9,6 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
-from ...models.payment_method_response import PaymentMethodResponse
 from uuid import UUID
 
 
@@ -18,8 +17,8 @@ def _get_kwargs(
 ) -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
-        "method": "post",
-        "url": "/api/v1/payment_methods/{id}/actions/set_default".format(
+        "method": "delete",
+        "url": "/api/v1/payment_methods/{id}".format(
             id=quote(str(id), safe=""),
         ),
     }
@@ -27,13 +26,10 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse | PaymentMethodResponse | None:
-    if response.status_code == 200:
-        response_200 = PaymentMethodResponse.from_dict(response.json())
-
-        return response_200
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | ErrorResponse | None:
+    if response.status_code == 204:
+        response_204 = cast(Any, None)
+        return response_204
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
@@ -61,9 +57,7 @@ def _parse_response(
         return None
 
 
-def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse | PaymentMethodResponse]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | ErrorResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -76,10 +70,12 @@ def sync_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Response[ErrorResponse | PaymentMethodResponse]:
-    """Set Default Payment Method
+) -> Response[Any | ErrorResponse]:
+    """Delete Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Detach the payment method from Stripe and soft-delete the local row. Returns 409 if this is the only
+    PM and the account has an active paid subscription. If the deleted row was default, the oldest
+    remaining row is promoted.
 
     Args:
         id (UUID):
@@ -89,7 +85,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | PaymentMethodResponse]
+        Response[Any | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
@@ -107,10 +103,12 @@ def sync(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> ErrorResponse | PaymentMethodResponse | None:
-    """Set Default Payment Method
+) -> Any | ErrorResponse | None:
+    """Delete Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Detach the payment method from Stripe and soft-delete the local row. Returns 409 if this is the only
+    PM and the account has an active paid subscription. If the deleted row was default, the oldest
+    remaining row is promoted.
 
     Args:
         id (UUID):
@@ -120,7 +118,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | PaymentMethodResponse
+        Any | ErrorResponse
     """
 
     return sync_detailed(
@@ -133,10 +131,12 @@ async def asyncio_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Response[ErrorResponse | PaymentMethodResponse]:
-    """Set Default Payment Method
+) -> Response[Any | ErrorResponse]:
+    """Delete Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Detach the payment method from Stripe and soft-delete the local row. Returns 409 if this is the only
+    PM and the account has an active paid subscription. If the deleted row was default, the oldest
+    remaining row is promoted.
 
     Args:
         id (UUID):
@@ -146,7 +146,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse | PaymentMethodResponse]
+        Response[Any | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
@@ -162,10 +162,12 @@ async def asyncio(
     id: UUID,
     *,
     client: AuthenticatedClient,
-) -> ErrorResponse | PaymentMethodResponse | None:
-    """Set Default Payment Method
+) -> Any | ErrorResponse | None:
+    """Delete Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Detach the payment method from Stripe and soft-delete the local row. Returns 409 if this is the only
+    PM and the account has an active paid subscription. If the deleted row was default, the oldest
+    remaining row is promoted.
 
     Args:
         id (UUID):
@@ -175,7 +177,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse | PaymentMethodResponse
+        Any | ErrorResponse
     """
 
     return (

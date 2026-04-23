@@ -15,15 +15,23 @@ from uuid import UUID
 
 def _get_kwargs(
     id: UUID,
+    *,
+    body: PaymentMethodResponse,
 ) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
-        "method": "post",
-        "url": "/api/v1/payment_methods/{id}/actions/set_default".format(
+        "method": "put",
+        "url": "/api/v1/payment_methods/{id}".format(
             id=quote(str(id), safe=""),
         ),
     }
 
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/vnd.api+json"
+
+    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -76,13 +84,16 @@ def sync_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
+    body: PaymentMethodResponse,
 ) -> Response[ErrorResponse | PaymentMethodResponse]:
-    """Set Default Payment Method
+    """Update Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Update the mutable fields (``billing_details``, ``exp_month``, ``exp_year``). The ``default`` field
+    is not mutable via PUT — see ADR-044 §5.2; use the ``set_default`` action instead.
 
     Args:
         id (UUID):
+        body (PaymentMethodResponse):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -94,6 +105,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -107,13 +119,16 @@ def sync(
     id: UUID,
     *,
     client: AuthenticatedClient,
+    body: PaymentMethodResponse,
 ) -> ErrorResponse | PaymentMethodResponse | None:
-    """Set Default Payment Method
+    """Update Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Update the mutable fields (``billing_details``, ``exp_month``, ``exp_year``). The ``default`` field
+    is not mutable via PUT — see ADR-044 §5.2; use the ``set_default`` action instead.
 
     Args:
         id (UUID):
+        body (PaymentMethodResponse):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -126,6 +141,7 @@ def sync(
     return sync_detailed(
         id=id,
         client=client,
+        body=body,
     ).parsed
 
 
@@ -133,13 +149,16 @@ async def asyncio_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
+    body: PaymentMethodResponse,
 ) -> Response[ErrorResponse | PaymentMethodResponse]:
-    """Set Default Payment Method
+    """Update Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Update the mutable fields (``billing_details``, ``exp_month``, ``exp_year``). The ``default`` field
+    is not mutable via PUT — see ADR-044 §5.2; use the ``set_default`` action instead.
 
     Args:
         id (UUID):
+        body (PaymentMethodResponse):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -151,6 +170,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+        body=body,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -162,13 +182,16 @@ async def asyncio(
     id: UUID,
     *,
     client: AuthenticatedClient,
+    body: PaymentMethodResponse,
 ) -> ErrorResponse | PaymentMethodResponse | None:
-    """Set Default Payment Method
+    """Update Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Update the mutable fields (``billing_details``, ``exp_month``, ``exp_year``). The ``default`` field
+    is not mutable via PUT — see ADR-044 §5.2; use the ``set_default`` action instead.
 
     Args:
         id (UUID):
+        body (PaymentMethodResponse):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -182,5 +205,6 @@ async def asyncio(
         await asyncio_detailed(
             id=id,
             client=client,
+            body=body,
         )
     ).parsed
