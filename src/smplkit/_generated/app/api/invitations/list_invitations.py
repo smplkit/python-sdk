@@ -15,6 +15,7 @@ from ...types import Unset
 def _get_kwargs(
     *,
     filterstatus: None | str | Unset = UNSET,
+    filtertoken: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -25,6 +26,13 @@ def _get_kwargs(
     else:
         json_filterstatus = filterstatus
     params["filter[status]"] = json_filterstatus
+
+    json_filtertoken: None | str | Unset
+    if isinstance(filtertoken, Unset):
+        json_filtertoken = UNSET
+    else:
+        json_filtertoken = filtertoken
+    params["filter[token]"] = json_filtertoken
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -86,13 +94,18 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
+    filtertoken: None | str | Unset = UNSET,
 ) -> Response[ErrorResponse | InvitationListResponse]:
     """List Invitations
 
-     List all invitations for the authenticated account.
+     List invitations. Authenticated admins list invitations for their own account and may narrow by
+    status. Unauthenticated callers must pass ``filter[token]`` to look up a specific invitation by its
+    token — used to render the invitation preview before sign-in. The token-filter path always returns
+    an array of 0 or 1 elements.
 
     Args:
         filterstatus (None | str | Unset):
+        filtertoken (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -104,6 +117,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         filterstatus=filterstatus,
+        filtertoken=filtertoken,
     )
 
     response = client.get_httpx_client().request(
@@ -117,13 +131,18 @@ def sync(
     *,
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
+    filtertoken: None | str | Unset = UNSET,
 ) -> ErrorResponse | InvitationListResponse | None:
     """List Invitations
 
-     List all invitations for the authenticated account.
+     List invitations. Authenticated admins list invitations for their own account and may narrow by
+    status. Unauthenticated callers must pass ``filter[token]`` to look up a specific invitation by its
+    token — used to render the invitation preview before sign-in. The token-filter path always returns
+    an array of 0 or 1 elements.
 
     Args:
         filterstatus (None | str | Unset):
+        filtertoken (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -136,6 +155,7 @@ def sync(
     return sync_detailed(
         client=client,
         filterstatus=filterstatus,
+        filtertoken=filtertoken,
     ).parsed
 
 
@@ -143,13 +163,18 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
+    filtertoken: None | str | Unset = UNSET,
 ) -> Response[ErrorResponse | InvitationListResponse]:
     """List Invitations
 
-     List all invitations for the authenticated account.
+     List invitations. Authenticated admins list invitations for their own account and may narrow by
+    status. Unauthenticated callers must pass ``filter[token]`` to look up a specific invitation by its
+    token — used to render the invitation preview before sign-in. The token-filter path always returns
+    an array of 0 or 1 elements.
 
     Args:
         filterstatus (None | str | Unset):
+        filtertoken (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -161,6 +186,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         filterstatus=filterstatus,
+        filtertoken=filtertoken,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -172,13 +198,18 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
+    filtertoken: None | str | Unset = UNSET,
 ) -> ErrorResponse | InvitationListResponse | None:
     """List Invitations
 
-     List all invitations for the authenticated account.
+     List invitations. Authenticated admins list invitations for their own account and may narrow by
+    status. Unauthenticated callers must pass ``filter[token]`` to look up a specific invitation by its
+    token — used to render the invitation preview before sign-in. The token-filter path always returns
+    an array of 0 or 1 elements.
 
     Args:
         filterstatus (None | str | Unset):
+        filtertoken (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -192,5 +223,6 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             filterstatus=filterstatus,
+            filtertoken=filtertoken,
         )
     ).parsed
