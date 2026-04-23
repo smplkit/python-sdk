@@ -72,7 +72,7 @@ def sync_detailed(
 ) -> Response[ErrorResponse | PaymentMethodListResponse]:
     """List Payment Methods
 
-     Return the default payment method for the account's Stripe Customer.
+     List all payment methods for the account. Default is returned first, then newest first.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -97,7 +97,7 @@ def sync(
 ) -> ErrorResponse | PaymentMethodListResponse | None:
     """List Payment Methods
 
-     Return the default payment method for the account's Stripe Customer.
+     List all payment methods for the account. Default is returned first, then newest first.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,7 +118,7 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | PaymentMethodListResponse]:
     """List Payment Methods
 
-     Return the default payment method for the account's Stripe Customer.
+     List all payment methods for the account. Default is returned first, then newest first.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -141,7 +141,7 @@ async def asyncio(
 ) -> ErrorResponse | PaymentMethodListResponse | None:
     """List Payment Methods
 
-     Return the default payment method for the account's Stripe Customer.
+     List all payment methods for the account. Default is returned first, then newest first.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

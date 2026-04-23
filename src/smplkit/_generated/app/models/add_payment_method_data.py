@@ -7,26 +7,30 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-from ..models.set_default_payment_method_data_type import check_set_default_payment_method_data_type
-from ..models.set_default_payment_method_data_type import SetDefaultPaymentMethodDataType
+from ..models.add_payment_method_data_type import AddPaymentMethodDataType
+from ..models.add_payment_method_data_type import check_add_payment_method_data_type
 
 if TYPE_CHECKING:
-    from ..models.set_default_payment_method_attributes import SetDefaultPaymentMethodAttributes
+    from ..models.add_payment_method_attributes import AddPaymentMethodAttributes
 
 
-T = TypeVar("T", bound="SetDefaultPaymentMethodData")
+T = TypeVar("T", bound="AddPaymentMethodData")
 
 
 @_attrs_define
-class SetDefaultPaymentMethodData:
+class AddPaymentMethodData:
     """
     Attributes:
-        type_ (SetDefaultPaymentMethodDataType):
-        attributes (SetDefaultPaymentMethodAttributes):
+        type_ (AddPaymentMethodDataType):
+        attributes (AddPaymentMethodAttributes): Attributes for POST /api/v1/payment_methods.
+
+            Distinct from ``PaymentMethod`` because this shape takes the Stripe
+            ``pm_...`` ID at registration time; the persistent resource does not
+            expose that ID. Example: {'default': False, 'stripe_payment_method_id': 'pm_1234567890abcdef'}.
     """
 
-    type_: SetDefaultPaymentMethodDataType
-    attributes: SetDefaultPaymentMethodAttributes
+    type_: AddPaymentMethodDataType
+    attributes: AddPaymentMethodAttributes
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -47,20 +51,20 @@ class SetDefaultPaymentMethodData:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.set_default_payment_method_attributes import SetDefaultPaymentMethodAttributes
+        from ..models.add_payment_method_attributes import AddPaymentMethodAttributes
 
         d = dict(src_dict)
-        type_ = check_set_default_payment_method_data_type(d.pop("type"))
+        type_ = check_add_payment_method_data_type(d.pop("type"))
 
-        attributes = SetDefaultPaymentMethodAttributes.from_dict(d.pop("attributes"))
+        attributes = AddPaymentMethodAttributes.from_dict(d.pop("attributes"))
 
-        set_default_payment_method_data = cls(
+        add_payment_method_data = cls(
             type_=type_,
             attributes=attributes,
         )
 
-        set_default_payment_method_data.additional_properties = d
-        return set_default_payment_method_data
+        add_payment_method_data.additional_properties = d
+        return add_payment_method_data
 
     @property
     def additional_keys(self) -> list[str]:

@@ -18,13 +18,13 @@ T = TypeVar("T", bound="CreateSubscriptionData")
 class CreateSubscriptionData:
     """
     Example:
-        {'attributes': {'payment_method_id': 'pm_1234567890abcdef', 'plan': 'pro', 'product': 'flags'}, 'type':
-            'subscription'}
+        {'attributes': {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'plan': 'pro', 'product': 'flags'},
+            'type': 'subscription'}
 
     Attributes:
         type_ (str):
-        attributes (CreateSubscriptionAttributes):  Example: {'payment_method_id': 'pm_1234567890abcdef', 'plan': 'pro',
-            'product': 'flags'}.
+        attributes (CreateSubscriptionAttributes):  Example: {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+            'plan': 'pro', 'product': 'flags'}.
     """
 
     type_: str

@@ -18,12 +18,12 @@ T = TypeVar("T", bound="CreateSubscriptionBody")
 class CreateSubscriptionBody:
     """
     Example:
-        {'data': {'attributes': {'payment_method_id': 'pm_1234567890abcdef', 'plan': 'pro', 'product': 'flags'}, 'type':
-            'subscription'}}
+        {'data': {'attributes': {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'plan': 'pro', 'product':
+            'flags'}, 'type': 'subscription'}}
 
     Attributes:
-        data (CreateSubscriptionData):  Example: {'attributes': {'payment_method_id': 'pm_1234567890abcdef', 'plan':
-            'pro', 'product': 'flags'}, 'type': 'subscription'}.
+        data (CreateSubscriptionData):  Example: {'attributes': {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-
+            ef1234567890', 'plan': 'pro', 'product': 'flags'}, 'type': 'subscription'}.
     """
 
     data: CreateSubscriptionData

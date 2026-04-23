@@ -1,33 +1,41 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, TYPE_CHECKING
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-T = TypeVar("T", bound="SetDefaultPaymentMethodAttributes")
+if TYPE_CHECKING:
+    from ..models.add_payment_method_data import AddPaymentMethodData
+
+
+T = TypeVar("T", bound="AddPaymentMethodBody")
 
 
 @_attrs_define
-class SetDefaultPaymentMethodAttributes:
+class AddPaymentMethodBody:
     """
+    Example:
+        {'data': {'attributes': {'default': False, 'stripe_payment_method_id': 'pm_1234567890abcdef'}, 'type':
+            'payment_method'}}
+
     Attributes:
-        payment_method_id (str):
+        data (AddPaymentMethodData):
     """
 
-    payment_method_id: str
+    data: AddPaymentMethodData
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        payment_method_id = self.payment_method_id
+        data = self.data.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "payment_method_id": payment_method_id,
+                "data": data,
             }
         )
 
@@ -35,15 +43,17 @@ class SetDefaultPaymentMethodAttributes:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        d = dict(src_dict)
-        payment_method_id = d.pop("payment_method_id")
+        from ..models.add_payment_method_data import AddPaymentMethodData
 
-        set_default_payment_method_attributes = cls(
-            payment_method_id=payment_method_id,
+        d = dict(src_dict)
+        data = AddPaymentMethodData.from_dict(d.pop("data"))
+
+        add_payment_method_body = cls(
+            data=data,
         )
 
-        set_default_payment_method_attributes.additional_properties = d
-        return set_default_payment_method_attributes
+        add_payment_method_body.additional_properties = d
+        return add_payment_method_body
 
     @property
     def additional_keys(self) -> list[str]:

@@ -5,6 +5,10 @@ from .account_product_subscriptions import AccountProductSubscriptions
 from .account_resource import AccountResource
 from .account_resource_type import AccountResourceType
 from .account_response import AccountResponse
+from .add_payment_method_attributes import AddPaymentMethodAttributes
+from .add_payment_method_body import AddPaymentMethodBody
+from .add_payment_method_data import AddPaymentMethodData
+from .add_payment_method_data_type import AddPaymentMethodDataType
 from .api_key import ApiKey
 from .api_key_data import ApiKeyData
 from .api_key_list_response import ApiKeyListResponse
@@ -87,10 +91,12 @@ from .metric_rollup_list_response import MetricRollupListResponse
 from .metric_rollup_resource import MetricRollupResource
 from .metric_rollup_resource_type import MetricRollupResourceType
 from .oidc_provider import OidcProvider
-from .payment_method_attributes import PaymentMethodAttributes
+from .payment_method import PaymentMethod
+from .payment_method_billing_details import PaymentMethodBillingDetails
 from .payment_method_list_response import PaymentMethodListResponse
 from .payment_method_resource import PaymentMethodResource
 from .payment_method_resource_type import PaymentMethodResourceType
+from .payment_method_response import PaymentMethodResponse
 from .plan import Plan
 from .plan_change_request import PlanChangeRequest
 from .plan_definition import PlanDefinition
@@ -114,10 +120,6 @@ from .service_list_response import ServiceListResponse
 from .service_resource import ServiceResource
 from .service_resource_type import ServiceResourceType
 from .service_response import ServiceResponse
-from .set_default_payment_method_attributes import SetDefaultPaymentMethodAttributes
-from .set_default_payment_method_data import SetDefaultPaymentMethodData
-from .set_default_payment_method_data_type import SetDefaultPaymentMethodDataType
-from .set_default_payment_method_request import SetDefaultPaymentMethodRequest
 from .setup_intent_attributes import SetupIntentAttributes
 from .setup_intent_resource import SetupIntentResource
 from .setup_intent_resource_type import SetupIntentResourceType
@@ -140,6 +142,10 @@ __all__ = (
     "AccountResource",
     "AccountResourceType",
     "AccountResponse",
+    "AddPaymentMethodAttributes",
+    "AddPaymentMethodBody",
+    "AddPaymentMethodData",
+    "AddPaymentMethodDataType",
     "ApiKey",
     "ApiKeyData",
     "ApiKeyListResponse",
@@ -222,10 +228,12 @@ __all__ = (
     "MetricRollupResource",
     "MetricRollupResourceType",
     "OidcProvider",
-    "PaymentMethodAttributes",
+    "PaymentMethod",
+    "PaymentMethodBillingDetails",
     "PaymentMethodListResponse",
     "PaymentMethodResource",
     "PaymentMethodResourceType",
+    "PaymentMethodResponse",
     "Plan",
     "PlanChangeRequest",
     "PlanDefinition",
@@ -249,10 +257,6 @@ __all__ = (
     "ServiceResource",
     "ServiceResourceType",
     "ServiceResponse",
-    "SetDefaultPaymentMethodAttributes",
-    "SetDefaultPaymentMethodData",
-    "SetDefaultPaymentMethodDataType",
-    "SetDefaultPaymentMethodRequest",
     "SetupIntentAttributes",
     "SetupIntentResource",
     "SetupIntentResourceType",

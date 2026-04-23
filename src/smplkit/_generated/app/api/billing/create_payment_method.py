@@ -1,6 +1,5 @@
 from http import HTTPStatus
 from typing import Any
-from urllib.parse import quote
 
 import httpx
 
@@ -8,32 +7,37 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
+from ...models.add_payment_method_body import AddPaymentMethodBody
 from ...models.error_response import ErrorResponse
 from ...models.payment_method_response import PaymentMethodResponse
-from uuid import UUID
 
 
 def _get_kwargs(
-    id: UUID,
+    *,
+    body: AddPaymentMethodBody,
 ) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/api/v1/payment_methods/{id}/actions/set_default".format(
-            id=quote(str(id), safe=""),
-        ),
+        "url": "/api/v1/payment_methods",
     }
 
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/vnd.api+json"
+
+    _kwargs["headers"] = headers
     return _kwargs
 
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
 ) -> ErrorResponse | PaymentMethodResponse | None:
-    if response.status_code == 200:
-        response_200 = PaymentMethodResponse.from_dict(response.json())
+    if response.status_code == 201:
+        response_201 = PaymentMethodResponse.from_dict(response.json())
 
-        return response_200
+        return response_201
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
@@ -73,16 +77,19 @@ def _build_response(
 
 
 def sync_detailed(
-    id: UUID,
     *,
     client: AuthenticatedClient,
+    body: AddPaymentMethodBody,
 ) -> Response[ErrorResponse | PaymentMethodResponse]:
-    """Set Default Payment Method
+    """Add Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Register a Stripe payment method (``pm_...``) as a persistent resource. The frontend obtains the
+    Stripe ID via SetupIntent + Stripe Elements, then POSTs it here. Body shape and server behavior per
+    ADR-044 §5.1.
 
     Args:
-        id (UUID):
+        body (AddPaymentMethodBody):  Example: {'data': {'attributes': {'default': False,
+            'stripe_payment_method_id': 'pm_1234567890abcdef'}, 'type': 'payment_method'}}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -93,7 +100,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
-        id=id,
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -104,16 +111,19 @@ def sync_detailed(
 
 
 def sync(
-    id: UUID,
     *,
     client: AuthenticatedClient,
+    body: AddPaymentMethodBody,
 ) -> ErrorResponse | PaymentMethodResponse | None:
-    """Set Default Payment Method
+    """Add Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Register a Stripe payment method (``pm_...``) as a persistent resource. The frontend obtains the
+    Stripe ID via SetupIntent + Stripe Elements, then POSTs it here. Body shape and server behavior per
+    ADR-044 §5.1.
 
     Args:
-        id (UUID):
+        body (AddPaymentMethodBody):  Example: {'data': {'attributes': {'default': False,
+            'stripe_payment_method_id': 'pm_1234567890abcdef'}, 'type': 'payment_method'}}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -124,22 +134,25 @@ def sync(
     """
 
     return sync_detailed(
-        id=id,
         client=client,
+        body=body,
     ).parsed
 
 
 async def asyncio_detailed(
-    id: UUID,
     *,
     client: AuthenticatedClient,
+    body: AddPaymentMethodBody,
 ) -> Response[ErrorResponse | PaymentMethodResponse]:
-    """Set Default Payment Method
+    """Add Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Register a Stripe payment method (``pm_...``) as a persistent resource. The frontend obtains the
+    Stripe ID via SetupIntent + Stripe Elements, then POSTs it here. Body shape and server behavior per
+    ADR-044 §5.1.
 
     Args:
-        id (UUID):
+        body (AddPaymentMethodBody):  Example: {'data': {'attributes': {'default': False,
+            'stripe_payment_method_id': 'pm_1234567890abcdef'}, 'type': 'payment_method'}}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -150,7 +163,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
-        id=id,
+        body=body,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -159,16 +172,19 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    id: UUID,
     *,
     client: AuthenticatedClient,
+    body: AddPaymentMethodBody,
 ) -> ErrorResponse | PaymentMethodResponse | None:
-    """Set Default Payment Method
+    """Add Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Register a Stripe payment method (``pm_...``) as a persistent resource. The frontend obtains the
+    Stripe ID via SetupIntent + Stripe Elements, then POSTs it here. Body shape and server behavior per
+    ADR-044 §5.1.
 
     Args:
-        id (UUID):
+        body (AddPaymentMethodBody):  Example: {'data': {'attributes': {'default': False,
+            'stripe_payment_method_id': 'pm_1234567890abcdef'}, 'type': 'payment_method'}}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -180,7 +196,7 @@ async def asyncio(
 
     return (
         await asyncio_detailed(
-            id=id,
             client=client,
+            body=body,
         )
     ).parsed
