@@ -72,7 +72,9 @@ def sync_detailed(
 ) -> Response[ErrorResponse | UserResponse]:
     """Get Current User
 
-     Return the currently authenticated user.
+     Return the currently authenticated user. ``role`` and ``account`` are populated when the user has a
+    membership; both are null when the caller is authenticated but has no account yet — e.g. a returning
+    user who has just accepted an invitation email.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -97,7 +99,9 @@ def sync(
 ) -> ErrorResponse | UserResponse | None:
     """Get Current User
 
-     Return the currently authenticated user.
+     Return the currently authenticated user. ``role`` and ``account`` are populated when the user has a
+    membership; both are null when the caller is authenticated but has no account yet — e.g. a returning
+    user who has just accepted an invitation email.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,7 +122,9 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | UserResponse]:
     """Get Current User
 
-     Return the currently authenticated user.
+     Return the currently authenticated user. ``role`` and ``account`` are populated when the user has a
+    membership; both are null when the caller is authenticated but has no account yet — e.g. a returning
+    user who has just accepted an invitation email.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -141,7 +147,9 @@ async def asyncio(
 ) -> ErrorResponse | UserResponse | None:
     """Get Current User
 
-     Return the currently authenticated user.
+     Return the currently authenticated user. ``role`` and ``account`` are populated when the user has a
+    membership; both are null when the caller is authenticated but has no account yet — e.g. a returning
+    user who has just accepted an invitation email.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

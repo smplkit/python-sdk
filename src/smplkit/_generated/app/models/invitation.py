@@ -29,6 +29,9 @@ class Invitation:
         role (None | str | Unset):
         status (None | str | Unset):
         invited_by (None | str | Unset):
+        account_name (None | str | Unset):
+        inviter_display_name (None | str | Unset):
+        token (None | str | Unset):
         expires_at (datetime.datetime | None | Unset):
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
@@ -38,6 +41,9 @@ class Invitation:
     role: None | str | Unset = UNSET
     status: None | str | Unset = UNSET
     invited_by: None | str | Unset = UNSET
+    account_name: None | str | Unset = UNSET
+    inviter_display_name: None | str | Unset = UNSET
+    token: None | str | Unset = UNSET
     expires_at: datetime.datetime | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
@@ -67,6 +73,24 @@ class Invitation:
             invited_by = UNSET
         else:
             invited_by = self.invited_by
+
+        account_name: None | str | Unset
+        if isinstance(self.account_name, Unset):
+            account_name = UNSET
+        else:
+            account_name = self.account_name
+
+        inviter_display_name: None | str | Unset
+        if isinstance(self.inviter_display_name, Unset):
+            inviter_display_name = UNSET
+        else:
+            inviter_display_name = self.inviter_display_name
+
+        token: None | str | Unset
+        if isinstance(self.token, Unset):
+            token = UNSET
+        else:
+            token = self.token
 
         expires_at: None | str | Unset
         if isinstance(self.expires_at, Unset):
@@ -103,6 +127,12 @@ class Invitation:
             field_dict["status"] = status
         if invited_by is not UNSET:
             field_dict["invited_by"] = invited_by
+        if account_name is not UNSET:
+            field_dict["account_name"] = account_name
+        if inviter_display_name is not UNSET:
+            field_dict["inviter_display_name"] = inviter_display_name
+        if token is not UNSET:
+            field_dict["token"] = token
         if expires_at is not UNSET:
             field_dict["expires_at"] = expires_at
         if created_at is not UNSET:
@@ -151,6 +181,33 @@ class Invitation:
             return cast(None | str | Unset, data)
 
         invited_by = _parse_invited_by(d.pop("invited_by", UNSET))
+
+        def _parse_account_name(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        account_name = _parse_account_name(d.pop("account_name", UNSET))
+
+        def _parse_inviter_display_name(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        inviter_display_name = _parse_inviter_display_name(d.pop("inviter_display_name", UNSET))
+
+        def _parse_token(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        token = _parse_token(d.pop("token", UNSET))
 
         def _parse_expires_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -208,6 +265,9 @@ class Invitation:
             role=role,
             status=status,
             invited_by=invited_by,
+            account_name=account_name,
+            inviter_display_name=inviter_display_name,
+            token=token,
             expires_at=expires_at,
             created_at=created_at,
             updated_at=updated_at,
