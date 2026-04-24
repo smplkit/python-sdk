@@ -1427,34 +1427,30 @@ class TestAsyncConfigClientWebSocket:
 
         asyncio.run(_run())
 
-    def test_config_deleted_event_removes_from_cache(self):
-        @patch("smplkit.config.client.list_configs.sync_detailed")
-        def _run(mock_list):
-            resource = _mock_resource(id="app", name="App")
-            resource.attributes.items = {"debug": {"value": True}}
-            mock_list.return_value = _mock_list_response([resource])
-            client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            client.config._connected = True
-            client.config._config_cache = {"db": {"host": "localhost"}, "app": {"debug": True}}
-            client.config._handle_config_changed({"config_id": "db"})
-            assert "db" not in client.config._config_cache
-            assert "app" in client.config._config_cache
+    @patch("smplkit.config.client.list_configs.sync_detailed")
+    @patch("smplkit.client.AsyncSmplClient._register_service_context_sync")
+    def test_config_deleted_event_removes_from_cache(self, mock_reg, mock_list):
+        resource = _mock_resource(id="app", name="App")
+        resource.attributes.items = {"debug": {"value": True}}
+        mock_list.return_value = _mock_list_response([resource])
+        client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
+        client.config._connected = True
+        client.config._config_cache = {"db": {"host": "localhost"}, "app": {"debug": True}}
+        client.config._handle_config_changed({"config_id": "db"})
+        assert "db" not in client.config._config_cache
+        assert "app" in client.config._config_cache
 
-        _run()
-
-    def test_config_deleted_event_fires_listener_for_removed_key(self):
-        @patch("smplkit.config.client.list_configs.sync_detailed")
-        def _run(mock_list):
-            mock_list.return_value = _mock_list_response([])
-            client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            client.config._connected = True
-            client.config._config_cache = {"db": {"host": "localhost"}}
-            events = []
-            client.config.on_change(lambda e: events.append(e))
-            client.config._handle_config_changed({"config_id": "db"})
-            assert any(e.config_id == "db" for e in events)
-
-        _run()
+    @patch("smplkit.config.client.list_configs.sync_detailed")
+    @patch("smplkit.client.AsyncSmplClient._register_service_context_sync")
+    def test_config_deleted_event_fires_listener_for_removed_key(self, mock_reg, mock_list):
+        mock_list.return_value = _mock_list_response([])
+        client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
+        client.config._connected = True
+        client.config._config_cache = {"db": {"host": "localhost"}}
+        events = []
+        client.config.on_change(lambda e: events.append(e))
+        client.config._handle_config_changed({"config_id": "db"})
+        assert any(e.config_id == "db" for e in events)
 
     @patch("smplkit.config.client.list_configs.sync_detailed")
     def test_handle_config_changed_updates_cache(self, mock_list):
