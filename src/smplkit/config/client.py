@@ -481,6 +481,7 @@ class ConfigClient:
 
         self._ws_manager = self._parent._ensure_ws()
         self._ws_manager.on("config_changed", self._handle_config_changed)
+        self._ws_manager.on("config_deleted", self._handle_config_changed)
 
     # ------------------------------------------------------------------
     # Runtime: get / subscribe
@@ -861,6 +862,7 @@ class AsyncConfigClient:
 
         self._ws_manager = self._parent._ensure_ws()
         self._ws_manager.on("config_changed", self._handle_config_changed)
+        self._ws_manager.on("config_deleted", self._handle_config_changed)
 
     # ------------------------------------------------------------------
     # Runtime: get / subscribe

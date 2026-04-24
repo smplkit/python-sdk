@@ -1332,8 +1332,31 @@ class TestConfigClientWebSocket:
         with patch.object(client.config.management, "list", return_value=[mock_cfg]):
             client.config._connect_internal()
         client._ensure_ws.assert_called_once()
-        mock_ws.on.assert_called_once_with("config_changed", client.config._handle_config_changed)
+        mock_ws.on.assert_any_call("config_changed", client.config._handle_config_changed)
+        mock_ws.on.assert_any_call("config_deleted", client.config._handle_config_changed)
+        assert mock_ws.on.call_count == 2
         assert client.config._ws_manager is mock_ws
+
+    def test_config_deleted_event_removes_from_cache(self):
+        client = SmplClient(api_key="sk_test", environment="test", service="svc")
+        client.config._connected = True
+        client.config._config_cache = {"db": {"host": "localhost"}, "app": {"debug": True}}
+        # After deletion, server returns only the surviving config
+        remaining = self._make_mock_config("app", {"debug": {"value": True}})
+        with patch.object(client.config.management, "list", return_value=[remaining]):
+            client.config._handle_config_changed({"config_id": "db"})
+        assert "db" not in client.config._config_cache
+        assert "app" in client.config._config_cache
+
+    def test_config_deleted_event_fires_listener_for_removed_key(self):
+        client = SmplClient(api_key="sk_test", environment="test", service="svc")
+        client.config._connected = True
+        client.config._config_cache = {"db": {"host": "localhost"}}
+        events = []
+        client.config.on_change(lambda e: events.append(e))
+        with patch.object(client.config.management, "list", return_value=[]):
+            client.config._handle_config_changed({"config_id": "db"})
+        assert any(e.config_id == "db" for e in events)
 
     def test_handle_config_changed_updates_cache(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
@@ -1397,10 +1420,41 @@ class TestAsyncConfigClientWebSocket:
             with patch.object(client.config.management, "list", new_callable=AsyncMock, return_value=[mock_cfg]):
                 await client.config._connect_internal()
             client._ensure_ws.assert_called_once()
-            mock_ws.on.assert_called_once_with("config_changed", client.config._handle_config_changed)
+            mock_ws.on.assert_any_call("config_changed", client.config._handle_config_changed)
+            mock_ws.on.assert_any_call("config_deleted", client.config._handle_config_changed)
+            assert mock_ws.on.call_count == 2
             assert client.config._ws_manager is mock_ws
 
         asyncio.run(_run())
+
+    def test_config_deleted_event_removes_from_cache(self):
+        @patch("smplkit.config.client.list_configs.sync_detailed")
+        def _run(mock_list):
+            resource = _mock_resource(id="app", name="App")
+            resource.attributes.items = {"debug": {"value": True}}
+            mock_list.return_value = _mock_list_response([resource])
+            client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
+            client.config._connected = True
+            client.config._config_cache = {"db": {"host": "localhost"}, "app": {"debug": True}}
+            client.config._handle_config_changed({"config_id": "db"})
+            assert "db" not in client.config._config_cache
+            assert "app" in client.config._config_cache
+
+        _run()
+
+    def test_config_deleted_event_fires_listener_for_removed_key(self):
+        @patch("smplkit.config.client.list_configs.sync_detailed")
+        def _run(mock_list):
+            mock_list.return_value = _mock_list_response([])
+            client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
+            client.config._connected = True
+            client.config._config_cache = {"db": {"host": "localhost"}}
+            events = []
+            client.config.on_change(lambda e: events.append(e))
+            client.config._handle_config_changed({"config_id": "db"})
+            assert any(e.config_id == "db" for e in events)
+
+        _run()
 
     @patch("smplkit.config.client.list_configs.sync_detailed")
     def test_handle_config_changed_updates_cache(self, mock_list):
