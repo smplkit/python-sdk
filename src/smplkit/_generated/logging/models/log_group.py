@@ -23,12 +23,11 @@ T = TypeVar("T", bound="LogGroup")
 class LogGroup:
     """
     Example:
-        {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'ERROR'}}, 'key': 'database-
-            loggers', 'level': 'WARN', 'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}
+        {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'ERROR'}}, 'level': 'WARN',
+            'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}
 
     Attributes:
         name (str):
-        key (None | str | Unset):
         level (None | str | Unset):
         parent_id (None | str | Unset):
         environments (LogGroupEnvironmentsType0 | None | Unset):
@@ -37,7 +36,6 @@ class LogGroup:
     """
 
     name: str
-    key: None | str | Unset = UNSET
     level: None | str | Unset = UNSET
     parent_id: None | str | Unset = UNSET
     environments: LogGroupEnvironmentsType0 | None | Unset = UNSET
@@ -49,12 +47,6 @@ class LogGroup:
         from ..models.log_group_environments_type_0 import LogGroupEnvironmentsType0
 
         name = self.name
-
-        key: None | str | Unset
-        if isinstance(self.key, Unset):
-            key = UNSET
-        else:
-            key = self.key
 
         level: None | str | Unset
         if isinstance(self.level, Unset):
@@ -99,8 +91,6 @@ class LogGroup:
                 "name": name,
             }
         )
-        if key is not UNSET:
-            field_dict["key"] = key
         if level is not UNSET:
             field_dict["level"] = level
         if parent_id is not UNSET:
@@ -120,15 +110,6 @@ class LogGroup:
 
         d = dict(src_dict)
         name = d.pop("name")
-
-        def _parse_key(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        key = _parse_key(d.pop("key", UNSET))
 
         def _parse_level(data: object) -> None | str | Unset:
             if data is None:
@@ -201,7 +182,6 @@ class LogGroup:
 
         log_group = cls(
             name=name,
-            key=key,
             level=level,
             parent_id=parent_id,
             environments=environments,
