@@ -456,6 +456,7 @@ class ConfigClient:
     def __init__(self, parent: SmplClient) -> None:
         self._parent = parent
         self._config_cache: dict[str, dict[str, Any]] = {}
+        self._raw_config_cache: dict[str, Any] = {}
         self._connected = False
         self._cache_lock = threading.Lock()
         self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
@@ -477,11 +478,13 @@ class ConfigClient:
             cache[cfg.id] = resolve(chain, environment)
         with self._cache_lock:
             self._config_cache = cache
+            self._raw_config_cache = {cfg.id: cfg for cfg in configs}
         self._connected = True
 
         self._ws_manager = self._parent._ensure_ws()
         self._ws_manager.on("config_changed", self._handle_config_changed)
-        self._ws_manager.on("config_deleted", self._handle_config_changed)
+        self._ws_manager.on("config_deleted", self._handle_config_deleted)
+        self._ws_manager.on("configs_changed", self._handle_configs_changed)
 
     # ------------------------------------------------------------------
     # Runtime: get / subscribe
@@ -557,6 +560,7 @@ class ConfigClient:
         with self._cache_lock:
             old_cache = self._config_cache
             self._config_cache = new_cache
+            self._raw_config_cache = {cfg.id: cfg for cfg in configs}
         self._fire_change_listeners(old_cache, new_cache, source=source)
 
     def on_change(
@@ -640,6 +644,43 @@ class ConfigClient:
     # ------------------------------------------------------------------
 
     def _handle_config_changed(self, data: dict[str, Any]) -> None:
+        key = data.get("id")
+        if not key:
+            self._handle_configs_changed(data)
+            return
+        environment = self._parent._environment
+        with self._cache_lock:
+            old_values = dict(self._config_cache.get(key, {}))
+            raw_cache = dict(self._raw_config_cache)
+        try:
+            cfg = self.management.get(key)
+        except Exception:
+            ws_logger.error("Failed to fetch config %r after WS event", key, exc_info=True)
+            return
+        raw_cache[key] = cfg
+        chain = cfg._build_chain(list(raw_cache.values()))
+        new_values = resolve(chain, environment)
+        with self._cache_lock:
+            self._raw_config_cache[key] = cfg
+            self._config_cache[key] = new_values
+        old_partial = {key: old_values}
+        new_partial = {key: new_values}
+        self._fire_change_listeners(old_partial, new_partial, source="websocket")
+
+    def _handle_config_deleted(self, data: dict[str, Any]) -> None:
+        key = data.get("id")
+        if not key:
+            self._handle_configs_changed(data)
+            return
+        with self._cache_lock:
+            old_values = dict(self._config_cache.pop(key, {}))
+            self._raw_config_cache.pop(key, None)
+        if old_values:
+            old_partial = {key: old_values}
+            new_partial: dict[str, dict[str, Any]] = {}
+            self._fire_change_listeners(old_partial, new_partial, source="websocket")
+
+    def _handle_configs_changed(self, data: dict[str, Any]) -> None:
         try:
             self._do_refresh("websocket")
         except Exception:
@@ -837,6 +878,7 @@ class AsyncConfigClient:
     def __init__(self, parent: AsyncSmplClient) -> None:
         self._parent = parent
         self._config_cache: dict[str, dict[str, Any]] = {}
+        self._raw_config_cache: dict[str, Any] = {}
         self._connected = False
         self._cache_lock = threading.Lock()
         self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
@@ -858,11 +900,13 @@ class AsyncConfigClient:
             cache[cfg.id] = resolve(chain, environment)
         with self._cache_lock:
             self._config_cache = cache
+            self._raw_config_cache = {cfg.id: cfg for cfg in configs}
         self._connected = True
 
         self._ws_manager = self._parent._ensure_ws()
         self._ws_manager.on("config_changed", self._handle_config_changed)
-        self._ws_manager.on("config_deleted", self._handle_config_changed)
+        self._ws_manager.on("config_deleted", self._handle_config_deleted)
+        self._ws_manager.on("configs_changed", self._handle_configs_changed)
 
     # ------------------------------------------------------------------
     # Runtime: get / subscribe
@@ -937,6 +981,7 @@ class AsyncConfigClient:
         with self._cache_lock:
             old_cache = self._config_cache
             self._config_cache = new_cache
+            self._raw_config_cache = {cfg.id: cfg for cfg in configs}
         self._fire_change_listeners(old_cache, new_cache, source=source)
 
     def on_change(
@@ -1020,6 +1065,47 @@ class AsyncConfigClient:
     # ------------------------------------------------------------------
 
     def _handle_config_changed(self, data: dict[str, Any]) -> None:
+        key = data.get("id")
+        if not key:
+            self._handle_configs_changed(data)
+            return
+        environment = self._parent._environment
+        with self._cache_lock:
+            old_values = dict(self._config_cache.get(key, {}))
+            raw_cache = dict(self._raw_config_cache)
+        try:
+            response = get_config.sync_detailed(key, client=self._parent._http_client)
+            _check_response_status(response.status_code, response.content)
+            if response.parsed is None or not hasattr(response.parsed, "data"):
+                return
+            cfg = self._resource_to_model(response.parsed.data)
+        except Exception:
+            ws_logger.error("Failed to fetch config %r after WS event", key, exc_info=True)
+            return
+        raw_cache[key] = cfg
+        chain = _build_chain_sync(cfg, raw_cache)
+        new_values = resolve(chain, environment)
+        with self._cache_lock:
+            self._raw_config_cache[key] = cfg
+            self._config_cache[key] = new_values
+        old_partial = {key: old_values}
+        new_partial = {key: new_values}
+        self._fire_change_listeners(old_partial, new_partial, source="websocket")
+
+    def _handle_config_deleted(self, data: dict[str, Any]) -> None:
+        key = data.get("id")
+        if not key:
+            self._handle_configs_changed(data)
+            return
+        with self._cache_lock:
+            old_values = dict(self._config_cache.pop(key, {}))
+            self._raw_config_cache.pop(key, None)
+        if old_values:
+            old_partial = {key: old_values}
+            new_partial: dict[str, dict[str, Any]] = {}
+            self._fire_change_listeners(old_partial, new_partial, source="websocket")
+
+    def _handle_configs_changed(self, data: dict[str, Any]) -> None:
         try:
             response = list_configs.sync_detailed(client=self._parent._http_client)
             _check_response_status(response.status_code, response.content)
@@ -1035,6 +1121,7 @@ class AsyncConfigClient:
             with self._cache_lock:
                 old_cache = self._config_cache
                 self._config_cache = new_cache
+                self._raw_config_cache = models_by_id
             self._fire_change_listeners(old_cache, new_cache, source="websocket")
         except Exception:
             ws_logger.error("Failed to refresh configs after WS event", exc_info=True)

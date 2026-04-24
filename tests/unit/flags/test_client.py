@@ -1161,9 +1161,9 @@ class TestFlagsClientLifecycle:
         assert client._connected is True
         assert client._environment == "staging"
         assert client._ws_manager is mock_ws
-        assert mock_ws.on.call_count == 2
+        assert mock_ws.on.call_count == 3
         registered_events = {call.args[0] for call in mock_ws.on.call_args_list}
-        assert registered_events == {"flag_changed", "flag_deleted"}
+        assert registered_events == {"flag_changed", "flag_deleted", "flags_changed"}
         assert _TEST_UUID in client._flag_store
         assert client._flag_flush_timer is not None
         client._flag_flush_timer.cancel()
@@ -1440,41 +1440,174 @@ class TestFlagsClientEvaluateHandle:
 
 
 class TestFlagsClientEventHandlers:
-    @patch("smplkit.flags.client.list_flags.sync_detailed")
-    def test_handle_flag_changed(self, mock_list):
-        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
+    @patch("smplkit.flags.client.get_flag.sync_detailed")
+    def test_handle_flag_changed_fires_listener_on_change(self, mock_get):
+        # Content differs from pre-state → listener fires
+        mock_get.return_value = _ok_json_response({"data": _flag_json(id="test-flag", name="Updated")})
         client = _make_flags_client()
+        # Pre-state has different name to ensure diff
+        client._flag_store["test-flag"] = {"id": "test-flag", "name": "Old", "type": "BOOLEAN",
+                                            "default": False, "values": [], "description": "", "environments": {}}
         listener = MagicMock()
         client._global_listeners.append(listener)
         client._handle_flag_changed({"id": "test-flag"})
-        mock_list.assert_called_once()
+        mock_get.assert_called_once()
         listener.assert_called_once()
         event = listener.call_args[0][0]
         assert event.source == "websocket"
+        assert event.id == "test-flag"
 
-    @patch("smplkit.flags.client.list_flags.sync_detailed")
-    def test_handle_flag_changed_fetch_error_propagates(self, mock_list):
-        mock_list.side_effect = httpx.ConnectError("fail")
+    @patch("smplkit.flags.client.get_flag.sync_detailed")
+    def test_handle_flag_changed_no_fire_when_unchanged(self, mock_get):
+        # Return same data as pre-state → no listener fires
+        flag_data = _flag_json(id="test-flag")
+        mock_get.return_value = _ok_json_response({"data": flag_data})
+        client = _make_flags_client()
+        # Populate store with same content the fetch will return
+        from smplkit.flags.client import _flag_dict_from_json
+        d = _flag_dict_from_json(flag_data)
+        existing = {"id": d["id"], "name": d["name"], "type": d["type"], "default": d["default"],
+                    "values": d["values"], "description": d["description"], "environments": d["environments"]}
+        client._flag_store["test-flag"] = existing
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_flag_changed({"id": "test-flag"})
+        listener.assert_not_called()
+
+    @patch("smplkit.flags.client.get_flag.sync_detailed")
+    def test_handle_flag_changed_fetch_error_propagates(self, mock_get):
+        mock_get.side_effect = httpx.ConnectError("fail")
         client = _make_flags_client()
         with pytest.raises(SmplConnectionError):
             client._handle_flag_changed({"id": "test-flag"})
 
-    @patch("smplkit.flags.client.list_flags.sync_detailed")
-    def test_handle_flag_deleted(self, mock_list):
-        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
+    def test_handle_flag_changed_no_id_is_noop(self):
         client = _make_flags_client()
         listener = MagicMock()
         client._global_listeners.append(listener)
+        client._handle_flag_changed({})  # no "id" key
+        listener.assert_not_called()
+
+    def test_handle_flag_deleted_removes_from_store_and_fires(self):
+        client = _make_flags_client()
+        client._flag_store["test-flag"] = {"id": "test-flag", "name": "x"}
+        listener = MagicMock()
+        client._global_listeners.append(listener)
         client._handle_flag_deleted({"id": "test-flag"})
-        mock_list.assert_called_once()
+        assert "test-flag" not in client._flag_store
         listener.assert_called_once()
+        event = listener.call_args[0][0]
+        assert event.deleted is True
+
+    def test_handle_flag_deleted_missing_flag_no_fire(self):
+        # Flag not in store → no listener fires
+        client = _make_flags_client()
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_flag_deleted({"id": "ghost-flag"})
+        listener.assert_not_called()
+
+    def test_handle_flag_deleted_no_id_is_noop(self):
+        client = _make_flags_client()
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_flag_deleted({})
+        listener.assert_not_called()
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
-    def test_handle_flag_deleted_fetch_error_propagates(self, mock_list):
-        mock_list.side_effect = httpx.ConnectError("fail")
+    def test_handle_flags_changed_fires_global_once_and_per_key(self, mock_list):
+        # Two flags in store; post-fetch both change
+        mock_list.return_value = _ok_json_response({
+            "data": [
+                _flag_json(id="flag-a", name="A-new"),
+                _flag_json(id="flag-b", name="B-new"),
+            ]
+        })
         client = _make_flags_client()
-        with pytest.raises(SmplConnectionError):
-            client._handle_flag_deleted({"id": "test-flag"})
+        client._flag_store = {
+            "flag-a": {"id": "flag-a", "name": "A-old", "type": "BOOLEAN", "default": False,
+                       "values": [], "description": "", "environments": {}},
+            "flag-b": {"id": "flag-b", "name": "B-old", "type": "BOOLEAN", "default": False,
+                       "values": [], "description": "", "environments": {}},
+        }
+        global_listener = MagicMock()
+        key_listener_a = MagicMock()
+        client._global_listeners.append(global_listener)
+        client._key_listeners["flag-a"] = [key_listener_a]
+        client._handle_flags_changed({})
+        global_listener.assert_called_once()
+        key_listener_a.assert_called_once()
+
+    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    def test_handle_flags_changed_no_fire_when_all_unchanged(self, mock_list):
+        flag_data = _flag_json(id="flag-a")
+        mock_list.return_value = _ok_json_response({"data": [flag_data]})
+        from smplkit.flags.client import _flag_dict_from_json
+        d = _flag_dict_from_json(flag_data)
+        existing = {"id": d["id"], "name": d["name"], "type": d["type"], "default": d["default"],
+                    "values": d["values"], "description": d["description"], "environments": d["environments"]}
+        client = _make_flags_client()
+        client._flag_store = {"flag-a": existing}
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_flags_changed({})
+        listener.assert_not_called()
+
+    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    def test_handle_flags_changed_deleted_flag_fires_with_deleted_true(self, mock_list):
+        # flag-a is removed in post-fetch
+        mock_list.return_value = _ok_json_response({"data": [_flag_json(id="flag-b", name="B")]})
+        client = _make_flags_client()
+        client._flag_store = {
+            "flag-a": {"id": "flag-a", "name": "A", "type": "BOOLEAN", "default": False,
+                       "values": [], "description": "", "environments": {}},
+        }
+        key_listener = MagicMock()
+        client._key_listeners["flag-a"] = [key_listener]
+        client._handle_flags_changed({})
+        key_listener.assert_called_once()
+        event = key_listener.call_args[0][0]
+        assert event.deleted is True
+
+    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    def test_handle_flags_changed_fetch_error_logs_and_returns(self, mock_list):
+        mock_list.side_effect = RuntimeError("boom")
+        client = _make_flags_client()
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_flags_changed({})
+        listener.assert_not_called()
+
+    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    def test_handle_flags_changed_global_listener_exception_swallowed(self, mock_list):
+        mock_list.return_value = _ok_json_response({"data": [_flag_json(id="flag-a", name="Updated")]})
+        client = _make_flags_client()
+        client._flag_store = {"flag-a": {"id": "flag-a", "name": "Old", "type": "BOOLEAN",
+                                          "default": False, "values": [], "description": "", "environments": {}}}
+        bad = MagicMock(side_effect=RuntimeError("boom"))
+        good = MagicMock()
+        client._global_listeners.extend([bad, good])
+        client._handle_flags_changed({})
+        good.assert_called_once()
+
+    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    def test_handle_flags_changed_key_listener_exception_swallowed(self, mock_list):
+        mock_list.return_value = _ok_json_response({"data": [_flag_json(id="flag-a", name="Updated")]})
+        client = _make_flags_client()
+        client._flag_store = {"flag-a": {"id": "flag-a", "name": "Old", "type": "BOOLEAN",
+                                          "default": False, "values": [], "description": "", "environments": {}}}
+        bad = MagicMock(side_effect=RuntimeError("boom"))
+        good = MagicMock()
+        client._key_listeners["flag-a"] = [bad, good]
+        client._handle_flags_changed({})
+        good.assert_called_once()
+
+    @patch("smplkit.flags.client.get_flag.sync_detailed")
+    def test_fetch_flag_single_data_non_network_error_reraises(self, mock_get):
+        mock_get.side_effect = ValueError("bad value")
+        client = _make_flags_client()
+        with pytest.raises(ValueError):
+            client._fetch_flag_single_data("test-flag")
 
 
 class TestFlagsClientChangeListeners:
@@ -2038,9 +2171,9 @@ class TestAsyncFlagsClientLifecycle:
             assert client._connected is True
             assert client._environment == "staging"
             assert client._ws_manager is mock_ws
-            assert mock_ws.on.call_count == 2
+            assert mock_ws.on.call_count == 3
             registered_events = {call.args[0] for call in mock_ws.on.call_args_list}
-            assert registered_events == {"flag_changed", "flag_deleted"}
+            assert registered_events == {"flag_changed", "flag_deleted", "flags_changed"}
             assert client._flag_flush_timer is not None
             client._flag_flush_timer.cancel()
 
@@ -2298,10 +2431,12 @@ class TestAsyncFlagsClientEvaluateHandle:
 
 
 class TestAsyncFlagsClientEventHandlers:
-    @patch("smplkit.flags.client.list_flags.sync_detailed")
-    def test_handle_flag_changed(self, mock_list):
-        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
+    @patch("smplkit.flags.client.get_flag.sync_detailed")
+    def test_handle_flag_changed_fires_listener_on_change(self, mock_get):
+        mock_get.return_value = _ok_json_response({"data": _flag_json(id="test-flag", name="Updated")})
         client = _make_async_flags_client()
+        client._flag_store["test-flag"] = {"id": "test-flag", "name": "Old", "type": "BOOLEAN",
+                                            "default": False, "values": [], "description": "", "environments": {}}
         listener = MagicMock()
         client._global_listeners.append(listener)
         client._handle_flag_changed({"id": "test-flag"})
@@ -2309,26 +2444,137 @@ class TestAsyncFlagsClientEventHandlers:
         event = listener.call_args[0][0]
         assert event.source == "websocket"
 
-    @patch("smplkit.flags.client.list_flags.sync_detailed")
-    def test_handle_flag_changed_fetch_error(self, mock_list):
-        mock_list.side_effect = httpx.ConnectError("fail")
+    @patch("smplkit.flags.client.get_flag.sync_detailed")
+    def test_handle_flag_changed_no_fire_when_unchanged(self, mock_get):
+        flag_data = _flag_json(id="test-flag")
+        mock_get.return_value = _ok_json_response({"data": flag_data})
+        from smplkit.flags.client import _flag_dict_from_json
+        d = _flag_dict_from_json(flag_data)
+        existing = {"id": d["id"], "name": d["name"], "type": d["type"], "default": d["default"],
+                    "values": d["values"], "description": d["description"], "environments": d["environments"]}
         client = _make_async_flags_client()
+        client._flag_store["test-flag"] = existing
+        listener = MagicMock()
+        client._global_listeners.append(listener)
         client._handle_flag_changed({"id": "test-flag"})
+        listener.assert_not_called()
 
-    @patch("smplkit.flags.client.list_flags.sync_detailed")
-    def test_handle_flag_deleted(self, mock_list):
-        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
+    @patch("smplkit.flags.client.get_flag.sync_detailed")
+    def test_handle_flag_changed_fetch_error_is_swallowed(self, mock_get):
+        # Async client swallows errors (unlike sync which propagates)
+        mock_get.side_effect = httpx.ConnectError("fail")
         client = _make_async_flags_client()
+        client._handle_flag_changed({"id": "test-flag"})  # should not raise
+
+    def test_handle_flag_deleted_removes_and_fires(self):
+        client = _make_async_flags_client()
+        client._flag_store["test-flag"] = {"id": "test-flag", "name": "x"}
         listener = MagicMock()
         client._global_listeners.append(listener)
         client._handle_flag_deleted({"id": "test-flag"})
+        assert "test-flag" not in client._flag_store
         listener.assert_called_once()
+        event = listener.call_args[0][0]
+        assert event.deleted is True
+
+    def test_handle_flag_deleted_missing_flag_no_fire(self):
+        client = _make_async_flags_client()
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_flag_deleted({"id": "ghost-flag"})
+        listener.assert_not_called()
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
-    def test_handle_flag_deleted_fetch_error(self, mock_list):
-        mock_list.side_effect = httpx.ConnectError("fail")
+    def test_handle_flags_changed_fires_global_once_and_per_key(self, mock_list):
+        mock_list.return_value = _ok_json_response({
+            "data": [
+                _flag_json(id="flag-a", name="A-new"),
+                _flag_json(id="flag-b", name="B-new"),
+            ]
+        })
         client = _make_async_flags_client()
-        client._handle_flag_deleted({"id": "test-flag"})
+        client._flag_store = {
+            "flag-a": {"id": "flag-a", "name": "A-old", "type": "BOOLEAN", "default": False,
+                       "values": [], "description": "", "environments": {}},
+            "flag-b": {"id": "flag-b", "name": "B-old", "type": "BOOLEAN", "default": False,
+                       "values": [], "description": "", "environments": {}},
+        }
+        global_listener = MagicMock()
+        key_listener_b = MagicMock()
+        client._global_listeners.append(global_listener)
+        client._key_listeners["flag-b"] = [key_listener_b]
+        client._handle_flags_changed({})
+        global_listener.assert_called_once()
+        key_listener_b.assert_called_once()
+
+    def test_handle_flag_changed_no_id_is_noop(self):
+        client = _make_async_flags_client()
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_flag_changed({})
+        listener.assert_not_called()
+
+    def test_handle_flag_deleted_no_id_is_noop(self):
+        client = _make_async_flags_client()
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_flag_deleted({})
+        listener.assert_not_called()
+
+    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    def test_handle_flags_changed_fetch_error_swallowed(self, mock_list):
+        mock_list.side_effect = RuntimeError("boom")
+        client = _make_async_flags_client()
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_flags_changed({})
+        listener.assert_not_called()
+
+    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    def test_handle_flags_changed_no_change_no_fire(self, mock_list):
+        flag_data = _flag_json(id="flag-a")
+        mock_list.return_value = _ok_json_response({"data": [flag_data]})
+        from smplkit.flags.client import _flag_dict_from_json
+        d = _flag_dict_from_json(flag_data)
+        existing = {"id": d["id"], "name": d["name"], "type": d["type"], "default": d["default"],
+                    "values": d["values"], "description": d["description"], "environments": d["environments"]}
+        client = _make_async_flags_client()
+        client._flag_store = {"flag-a": existing}
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_flags_changed({})
+        listener.assert_not_called()
+
+    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    def test_handle_flags_changed_global_listener_exception_swallowed(self, mock_list):
+        mock_list.return_value = _ok_json_response({"data": [_flag_json(id="flag-a", name="Updated")]})
+        client = _make_async_flags_client()
+        client._flag_store = {"flag-a": {"id": "flag-a", "name": "Old", "type": "BOOLEAN",
+                                          "default": False, "values": [], "description": "", "environments": {}}}
+        bad = MagicMock(side_effect=RuntimeError("boom"))
+        good = MagicMock()
+        client._global_listeners.extend([bad, good])
+        client._handle_flags_changed({})
+        good.assert_called_once()
+
+    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    def test_handle_flags_changed_key_listener_exception_swallowed(self, mock_list):
+        mock_list.return_value = _ok_json_response({"data": [_flag_json(id="flag-a", name="Updated")]})
+        client = _make_async_flags_client()
+        client._flag_store = {"flag-a": {"id": "flag-a", "name": "Old", "type": "BOOLEAN",
+                                          "default": False, "values": [], "description": "", "environments": {}}}
+        bad = MagicMock(side_effect=RuntimeError("boom"))
+        good = MagicMock()
+        client._key_listeners["flag-a"] = [bad, good]
+        client._handle_flags_changed({})
+        good.assert_called_once()
+
+    @patch("smplkit.flags.client.get_flag.sync_detailed")
+    def test_fetch_flag_single_data_sync_non_network_error_reraises(self, mock_get):
+        mock_get.side_effect = ValueError("unexpected")
+        client = _make_async_flags_client()
+        with pytest.raises(ValueError):
+            client._fetch_flag_single_data_sync("test-flag")
 
 
 class TestAsyncFlagsClientChangeListeners:

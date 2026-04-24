@@ -1244,13 +1244,43 @@ class TestCheckResponseStatus:
 # ---------------------------------------------------------------------------
 
 
+def _make_logger_response(key="sqlalchemy.engine", level="DEBUG", group=None):
+    """Build a mock HTTP response whose .parsed is a LoggerResponse instance."""
+    from smplkit.logging.client import LoggerResponse, LoggerResource, GenLogger
+    from smplkit._generated.logging.types import UNSET
+
+    attrs = GenLogger(name=key, level=level, group=group or UNSET, managed=True, environments=UNSET)
+    resource = LoggerResource(attributes=attrs, id=key, type_="logger")
+    parsed = LoggerResponse(data=resource)
+    resp = MagicMock()
+    resp.status_code = HTTPStatus.OK
+    resp.content = b""
+    resp.parsed = parsed
+    return resp
+
+
+def _make_group_response(key="db-loggers", level="WARN", parent_id=None):
+    """Build a mock HTTP response whose .parsed is a LogGroupResponse instance."""
+    from smplkit.logging.client import LogGroupResponse, LogGroupResource, GenLogGroup
+    from smplkit._generated.logging.types import UNSET
+
+    attrs = GenLogGroup(name=key, level=level, parent_id=parent_id or UNSET, environments=UNSET)
+    resource = LogGroupResource(attributes=attrs, id=key, type_="log_group")
+    parsed = LogGroupResponse(data=resource)
+    resp = MagicMock()
+    resp.status_code = HTTPStatus.OK
+    resp.content = b""
+    resp.parsed = parsed
+    return resp
+
+
 class TestWebSocketEventHandling:
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_registers_ws_handlers(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
-        """_connect_internal registers handlers for all four logger events."""
+        """_connect_internal registers handlers for all five logger events."""
         mock_adapter = MagicMock()
         mock_adapter.discover.return_value = []
         mock_auto_load.return_value = [mock_adapter]
@@ -1264,57 +1294,160 @@ class TestWebSocketEventHandling:
 
         client._connect_internal()
 
-        assert mock_ws.on.call_count == 4
+        assert mock_ws.on.call_count == 5
         registered_events = {call[0][0] for call in mock_ws.on.call_args_list}
-        assert registered_events == {"logger_changed", "logger_deleted", "group_changed", "group_deleted"}
+        assert registered_events == {"logger_changed", "logger_deleted", "group_changed", "group_deleted", "loggers_changed"}
         client._close()
 
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
-    @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    def test_handle_ws_event_triggers_refetch(self, mock_loggers, mock_groups):
-        """_handle_ws_event calls _fetch_and_apply."""
-        mock_loggers.return_value = _ok_response(_make_list_parsed([]))
-        mock_groups.return_value = _ok_response(_make_list_parsed([]))
-
-        client = _make_logging_client()
-        client._handle_ws_event({"event": "logger_changed", "id": "abc"})
-
-        mock_loggers.assert_called_once()
-        mock_groups.assert_called_once()
-
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
-    @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    def test_handle_ws_event_all_event_types_trigger_refetch(self, mock_loggers, mock_groups):
-        """All four event types call _fetch_and_apply."""
-        mock_loggers.return_value = _ok_response(_make_list_parsed([]))
-        mock_groups.return_value = _ok_response(_make_list_parsed([]))
-
-        client = _make_logging_client()
-        for event in ("logger_changed", "logger_deleted", "group_changed", "group_deleted"):
-            mock_loggers.reset_mock()
-            mock_groups.reset_mock()
-            client._handle_ws_event({"event": event, "id": "x"})
-            mock_loggers.assert_called_once()
-
     def test_close_deregisters_ws_handlers(self):
-        """_close calls off() for all four events on the ws manager."""
+        """_close calls off() for all five events on the ws manager."""
         client = _make_logging_client()
         mock_ws = MagicMock()
         client._ws_manager = mock_ws
 
         client._close()
 
-        assert mock_ws.off.call_count == 4
+        assert mock_ws.off.call_count == 5
         deregistered_events = {call[0][0] for call in mock_ws.off.call_args_list}
-        assert deregistered_events == {"logger_changed", "logger_deleted", "group_changed", "group_deleted"}
+        assert deregistered_events == {"logger_changed", "logger_deleted", "group_changed", "group_deleted", "loggers_changed"}
         assert client._ws_manager is None
+
+    @patch("smplkit.logging.client.get_logger.sync_detailed")
+    def test_handle_logger_changed_scoped_fetch_and_apply(self, mock_get):
+        """logger_changed fetches single logger and fires listener when content changed."""
+        mock_get.return_value = _make_logger_response("sqlalchemy.engine", level="INFO")
+        client = _make_logging_client()
+        client._loggers_cache["sqlalchemy.engine"] = {"level": "DEBUG", "group": None, "managed": True, "environments": {}}
+        from unittest.mock import MagicMock as MM
+        listener = MM()
+        client._global_listeners.append(listener)
+        client._handle_logger_changed({"id": "sqlalchemy.engine"})
+        mock_get.assert_called_once()
+        listener.assert_called_once()
+        event = listener.call_args[0][0]
+        assert event.source == "websocket"
+
+    @patch("smplkit.logging.client.get_logger.sync_detailed")
+    def test_handle_logger_changed_no_fire_when_unchanged(self, mock_get):
+        """logger_changed fires no listener when content is identical."""
+        mock_get.return_value = _make_logger_response("sqlalchemy.engine", level="DEBUG")
+        client = _make_logging_client()
+        client._loggers_cache["sqlalchemy.engine"] = {"level": "DEBUG", "group": None, "managed": True, "environments": {}}
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_logger_changed({"id": "sqlalchemy.engine"})
+        listener.assert_not_called()
+
+    def test_handle_logger_deleted_removes_and_fires(self):
+        """logger_deleted removes entry and fires listener with deleted=True."""
+        client = _make_logging_client()
+        client._loggers_cache["sqlalchemy.engine"] = {"level": "DEBUG", "group": None, "managed": True, "environments": {}}
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_logger_deleted({"id": "sqlalchemy.engine"})
+        assert "sqlalchemy.engine" not in client._loggers_cache
+        listener.assert_called_once()
+        event = listener.call_args[0][0]
+        assert event.deleted is True
+
+    def test_handle_logger_deleted_missing_key_no_fire(self):
+        """logger_deleted does not fire when key was not in store."""
+        client = _make_logging_client()
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_logger_deleted({"id": "ghost"})
+        listener.assert_not_called()
+
+    @patch("smplkit.logging.client.get_log_group.sync_detailed")
+    def test_handle_group_changed_scoped_fetch_and_apply(self, mock_get):
+        """group_changed fetches single group and fires listener when changed."""
+        mock_get.return_value = _make_group_response("db-loggers", level="ERROR")
+        client = _make_logging_client()
+        client._groups_cache["db-loggers"] = {"level": "WARN", "group": None, "environments": {}}
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_group_changed({"id": "db-loggers"})
+        mock_get.assert_called_once()
+        listener.assert_called_once()
+
+    def test_handle_group_deleted_removes_and_fires(self):
+        """group_deleted removes entry and fires listener with deleted=True."""
+        client = _make_logging_client()
+        client._groups_cache["db-loggers"] = {"level": "WARN", "group": None, "environments": {}}
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_group_deleted({"id": "db-loggers"})
+        assert "db-loggers" not in client._groups_cache
+        listener.assert_called_once()
+        event = listener.call_args[0][0]
+        assert event.deleted is True
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    def test_handle_ws_event_swallows_fetch_errors(self, mock_loggers, mock_groups):
-        """_handle_ws_event catches exceptions from _fetch_and_apply."""
-        mock_loggers.side_effect = RuntimeError("network failure")
-
+    def test_handle_loggers_changed_full_refetch_and_diff_fire(self, mock_loggers, mock_groups):
+        """loggers_changed does a full list fetch and fires listeners for changed keys."""
+        logger_attrs = _make_logger_attrs(name="SQL Logger", level="INFO")
+        resource = _make_resource(logger_attrs, id="sqlalchemy.engine")
+        mock_loggers.return_value = _ok_response(_make_list_parsed([resource]))
+        mock_groups.return_value = _ok_response(_make_list_parsed([]))
         client = _make_logging_client()
-        # Should not raise
-        client._handle_ws_event({"event": "logger_changed", "id": "abc"})
+        client._loggers_cache["sqlalchemy.engine"] = {"level": "DEBUG", "group": None, "managed": True, "environments": {}}
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_loggers_changed({})
+        mock_loggers.assert_called_once()
+        listener.assert_called_once()
+
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    def test_handle_loggers_changed_swallows_fetch_errors(self, mock_loggers, mock_groups):
+        """loggers_changed does not raise on fetch failure."""
+        mock_loggers.side_effect = RuntimeError("network failure")
+        client = _make_logging_client()
+        client._handle_loggers_changed({})  # should not raise
+
+    @patch("smplkit.logging.client.get_logger.sync_detailed")
+    def test_handle_logger_changed_fetch_error_swallowed(self, mock_get):
+        """_handle_logger_changed logs warning on fetch failure."""
+        mock_get.side_effect = RuntimeError("network down")
+        client = _make_logging_client()
+        client._handle_logger_changed({"id": "sqlalchemy.engine"})  # should not raise
+
+    @patch("smplkit.logging.client.get_log_group.sync_detailed")
+    def test_handle_group_changed_fetch_error_swallowed(self, mock_get):
+        """_handle_group_changed logs warning on fetch failure."""
+        mock_get.side_effect = RuntimeError("network down")
+        client = _make_logging_client()
+        client._handle_group_changed({"id": "db-loggers"})  # should not raise
+
+    @patch("smplkit.logging.client.get_logger.sync_detailed")
+    def test_fire_change_listeners_global_exception_swallowed(self, mock_get):
+        """_fire_change_listeners swallows exceptions from global listeners."""
+        mock_get.return_value = _make_logger_response("sqlalchemy.engine", level="INFO")
+        client = _make_logging_client()
+        client._loggers_cache["sqlalchemy.engine"] = {"level": "DEBUG", "group": None, "managed": True, "environments": {}}
+        bad = MagicMock(side_effect=RuntimeError("boom"))
+        good = MagicMock()
+        client._global_listeners.extend([bad, good])
+        client._handle_logger_changed({"id": "sqlalchemy.engine"})
+        good.assert_called_once()
+
+    @patch("smplkit.logging.client.get_logger.sync_detailed")
+    def test_fire_change_listeners_key_listener_exception_swallowed(self, mock_get):
+        """_fire_change_listeners swallows exceptions from per-key listeners."""
+        mock_get.return_value = _make_logger_response("sqlalchemy.engine", level="INFO")
+        client = _make_logging_client()
+        client._loggers_cache["sqlalchemy.engine"] = {"level": "DEBUG", "group": None, "managed": True, "environments": {}}
+        bad = MagicMock(side_effect=RuntimeError("boom"))
+        good = MagicMock()
+        client._key_listeners["sqlalchemy.engine"] = [bad, good]
+        client._handle_logger_changed({"id": "sqlalchemy.engine"})
+        good.assert_called_once()
+
+    def test_logger_change_event_repr(self):
+        from smplkit.logging.client import LoggerChangeEvent
+        event = LoggerChangeEvent(id="sqlalchemy.engine", source="websocket", deleted=True)
+        r = repr(event)
+        assert "sqlalchemy.engine" in r
+        assert "websocket" in r
+        assert "True" in r

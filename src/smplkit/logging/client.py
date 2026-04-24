@@ -211,6 +211,27 @@ def _build_group_body(
 
 
 # ---------------------------------------------------------------------------
+# Change event
+# ---------------------------------------------------------------------------
+
+
+class LoggerChangeEvent:
+    """Describes a logger or group definition change."""
+
+    id: str
+    source: str
+    deleted: bool
+
+    def __init__(self, *, id: str, source: str, deleted: bool = False) -> None:
+        self.id = id
+        self.source = source
+        self.deleted = deleted
+
+    def __repr__(self) -> str:
+        return f"LoggerChangeEvent(id={self.id!r}, source={self.source!r}, deleted={self.deleted!r})"
+
+
+# ---------------------------------------------------------------------------
 # SDK model classes
 # ---------------------------------------------------------------------------
 
@@ -900,23 +921,115 @@ class LoggingClient:
 
         # 8. Register WebSocket event handlers for real-time level updates
         self._ws_manager = self._parent._ensure_ws()
-        self._ws_manager.on("logger_changed", self._handle_ws_event)
-        self._ws_manager.on("logger_deleted", self._handle_ws_event)
-        self._ws_manager.on("group_changed", self._handle_ws_event)
-        self._ws_manager.on("group_deleted", self._handle_ws_event)
+        self._ws_manager.on("logger_changed", self._handle_logger_changed)
+        self._ws_manager.on("logger_deleted", self._handle_logger_deleted)
+        self._ws_manager.on("group_changed", self._handle_group_changed)
+        self._ws_manager.on("group_deleted", self._handle_group_deleted)
+        self._ws_manager.on("loggers_changed", self._handle_loggers_changed)
 
         self._connected = True
 
-    def _handle_ws_event(self, data: dict) -> None:
-        """Handle a logger_changed / logger_deleted / group_changed / group_deleted event."""
-        event = data.get("event", "unknown")
-        resource_id = data.get("id", "")
-        debug("websocket", f"logger event received: {event!r} id={resource_id!r}, triggering re-fetch")
+    def _handle_logger_changed(self, data: dict) -> None:
+        key = data.get("id", "")
+        debug("websocket", f"logger_changed: fetching logger {key!r}")
+        pre = dict(self._loggers_cache)
         try:
-            self._fetch_and_apply(trigger=f"websocket event {event!r}")
+            response = get_logger.sync_detailed(key, client=self._logging_http)
+            _check_response_status(response.status_code, response.content)
         except Exception as exc:
-            logger.warning("Failed to re-fetch/apply logging levels after %r event: %s", event, exc)
+            logger.warning("Failed to fetch logger %r after WS event: %s", key, exc)
             debug("websocket", traceback.format_exc().strip())
+            return
+        if isinstance(response.parsed, LoggerResponse):
+            r = response.parsed.data
+            attrs = r.attributes
+            lid = _unset_to_none(r.id) or key
+            self._loggers_cache[lid] = {
+                "level": _unset_to_none(attrs.level),
+                "group": _unset_to_none(attrs.group),
+                "managed": _unset_to_none(attrs.managed),
+                "environments": _extract_environments(attrs.environments),
+            }
+        self._apply_levels()
+        post = self._loggers_cache
+        changed = [k for k in set(pre) | set(post) if pre.get(k) != post.get(k)]
+        self._fire_change_listeners(changed, "websocket")
+
+    def _handle_logger_deleted(self, data: dict) -> None:
+        key = data.get("id", "")
+        debug("websocket", f"logger_deleted: removing logger {key!r}")
+        existed = key in self._loggers_cache
+        self._loggers_cache.pop(key, None)
+        self._apply_levels()
+        if existed:
+            self._fire_change_listeners([key], "websocket", deleted=True)
+
+    def _handle_group_changed(self, data: dict) -> None:
+        key = data.get("id", "")
+        debug("websocket", f"group_changed: fetching group {key!r}")
+        pre = dict(self._groups_cache)
+        try:
+            response = get_log_group.sync_detailed(key, client=self._logging_http)
+            _check_response_status(response.status_code, response.content)
+        except Exception as exc:
+            logger.warning("Failed to fetch log group %r after WS event: %s", key, exc)
+            debug("websocket", traceback.format_exc().strip())
+            return
+        if isinstance(response.parsed, LogGroupResponse):
+            r = response.parsed.data
+            attrs = r.attributes
+            gid = _unset_to_none(r.id) or key
+            self._groups_cache[gid] = {
+                "level": _unset_to_none(attrs.level),
+                "group": _unset_to_none(attrs.parent_id),
+                "environments": _extract_environments(attrs.environments),
+            }
+        self._apply_levels()
+        post = self._groups_cache
+        changed = [k for k in set(pre) | set(post) if pre.get(k) != post.get(k)]
+        self._fire_change_listeners(changed, "websocket")
+
+    def _handle_group_deleted(self, data: dict) -> None:
+        key = data.get("id", "")
+        debug("websocket", f"group_deleted: removing group {key!r}")
+        existed = key in self._groups_cache
+        self._groups_cache.pop(key, None)
+        self._apply_levels()
+        if existed:
+            self._fire_change_listeners([key], "websocket", deleted=True)
+
+    def _handle_loggers_changed(self, data: dict) -> None:
+        debug("websocket", "loggers_changed: full re-fetch")
+        pre_loggers = dict(self._loggers_cache)
+        pre_groups = dict(self._groups_cache)
+        try:
+            self._fetch_and_apply(trigger="loggers_changed WS event")
+        except Exception as exc:
+            logger.warning("Failed to re-fetch/apply logging levels after loggers_changed event: %s", exc)
+            debug("websocket", traceback.format_exc().strip())
+            return
+        post_loggers = self._loggers_cache
+        post_groups = self._groups_cache
+        all_keys = (set(pre_loggers) | set(post_loggers)) | (set(pre_groups) | set(post_groups))
+        changed = [k for k in all_keys if pre_loggers.get(k, pre_groups.get(k)) != post_loggers.get(k, post_groups.get(k))]
+        self._fire_change_listeners(changed, "websocket")
+
+    def _fire_change_listeners(self, changed_keys: list[str], source: str, *, deleted: bool = False) -> None:
+        if not changed_keys:
+            return
+        first_event = LoggerChangeEvent(id=changed_keys[0], source=source, deleted=deleted)
+        for cb in self._global_listeners:
+            try:
+                cb(first_event)
+            except Exception:
+                logger.error("Exception in global logging on_change listener", exc_info=True)
+        for k in changed_keys:
+            event = LoggerChangeEvent(id=k, source=source, deleted=deleted)
+            for cb in self._key_listeners.get(k, []):
+                try:
+                    cb(event)
+                except Exception:
+                    logger.error("Exception in key-scoped logging on_change listener", exc_info=True)
 
     def refresh(self) -> None:
         """Re-fetch all loggers and groups and update log levels."""
@@ -932,10 +1045,11 @@ class LoggingClient:
             except Exception:
                 logger.warning("Adapter %s uninstall_hook() failed", adapter.name, exc_info=True)
         if self._ws_manager is not None:
-            self._ws_manager.off("logger_changed", self._handle_ws_event)
-            self._ws_manager.off("logger_deleted", self._handle_ws_event)
-            self._ws_manager.off("group_changed", self._handle_ws_event)
-            self._ws_manager.off("group_deleted", self._handle_ws_event)
+            self._ws_manager.off("logger_changed", self._handle_logger_changed)
+            self._ws_manager.off("logger_deleted", self._handle_logger_deleted)
+            self._ws_manager.off("group_changed", self._handle_group_changed)
+            self._ws_manager.off("group_deleted", self._handle_group_deleted)
+            self._ws_manager.off("loggers_changed", self._handle_loggers_changed)
             self._ws_manager = None
         if self._flush_timer is not None:
             self._flush_timer.cancel()
@@ -1414,52 +1528,177 @@ class AsyncLoggingClient:
 
         # Register WebSocket event handlers for real-time level updates
         self._ws_manager = self._parent._ensure_ws()
-        self._ws_manager.on("logger_changed", self._handle_ws_event)
-        self._ws_manager.on("logger_deleted", self._handle_ws_event)
-        self._ws_manager.on("group_changed", self._handle_ws_event)
-        self._ws_manager.on("group_deleted", self._handle_ws_event)
+        self._ws_manager.on("logger_changed", self._handle_logger_changed)
+        self._ws_manager.on("logger_deleted", self._handle_logger_deleted)
+        self._ws_manager.on("group_changed", self._handle_group_changed)
+        self._ws_manager.on("group_deleted", self._handle_group_deleted)
+        self._ws_manager.on("loggers_changed", self._handle_loggers_changed)
 
         self._connected = True
 
-    def _handle_ws_event(self, data: dict) -> None:
-        """Handle a logger_changed / logger_deleted / group_changed / group_deleted event."""
-        event = data.get("event", "unknown")
-        resource_id = data.get("id", "")
-        debug("websocket", f"logger event received: {event!r} id={resource_id!r}, triggering re-fetch")
+    def _handle_logger_changed(self, data: dict) -> None:
+        key = data.get("id", "")
+        debug("websocket", f"logger_changed: fetching logger {key!r}")
+        self._run_ws_handler(self._fetch_logger_and_apply, key)
 
-        # Capture these before the thread starts to avoid closure over mutable state.
+    def _handle_logger_deleted(self, data: dict) -> None:
+        key = data.get("id", "")
+        debug("websocket", f"logger_deleted: removing logger {key!r}")
+        existed = key in self._loggers_cache
+        self._loggers_cache.pop(key, None)
+        # Re-apply synchronously since we already have all cached data
+        import asyncio as _asyncio
+
+        def _run() -> None:
+            try:
+                _asyncio.run(self._async_apply_and_fire_deleted(key, existed))
+            except Exception as exc:
+                logger.warning("Failed to apply levels after logger_deleted event: %s", exc)
+
+        threading.Thread(target=_run, name="smplkit-logging-ws-deleted", daemon=True).start()
+
+    def _handle_group_changed(self, data: dict) -> None:
+        key = data.get("id", "")
+        debug("websocket", f"group_changed: fetching group {key!r}")
+        self._run_ws_handler(self._fetch_group_and_apply, key)
+
+    def _handle_group_deleted(self, data: dict) -> None:
+        key = data.get("id", "")
+        debug("websocket", f"group_deleted: removing group {key!r}")
+        existed = key in self._groups_cache
+        self._groups_cache.pop(key, None)
+        import asyncio as _asyncio
+
+        def _run() -> None:
+            try:
+                _asyncio.run(self._async_apply_and_fire_deleted(key, existed))
+            except Exception as exc:
+                logger.warning("Failed to apply levels after group_deleted event: %s", exc)
+
+        threading.Thread(target=_run, name="smplkit-logging-ws-deleted", daemon=True).start()
+
+    def _handle_loggers_changed(self, data: dict) -> None:
+        debug("websocket", "loggers_changed: full re-fetch")
         api_key = self._parent._api_key
         logging_base_url = self._logging_base_url
+        pre_loggers = dict(self._loggers_cache)
+        pre_groups = dict(self._groups_cache)
 
         async def _do_refresh() -> None:
-            # Create a fresh AuthenticatedClient for this event loop. Reusing
-            # self._logging_http across different event loops causes
-            # "RuntimeError: Event loop is closed" because httpcore binds its
-            # asyncio transports to the loop that first uses the client; when
-            # that loop is closed and a new loop reuses the same cached
-            # httpx.AsyncClient, cleanup callbacks fire against the old,
-            # now-closed loop.
-            http = AuthenticatedClient(
-                base_url=logging_base_url,
-                token=api_key,
-            )
+            http = AuthenticatedClient(base_url=logging_base_url, token=api_key)
             try:
-                await self._fetch_and_apply(trigger=f"websocket event {event!r}", http_client=http)
+                await self._fetch_and_apply(trigger="loggers_changed WS event", http_client=http)
+            finally:
+                ac = http._async_client
+                if ac is not None:
+                    await ac.aclose()
+            post_loggers = self._loggers_cache
+            post_groups = self._groups_cache
+            all_keys = (set(pre_loggers) | set(post_loggers)) | (set(pre_groups) | set(post_groups))
+            changed = [k for k in all_keys if pre_loggers.get(k, pre_groups.get(k)) != post_loggers.get(k, post_groups.get(k))]
+            self._fire_change_listeners(changed, "websocket")
+
+        import asyncio as _asyncio
+
+        def _run() -> None:
+            try:
+                _asyncio.run(_do_refresh())
+            except Exception as exc:
+                logger.warning("Failed to re-fetch/apply logging levels after loggers_changed event: %s", exc)
+                debug("websocket", traceback.format_exc().strip())
+
+        threading.Thread(target=_run, name="smplkit-logging-ws-refresh", daemon=True).start()
+
+    def _run_ws_handler(self, coro_fn: Any, key: str) -> None:
+        """Run an async handler in a fresh event loop (WS thread pattern)."""
+        api_key = self._parent._api_key
+        logging_base_url = self._logging_base_url
+        import asyncio as _asyncio
+
+        async def _run_async() -> None:
+            http = AuthenticatedClient(base_url=logging_base_url, token=api_key)
+            try:
+                await coro_fn(key, http)
             finally:
                 ac = http._async_client
                 if ac is not None:
                     await ac.aclose()
 
         def _run() -> None:
-            import asyncio as _asyncio
-
             try:
-                _asyncio.run(_do_refresh())
+                _asyncio.run(_run_async())
             except Exception as exc:
-                logger.warning("Failed to re-fetch/apply logging levels after %r event: %s", event, exc)
+                logger.warning("Failed to handle WS event for %r: %s", key, exc)
                 debug("websocket", traceback.format_exc().strip())
 
-        threading.Thread(target=_run, name="smplkit-logging-ws-refresh", daemon=True).start()
+        threading.Thread(target=_run, name="smplkit-logging-ws-handler", daemon=True).start()
+
+    async def _fetch_logger_and_apply(self, key: str, http: AuthenticatedClient) -> None:
+        pre = dict(self._loggers_cache)
+        try:
+            response = await get_logger.asyncio_detailed(key, client=http)
+            _check_response_status(response.status_code, response.content)
+        except Exception as exc:
+            logger.warning("Failed to fetch logger %r after WS event: %s", key, exc)
+            return
+        if isinstance(response.parsed, LoggerResponse):
+            r = response.parsed.data
+            attrs = r.attributes
+            lid = _unset_to_none(r.id) or key
+            self._loggers_cache[lid] = {
+                "level": _unset_to_none(attrs.level),
+                "group": _unset_to_none(attrs.group),
+                "managed": _unset_to_none(attrs.managed),
+                "environments": _extract_environments(attrs.environments),
+            }
+        self._apply_levels()
+        post = self._loggers_cache
+        changed = [k for k in set(pre) | set(post) if pre.get(k) != post.get(k)]
+        self._fire_change_listeners(changed, "websocket")
+
+    async def _fetch_group_and_apply(self, key: str, http: AuthenticatedClient) -> None:
+        pre = dict(self._groups_cache)
+        try:
+            response = await get_log_group.asyncio_detailed(key, client=http)
+            _check_response_status(response.status_code, response.content)
+        except Exception as exc:
+            logger.warning("Failed to fetch log group %r after WS event: %s", key, exc)
+            return
+        if isinstance(response.parsed, LogGroupResponse):
+            r = response.parsed.data
+            attrs = r.attributes
+            gid = _unset_to_none(r.id) or key
+            self._groups_cache[gid] = {
+                "level": _unset_to_none(attrs.level),
+                "group": _unset_to_none(attrs.parent_id),
+                "environments": _extract_environments(attrs.environments),
+            }
+        self._apply_levels()
+        post = self._groups_cache
+        changed = [k for k in set(pre) | set(post) if pre.get(k) != post.get(k)]
+        self._fire_change_listeners(changed, "websocket")
+
+    async def _async_apply_and_fire_deleted(self, key: str, existed: bool) -> None:
+        self._apply_levels()
+        if existed:
+            self._fire_change_listeners([key], "websocket", deleted=True)
+
+    def _fire_change_listeners(self, changed_keys: list[str], source: str, *, deleted: bool = False) -> None:
+        if not changed_keys:
+            return
+        first_event = LoggerChangeEvent(id=changed_keys[0], source=source, deleted=deleted)
+        for cb in self._global_listeners:
+            try:
+                cb(first_event)
+            except Exception:
+                logger.error("Exception in global logging on_change listener", exc_info=True)
+        for k in changed_keys:
+            event = LoggerChangeEvent(id=k, source=source, deleted=deleted)
+            for cb in self._key_listeners.get(k, []):
+                try:
+                    cb(event)
+                except Exception:
+                    logger.error("Exception in key-scoped logging on_change listener", exc_info=True)
 
     async def refresh(self) -> None:
         """Re-fetch all loggers and groups and update log levels."""
@@ -1475,10 +1714,11 @@ class AsyncLoggingClient:
             except Exception:
                 logger.warning("Adapter %s uninstall_hook() failed", adapter.name, exc_info=True)
         if self._ws_manager is not None:
-            self._ws_manager.off("logger_changed", self._handle_ws_event)
-            self._ws_manager.off("logger_deleted", self._handle_ws_event)
-            self._ws_manager.off("group_changed", self._handle_ws_event)
-            self._ws_manager.off("group_deleted", self._handle_ws_event)
+            self._ws_manager.off("logger_changed", self._handle_logger_changed)
+            self._ws_manager.off("logger_deleted", self._handle_logger_deleted)
+            self._ws_manager.off("group_changed", self._handle_group_changed)
+            self._ws_manager.off("group_deleted", self._handle_group_deleted)
+            self._ws_manager.off("loggers_changed", self._handle_loggers_changed)
             self._ws_manager = None
         if self._flush_timer is not None:
             self._flush_timer.cancel()

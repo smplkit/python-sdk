@@ -296,13 +296,15 @@ class FlagChangeEvent:
 
     id: str
     source: str
+    deleted: bool
 
-    def __init__(self, *, id: str, source: str) -> None:
+    def __init__(self, *, id: str, source: str, deleted: bool = False) -> None:
         self.id = id
         self.source = source
+        self.deleted = deleted
 
     def __repr__(self) -> str:
-        return f"FlagChangeEvent(id={self.id!r}, source={self.source!r})"
+        return f"FlagChangeEvent(id={self.id!r}, source={self.source!r}, deleted={self.deleted!r})"
 
 
 # ---------------------------------------------------------------------------
@@ -732,6 +734,7 @@ class FlagsClient:
         self._ws_manager = self._parent._ensure_ws()
         self._ws_manager.on("flag_changed", self._handle_flag_changed)
         self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
+        self._ws_manager.on("flags_changed", self._handle_flags_changed)
 
         # Start periodic flush timer
         self._schedule_flag_flush()
@@ -901,20 +904,79 @@ class FlagsClient:
     # ------------------------------------------------------------------
 
     def _handle_flag_changed(self, data: dict[str, Any]) -> None:
-        flag_id = data.get("id")
-        self._fetch_all_flags()
+        key = data.get("id")
+        if not key:
+            return
+        pre = dict(self._flag_store.get(key, {}))
+        new_data = self._fetch_flag_single_data(key)
+        self._flag_store[key] = new_data
         self._cache.clear()
-        self._fire_change_listeners(flag_id, "websocket")
+        if pre != new_data:
+            self._fire_change_listeners(key, "websocket")
 
     def _handle_flag_deleted(self, data: dict[str, Any]) -> None:
-        flag_id = data.get("id")
-        self._fetch_all_flags()
+        key = data.get("id")
+        if not key:
+            return
+        existed = key in self._flag_store
+        self._flag_store.pop(key, None)
         self._cache.clear()
-        self._fire_change_listeners(flag_id, "websocket")
+        if existed:
+            self._fire_change_listeners(key, "websocket", deleted=True)
+
+    def _handle_flags_changed(self, data: dict[str, Any]) -> None:
+        pre_store = dict(self._flag_store)
+        try:
+            self._fetch_all_flags()
+        except Exception:
+            ws_logger.error("Failed to refresh flags after flags_changed WS event", exc_info=True)
+            return
+        self._cache.clear()
+        post_store = self._flag_store
+        all_keys = set(pre_store) | set(post_store)
+        changed = [k for k in all_keys if pre_store.get(k) != post_store.get(k)]
+        if not changed:
+            return
+        # Global listener fires once
+        first_event = FlagChangeEvent(id=changed[0], source="websocket")
+        for cb in self._global_listeners:
+            try:
+                cb(first_event)
+            except Exception:
+                logger.error("Exception in global flags on_change listener", exc_info=True)
+        # Per-key listeners fire for each changed key
+        for k in changed:
+            deleted = k in pre_store and k not in post_store
+            event = FlagChangeEvent(id=k, source="websocket", deleted=deleted)
+            for cb in self._key_listeners.get(k, []):
+                try:
+                    cb(event)
+                except Exception:
+                    logger.error("Exception in id-scoped flags on_change listener", exc_info=True)
 
     # ------------------------------------------------------------------
     # Internal: flag store
     # ------------------------------------------------------------------
+
+    def _fetch_flag_single_data(self, key: str) -> dict[str, Any]:
+        """Fetch a single flag by key and return a store-format dict."""
+        try:
+            response = get_flag.sync_detailed(key, client=self._flags_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._flags_http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        body = json.loads(response.content)
+        d = _flag_dict_from_json(body["data"])
+        return {
+            "id": d["id"],
+            "name": d["name"],
+            "type": d["type"],
+            "default": d["default"],
+            "values": d["values"],
+            "description": d["description"],
+            "environments": d["environments"],
+        }
 
     def _fetch_all_flags(self) -> None:
         flags = self._fetch_flags_list()
@@ -944,9 +1006,9 @@ class FlagsClient:
             )
         return result
 
-    def _fire_change_listeners(self, flag_id: str | None, source: str) -> None:
+    def _fire_change_listeners(self, flag_id: str | None, source: str, *, deleted: bool = False) -> None:
         if flag_id:
-            event = FlagChangeEvent(id=flag_id, source=source)
+            event = FlagChangeEvent(id=flag_id, source=source, deleted=deleted)
             for cb in self._global_listeners:
                 try:
                     cb(event)
@@ -1263,6 +1325,7 @@ class AsyncFlagsClient:
         self._ws_manager = self._parent._ensure_ws()
         self._ws_manager.on("flag_changed", self._handle_flag_changed)
         self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
+        self._ws_manager.on("flags_changed", self._handle_flags_changed)
 
         # Start periodic flush timer
         self._schedule_flag_flush()
@@ -1408,6 +1471,7 @@ class AsyncFlagsClient:
             self._ws_manager = self._parent._ensure_ws()
             self._ws_manager.on("flag_changed", self._handle_flag_changed)
             self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
+            self._ws_manager.on("flags_changed", self._handle_flags_changed)
             self._schedule_flag_flush()
 
         if context is not None:
@@ -1517,61 +1581,86 @@ class AsyncFlagsClient:
             }
         self._flag_store = store
 
+    def _fetch_flag_single_data_sync(self, key: str) -> dict[str, Any]:
+        """Sync fetch of a single flag by key (used from WS event handlers)."""
+        try:
+            response = get_flag.sync_detailed(key, client=self._flags_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._flags_http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        body = json.loads(response.content)
+        d = _flag_dict_from_json(body["data"])
+        return {
+            "id": d["id"],
+            "name": d["name"],
+            "type": d["type"],
+            "default": d["default"],
+            "values": d["values"],
+            "description": d["description"],
+            "environments": d["environments"],
+        }
+
     # ------------------------------------------------------------------
     # Internal: event handlers (called by SharedWebSocket)
     # ------------------------------------------------------------------
 
     def _handle_flag_changed(self, data: dict[str, Any]) -> None:
-        flag_id = data.get("id")
+        key = data.get("id")
+        if not key:
+            return
+        pre = dict(self._flag_store.get(key, {}))
         try:
-            response = list_flags.sync_detailed(client=self._flags_http)
-            _check_response_status(response.status_code, response.content)
-            body = json.loads(response.content)
-            new_store: dict[str, dict[str, Any]] = {}
-            for r in body.get("data", []):
-                d = _flag_dict_from_json(r)
-                new_store[d["id"]] = {
-                    "id": d["id"],
-                    "name": d["name"],
-                    "type": d["type"],
-                    "default": d["default"],
-                    "values": d["values"],
-                    "description": d["description"],
-                    "environments": d["environments"],
-                }
-            self._flag_store = new_store
+            new_data = self._fetch_flag_single_data_sync(key)
         except Exception:
-            ws_logger.error("Failed to refresh flags after WS event", exc_info=True)
+            ws_logger.error("Failed to fetch flag %r after WS event", key, exc_info=True)
+            return
+        self._flag_store[key] = new_data
         self._cache.clear()
-        self._fire_change_listeners(flag_id, "websocket")
+        if pre != new_data:
+            self._fire_change_listeners(key, "websocket")
 
     def _handle_flag_deleted(self, data: dict[str, Any]) -> None:
-        flag_id = data.get("id")
-        try:
-            response = list_flags.sync_detailed(client=self._flags_http)
-            _check_response_status(response.status_code, response.content)
-            body = json.loads(response.content)
-            new_store: dict[str, dict[str, Any]] = {}
-            for r in body.get("data", []):
-                d = _flag_dict_from_json(r)
-                new_store[d["id"]] = {
-                    "id": d["id"],
-                    "name": d["name"],
-                    "type": d["type"],
-                    "default": d["default"],
-                    "values": d["values"],
-                    "description": d["description"],
-                    "environments": d["environments"],
-                }
-            self._flag_store = new_store
-        except Exception:
-            ws_logger.error("Failed to refresh flags after WS event", exc_info=True)
+        key = data.get("id")
+        if not key:
+            return
+        existed = key in self._flag_store
+        self._flag_store.pop(key, None)
         self._cache.clear()
-        self._fire_change_listeners(flag_id, "websocket")
+        if existed:
+            self._fire_change_listeners(key, "websocket", deleted=True)
 
-    def _fire_change_listeners(self, flag_id: str | None, source: str) -> None:
+    def _handle_flags_changed(self, data: dict[str, Any]) -> None:
+        pre_store = dict(self._flag_store)
+        try:
+            self._fetch_all_flags_sync()
+        except Exception:
+            ws_logger.error("Failed to refresh flags after flags_changed WS event", exc_info=True)
+            return
+        self._cache.clear()
+        post_store = self._flag_store
+        all_keys = set(pre_store) | set(post_store)
+        changed = [k for k in all_keys if pre_store.get(k) != post_store.get(k)]
+        if not changed:
+            return
+        first_event = FlagChangeEvent(id=changed[0], source="websocket")
+        for cb in self._global_listeners:
+            try:
+                cb(first_event)
+            except Exception:
+                logger.error("Exception in global flags on_change listener", exc_info=True)
+        for k in changed:
+            deleted = k in pre_store and k not in post_store
+            event = FlagChangeEvent(id=k, source="websocket", deleted=deleted)
+            for cb in self._key_listeners.get(k, []):
+                try:
+                    cb(event)
+                except Exception:
+                    logger.error("Exception in id-scoped flags on_change listener", exc_info=True)
+
+    def _fire_change_listeners(self, flag_id: str | None, source: str, *, deleted: bool = False) -> None:
         if flag_id:
-            event = FlagChangeEvent(id=flag_id, source=source)
+            event = FlagChangeEvent(id=flag_id, source=source, deleted=deleted)
             for cb in self._global_listeners:
                 try:
                     cb(event)

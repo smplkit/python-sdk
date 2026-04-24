@@ -951,7 +951,7 @@ class TestWebSocketEventHandling:
     @patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_registers_ws_handlers(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
-        """_connect_internal registers handlers for all four logger events."""
+        """_connect_internal registers handlers for all five logger events."""
         mock_adapter = MagicMock()
         mock_adapter.discover.return_value = []
         mock_auto_load.return_value = [mock_adapter]
@@ -965,20 +965,20 @@ class TestWebSocketEventHandling:
 
         asyncio.run(client._connect_internal())
 
-        assert mock_ws.on.call_count == 4
+        assert mock_ws.on.call_count == 5
         registered_events = {call[0][0] for call in mock_ws.on.call_args_list}
-        assert registered_events == {"logger_changed", "logger_deleted", "group_changed", "group_deleted"}
+        assert registered_events == {"logger_changed", "logger_deleted", "group_changed", "group_deleted", "loggers_changed"}
         client._close()
 
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    def test_handle_ws_event_triggers_refetch_in_thread(self, mock_loggers, mock_groups):
-        """_handle_ws_event spawns a thread that runs _fetch_and_apply."""
+    def test_handle_loggers_changed_triggers_refetch_in_thread(self, mock_loggers, mock_groups):
+        """_handle_loggers_changed spawns a thread that runs _fetch_and_apply."""
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
         mock_groups.return_value = _ok_response(_make_list_parsed([]))
 
         client = _make_async_logging_client()
-        client._handle_ws_event({"event": "logger_changed", "id": "abc"})
+        client._handle_loggers_changed({})
 
         # Give the daemon thread time to run
         import time
@@ -989,27 +989,27 @@ class TestWebSocketEventHandling:
         mock_groups.assert_called_once()
 
     def test_close_deregisters_ws_handlers(self):
-        """_close calls off() for all four events on the ws manager."""
+        """_close calls off() for all five events on the ws manager."""
         client = _make_async_logging_client()
         mock_ws = MagicMock()
         client._ws_manager = mock_ws
 
         client._close()
 
-        assert mock_ws.off.call_count == 4
+        assert mock_ws.off.call_count == 5
         deregistered_events = {call[0][0] for call in mock_ws.off.call_args_list}
-        assert deregistered_events == {"logger_changed", "logger_deleted", "group_changed", "group_deleted"}
+        assert deregistered_events == {"logger_changed", "logger_deleted", "group_changed", "group_deleted", "loggers_changed"}
         assert client._ws_manager is None
 
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    def test_handle_ws_event_thread_swallows_fetch_errors(self, mock_loggers, mock_groups):
-        """_handle_ws_event catches exceptions from the async _fetch_and_apply thread."""
+    def test_handle_loggers_changed_swallows_fetch_errors(self, mock_loggers, mock_groups):
+        """_handle_loggers_changed catches exceptions from the async _fetch_and_apply thread."""
         mock_loggers.side_effect = RuntimeError("network failure")
 
         client = _make_async_logging_client()
         # Should not raise; the error is caught inside the daemon thread
-        client._handle_ws_event({"event": "logger_changed", "id": "abc"})
+        client._handle_loggers_changed({})
 
         import time
 
@@ -1017,8 +1017,8 @@ class TestWebSocketEventHandling:
 
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    def test_handle_ws_event_successive_events_no_event_loop_error(self, mock_loggers, mock_groups):
-        """Successive WS events must not raise 'RuntimeError: Event loop is closed'.
+    def test_handle_loggers_changed_successive_events_no_event_loop_error(self, mock_loggers, mock_groups):
+        """Successive loggers_changed events must not raise 'RuntimeError: Event loop is closed'.
 
         Regression test: previously _fetch_and_apply reused self._logging_http
         (a shared AuthenticatedClient) across different temporary event loops.
@@ -1033,8 +1033,8 @@ class TestWebSocketEventHandling:
 
         client = _make_async_logging_client()
 
-        client._handle_ws_event({"event": "logger_changed", "id": "ghi"})
-        client._handle_ws_event({"event": "logger_changed", "id": "abc"})
+        client._handle_loggers_changed({})
+        client._handle_loggers_changed({})
 
         time.sleep(0.4)  # let both daemon threads finish
 
@@ -1045,8 +1045,8 @@ class TestWebSocketEventHandling:
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
     @patch("smplkit.logging.client.AuthenticatedClient")
-    def test_handle_ws_event_closes_fresh_http_client(self, mock_ac_cls, mock_loggers, mock_groups):
-        """The underlying httpx AsyncClient of the fresh client is closed after refresh."""
+    def test_handle_loggers_changed_closes_fresh_http_client(self, mock_ac_cls, mock_loggers, mock_groups):
+        """The underlying httpx AsyncClient of the fresh client is closed after loggers_changed refresh."""
         import time
 
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -1061,10 +1061,10 @@ class TestWebSocketEventHandling:
 
         # _make_async_logging_client() opens its own nested patch for AuthenticatedClient
         # (to set up _logging_http), temporarily overriding mock_ac_cls.  After it
-        # exits the constructor, mock_ac_cls is restored and is what _handle_ws_event
+        # exits the constructor, mock_ac_cls is restored and is what _handle_loggers_changed
         # will see when it calls AuthenticatedClient(...).
         client = _make_async_logging_client()
-        client._handle_ws_event({"event": "logger_changed", "id": "abc"})
+        client._handle_loggers_changed({})
 
         time.sleep(0.3)  # let the daemon thread finish
 
@@ -1072,15 +1072,15 @@ class TestWebSocketEventHandling:
 
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    def test_handle_ws_event_uses_fresh_http_client(self, mock_loggers, mock_groups):
-        """Each WS-triggered refresh must use a fresh AuthenticatedClient, not self._logging_http."""
+    def test_handle_loggers_changed_uses_fresh_http_client(self, mock_loggers, mock_groups):
+        """loggers_changed refresh must use a fresh AuthenticatedClient, not self._logging_http."""
         import time
 
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
         mock_groups.return_value = _ok_response(_make_list_parsed([]))
 
         client = _make_async_logging_client()
-        client._handle_ws_event({"event": "logger_changed", "id": "abc"})
+        client._handle_loggers_changed({})
 
         time.sleep(0.2)
 
@@ -1089,3 +1089,215 @@ class TestWebSocketEventHandling:
         # it must be a fresh AuthenticatedClient scoped to the thread's event loop.
         call_client = mock_loggers.call_args.kwargs.get("client") or mock_loggers.call_args.args[0]
         assert call_client is not client._logging_http
+
+
+    @patch("smplkit.logging.client.get_logger.asyncio_detailed")
+    def test_handle_logger_changed_spawns_thread_and_fires(self, mock_get):
+        """_handle_logger_changed spawns a thread that fetches a single logger and fires listeners."""
+        import time
+        from smplkit.logging.client import LoggerResponse, LoggerResource, GenLogger
+        from smplkit._generated.logging.types import UNSET
+
+        attrs = GenLogger(name="sqlalchemy.engine", level="INFO", group=UNSET, managed=True, environments=UNSET)
+        resource = LoggerResource(attributes=attrs, id="sqlalchemy.engine", type_="logger")
+        parsed = LoggerResponse(data=resource)
+        resp = MagicMock()
+        resp.status_code = HTTPStatus.OK
+        resp.content = b""
+        resp.parsed = parsed
+        mock_get.return_value = resp
+
+        client = _make_async_logging_client()
+        client._loggers_cache["sqlalchemy.engine"] = {"level": "DEBUG", "group": None, "managed": True, "environments": {}}
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_logger_changed({"id": "sqlalchemy.engine"})
+        time.sleep(0.3)
+        mock_get.assert_called_once()
+        listener.assert_called_once()
+
+    def test_handle_logger_deleted_spawns_thread_and_fires(self):
+        """_handle_logger_deleted spawns a thread and fires deleted listener."""
+        import time
+
+        client = _make_async_logging_client()
+        client._loggers_cache["sqlalchemy.engine"] = {"level": "DEBUG", "group": None, "managed": True, "environments": {}}
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_logger_deleted({"id": "sqlalchemy.engine"})
+        time.sleep(0.3)
+        assert "sqlalchemy.engine" not in client._loggers_cache
+        listener.assert_called_once()
+        event = listener.call_args[0][0]
+        assert event.deleted is True
+
+    @patch("smplkit.logging.client.get_log_group.asyncio_detailed")
+    def test_handle_group_changed_spawns_thread_and_fires(self, mock_get):
+        """_handle_group_changed spawns a thread that fetches a single group and fires listeners."""
+        import time
+        from smplkit.logging.client import LogGroupResponse, LogGroupResource, GenLogGroup
+        from smplkit._generated.logging.types import UNSET
+
+        attrs = GenLogGroup(name="db-loggers", level="ERROR", parent_id=UNSET, environments=UNSET)
+        resource = LogGroupResource(attributes=attrs, id="db-loggers", type_="log_group")
+        parsed = LogGroupResponse(data=resource)
+        resp = MagicMock()
+        resp.status_code = HTTPStatus.OK
+        resp.content = b""
+        resp.parsed = parsed
+        mock_get.return_value = resp
+
+        client = _make_async_logging_client()
+        client._groups_cache["db-loggers"] = {"level": "WARN", "group": None, "environments": {}}
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_group_changed({"id": "db-loggers"})
+        time.sleep(0.3)
+        mock_get.assert_called_once()
+        listener.assert_called_once()
+
+    def test_handle_group_deleted_spawns_thread_and_fires(self):
+        """_handle_group_deleted spawns a thread and fires deleted listener."""
+        import time
+
+        client = _make_async_logging_client()
+        client._groups_cache["db-loggers"] = {"level": "WARN", "group": None, "environments": {}}
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._handle_group_deleted({"id": "db-loggers"})
+        time.sleep(0.3)
+        assert "db-loggers" not in client._groups_cache
+        listener.assert_called_once()
+        event = listener.call_args[0][0]
+        assert event.deleted is True
+
+    @patch("smplkit.logging.client.get_logger.asyncio_detailed")
+    def test_async_fire_change_listeners_global_exception_swallowed(self, mock_get):
+        """Async _fire_change_listeners swallows exceptions from global listeners."""
+        import time
+        from smplkit.logging.client import LoggerResponse, LoggerResource, GenLogger
+        from smplkit._generated.logging.types import UNSET
+
+        attrs = GenLogger(name="sqlalchemy.engine", level="INFO", group=UNSET, managed=True, environments=UNSET)
+        resource = LoggerResource(attributes=attrs, id="sqlalchemy.engine", type_="logger")
+        parsed = LoggerResponse(data=resource)
+        resp = MagicMock()
+        resp.status_code = HTTPStatus.OK
+        resp.content = b""
+        resp.parsed = parsed
+        mock_get.return_value = resp
+
+        client = _make_async_logging_client()
+        client._loggers_cache["sqlalchemy.engine"] = {"level": "DEBUG", "group": None, "managed": True, "environments": {}}
+        bad = MagicMock(side_effect=RuntimeError("boom"))
+        good = MagicMock()
+        client._global_listeners.extend([bad, good])
+        client._handle_logger_changed({"id": "sqlalchemy.engine"})
+        time.sleep(0.3)
+        good.assert_called_once()
+
+    @patch("smplkit.logging.client.get_logger.asyncio_detailed")
+    def test_async_fire_change_listeners_key_exception_swallowed(self, mock_get):
+        """Async _fire_change_listeners swallows exceptions from per-key listeners."""
+        import time
+        from smplkit.logging.client import LoggerResponse, LoggerResource, GenLogger
+        from smplkit._generated.logging.types import UNSET
+
+        attrs = GenLogger(name="sqlalchemy.engine", level="INFO", group=UNSET, managed=True, environments=UNSET)
+        resource = LoggerResource(attributes=attrs, id="sqlalchemy.engine", type_="logger")
+        parsed = LoggerResponse(data=resource)
+        resp = MagicMock()
+        resp.status_code = HTTPStatus.OK
+        resp.content = b""
+        resp.parsed = parsed
+        mock_get.return_value = resp
+
+        client = _make_async_logging_client()
+        client._loggers_cache["sqlalchemy.engine"] = {"level": "DEBUG", "group": None, "managed": True, "environments": {}}
+        bad = MagicMock(side_effect=RuntimeError("boom"))
+        good = MagicMock()
+        client._key_listeners["sqlalchemy.engine"] = [bad, good]
+        client._handle_logger_changed({"id": "sqlalchemy.engine"})
+        time.sleep(0.3)
+        good.assert_called_once()
+
+    @patch("smplkit.logging.client.get_logger.asyncio_detailed")
+    def test_handle_logger_changed_fetch_error_swallowed(self, mock_get):
+        """_fetch_logger_and_apply catches exceptions from asyncio_detailed and returns."""
+        import time
+        mock_get.side_effect = RuntimeError("fetch failed")
+        client = _make_async_logging_client()
+        client._handle_logger_changed({"id": "sqlalchemy.engine"})
+        time.sleep(0.3)  # should not raise
+
+    @patch("smplkit.logging.client.get_log_group.asyncio_detailed")
+    def test_handle_group_changed_fetch_error_swallowed(self, mock_get):
+        """_fetch_group_and_apply catches exceptions from asyncio_detailed and returns."""
+        import time
+        mock_get.side_effect = RuntimeError("fetch failed")
+        client = _make_async_logging_client()
+        client._handle_group_changed({"id": "db-loggers"})
+        time.sleep(0.3)  # should not raise
+
+    @patch("smplkit.logging.client.get_logger.asyncio_detailed")
+    @patch("smplkit.logging.client.AuthenticatedClient")
+    def test_handle_logger_changed_closes_fresh_http_client(self, mock_ac_cls, mock_get):
+        """_run_ws_handler closes the fresh http client's _async_client after fetch."""
+        import time
+
+        resp = MagicMock()
+        resp.status_code = HTTPStatus.OK
+        resp.content = b""
+        resp.parsed = None
+        mock_get.return_value = resp
+
+        mock_async_client = AsyncMock()
+        mock_http_instance = MagicMock()
+        mock_http_instance._async_client = mock_async_client
+        mock_ac_cls.return_value = mock_http_instance
+
+        client = _make_async_logging_client()
+        client._handle_logger_changed({"id": "sqlalchemy.engine"})
+        time.sleep(0.3)
+        mock_async_client.aclose.assert_called_once()
+
+    @patch("smplkit.logging.client.get_logger.asyncio_detailed")
+    def test_handle_logger_changed_apply_levels_error_swallowed(self, mock_get):
+        """_run_ws_handler swallows exceptions from _apply_levels."""
+        import time
+        from smplkit.logging.client import LoggerResponse, LoggerResource, GenLogger
+        from smplkit._generated.logging.types import UNSET
+
+        attrs = GenLogger(name="sqlalchemy.engine", level="INFO", group=UNSET, managed=True, environments=UNSET)
+        resource = LoggerResource(attributes=attrs, id="sqlalchemy.engine", type_="logger")
+        parsed = LoggerResponse(data=resource)
+        resp = MagicMock()
+        resp.status_code = HTTPStatus.OK
+        resp.content = b""
+        resp.parsed = parsed
+        mock_get.return_value = resp
+
+        client = _make_async_logging_client()
+        with patch.object(client, "_apply_levels", side_effect=RuntimeError("apply failed")):
+            client._handle_logger_changed({"id": "sqlalchemy.engine"})
+            time.sleep(0.3)  # should not raise
+
+    def test_handle_logger_deleted_apply_error_swallowed(self):
+        """logger_deleted thread swallows exceptions from _apply_levels."""
+        import time
+
+        client = _make_async_logging_client()
+        client._loggers_cache["sqlalchemy.engine"] = {"level": "DEBUG"}
+        with patch.object(client, "_apply_levels", side_effect=RuntimeError("apply failed")):
+            client._handle_logger_deleted({"id": "sqlalchemy.engine"})
+            time.sleep(0.3)  # should not raise
+
+    def test_handle_group_deleted_apply_error_swallowed(self):
+        """group_deleted thread swallows exceptions from _apply_levels."""
+        import time
+
+        client = _make_async_logging_client()
+        client._groups_cache["db-loggers"] = {"level": "WARN"}
+        with patch.object(client, "_apply_levels", side_effect=RuntimeError("apply failed")):
+            client._handle_group_deleted({"id": "db-loggers"})
+            time.sleep(0.3)  # should not raise
