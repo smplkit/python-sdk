@@ -967,7 +967,13 @@ class TestWebSocketEventHandling:
 
         assert mock_ws.on.call_count == 5
         registered_events = {call[0][0] for call in mock_ws.on.call_args_list}
-        assert registered_events == {"logger_changed", "logger_deleted", "group_changed", "group_deleted", "loggers_changed"}
+        assert registered_events == {
+            "logger_changed",
+            "logger_deleted",
+            "group_changed",
+            "group_deleted",
+            "loggers_changed",
+        }
         client._close()
 
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
@@ -998,7 +1004,13 @@ class TestWebSocketEventHandling:
 
         assert mock_ws.off.call_count == 5
         deregistered_events = {call[0][0] for call in mock_ws.off.call_args_list}
-        assert deregistered_events == {"logger_changed", "logger_deleted", "group_changed", "group_deleted", "loggers_changed"}
+        assert deregistered_events == {
+            "logger_changed",
+            "logger_deleted",
+            "group_changed",
+            "group_deleted",
+            "loggers_changed",
+        }
         assert client._ws_manager is None
 
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
@@ -1090,7 +1102,6 @@ class TestWebSocketEventHandling:
         call_client = mock_loggers.call_args.kwargs.get("client") or mock_loggers.call_args.args[0]
         assert call_client is not client._logging_http
 
-
     @patch("smplkit.logging.client.get_logger.asyncio_detailed")
     def test_handle_logger_changed_spawns_thread_and_fires(self, mock_get):
         """_handle_logger_changed spawns a thread that fetches a single logger and fires listeners."""
@@ -1108,7 +1119,12 @@ class TestWebSocketEventHandling:
         mock_get.return_value = resp
 
         client = _make_async_logging_client()
-        client._loggers_cache["sqlalchemy.engine"] = {"level": "DEBUG", "group": None, "managed": True, "environments": {}}
+        client._loggers_cache["sqlalchemy.engine"] = {
+            "level": "DEBUG",
+            "group": None,
+            "managed": True,
+            "environments": {},
+        }
         listener = MagicMock()
         client._global_listeners.append(listener)
         client._handle_logger_changed({"id": "sqlalchemy.engine"})
@@ -1121,7 +1137,12 @@ class TestWebSocketEventHandling:
         import time
 
         client = _make_async_logging_client()
-        client._loggers_cache["sqlalchemy.engine"] = {"level": "DEBUG", "group": None, "managed": True, "environments": {}}
+        client._loggers_cache["sqlalchemy.engine"] = {
+            "level": "DEBUG",
+            "group": None,
+            "managed": True,
+            "environments": {},
+        }
         listener = MagicMock()
         client._global_listeners.append(listener)
         client._handle_logger_deleted({"id": "sqlalchemy.engine"})
@@ -1188,7 +1209,12 @@ class TestWebSocketEventHandling:
         mock_get.return_value = resp
 
         client = _make_async_logging_client()
-        client._loggers_cache["sqlalchemy.engine"] = {"level": "DEBUG", "group": None, "managed": True, "environments": {}}
+        client._loggers_cache["sqlalchemy.engine"] = {
+            "level": "DEBUG",
+            "group": None,
+            "managed": True,
+            "environments": {},
+        }
         bad = MagicMock(side_effect=RuntimeError("boom"))
         good = MagicMock()
         client._global_listeners.extend([bad, good])
@@ -1213,7 +1239,12 @@ class TestWebSocketEventHandling:
         mock_get.return_value = resp
 
         client = _make_async_logging_client()
-        client._loggers_cache["sqlalchemy.engine"] = {"level": "DEBUG", "group": None, "managed": True, "environments": {}}
+        client._loggers_cache["sqlalchemy.engine"] = {
+            "level": "DEBUG",
+            "group": None,
+            "managed": True,
+            "environments": {},
+        }
         bad = MagicMock(side_effect=RuntimeError("boom"))
         good = MagicMock()
         client._key_listeners["sqlalchemy.engine"] = [bad, good]
@@ -1225,6 +1256,7 @@ class TestWebSocketEventHandling:
     def test_handle_logger_changed_fetch_error_swallowed(self, mock_get):
         """_fetch_logger_and_apply catches exceptions from asyncio_detailed and returns."""
         import time
+
         mock_get.side_effect = RuntimeError("fetch failed")
         client = _make_async_logging_client()
         client._handle_logger_changed({"id": "sqlalchemy.engine"})
@@ -1234,6 +1266,7 @@ class TestWebSocketEventHandling:
     def test_handle_group_changed_fetch_error_swallowed(self, mock_get):
         """_fetch_group_and_apply catches exceptions from asyncio_detailed and returns."""
         import time
+
         mock_get.side_effect = RuntimeError("fetch failed")
         client = _make_async_logging_client()
         client._handle_group_changed({"id": "db-loggers"})

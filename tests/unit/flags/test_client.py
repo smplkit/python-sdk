@@ -1446,8 +1446,15 @@ class TestFlagsClientEventHandlers:
         mock_get.return_value = _ok_json_response({"data": _flag_json(id="test-flag", name="Updated")})
         client = _make_flags_client()
         # Pre-state has different name to ensure diff
-        client._flag_store["test-flag"] = {"id": "test-flag", "name": "Old", "type": "BOOLEAN",
-                                            "default": False, "values": [], "description": "", "environments": {}}
+        client._flag_store["test-flag"] = {
+            "id": "test-flag",
+            "name": "Old",
+            "type": "BOOLEAN",
+            "default": False,
+            "values": [],
+            "description": "",
+            "environments": {},
+        }
         listener = MagicMock()
         client._global_listeners.append(listener)
         client._handle_flag_changed({"id": "test-flag"})
@@ -1465,9 +1472,17 @@ class TestFlagsClientEventHandlers:
         client = _make_flags_client()
         # Populate store with same content the fetch will return
         from smplkit.flags.client import _flag_dict_from_json
+
         d = _flag_dict_from_json(flag_data)
-        existing = {"id": d["id"], "name": d["name"], "type": d["type"], "default": d["default"],
-                    "values": d["values"], "description": d["description"], "environments": d["environments"]}
+        existing = {
+            "id": d["id"],
+            "name": d["name"],
+            "type": d["type"],
+            "default": d["default"],
+            "values": d["values"],
+            "description": d["description"],
+            "environments": d["environments"],
+        }
         client._flag_store["test-flag"] = existing
         listener = MagicMock()
         client._global_listeners.append(listener)
@@ -1517,18 +1532,34 @@ class TestFlagsClientEventHandlers:
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_handle_flags_changed_fires_global_once_and_per_key(self, mock_list):
         # Two flags in store; post-fetch both change
-        mock_list.return_value = _ok_json_response({
-            "data": [
-                _flag_json(id="flag-a", name="A-new"),
-                _flag_json(id="flag-b", name="B-new"),
-            ]
-        })
+        mock_list.return_value = _ok_json_response(
+            {
+                "data": [
+                    _flag_json(id="flag-a", name="A-new"),
+                    _flag_json(id="flag-b", name="B-new"),
+                ]
+            }
+        )
         client = _make_flags_client()
         client._flag_store = {
-            "flag-a": {"id": "flag-a", "name": "A-old", "type": "BOOLEAN", "default": False,
-                       "values": [], "description": "", "environments": {}},
-            "flag-b": {"id": "flag-b", "name": "B-old", "type": "BOOLEAN", "default": False,
-                       "values": [], "description": "", "environments": {}},
+            "flag-a": {
+                "id": "flag-a",
+                "name": "A-old",
+                "type": "BOOLEAN",
+                "default": False,
+                "values": [],
+                "description": "",
+                "environments": {},
+            },
+            "flag-b": {
+                "id": "flag-b",
+                "name": "B-old",
+                "type": "BOOLEAN",
+                "default": False,
+                "values": [],
+                "description": "",
+                "environments": {},
+            },
         }
         global_listener = MagicMock()
         key_listener_a = MagicMock()
@@ -1543,9 +1574,17 @@ class TestFlagsClientEventHandlers:
         flag_data = _flag_json(id="flag-a")
         mock_list.return_value = _ok_json_response({"data": [flag_data]})
         from smplkit.flags.client import _flag_dict_from_json
+
         d = _flag_dict_from_json(flag_data)
-        existing = {"id": d["id"], "name": d["name"], "type": d["type"], "default": d["default"],
-                    "values": d["values"], "description": d["description"], "environments": d["environments"]}
+        existing = {
+            "id": d["id"],
+            "name": d["name"],
+            "type": d["type"],
+            "default": d["default"],
+            "values": d["values"],
+            "description": d["description"],
+            "environments": d["environments"],
+        }
         client = _make_flags_client()
         client._flag_store = {"flag-a": existing}
         listener = MagicMock()
@@ -1559,8 +1598,15 @@ class TestFlagsClientEventHandlers:
         mock_list.return_value = _ok_json_response({"data": [_flag_json(id="flag-b", name="B")]})
         client = _make_flags_client()
         client._flag_store = {
-            "flag-a": {"id": "flag-a", "name": "A", "type": "BOOLEAN", "default": False,
-                       "values": [], "description": "", "environments": {}},
+            "flag-a": {
+                "id": "flag-a",
+                "name": "A",
+                "type": "BOOLEAN",
+                "default": False,
+                "values": [],
+                "description": "",
+                "environments": {},
+            },
         }
         key_listener = MagicMock()
         client._key_listeners["flag-a"] = [key_listener]
@@ -1582,8 +1628,17 @@ class TestFlagsClientEventHandlers:
     def test_handle_flags_changed_global_listener_exception_swallowed(self, mock_list):
         mock_list.return_value = _ok_json_response({"data": [_flag_json(id="flag-a", name="Updated")]})
         client = _make_flags_client()
-        client._flag_store = {"flag-a": {"id": "flag-a", "name": "Old", "type": "BOOLEAN",
-                                          "default": False, "values": [], "description": "", "environments": {}}}
+        client._flag_store = {
+            "flag-a": {
+                "id": "flag-a",
+                "name": "Old",
+                "type": "BOOLEAN",
+                "default": False,
+                "values": [],
+                "description": "",
+                "environments": {},
+            }
+        }
         bad = MagicMock(side_effect=RuntimeError("boom"))
         good = MagicMock()
         client._global_listeners.extend([bad, good])
@@ -1594,8 +1649,17 @@ class TestFlagsClientEventHandlers:
     def test_handle_flags_changed_key_listener_exception_swallowed(self, mock_list):
         mock_list.return_value = _ok_json_response({"data": [_flag_json(id="flag-a", name="Updated")]})
         client = _make_flags_client()
-        client._flag_store = {"flag-a": {"id": "flag-a", "name": "Old", "type": "BOOLEAN",
-                                          "default": False, "values": [], "description": "", "environments": {}}}
+        client._flag_store = {
+            "flag-a": {
+                "id": "flag-a",
+                "name": "Old",
+                "type": "BOOLEAN",
+                "default": False,
+                "values": [],
+                "description": "",
+                "environments": {},
+            }
+        }
         bad = MagicMock(side_effect=RuntimeError("boom"))
         good = MagicMock()
         client._key_listeners["flag-a"] = [bad, good]
@@ -2435,8 +2499,15 @@ class TestAsyncFlagsClientEventHandlers:
     def test_handle_flag_changed_fires_listener_on_change(self, mock_get):
         mock_get.return_value = _ok_json_response({"data": _flag_json(id="test-flag", name="Updated")})
         client = _make_async_flags_client()
-        client._flag_store["test-flag"] = {"id": "test-flag", "name": "Old", "type": "BOOLEAN",
-                                            "default": False, "values": [], "description": "", "environments": {}}
+        client._flag_store["test-flag"] = {
+            "id": "test-flag",
+            "name": "Old",
+            "type": "BOOLEAN",
+            "default": False,
+            "values": [],
+            "description": "",
+            "environments": {},
+        }
         listener = MagicMock()
         client._global_listeners.append(listener)
         client._handle_flag_changed({"id": "test-flag"})
@@ -2449,9 +2520,17 @@ class TestAsyncFlagsClientEventHandlers:
         flag_data = _flag_json(id="test-flag")
         mock_get.return_value = _ok_json_response({"data": flag_data})
         from smplkit.flags.client import _flag_dict_from_json
+
         d = _flag_dict_from_json(flag_data)
-        existing = {"id": d["id"], "name": d["name"], "type": d["type"], "default": d["default"],
-                    "values": d["values"], "description": d["description"], "environments": d["environments"]}
+        existing = {
+            "id": d["id"],
+            "name": d["name"],
+            "type": d["type"],
+            "default": d["default"],
+            "values": d["values"],
+            "description": d["description"],
+            "environments": d["environments"],
+        }
         client = _make_async_flags_client()
         client._flag_store["test-flag"] = existing
         listener = MagicMock()
@@ -2486,18 +2565,34 @@ class TestAsyncFlagsClientEventHandlers:
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_handle_flags_changed_fires_global_once_and_per_key(self, mock_list):
-        mock_list.return_value = _ok_json_response({
-            "data": [
-                _flag_json(id="flag-a", name="A-new"),
-                _flag_json(id="flag-b", name="B-new"),
-            ]
-        })
+        mock_list.return_value = _ok_json_response(
+            {
+                "data": [
+                    _flag_json(id="flag-a", name="A-new"),
+                    _flag_json(id="flag-b", name="B-new"),
+                ]
+            }
+        )
         client = _make_async_flags_client()
         client._flag_store = {
-            "flag-a": {"id": "flag-a", "name": "A-old", "type": "BOOLEAN", "default": False,
-                       "values": [], "description": "", "environments": {}},
-            "flag-b": {"id": "flag-b", "name": "B-old", "type": "BOOLEAN", "default": False,
-                       "values": [], "description": "", "environments": {}},
+            "flag-a": {
+                "id": "flag-a",
+                "name": "A-old",
+                "type": "BOOLEAN",
+                "default": False,
+                "values": [],
+                "description": "",
+                "environments": {},
+            },
+            "flag-b": {
+                "id": "flag-b",
+                "name": "B-old",
+                "type": "BOOLEAN",
+                "default": False,
+                "values": [],
+                "description": "",
+                "environments": {},
+            },
         }
         global_listener = MagicMock()
         key_listener_b = MagicMock()
@@ -2535,9 +2630,17 @@ class TestAsyncFlagsClientEventHandlers:
         flag_data = _flag_json(id="flag-a")
         mock_list.return_value = _ok_json_response({"data": [flag_data]})
         from smplkit.flags.client import _flag_dict_from_json
+
         d = _flag_dict_from_json(flag_data)
-        existing = {"id": d["id"], "name": d["name"], "type": d["type"], "default": d["default"],
-                    "values": d["values"], "description": d["description"], "environments": d["environments"]}
+        existing = {
+            "id": d["id"],
+            "name": d["name"],
+            "type": d["type"],
+            "default": d["default"],
+            "values": d["values"],
+            "description": d["description"],
+            "environments": d["environments"],
+        }
         client = _make_async_flags_client()
         client._flag_store = {"flag-a": existing}
         listener = MagicMock()
@@ -2549,8 +2652,17 @@ class TestAsyncFlagsClientEventHandlers:
     def test_handle_flags_changed_global_listener_exception_swallowed(self, mock_list):
         mock_list.return_value = _ok_json_response({"data": [_flag_json(id="flag-a", name="Updated")]})
         client = _make_async_flags_client()
-        client._flag_store = {"flag-a": {"id": "flag-a", "name": "Old", "type": "BOOLEAN",
-                                          "default": False, "values": [], "description": "", "environments": {}}}
+        client._flag_store = {
+            "flag-a": {
+                "id": "flag-a",
+                "name": "Old",
+                "type": "BOOLEAN",
+                "default": False,
+                "values": [],
+                "description": "",
+                "environments": {},
+            }
+        }
         bad = MagicMock(side_effect=RuntimeError("boom"))
         good = MagicMock()
         client._global_listeners.extend([bad, good])
@@ -2561,8 +2673,17 @@ class TestAsyncFlagsClientEventHandlers:
     def test_handle_flags_changed_key_listener_exception_swallowed(self, mock_list):
         mock_list.return_value = _ok_json_response({"data": [_flag_json(id="flag-a", name="Updated")]})
         client = _make_async_flags_client()
-        client._flag_store = {"flag-a": {"id": "flag-a", "name": "Old", "type": "BOOLEAN",
-                                          "default": False, "values": [], "description": "", "environments": {}}}
+        client._flag_store = {
+            "flag-a": {
+                "id": "flag-a",
+                "name": "Old",
+                "type": "BOOLEAN",
+                "default": False,
+                "values": [],
+                "description": "",
+                "environments": {},
+            }
+        }
         bad = MagicMock(side_effect=RuntimeError("boom"))
         good = MagicMock()
         client._key_listeners["flag-a"] = [bad, good]

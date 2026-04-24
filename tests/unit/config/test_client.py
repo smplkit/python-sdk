@@ -1577,6 +1577,7 @@ class TestAsyncConfigClientWebSocket:
         client.config._connected = True
         client.config._config_cache = {"db": {"host": "old"}}
         from unittest.mock import patch as _patch
+
         mock_cfg = MagicMock()
         mock_cfg.id = "db"
         mock_cfg._items_raw = {"host": {"value": "new"}}

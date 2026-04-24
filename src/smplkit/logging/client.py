@@ -1011,7 +1011,9 @@ class LoggingClient:
         post_loggers = self._loggers_cache
         post_groups = self._groups_cache
         all_keys = (set(pre_loggers) | set(post_loggers)) | (set(pre_groups) | set(post_groups))
-        changed = [k for k in all_keys if pre_loggers.get(k, pre_groups.get(k)) != post_loggers.get(k, post_groups.get(k))]
+        changed = [
+            k for k in all_keys if pre_loggers.get(k, pre_groups.get(k)) != post_loggers.get(k, post_groups.get(k))
+        ]
         self._fire_change_listeners(changed, "websocket")
 
     def _fire_change_listeners(self, changed_keys: list[str], source: str, *, deleted: bool = False) -> None:
@@ -1595,7 +1597,9 @@ class AsyncLoggingClient:
             post_loggers = self._loggers_cache
             post_groups = self._groups_cache
             all_keys = (set(pre_loggers) | set(post_loggers)) | (set(pre_groups) | set(post_groups))
-            changed = [k for k in all_keys if pre_loggers.get(k, pre_groups.get(k)) != post_loggers.get(k, post_groups.get(k))]
+            changed = [
+                k for k in all_keys if pre_loggers.get(k, pre_groups.get(k)) != post_loggers.get(k, post_groups.get(k))
+            ]
             self._fire_change_listeners(changed, "websocket")
 
         import asyncio as _asyncio
