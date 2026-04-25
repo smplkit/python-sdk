@@ -72,7 +72,7 @@ def sync_detailed(
 ) -> Response[ErrorResponse | ProductListResponse]:
     """List Products
 
-     Return all products with their plans and limits as JSON:API resources.
+     Return all flag-enabled products with their plans and limits.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -97,7 +97,7 @@ def sync(
 ) -> ErrorResponse | ProductListResponse | None:
     """List Products
 
-     Return all products with their plans and limits as JSON:API resources.
+     Return all flag-enabled products with their plans and limits.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,7 +118,7 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | ProductListResponse]:
     """List Products
 
-     Return all products with their plans and limits as JSON:API resources.
+     Return all flag-enabled products with their plans and limits.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -141,7 +141,7 @@ async def asyncio(
 ) -> ErrorResponse | ProductListResponse | None:
     """List Products
 
-     Return all products with their plans and limits as JSON:API resources.
+     Return all flag-enabled products with their plans and limits.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
