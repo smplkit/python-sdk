@@ -8,7 +8,7 @@ from ...types import Response
 from ... import errors
 
 from ...models.remove_references_request import RemoveReferencesRequest
-from ...models.remove_references_response import RemoveReferencesResponse
+from ...models.remove_references_result_envelope import RemoveReferencesResultEnvelope
 
 
 def _get_kwargs(
@@ -32,9 +32,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> RemoveReferencesResponse | None:
+) -> RemoveReferencesResultEnvelope | None:
     if response.status_code == 200:
-        response_200 = RemoveReferencesResponse.from_dict(response.json())
+        response_200 = RemoveReferencesResultEnvelope.from_dict(response.json())
 
         return response_200
 
@@ -46,7 +46,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[RemoveReferencesResponse]:
+) -> Response[RemoveReferencesResultEnvelope]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -59,7 +59,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     body: RemoveReferencesRequest,
-) -> Response[RemoveReferencesResponse]:
+) -> Response[RemoveReferencesResultEnvelope]:
     """Execute Remove References
 
      Bulk-remove context references from flag rules.
@@ -75,7 +75,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[RemoveReferencesResponse]
+        Response[RemoveReferencesResultEnvelope]
     """
 
     kwargs = _get_kwargs(
@@ -93,7 +93,7 @@ def sync(
     *,
     client: AuthenticatedClient,
     body: RemoveReferencesRequest,
-) -> RemoveReferencesResponse | None:
+) -> RemoveReferencesResultEnvelope | None:
     """Execute Remove References
 
      Bulk-remove context references from flag rules.
@@ -109,7 +109,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        RemoveReferencesResponse
+        RemoveReferencesResultEnvelope
     """
 
     return sync_detailed(
@@ -122,7 +122,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     body: RemoveReferencesRequest,
-) -> Response[RemoveReferencesResponse]:
+) -> Response[RemoveReferencesResultEnvelope]:
     """Execute Remove References
 
      Bulk-remove context references from flag rules.
@@ -138,7 +138,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[RemoveReferencesResponse]
+        Response[RemoveReferencesResultEnvelope]
     """
 
     kwargs = _get_kwargs(
@@ -154,7 +154,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     body: RemoveReferencesRequest,
-) -> RemoveReferencesResponse | None:
+) -> RemoveReferencesResultEnvelope | None:
     """Execute Remove References
 
      Bulk-remove context references from flag rules.
@@ -170,7 +170,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        RemoveReferencesResponse
+        RemoveReferencesResultEnvelope
     """
 
     return (

@@ -11,11 +11,11 @@ if TYPE_CHECKING:
     from ..models.remove_references_result_resource import RemoveReferencesResultResource
 
 
-T = TypeVar("T", bound="RemoveReferencesResponse")
+T = TypeVar("T", bound="RemoveReferencesResultEnvelope")
 
 
 @_attrs_define
-class RemoveReferencesResponse:
+class RemoveReferencesResultEnvelope:
     """
     Attributes:
         data (RemoveReferencesResultResource):  Example: {'attributes': {'flags_modified': ['checkout-v2', 'banner-
@@ -47,12 +47,12 @@ class RemoveReferencesResponse:
         d = dict(src_dict)
         data = RemoveReferencesResultResource.from_dict(d.pop("data"))
 
-        remove_references_response = cls(
+        remove_references_result_envelope = cls(
             data=data,
         )
 
-        remove_references_response.additional_properties = d
-        return remove_references_response
+        remove_references_result_envelope.additional_properties = d
+        return remove_references_result_envelope
 
     @property
     def additional_keys(self) -> list[str]:
