@@ -46,6 +46,7 @@ from .create_bundle_attributes import CreateBundleAttributes
 from .create_bundle_body import CreateBundleBody
 from .create_bundle_data import CreateBundleData
 from .create_bundle_data_type import CreateBundleDataType
+from .create_email_registration_body import CreateEmailRegistrationBody
 from .create_subscription_attributes import CreateSubscriptionAttributes
 from .create_subscription_body import CreateSubscriptionBody
 from .create_subscription_data import CreateSubscriptionData
@@ -185,6 +186,7 @@ __all__ = (
     "CreateBundleBody",
     "CreateBundleData",
     "CreateBundleDataType",
+    "CreateEmailRegistrationBody",
     "CreateSubscriptionAttributes",
     "CreateSubscriptionBody",
     "CreateSubscriptionData",
