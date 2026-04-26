@@ -34,10 +34,10 @@ class Flag:
 
     Attributes:
         name (str): Human-readable display name
+        type_ (str): Value type: STRING, BOOLEAN, NUMERIC, or JSON
         default (Any): Default value; must reference a value in the values array (constrained) or match the flag type
             (unconstrained)
         description (None | str | Unset):
-        type_ (None | str | Unset): Value type: STRING, BOOLEAN, NUMERIC, or JSON
         values (list[FlagValue] | None | Unset): Ordered set of allowed values (constrained), or null (unconstrained)
         environments (FlagEnvironments | Unset):
         managed (bool | None | Unset): True if admin-managed, false if auto-discovered
@@ -47,9 +47,9 @@ class Flag:
     """
 
     name: str
+    type_: str
     default: Any
     description: None | str | Unset = UNSET
-    type_: None | str | Unset = UNSET
     values: list[FlagValue] | None | Unset = UNSET
     environments: FlagEnvironments | Unset = UNSET
     managed: bool | None | Unset = UNSET
@@ -61,6 +61,8 @@ class Flag:
     def to_dict(self) -> dict[str, Any]:
         name = self.name
 
+        type_ = self.type_
+
         default = self.default
 
         description: None | str | Unset
@@ -68,12 +70,6 @@ class Flag:
             description = UNSET
         else:
             description = self.description
-
-        type_: None | str | Unset
-        if isinstance(self.type_, Unset):
-            type_ = UNSET
-        else:
-            type_ = self.type_
 
         values: list[dict[str, Any]] | None | Unset
         if isinstance(self.values, Unset):
@@ -130,13 +126,12 @@ class Flag:
         field_dict.update(
             {
                 "name": name,
+                "type": type_,
                 "default": default,
             }
         )
         if description is not UNSET:
             field_dict["description"] = description
-        if type_ is not UNSET:
-            field_dict["type"] = type_
         if values is not UNSET:
             field_dict["values"] = values
         if environments is not UNSET:
@@ -161,6 +156,8 @@ class Flag:
         d = dict(src_dict)
         name = d.pop("name")
 
+        type_ = d.pop("type")
+
         default = d.pop("default")
 
         def _parse_description(data: object) -> None | str | Unset:
@@ -171,15 +168,6 @@ class Flag:
             return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
-
-        def _parse_type_(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        type_ = _parse_type_(d.pop("type", UNSET))
 
         def _parse_values(data: object) -> list[FlagValue] | None | Unset:
             if data is None:
@@ -277,9 +265,9 @@ class Flag:
 
         flag = cls(
             name=name,
+            type_=type_,
             default=default,
             description=description,
-            type_=type_,
             values=values,
             environments=environments,
             managed=managed,
