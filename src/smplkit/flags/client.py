@@ -232,14 +232,7 @@ def _build_gen_flag(
 
 
 def _build_request_body(gen_flag: GenFlag, *, flag_id: str | None = None) -> ResponseFlag:
-    """Wrap a generated Flag in the JSON:API request envelope.
-
-    The server's Flag schema declares ``id`` as a *writeOnly* attribute (used
-    as the slug on create).  The generated Python model omits writeOnly fields,
-    so we inject it via ``additional_properties``.
-    """
-    if flag_id is not None:
-        gen_flag["id"] = flag_id
+    """Wrap a generated Flag in the JSON:API request envelope."""
     resource = ResourceFlag(attributes=gen_flag, id=flag_id, type_="flag")
     return ResponseFlag(data=resource)
 
