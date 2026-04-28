@@ -28,14 +28,12 @@ class ContextType:
 
     Attributes:
         name (str): Display label: User, Account, Device
-        id (None | str | Unset):
         attributes (ContextTypeAttributes | Unset): Known attribute keys with metadata objects
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
     """
 
     name: str
-    id: None | str | Unset = UNSET
     attributes: ContextTypeAttributes | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
@@ -43,12 +41,6 @@ class ContextType:
 
     def to_dict(self) -> dict[str, Any]:
         name = self.name
-
-        id: None | str | Unset
-        if isinstance(self.id, Unset):
-            id = UNSET
-        else:
-            id = self.id
 
         attributes: dict[str, Any] | Unset = UNSET
         if not isinstance(self.attributes, Unset):
@@ -77,8 +69,6 @@ class ContextType:
                 "name": name,
             }
         )
-        if id is not UNSET:
-            field_dict["id"] = id
         if attributes is not UNSET:
             field_dict["attributes"] = attributes
         if created_at is not UNSET:
@@ -94,15 +84,6 @@ class ContextType:
 
         d = dict(src_dict)
         name = d.pop("name")
-
-        def _parse_id(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        id = _parse_id(d.pop("id", UNSET))
 
         _attributes = d.pop("attributes", UNSET)
         attributes: ContextTypeAttributes | Unset
@@ -147,7 +128,6 @@ class ContextType:
 
         context_type = cls(
             name=name,
-            id=id,
             attributes=attributes,
             created_at=created_at,
             updated_at=updated_at,
