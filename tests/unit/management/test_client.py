@@ -277,8 +277,8 @@ class TestCtToResource:
     def test_basic(self):
         ct = ContextType(id="ct-1", name="user", attributes={"plan": {"type": "string"}})
         body = _ct_to_resource(ct)
+        assert body.data.id == "ct-1"
         assert body.data.attributes.name == "user"
-        assert body.data.attributes.id == "ct-1"
 
     def test_attributes_set(self):
         ct = ContextType(id="ct-1", name="user", attributes={"plan": {}})

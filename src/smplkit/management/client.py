@@ -127,7 +127,7 @@ def _env_from_parsed(
 def _ct_to_resource(ct: ContextType | AsyncContextType) -> _GenContextTypeResponse:
     attr_meta = _GenContextTypeAttributes()
     attr_meta.additional_properties = dict(ct.attributes)
-    attrs = _GenContextType(name=ct.name, id=ct.id, attributes=attr_meta)
+    attrs = _GenContextType(name=ct.name, attributes=attr_meta)
     resource = _GenContextTypeResource(
         type_="context_type",
         attributes=attrs,
