@@ -71,8 +71,7 @@ def _split_context_id(id_or_type: str, key: str | None) -> tuple[str, str]:
     if key is None:
         if ":" not in id_or_type:
             raise ValueError(
-                f"context id must be 'type:key' (got {id_or_type!r}); "
-                "alternatively pass type and key as separate args"
+                f"context id must be 'type:key' (got {id_or_type!r}); alternatively pass type and key as separate args"
             )
         ctx_type, _, ctx_key = id_or_type.partition(":")
         return ctx_type, ctx_key
@@ -86,13 +85,16 @@ def _env_to_resource(env: Environment | AsyncEnvironment) -> _GenEnvironmentResp
         classification=env.classification.value,
     )
     resource = _GenEnvironmentResource(
-        type_="environment", attributes=attrs, id=env.id,
+        type_="environment",
+        attributes=attrs,
+        id=env.id,
     )
     return _GenEnvironmentResponse(data=resource)
 
 
-def _env_from_parsed(parsed: Any, sync_client: EnvironmentsClient | None,
-                     async_client: AsyncEnvironmentsClient | None) -> Any:
+def _env_from_parsed(
+    parsed: Any, sync_client: EnvironmentsClient | None, async_client: AsyncEnvironmentsClient | None
+) -> Any:
     """Build an Environment / AsyncEnvironment from a parsed EnvironmentResponse."""
     data = parsed.data
     attrs = data.attributes
@@ -104,14 +106,18 @@ def _env_from_parsed(parsed: Any, sync_client: EnvironmentsClient | None,
     if async_client is not None:
         return AsyncEnvironment(
             async_client,
-            id=data.id, name=attrs.name, color=getattr(attrs, "color", None),
+            id=data.id,
+            name=attrs.name,
+            color=getattr(attrs, "color", None),
             classification=classification,
             created_at=getattr(attrs, "created_at", None) or None,
             updated_at=getattr(attrs, "updated_at", None) or None,
         )
     return Environment(
         sync_client,
-        id=data.id, name=attrs.name, color=getattr(attrs, "color", None),
+        id=data.id,
+        name=attrs.name,
+        color=getattr(attrs, "color", None),
         classification=classification,
         created_at=getattr(attrs, "created_at", None) or None,
         updated_at=getattr(attrs, "updated_at", None) or None,
@@ -123,13 +129,16 @@ def _ct_to_resource(ct: ContextType | AsyncContextType) -> _GenContextTypeRespon
     attr_meta.additional_properties = dict(ct.attributes)
     attrs = _GenContextType(name=ct.name, id=ct.id, attributes=attr_meta)
     resource = _GenContextTypeResource(
-        type_="context_type", attributes=attrs, id=ct.id,
+        type_="context_type",
+        attributes=attrs,
+        id=ct.id,
     )
     return _GenContextTypeResponse(data=resource)
 
 
-def _ct_from_parsed(parsed: Any, sync_client: ContextTypesClient | None,
-                    async_client: AsyncContextTypesClient | None) -> Any:
+def _ct_from_parsed(
+    parsed: Any, sync_client: ContextTypesClient | None, async_client: AsyncContextTypesClient | None
+) -> Any:
     data = parsed.data
     attrs = data.attributes
     raw_attr_meta = getattr(attrs, "attributes", None)
@@ -141,13 +150,17 @@ def _ct_from_parsed(parsed: Any, sync_client: ContextTypesClient | None,
     if async_client is not None:
         return AsyncContextType(
             async_client,
-            id=data.id, name=attrs.name, attributes=attributes,
+            id=data.id,
+            name=attrs.name,
+            attributes=attributes,
             created_at=getattr(attrs, "created_at", None) or None,
             updated_at=getattr(attrs, "updated_at", None) or None,
         )
     return ContextType(
         sync_client,
-        id=data.id, name=attrs.name, attributes=attributes,
+        id=data.id,
+        name=attrs.name,
+        attributes=attributes,
         created_at=getattr(attrs, "created_at", None) or None,
         updated_at=getattr(attrs, "updated_at", None) or None,
     )
@@ -178,14 +191,16 @@ def _ctx_entity_from_parsed(parsed: Any, sync: bool) -> Any:
 
     if sync:
         return ContextEntity(
-            type=ctx_type, key=ctx_key,
+            type=ctx_type,
+            key=ctx_key,
             name=getattr(attrs, "name", None) or None,
             attributes=attr_dict,
             created_at=getattr(attrs, "created_at", None) or None,
             updated_at=getattr(attrs, "updated_at", None) or None,
         )
     return AsyncContextEntity(
-        type=ctx_type, key=ctx_key,
+        type=ctx_type,
+        key=ctx_key,
         name=getattr(attrs, "name", None) or None,
         attributes=attr_dict,
         created_at=getattr(attrs, "created_at", None) or None,
@@ -224,7 +239,10 @@ class EnvironmentsClient:
         """Return an unsaved :class:`Environment`. Call ``.save()`` to persist."""
         return Environment(
             self,
-            id=id, name=name, color=color, classification=classification,
+            id=id,
+            name=name,
+            color=color,
+            classification=classification,
         )
 
     def list(self) -> list[Environment]:
@@ -250,7 +268,8 @@ class EnvironmentsClient:
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
             raise SmplValidationError(
-                f"HTTP {int(resp.status_code)}: unexpected response", status_code=int(resp.status_code),
+                f"HTTP {int(resp.status_code)}: unexpected response",
+                status_code=int(resp.status_code),
             )
         return _env_from_parsed(resp.parsed, sync_client=self, async_client=None)
 
@@ -262,7 +281,8 @@ class EnvironmentsClient:
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
             raise SmplValidationError(
-                f"HTTP {int(resp.status_code)}: unexpected response", status_code=int(resp.status_code),
+                f"HTTP {int(resp.status_code)}: unexpected response",
+                status_code=int(resp.status_code),
             )
         return _env_from_parsed(resp.parsed, sync_client=self, async_client=None)
 
@@ -284,7 +304,10 @@ class AsyncEnvironmentsClient:
     ) -> AsyncEnvironment:
         return AsyncEnvironment(
             self,
-            id=id, name=name, color=color, classification=classification,
+            id=id,
+            name=name,
+            color=color,
+            classification=classification,
         )
 
     async def list(self) -> list[AsyncEnvironment]:
@@ -310,7 +333,8 @@ class AsyncEnvironmentsClient:
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
             raise SmplValidationError(
-                f"HTTP {int(resp.status_code)}: unexpected response", status_code=int(resp.status_code),
+                f"HTTP {int(resp.status_code)}: unexpected response",
+                status_code=int(resp.status_code),
             )
         return _env_from_parsed(resp.parsed, sync_client=None, async_client=self)
 
@@ -322,7 +346,8 @@ class AsyncEnvironmentsClient:
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
             raise SmplValidationError(
-                f"HTTP {int(resp.status_code)}: unexpected response", status_code=int(resp.status_code),
+                f"HTTP {int(resp.status_code)}: unexpected response",
+                status_code=int(resp.status_code),
             )
         return _env_from_parsed(resp.parsed, sync_client=None, async_client=self)
 
@@ -378,11 +403,17 @@ class ContextTypesClient:
         self._app_http = app_http
 
     def new(
-        self, id: str, *, name: str | None = None,
+        self,
+        id: str,
+        *,
+        name: str | None = None,
         attributes: dict[str, dict[str, Any]] | None = None,
     ) -> ContextType:
         return ContextType(
-            self, id=id, name=name or id, attributes=attributes or {},
+            self,
+            id=id,
+            name=name or id,
+            attributes=attributes or {},
         )
 
     def list(self) -> list[ContextType]:
@@ -408,7 +439,8 @@ class ContextTypesClient:
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
             raise SmplValidationError(
-                f"HTTP {int(resp.status_code)}: unexpected response", status_code=int(resp.status_code),
+                f"HTTP {int(resp.status_code)}: unexpected response",
+                status_code=int(resp.status_code),
             )
         return _ct_from_parsed(resp.parsed, sync_client=self, async_client=None)
 
@@ -420,7 +452,8 @@ class ContextTypesClient:
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
             raise SmplValidationError(
-                f"HTTP {int(resp.status_code)}: unexpected response", status_code=int(resp.status_code),
+                f"HTTP {int(resp.status_code)}: unexpected response",
+                status_code=int(resp.status_code),
             )
         return _ct_from_parsed(resp.parsed, sync_client=self, async_client=None)
 
@@ -431,11 +464,17 @@ class AsyncContextTypesClient:
         self._app_http = app_http
 
     def new(
-        self, id: str, *, name: str | None = None,
+        self,
+        id: str,
+        *,
+        name: str | None = None,
         attributes: dict[str, dict[str, Any]] | None = None,
     ) -> AsyncContextType:
         return AsyncContextType(
-            self, id=id, name=name or id, attributes=attributes or {},
+            self,
+            id=id,
+            name=name or id,
+            attributes=attributes or {},
         )
 
     async def list(self) -> list[AsyncContextType]:
@@ -461,7 +500,8 @@ class AsyncContextTypesClient:
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
             raise SmplValidationError(
-                f"HTTP {int(resp.status_code)}: unexpected response", status_code=int(resp.status_code),
+                f"HTTP {int(resp.status_code)}: unexpected response",
+                status_code=int(resp.status_code),
             )
         return _ct_from_parsed(resp.parsed, sync_client=None, async_client=self)
 
@@ -473,7 +513,8 @@ class AsyncContextTypesClient:
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
             raise SmplValidationError(
-                f"HTTP {int(resp.status_code)}: unexpected response", status_code=int(resp.status_code),
+                f"HTTP {int(resp.status_code)}: unexpected response",
+                status_code=int(resp.status_code),
             )
         return _ct_from_parsed(resp.parsed, sync_client=None, async_client=self)
 
@@ -521,9 +562,13 @@ def _build_bulk_register_body(items: list[dict[str, Any]]) -> _GenContextBulkReg
     for item in items:
         attrs = _GenContextBulkItemAttributes()
         attrs.additional_properties = dict(item.get("attributes") or {})
-        bulk.append(_GenContextBulkItem(
-            type_=item["type"], key=item["key"], attributes=attrs,
-        ))
+        bulk.append(
+            _GenContextBulkItem(
+                type_=item["type"],
+                key=item["key"],
+                attributes=attrs,
+            )
+        )
     return _GenContextBulkRegister(contexts=bulk)
 
 
@@ -565,7 +610,8 @@ class ContextsClient:
     def list(self, type: str) -> list[ContextEntity]:
         """List all contexts of a given type."""
         resp = _gen_list_contexts.sync_detailed(
-            client=self._app_http, filtercontext_type=type,
+            client=self._app_http,
+            filtercontext_type=type,
         )
         _check_status(int(resp.status_code), resp.content)
         body = json.loads(resp.content)
@@ -582,7 +628,8 @@ class ContextsClient:
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
             raise SmplNotFoundError(
-                f"Context with id {composite!r} not found", status_code=404,
+                f"Context with id {composite!r} not found",
+                status_code=404,
             )
         return _ctx_entity_from_parsed(resp.parsed, sync=True)
 
@@ -624,7 +671,8 @@ class AsyncContextsClient:
 
     async def list(self, type: str) -> list[AsyncContextEntity]:
         resp = await _gen_list_contexts.asyncio_detailed(
-            client=self._app_http, filtercontext_type=type,
+            client=self._app_http,
+            filtercontext_type=type,
         )
         _check_status(int(resp.status_code), resp.content)
         body = json.loads(resp.content)
@@ -641,7 +689,8 @@ class AsyncContextsClient:
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
             raise SmplNotFoundError(
-                f"Context with id {composite!r} not found", status_code=404,
+                f"Context with id {composite!r} not found",
+                status_code=404,
             )
         return _ctx_entity_from_parsed(resp.parsed, sync=False)
 
@@ -666,7 +715,8 @@ def _ctx_entity_from_dict(item: dict[str, Any], *, async_: bool = False) -> Any:
     raw_attrs = attrs.get("attributes") or {}
     cls = AsyncContextEntity if async_ else ContextEntity
     return cls(
-        type=ctx_type, key=ctx_key,
+        type=ctx_type,
+        key=ctx_key,
         name=attrs.get("name") or None,
         attributes=dict(raw_attrs) if isinstance(raw_attrs, dict) else {},
         created_at=attrs.get("created_at"),

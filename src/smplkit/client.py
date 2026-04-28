@@ -127,12 +127,16 @@ class SmplClient:
         self._context_buffer = _ContextRegistrationBuffer()
         self.config = ConfigClient(self)
         self.flags = FlagsClient(
-            self, flags_base_url=flags_url, app_base_url=app_url,
+            self,
+            flags_base_url=flags_url,
+            app_base_url=app_url,
             context_buffer=self._context_buffer,
         )
         self.logging = LoggingClient(self, logging_base_url=logging_url, app_base_url=app_url)
         self.management = ManagementClient(
-            self, app_base_url=app_url, api_key=cfg.api_key,
+            self,
+            app_base_url=app_url,
+            api_key=cfg.api_key,
             buffer=self._context_buffer,
         )
 
@@ -279,12 +283,16 @@ class AsyncSmplClient:
         self._context_buffer = _ContextRegistrationBuffer()
         self.config = AsyncConfigClient(self)
         self.flags = AsyncFlagsClient(
-            self, flags_base_url=flags_url, app_base_url=app_url,
+            self,
+            flags_base_url=flags_url,
+            app_base_url=app_url,
             context_buffer=self._context_buffer,
         )
         self.logging = AsyncLoggingClient(self, logging_base_url=logging_url, app_base_url=app_url)
         self.management = AsyncManagementClient(
-            self, app_base_url=app_url, api_key=cfg.api_key,
+            self,
+            app_base_url=app_url,
+            api_key=cfg.api_key,
             buffer=self._context_buffer,
         )
 

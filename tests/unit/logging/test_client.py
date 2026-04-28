@@ -1505,14 +1505,17 @@ class TestWebSocketEventHandling:
 class TestStrToLogLevel:
     def test_valid_level(self):
         from smplkit.logging.client import _str_to_log_level
+
         assert _str_to_log_level("WARN") == LogLevel.WARN
 
     def test_invalid_level_returns_none(self):
         from smplkit.logging.client import _str_to_log_level
+
         assert _str_to_log_level("NOTAVALID") is None
 
     def test_none_input(self):
         from smplkit.logging.client import _str_to_log_level
+
         assert _str_to_log_level(None) is None
 
 
@@ -1525,16 +1528,19 @@ class TestRegisterSources:
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
     def test_register_sources_basic(self, mock_bulk):
         from smplkit.logging._sources import LoggerSource
+
         mock_bulk.return_value = MagicMock(status_code=200, content=b"{}")
         client = _make_logging_client()
-        client.management.register_sources([
-            LoggerSource(
-                name="sqlalchemy.engine",
-                service="api",
-                environment="production",
-                resolved_level=LogLevel.WARN,
-            ),
-        ])
+        client.management.register_sources(
+            [
+                LoggerSource(
+                    name="sqlalchemy.engine",
+                    service="api",
+                    environment="production",
+                    resolved_level=LogLevel.WARN,
+                ),
+            ]
+        )
         mock_bulk.assert_called_once()
         _, kwargs = mock_bulk.call_args
         assert kwargs["body"].loggers[0].service == "api"
@@ -1542,17 +1548,20 @@ class TestRegisterSources:
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
     def test_register_sources_with_level(self, mock_bulk):
         from smplkit.logging._sources import LoggerSource
+
         mock_bulk.return_value = MagicMock(status_code=200, content=b"{}")
         client = _make_logging_client()
-        client.management.register_sources([
-            LoggerSource(
-                name="httpx",
-                service="svc",
-                environment="staging",
-                resolved_level=LogLevel.INFO,
-                level=LogLevel.DEBUG,
-            ),
-        ])
+        client.management.register_sources(
+            [
+                LoggerSource(
+                    name="httpx",
+                    service="svc",
+                    environment="staging",
+                    resolved_level=LogLevel.INFO,
+                    level=LogLevel.DEBUG,
+                ),
+            ]
+        )
         _, kwargs = mock_bulk.call_args
         assert kwargs["body"].loggers[0].level == "DEBUG"
 
@@ -1565,9 +1574,12 @@ class TestRegisterSources:
     @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
     def test_register_sources_generic_error_reraises(self, mock_bulk):
         from smplkit.logging._sources import LoggerSource
+
         mock_bulk.side_effect = RuntimeError("unexpected")
         client = _make_logging_client()
         with pytest.raises(RuntimeError):
-            client.management.register_sources([
-                LoggerSource("app", service="svc", environment="prod", resolved_level=LogLevel.INFO),
-            ])
+            client.management.register_sources(
+                [
+                    LoggerSource("app", service="svc", environment="prod", resolved_level=LogLevel.INFO),
+                ]
+            )

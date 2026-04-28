@@ -42,11 +42,13 @@ class _ContextRegistrationBuffer:
                     if len(self._seen) >= _CONTEXT_REGISTRATION_LRU_SIZE:
                         self._seen.popitem(last=False)
                     self._seen[cache_key] = ctx.attributes
-                    self._pending.append({
-                        "type": ctx.type,
-                        "key": ctx.key,
-                        "attributes": dict(ctx.attributes),
-                    })
+                    self._pending.append(
+                        {
+                            "type": ctx.type,
+                            "key": ctx.key,
+                            "attributes": dict(ctx.attributes),
+                        }
+                    )
 
     def drain(self) -> list[dict[str, Any]]:
         """Return and clear the current pending batch."""

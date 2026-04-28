@@ -1349,14 +1349,16 @@ class TestAsyncRegisterSources:
             mock_coro = AsyncMock(return_value=MagicMock(status_code=200, content=b"{}"))
             with patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed", mock_coro):
                 client = _make_async_logging_client()
-                await client.management.register_sources([
-                    LoggerSource(
-                        name="sqlalchemy.engine",
-                        service="api",
-                        environment="production",
-                        resolved_level=LogLevel.WARN,
-                    ),
-                ])
+                await client.management.register_sources(
+                    [
+                        LoggerSource(
+                            name="sqlalchemy.engine",
+                            service="api",
+                            environment="production",
+                            resolved_level=LogLevel.WARN,
+                        ),
+                    ]
+                )
                 mock_coro.assert_called_once()
                 _, kwargs = mock_coro.call_args
                 assert kwargs["body"].loggers[0].service == "api"
@@ -1370,15 +1372,17 @@ class TestAsyncRegisterSources:
             mock_coro = AsyncMock(return_value=MagicMock(status_code=200, content=b"{}"))
             with patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed", mock_coro):
                 client = _make_async_logging_client()
-                await client.management.register_sources([
-                    LoggerSource(
-                        name="httpx",
-                        service="svc",
-                        environment="staging",
-                        resolved_level=LogLevel.INFO,
-                        level=LogLevel.DEBUG,
-                    ),
-                ])
+                await client.management.register_sources(
+                    [
+                        LoggerSource(
+                            name="httpx",
+                            service="svc",
+                            environment="staging",
+                            resolved_level=LogLevel.INFO,
+                            level=LogLevel.DEBUG,
+                        ),
+                    ]
+                )
                 _, kwargs = mock_coro.call_args
                 assert kwargs["body"].loggers[0].level == "DEBUG"
 
@@ -1402,8 +1406,10 @@ class TestAsyncRegisterSources:
             with patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed", mock_coro):
                 client = _make_async_logging_client()
                 with pytest.raises(RuntimeError):
-                    await client.management.register_sources([
-                        LoggerSource("app", service="svc", environment="prod", resolved_level=LogLevel.INFO),
-                    ])
+                    await client.management.register_sources(
+                        [
+                            LoggerSource("app", service="svc", environment="prod", resolved_level=LogLevel.INFO),
+                        ]
+                    )
 
         asyncio.run(_run())

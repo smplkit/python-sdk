@@ -186,6 +186,7 @@ class TestSplitContextId:
 class TestIsUnset:
     def test_unset_type(self):
         from smplkit._generated.app.types import UNSET
+
         assert _is_unset(UNSET) is True
 
     def test_regular_value(self):
@@ -200,19 +201,20 @@ class TestCheckStatus:
 
     def test_404_raises_not_found(self):
         from smplkit._errors import SmplNotFoundError
+
         with pytest.raises(SmplNotFoundError):
             _check_status(404, b'{"errors":[{"status":"404","title":"Not Found"}]}')
 
     def test_500_raises(self):
         from smplkit._errors import SmplError
+
         with pytest.raises(SmplError):
             _check_status(500, b'{"errors":[{"status":"500","title":"Server Error"}]}')
 
 
 class TestEnvToResource:
     def test_basic(self):
-        env = Environment(name="production", color="#ff0000",
-                          classification=EnvironmentClassification.STANDARD)
+        env = Environment(name="production", color="#ff0000", classification=EnvironmentClassification.STANDARD)
         body = _env_to_resource(env)
         assert body.data.attributes.name == "production"
         assert body.data.attributes.color == "#ff0000"
@@ -304,6 +306,7 @@ class TestCtFromParsed:
 
     def test_unset_attr_meta(self):
         from smplkit._generated.app.types import UNSET
+
         parsed = _parsed_ct_resp()
         parsed.data.attributes.attributes = UNSET
         result = _ct_from_parsed(parsed, sync_client=MagicMock(), async_client=None)
@@ -368,6 +371,7 @@ class TestCtxEntityFromParsed:
 
     def test_unset_attributes(self):
         from smplkit._generated.app.types import UNSET
+
         parsed = _parsed_ctx_resp("user:u-1")
         parsed.data.attributes.attributes = UNSET
         result = _ctx_entity_from_parsed(parsed, sync=True)

@@ -72,11 +72,11 @@ def _str_to_log_level(s: str | None) -> LogLevel | None:
     if s is None:
         return None
     from smplkit import LogLevel as _LogLevel  # lazy to avoid circular import
+
     try:
         return _LogLevel(s)
     except ValueError:
         return None
-
 
 
 def _unset_to_none(value: Any) -> Any:

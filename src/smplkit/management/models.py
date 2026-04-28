@@ -51,10 +51,7 @@ class _EnvironmentBase:
         self.updated_at = updated_at
 
     def __repr__(self) -> str:
-        return (
-            f"Environment(id={self.id!r}, name={self.name!r}, "
-            f"classification={self.classification.value!r})"
-        )
+        return f"Environment(id={self.id!r}, name={self.name!r}, classification={self.classification.value!r})"
 
     def _apply(self, other: _EnvironmentBase) -> None:
         self.id = other.id
@@ -80,8 +77,12 @@ class Environment(_EnvironmentBase):
         updated_at: datetime.datetime | None = None,
     ) -> None:
         super().__init__(
-            id=id, name=name, color=color, classification=classification,
-            created_at=created_at, updated_at=updated_at,
+            id=id,
+            name=name,
+            color=color,
+            classification=classification,
+            created_at=created_at,
+            updated_at=updated_at,
         )
         self._client = client
 
@@ -111,8 +112,12 @@ class AsyncEnvironment(_EnvironmentBase):
         updated_at: datetime.datetime | None = None,
     ) -> None:
         super().__init__(
-            id=id, name=name, color=color, classification=classification,
-            created_at=created_at, updated_at=updated_at,
+            id=id,
+            name=name,
+            color=color,
+            classification=classification,
+            created_at=created_at,
+            updated_at=updated_at,
         )
         self._client = client
 
@@ -190,8 +195,11 @@ class ContextType(_ContextTypeBase):
         updated_at: datetime.datetime | None = None,
     ) -> None:
         super().__init__(
-            id=id, name=name, attributes=attributes,
-            created_at=created_at, updated_at=updated_at,
+            id=id,
+            name=name,
+            attributes=attributes,
+            created_at=created_at,
+            updated_at=updated_at,
         )
         self._client = client
 
@@ -217,8 +225,11 @@ class AsyncContextType(_ContextTypeBase):
         updated_at: datetime.datetime | None = None,
     ) -> None:
         super().__init__(
-            id=id, name=name, attributes=attributes,
-            created_at=created_at, updated_at=updated_at,
+            id=id,
+            name=name,
+            attributes=attributes,
+            created_at=created_at,
+            updated_at=updated_at,
         )
         self._client = client
 
