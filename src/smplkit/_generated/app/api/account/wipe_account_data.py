@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -8,7 +8,6 @@ from ...types import Response
 from ... import errors
 
 from ...models.account_wipe_request import AccountWipeRequest
-from ...models.account_wipe_response import AccountWipeResponse
 from ...models.error_response import ErrorResponse
 
 
@@ -31,13 +30,10 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> AccountWipeResponse | ErrorResponse | None:
-    if response.status_code == 200:
-        response_200 = AccountWipeResponse.from_dict(response.json())
-
-        return response_200
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | ErrorResponse | None:
+    if response.status_code == 204:
+        response_204 = cast(Any, None)
+        return response_204
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
@@ -65,9 +61,7 @@ def _parse_response(
         return None
 
 
-def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[AccountWipeResponse | ErrorResponse]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | ErrorResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -80,13 +74,14 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     body: AccountWipeRequest,
-) -> Response[AccountWipeResponse | ErrorResponse]:
+) -> Response[Any | ErrorResponse]:
     r"""Wipe Account Data
 
-     Delete every config, flag, logger, log group, context, context type (except the auto-managed
-    ``service``), and customer API key (except the caller's current key) on the account. Environments
-    are preserved. The ``common`` config is preserved as a structural anchor but its items are reset.
-    Requires ``OWNER`` role and a ``{\"confirm\": true}`` body — anything else returns 400.
+     Delete every config, flag, logger, log group, context, context type, environment, and customer API
+    key (except the caller's current key) on the account. The ``common`` config is preserved as a
+    structural anchor but its items are reset. Requires ``OWNER`` role and a ``{\"confirm\": true}``
+    body — anything else returns 400. Returns 204 on success; if any sub-delete fails the response is
+    500.
 
     Args:
         body (AccountWipeRequest): Confirmation envelope for ``POST
@@ -97,7 +92,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[AccountWipeResponse | ErrorResponse]
+        Response[Any | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
@@ -115,13 +110,14 @@ def sync(
     *,
     client: AuthenticatedClient,
     body: AccountWipeRequest,
-) -> AccountWipeResponse | ErrorResponse | None:
+) -> Any | ErrorResponse | None:
     r"""Wipe Account Data
 
-     Delete every config, flag, logger, log group, context, context type (except the auto-managed
-    ``service``), and customer API key (except the caller's current key) on the account. Environments
-    are preserved. The ``common`` config is preserved as a structural anchor but its items are reset.
-    Requires ``OWNER`` role and a ``{\"confirm\": true}`` body — anything else returns 400.
+     Delete every config, flag, logger, log group, context, context type, environment, and customer API
+    key (except the caller's current key) on the account. The ``common`` config is preserved as a
+    structural anchor but its items are reset. Requires ``OWNER`` role and a ``{\"confirm\": true}``
+    body — anything else returns 400. Returns 204 on success; if any sub-delete fails the response is
+    500.
 
     Args:
         body (AccountWipeRequest): Confirmation envelope for ``POST
@@ -132,7 +128,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        AccountWipeResponse | ErrorResponse
+        Any | ErrorResponse
     """
 
     return sync_detailed(
@@ -145,13 +141,14 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     body: AccountWipeRequest,
-) -> Response[AccountWipeResponse | ErrorResponse]:
+) -> Response[Any | ErrorResponse]:
     r"""Wipe Account Data
 
-     Delete every config, flag, logger, log group, context, context type (except the auto-managed
-    ``service``), and customer API key (except the caller's current key) on the account. Environments
-    are preserved. The ``common`` config is preserved as a structural anchor but its items are reset.
-    Requires ``OWNER`` role and a ``{\"confirm\": true}`` body — anything else returns 400.
+     Delete every config, flag, logger, log group, context, context type, environment, and customer API
+    key (except the caller's current key) on the account. The ``common`` config is preserved as a
+    structural anchor but its items are reset. Requires ``OWNER`` role and a ``{\"confirm\": true}``
+    body — anything else returns 400. Returns 204 on success; if any sub-delete fails the response is
+    500.
 
     Args:
         body (AccountWipeRequest): Confirmation envelope for ``POST
@@ -162,7 +159,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[AccountWipeResponse | ErrorResponse]
+        Response[Any | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
@@ -178,13 +175,14 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     body: AccountWipeRequest,
-) -> AccountWipeResponse | ErrorResponse | None:
+) -> Any | ErrorResponse | None:
     r"""Wipe Account Data
 
-     Delete every config, flag, logger, log group, context, context type (except the auto-managed
-    ``service``), and customer API key (except the caller's current key) on the account. Environments
-    are preserved. The ``common`` config is preserved as a structural anchor but its items are reset.
-    Requires ``OWNER`` role and a ``{\"confirm\": true}`` body — anything else returns 400.
+     Delete every config, flag, logger, log group, context, context type, environment, and customer API
+    key (except the caller's current key) on the account. The ``common`` config is preserved as a
+    structural anchor but its items are reset. Requires ``OWNER`` role and a ``{\"confirm\": true}``
+    body — anything else returns 400. Returns 204 on success; if any sub-delete fails the response is
+    500.
 
     Args:
         body (AccountWipeRequest): Confirmation envelope for ``POST
@@ -195,7 +193,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        AccountWipeResponse | ErrorResponse
+        Any | ErrorResponse
     """
 
     return (

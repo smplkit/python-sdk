@@ -6,7 +6,6 @@ from .account_resource import AccountResource
 from .account_resource_type import AccountResourceType
 from .account_response import AccountResponse
 from .account_wipe_request import AccountWipeRequest
-from .account_wipe_response import AccountWipeResponse
 from .add_payment_method_attributes import AddPaymentMethodAttributes
 from .add_payment_method_body import AddPaymentMethodBody
 from .add_payment_method_data import AddPaymentMethodData
@@ -148,7 +147,6 @@ __all__ = (
     "AccountResourceType",
     "AccountResponse",
     "AccountWipeRequest",
-    "AccountWipeResponse",
     "AddPaymentMethodAttributes",
     "AddPaymentMethodBody",
     "AddPaymentMethodData",
