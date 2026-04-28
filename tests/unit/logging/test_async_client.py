@@ -251,15 +251,15 @@ class TestAsyncSaveLogger:
             client,
             id=_TEST_UUID,
             name="SQL Logger",
-            level="DEBUG",
+            level=LogLevel.DEBUG,
             managed=True,
             created_at="2026-01-01T00:00:00Z",
         )
-        logger.level = "ERROR"
+        logger.level = LogLevel.ERROR
         asyncio.run(logger.save())
 
         mock_update.assert_called_once()
-        assert logger.level == "ERROR"
+        assert logger.level == LogLevel.ERROR
 
     @patch("smplkit.logging.client.update_logger.asyncio_detailed")
     def test_save_null_parsed_raises_validation(self, mock_update):
@@ -269,7 +269,7 @@ class TestAsyncSaveLogger:
             client,
             id=_TEST_UUID,
             name="SQL Logger",
-            level="ERROR",
+            level=LogLevel.ERROR,
             managed=True,
             created_at="2026-01-01T00:00:00Z",
         )
@@ -390,14 +390,14 @@ class TestAsyncSaveGroup:
             client,
             id=_TEST_UUID,
             name="DB Loggers",
-            level="WARN",
+            level=LogLevel.WARN,
             created_at="2026-01-01T00:00:00Z",
         )
-        group.level = "ERROR"
+        group.level = LogLevel.ERROR
         asyncio.run(group.save())
 
         mock_update.assert_called_once()
-        assert group.level == "ERROR"
+        assert group.level == LogLevel.ERROR
 
     @patch("smplkit.logging.client.update_log_group.asyncio_detailed")
     def test_save_null_parsed_raises_validation(self, mock_update):
@@ -407,7 +407,7 @@ class TestAsyncSaveGroup:
             client,
             id=_TEST_UUID,
             name="DB Loggers",
-            level="ERROR",
+            level=LogLevel.ERROR,
             created_at="2026-01-01T00:00:00Z",
         )
         with pytest.raises(SmplValidationError):
@@ -1334,3 +1334,76 @@ class TestWebSocketEventHandling:
         with patch.object(client, "_apply_levels", side_effect=RuntimeError("apply failed")):
             client._handle_group_deleted({"id": "db-loggers"})
             time.sleep(0.3)  # should not raise
+
+
+# ---------------------------------------------------------------------------
+# AsyncLoggingManagementClient.register_sources
+# ---------------------------------------------------------------------------
+
+
+class TestAsyncRegisterSources:
+    def test_register_sources_basic(self):
+        from smplkit.logging._sources import LoggerSource
+
+        async def _run():
+            mock_coro = AsyncMock(return_value=MagicMock(status_code=200, content=b"{}"))
+            with patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed", mock_coro):
+                client = _make_async_logging_client()
+                await client.management.register_sources([
+                    LoggerSource(
+                        name="sqlalchemy.engine",
+                        service="api",
+                        environment="production",
+                        resolved_level=LogLevel.WARN,
+                    ),
+                ])
+                mock_coro.assert_called_once()
+                _, kwargs = mock_coro.call_args
+                assert kwargs["body"].loggers[0].service == "api"
+
+        asyncio.run(_run())
+
+    def test_register_sources_with_level(self):
+        from smplkit.logging._sources import LoggerSource
+
+        async def _run():
+            mock_coro = AsyncMock(return_value=MagicMock(status_code=200, content=b"{}"))
+            with patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed", mock_coro):
+                client = _make_async_logging_client()
+                await client.management.register_sources([
+                    LoggerSource(
+                        name="httpx",
+                        service="svc",
+                        environment="staging",
+                        resolved_level=LogLevel.INFO,
+                        level=LogLevel.DEBUG,
+                    ),
+                ])
+                _, kwargs = mock_coro.call_args
+                assert kwargs["body"].loggers[0].level == "DEBUG"
+
+        asyncio.run(_run())
+
+    def test_register_sources_empty_list_skips_call(self):
+        async def _run():
+            mock_coro = AsyncMock(return_value=MagicMock(status_code=200, content=b"{}"))
+            with patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed", mock_coro):
+                client = _make_async_logging_client()
+                await client.management.register_sources([])
+                mock_coro.assert_not_called()
+
+        asyncio.run(_run())
+
+    def test_register_sources_generic_error_reraises(self):
+        from smplkit.logging._sources import LoggerSource
+
+        async def _run():
+            mock_coro = AsyncMock(side_effect=RuntimeError("unexpected"))
+            with patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed", mock_coro):
+                client = _make_async_logging_client()
+                with pytest.raises(RuntimeError):
+                    await client.management.register_sources([
+                        LoggerSource("app", service="svc", environment="prod", resolved_level=LogLevel.INFO),
+                    ])
+
+        asyncio.run(_run())

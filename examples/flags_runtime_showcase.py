@@ -189,7 +189,7 @@ async def main() -> None:
 
         section("3. Explicit Context Registration")
 
-        client.flags.register(
+        await client.management.contexts.register(
             [
                 Context(
                     "user",
@@ -344,7 +344,7 @@ async def main() -> None:
 
         section("6. Context Registration")
 
-        await client.flags.flush_contexts()
+        await client.management.contexts.flush()
         step("Flushed pending context registrations")
         step("Context types, attributes, and values are now available")
         step("in the Console rule builder for autocomplete and suggestions.")
@@ -433,7 +433,7 @@ async def main() -> None:
         #             render_new_checkout()
         #
         #         # Middleware — register context on every request
-        #         client.flags.register([
+        #         client.management.contexts.register([
         #             Context("user", request.user.id, plan=request.user.plan),
         #         ])
 

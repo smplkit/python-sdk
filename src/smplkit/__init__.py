@@ -13,6 +13,8 @@ from smplkit._errors import (
     SmplValidationError,
 )
 from smplkit.flags.types import Context, Rule
+from smplkit.logging._sources import LoggerSource
+from smplkit.management.types import EnvironmentClassification
 
 
 class LogLevel(str, enum.Enum):
@@ -31,6 +33,8 @@ __all__ = [
     "ApiErrorDetail",
     "AsyncSmplClient",
     "Context",
+    "EnvironmentClassification",
+    "LoggerSource",
     "LogLevel",
     "Rule",
     "SmplClient",

@@ -296,6 +296,42 @@ async def main() -> None:
         step("(See code comments for sync usage examples)")
 
         # ==================================================================
+        # 8b. REGISTER SYNTHETIC LOGGER SOURCES
+        # ==================================================================
+        # ``client.logging.start()`` registers loggers seen in the
+        # current process under the current SmplClient's
+        # service+environment. ``register_sources()`` accepts explicit
+        # (service, environment) overrides — useful for sample-data
+        # seeding, cross-tenant migration, and test fixtures.
+        # ==================================================================
+
+        from smplkit.logging import LoggerSource
+
+        section("8b. Register synthetic logger sources")
+
+        await client.logging.management.register_sources([
+            LoggerSource(
+                "sqlalchemy.engine",
+                service="user-service",
+                environment="production",
+                resolved_level=LogLevel.WARN,
+            ),
+            LoggerSource(
+                "sqlalchemy.engine",
+                service="payment-service",
+                environment="production",
+                resolved_level=LogLevel.WARN,
+            ),
+            LoggerSource(
+                "httpx",
+                service="checkout-service",
+                environment="staging",
+                resolved_level=LogLevel.INFO,
+            ),
+        ])
+        step("3 sources registered")
+
+        # ==================================================================
         # 9. CLEANUP
         # ==================================================================
         section("9. Cleanup")

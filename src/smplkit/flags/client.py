@@ -23,6 +23,7 @@ from smplkit._helpers import key_to_display_name
 from smplkit._generated.app.api.contexts import (
     bulk_register_contexts as gen_bulk_register_contexts,
 )
+from smplkit.management._buffer import _ContextRegistrationBuffer
 from smplkit._generated.app.models.context_bulk_item import ContextBulkItem
 from smplkit._generated.app.models.context_bulk_item_attributes import ContextBulkItemAttributes
 from smplkit._generated.app.models.context_bulk_register import ContextBulkRegister
@@ -69,7 +70,6 @@ ws_logger = logging.getLogger("smplkit.flags.ws")
 _DEFAULT_FLAGS_BASE_URL = "https://flags.smplkit.com"
 _DEFAULT_APP_BASE_URL = "https://app.smplkit.com"
 _CACHE_MAX_SIZE = 10_000
-_CONTEXT_REGISTRATION_LRU_SIZE = 10_000
 _CONTEXT_BATCH_FLUSH_SIZE = 100
 _FLAG_BULK_FLUSH_THRESHOLD = 50
 _FLAG_BULK_FLUSH_INTERVAL = 30.0  # seconds
@@ -362,48 +362,6 @@ class FlagStats:
 
 
 # ---------------------------------------------------------------------------
-# Context registration buffer
-# ---------------------------------------------------------------------------
-
-
-class _ContextRegistrationBuffer:
-    """Batches newly-observed context instances for background registration."""
-
-    def __init__(self) -> None:
-        self._seen: OrderedDict[tuple[str, str], dict[str, Any]] = OrderedDict()
-        self._pending: list[dict[str, Any]] = []
-        self._lock = threading.Lock()
-
-    def observe(self, contexts: list[Context]) -> None:
-        """Record contexts from a provider call.  Queue unseen ones."""
-        with self._lock:
-            for ctx in contexts:
-                cache_key = (ctx.type, ctx.key)
-                if cache_key not in self._seen:
-                    if len(self._seen) >= _CONTEXT_REGISTRATION_LRU_SIZE:
-                        self._seen.popitem(last=False)
-                    self._seen[cache_key] = ctx.attributes
-                    item: dict[str, Any] = {
-                        "type": ctx.type,
-                        "key": ctx.key,
-                        "attributes": dict(ctx.attributes),
-                    }
-                    self._pending.append(item)
-
-    def drain(self) -> list[dict[str, Any]]:
-        """Return and clear the pending batch."""
-        with self._lock:
-            batch = self._pending
-            self._pending = []
-            return batch
-
-    @property
-    def pending_count(self) -> int:
-        with self._lock:
-            return len(self._pending)
-
-
-# ---------------------------------------------------------------------------
 # Flag registration buffer
 # ---------------------------------------------------------------------------
 
@@ -586,6 +544,7 @@ class FlagsClient:
         *,
         flags_base_url: str = _DEFAULT_FLAGS_BASE_URL,
         app_base_url: str = _DEFAULT_APP_BASE_URL,
+        context_buffer: _ContextRegistrationBuffer | None = None,
     ) -> None:
         self._parent = parent
         self._flags_http = AuthenticatedClient(
@@ -603,7 +562,7 @@ class FlagsClient:
         self._connected = False
         self._cache = _ResolutionCache()
         self._context_provider: Callable[[], list[Context]] | None = None
-        self._context_buffer = _ContextRegistrationBuffer()
+        self._context_buffer = context_buffer if context_buffer is not None else _ContextRegistrationBuffer()
         self._flag_buffer = _FlagRegistrationBuffer()
         self._flag_flush_timer: threading.Timer | None = None
         self._handles: dict[str, Flag] = {}
@@ -783,19 +742,8 @@ class FlagsClient:
             return decorator
 
     # ------------------------------------------------------------------
-    # Runtime: context registration
+    # Internal: context registration flush
     # ------------------------------------------------------------------
-
-    def register(self, context: Context | list[Context]) -> None:
-        """Explicitly register context(s) for background batch registration."""
-        if isinstance(context, list):
-            self._context_buffer.observe(context)
-        else:
-            self._context_buffer.observe([context])
-
-    def flush_contexts(self) -> None:
-        """Flush pending context registrations to the server."""
-        self._flush_contexts_sync()
 
     def _flush_contexts_sync(self) -> None:
         batch = self._context_buffer.drain()
@@ -1186,6 +1134,7 @@ class AsyncFlagsClient:
         *,
         flags_base_url: str = _DEFAULT_FLAGS_BASE_URL,
         app_base_url: str = _DEFAULT_APP_BASE_URL,
+        context_buffer: _ContextRegistrationBuffer | None = None,
     ) -> None:
         self._parent = parent
         self._flags_http = AuthenticatedClient(
@@ -1203,7 +1152,7 @@ class AsyncFlagsClient:
         self._connected = False
         self._cache = _ResolutionCache()
         self._context_provider: Callable[[], list[Context]] | None = None
-        self._context_buffer = _ContextRegistrationBuffer()
+        self._context_buffer = context_buffer if context_buffer is not None else _ContextRegistrationBuffer()
         self._flag_buffer = _FlagRegistrationBuffer()
         self._flag_flush_timer: threading.Timer | None = None
         self._handles: dict[str, AsyncFlag] = {}
@@ -1364,17 +1313,8 @@ class AsyncFlagsClient:
             return decorator
 
     # ------------------------------------------------------------------
-    # Runtime: context registration
+    # Internal: context registration flush
     # ------------------------------------------------------------------
-
-    def register(self, context: Context | list[Context]) -> None:
-        if isinstance(context, list):
-            self._context_buffer.observe(context)
-        else:
-            self._context_buffer.observe([context])
-
-    async def flush_contexts(self) -> None:
-        await self._flush_contexts_async()
 
     async def _flush_contexts_async(self) -> None:
         batch = self._context_buffer.drain()

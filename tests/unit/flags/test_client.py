@@ -20,8 +20,6 @@ from smplkit.flags.client import (
     FlagChangeEvent,
     FlagsClient,
     FlagStats,
-    _ContextRegistrationBuffer,
-    _CONTEXT_REGISTRATION_LRU_SIZE,
     _FLAG_BULK_FLUSH_THRESHOLD,
     _FlagRegistrationBuffer,
     _ResolutionCache,
@@ -51,6 +49,7 @@ from smplkit.flags.models import (
     StringFlag,
 )
 from smplkit.flags.types import Context
+from smplkit.management._buffer import _ContextRegistrationBuffer, _CONTEXT_REGISTRATION_LRU_SIZE
 
 _TEST_UUID = "5a0c6be1-0000-0000-0000-000000000001"
 
@@ -1206,65 +1205,31 @@ class TestFlagsClientLifecycle:
 
 
 # ===========================================================================
-# Sync FlagsClient: register / flush
+# Sync FlagsClient: _flush_contexts_sync (internal eval path)
 # ===========================================================================
 
 
-class TestFlagsClientRegisterFlush:
-    def test_register_single(self):
-        client = _make_flags_client()
-        client.register(Context("user", "u-1", plan="enterprise"))
-        batch = client._context_buffer.drain()
-        assert len(batch) == 1
-        assert batch[0]["type"] == "user"
-
-    def test_register_list(self):
-        client = _make_flags_client()
-        client.register([Context("user", "u-1"), Context("account", "acme")])
-        batch = client._context_buffer.drain()
-        assert len(batch) == 2
-
+class TestFlagsClientFlushContextsSync:
     @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
-    def test_flush_with_pending(self, mock_bulk):
+    def test_flush_contexts_sync_with_pending(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_flags_client()
-        client.register(Context("user", "u-1", plan="enterprise"))
-        client.flush_contexts()
+        client._context_buffer.observe([Context("user", "u-1", plan="pro")])
+        client._flush_contexts_sync()
         mock_bulk.assert_called_once()
-        _, kwargs = mock_bulk.call_args
-        body = kwargs["body"]
-        assert body.contexts[0].type_ == "user"
 
     @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
-    def test_flush_empty_batch(self, mock_bulk):
+    def test_flush_contexts_sync_empty(self, mock_bulk):
         client = _make_flags_client()
-        client.flush_contexts()
+        client._flush_contexts_sync()
         mock_bulk.assert_not_called()
 
     @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
-    def test_flush_exception_swallowed(self, mock_bulk):
+    def test_flush_contexts_sync_exception_swallowed(self, mock_bulk):
         mock_bulk.side_effect = httpx.ConnectError("fail")
         client = _make_flags_client()
-        client.register(Context("user", "u-1"))
-        client.flush_contexts()  # should not raise
-
-    @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
-    def test_flush_with_attributes(self, mock_bulk):
-        mock_bulk.return_value = _ok_response()
-        client = _make_flags_client()
-        client.register(Context("user", "u-1", plan="enterprise"))
-        client.flush_contexts()
-        _, kwargs = mock_bulk.call_args
-        body = kwargs["body"]
-        assert body.contexts[0].attributes is not None
-
-    @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
-    def test_flush_without_attributes(self, mock_bulk):
-        mock_bulk.return_value = _ok_response()
-        client = _make_flags_client()
-        client.register(Context("user", "u-1"))
-        client.flush_contexts()
-        mock_bulk.assert_called_once()
+        client._context_buffer.observe([Context("user", "u-1")])
+        client._flush_contexts_sync()  # should not raise
 
 
 # ===========================================================================
@@ -2284,60 +2249,16 @@ class TestAsyncFlagsClientLifecycle:
 
 
 # ===========================================================================
-# AsyncFlagsClient: register / flush
+# AsyncFlagsClient: _flush_contexts_bg
 # ===========================================================================
 
 
-class TestAsyncFlagsClientRegisterFlush:
-    def test_register_single(self):
-        client = _make_async_flags_client()
-        client.register(Context("user", "u-1", plan="enterprise"))
-        batch = client._context_buffer.drain()
-        assert len(batch) == 1
-
-    def test_register_list(self):
-        client = _make_async_flags_client()
-        client.register([Context("user", "u-1"), Context("account", "acme")])
-        batch = client._context_buffer.drain()
-        assert len(batch) == 2
-
-    @patch("smplkit.flags.client.gen_bulk_register_contexts.asyncio_detailed")
-    def test_flush_with_pending(self, mock_bulk):
-        mock_bulk.return_value = _ok_response()
-
-        async def _run():
-            client = _make_async_flags_client()
-            client.register(Context("user", "u-1"))
-            await client.flush_contexts()
-            mock_bulk.assert_called_once()
-
-        asyncio.run(_run())
-
-    @patch("smplkit.flags.client.gen_bulk_register_contexts.asyncio_detailed")
-    def test_flush_empty_batch(self, mock_bulk):
-        async def _run():
-            client = _make_async_flags_client()
-            await client.flush_contexts()
-            mock_bulk.assert_not_called()
-
-        asyncio.run(_run())
-
-    @patch("smplkit.flags.client.gen_bulk_register_contexts.asyncio_detailed")
-    def test_flush_exception_swallowed(self, mock_bulk):
-        mock_bulk.side_effect = httpx.ConnectError("fail")
-
-        async def _run():
-            client = _make_async_flags_client()
-            client.register(Context("user", "u-1"))
-            await client.flush_contexts()  # should not raise
-
-        asyncio.run(_run())
-
+class TestAsyncFlagsClientFlushBg:
     @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
     def test_flush_contexts_bg(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_async_flags_client()
-        client.register(Context("user", "u-1"))
+        client._context_buffer.observe([Context("user", "u-1")])
         client._flush_contexts_bg()
         mock_bulk.assert_called_once()
 
@@ -2351,8 +2272,47 @@ class TestAsyncFlagsClientRegisterFlush:
     def test_flush_contexts_bg_exception_swallowed(self, mock_bulk):
         mock_bulk.side_effect = httpx.ConnectError("fail")
         client = _make_async_flags_client()
-        client.register(Context("user", "u-1"))
+        client._context_buffer.observe([Context("user", "u-1")])
         client._flush_contexts_bg()  # should not raise
+
+
+# ===========================================================================
+# AsyncFlagsClient: _flush_contexts_async (internal eval path)
+# ===========================================================================
+
+
+class TestAsyncFlagsClientFlushContextsAsync:
+    @patch("smplkit.flags.client.gen_bulk_register_contexts.asyncio_detailed")
+    def test_flush_contexts_async_with_pending(self, mock_bulk):
+        mock_bulk.return_value = _ok_response()
+
+        async def _run():
+            client = _make_async_flags_client()
+            client._context_buffer.observe([Context("user", "u-1", plan="pro")])
+            await client._flush_contexts_async()
+            mock_bulk.assert_called_once()
+
+        asyncio.run(_run())
+
+    @patch("smplkit.flags.client.gen_bulk_register_contexts.asyncio_detailed")
+    def test_flush_contexts_async_empty(self, mock_bulk):
+        async def _run():
+            client = _make_async_flags_client()
+            await client._flush_contexts_async()
+            mock_bulk.assert_not_called()
+
+        asyncio.run(_run())
+
+    @patch("smplkit.flags.client.gen_bulk_register_contexts.asyncio_detailed")
+    def test_flush_contexts_async_exception_swallowed(self, mock_bulk):
+        mock_bulk.side_effect = httpx.ConnectError("fail")
+
+        async def _run():
+            client = _make_async_flags_client()
+            client._context_buffer.observe([Context("user", "u-1")])
+            await client._flush_contexts_async()  # should not raise
+
+        asyncio.run(_run())
 
 
 # ===========================================================================

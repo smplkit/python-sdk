@@ -256,13 +256,13 @@ class TestSaveLogger:
             client,
             id=_TEST_UUID,
             name="SQL Logger",
-            level="DEBUG",
+            level=LogLevel.DEBUG,
             managed=True,
             group=None,
             environments={},
             created_at="2026-01-01T00:00:00Z",
         )
-        lg.level = "ERROR"
+        lg.level = LogLevel.ERROR
         lg.save()
 
         mock_update.assert_called_once()
@@ -282,7 +282,7 @@ class TestSaveLogger:
             client,
             id=_TEST_UUID,
             name="SQL Logger",
-            level="DEBUG",
+            level=LogLevel.DEBUG,
             managed=True,
             group=None,
             environments={"prod": {"level": "WARN"}},
@@ -332,7 +332,7 @@ class TestSaveLogger:
             client,
             id=_TEST_UUID,
             name="SQL Logger",
-            level="DEBUG",
+            level=LogLevel.DEBUG,
             managed=False,
             group=None,
             environments={},
@@ -355,17 +355,17 @@ class TestSaveLogger:
             client,
             id=_TEST_UUID,
             name="SQL Logger",
-            level="DEBUG",
+            level=LogLevel.DEBUG,
             managed=True,
             group=None,
             environments={},
             created_at="2026-01-01T00:00:00Z",
         )
-        lg.level = "ERROR"
+        lg.level = LogLevel.ERROR
         lg.save()
 
         assert lg.name == "SQL Logger v2"
-        assert lg.level == "ERROR"
+        assert lg.level == LogLevel.ERROR
         assert lg.id == _TEST_UUID
 
     @patch("smplkit.logging.client.update_logger.sync_detailed")
@@ -491,12 +491,12 @@ class TestSaveGroup:
             client,
             id=_TEST_UUID,
             name="DB Loggers",
-            level="WARN",
+            level=LogLevel.WARN,
             group=None,
             environments={},
             created_at="2026-01-01T00:00:00Z",
         )
-        grp.level = "ERROR"
+        grp.level = LogLevel.ERROR
         grp.save()
 
         mock_update.assert_called_once()
@@ -515,7 +515,7 @@ class TestSaveGroup:
             client,
             id=_TEST_UUID,
             name="DB Loggers",
-            level="WARN",
+            level=LogLevel.WARN,
             group=None,
             environments={"prod": {"level": "ERROR"}},
             created_at="2026-01-01T00:00:00Z",
@@ -562,16 +562,16 @@ class TestSaveGroup:
             client,
             id=_TEST_UUID,
             name="DB Loggers",
-            level="WARN",
+            level=LogLevel.WARN,
             group=None,
             environments={},
             created_at="2026-01-01T00:00:00Z",
         )
-        grp.level = "ERROR"
+        grp.level = LogLevel.ERROR
         grp.save()
 
         assert grp.name == "DB Loggers v2"
-        assert grp.level == "ERROR"
+        assert grp.level == LogLevel.ERROR
         assert grp.id == _TEST_UUID
 
     @patch("smplkit.logging.client.update_log_group.sync_detailed")
@@ -1495,3 +1495,79 @@ class TestWebSocketEventHandling:
         assert "sqlalchemy.engine" in r
         assert "websocket" in r
         assert "True" in r
+
+
+# ---------------------------------------------------------------------------
+# _str_to_log_level helper
+# ---------------------------------------------------------------------------
+
+
+class TestStrToLogLevel:
+    def test_valid_level(self):
+        from smplkit.logging.client import _str_to_log_level
+        assert _str_to_log_level("WARN") == LogLevel.WARN
+
+    def test_invalid_level_returns_none(self):
+        from smplkit.logging.client import _str_to_log_level
+        assert _str_to_log_level("NOTAVALID") is None
+
+    def test_none_input(self):
+        from smplkit.logging.client import _str_to_log_level
+        assert _str_to_log_level(None) is None
+
+
+# ---------------------------------------------------------------------------
+# register_sources (sync)
+# ---------------------------------------------------------------------------
+
+
+class TestRegisterSources:
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    def test_register_sources_basic(self, mock_bulk):
+        from smplkit.logging._sources import LoggerSource
+        mock_bulk.return_value = MagicMock(status_code=200, content=b"{}")
+        client = _make_logging_client()
+        client.management.register_sources([
+            LoggerSource(
+                name="sqlalchemy.engine",
+                service="api",
+                environment="production",
+                resolved_level=LogLevel.WARN,
+            ),
+        ])
+        mock_bulk.assert_called_once()
+        _, kwargs = mock_bulk.call_args
+        assert kwargs["body"].loggers[0].service == "api"
+
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    def test_register_sources_with_level(self, mock_bulk):
+        from smplkit.logging._sources import LoggerSource
+        mock_bulk.return_value = MagicMock(status_code=200, content=b"{}")
+        client = _make_logging_client()
+        client.management.register_sources([
+            LoggerSource(
+                name="httpx",
+                service="svc",
+                environment="staging",
+                resolved_level=LogLevel.INFO,
+                level=LogLevel.DEBUG,
+            ),
+        ])
+        _, kwargs = mock_bulk.call_args
+        assert kwargs["body"].loggers[0].level == "DEBUG"
+
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    def test_register_sources_empty_list_skips_call(self, mock_bulk):
+        client = _make_logging_client()
+        client.management.register_sources([])
+        mock_bulk.assert_not_called()
+
+    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    def test_register_sources_generic_error_reraises(self, mock_bulk):
+        from smplkit.logging._sources import LoggerSource
+        mock_bulk.side_effect = RuntimeError("unexpected")
+        client = _make_logging_client()
+        with pytest.raises(RuntimeError):
+            client.management.register_sources([
+                LoggerSource("app", service="svc", environment="prod", resolved_level=LogLevel.INFO),
+            ])

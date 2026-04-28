@@ -47,6 +47,7 @@ from smplkit._generated.logging.models.logger_environments_type_0 import LoggerE
 from smplkit._generated.logging.models.log_group_environments_type_0 import LogGroupEnvironmentsType0
 from smplkit.logging._levels import python_level_to_smpl, smpl_level_to_python
 from smplkit.logging._normalize import normalize_logger_name
+from smplkit.logging._sources import LoggerSource
 from smplkit.logging.adapters.base import LoggingAdapter
 from smplkit.logging._resolution import resolve_level
 
@@ -64,6 +65,18 @@ _BULK_FLUSH_INTERVAL = 5.0  # seconds
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _str_to_log_level(s: str | None) -> LogLevel | None:
+    """Convert a raw wire-format level string to a LogLevel enum, or None."""
+    if s is None:
+        return None
+    from smplkit import LogLevel as _LogLevel  # lazy to avoid circular import
+    try:
+        return _LogLevel(s)
+    except ValueError:
+        return None
+
 
 
 def _unset_to_none(value: Any) -> Any:
@@ -244,7 +257,7 @@ class SmplLogger:
 
     id: str | None
     name: str
-    level: str | None
+    level: LogLevel | None
     group: str | None
     managed: bool | None
     sources: list[dict[str, Any]]
@@ -258,7 +271,7 @@ class SmplLogger:
         *,
         id: str | None = None,
         name: str,
-        level: str | None = None,
+        level: LogLevel | None = None,
         group: str | None = None,
         managed: bool | None = None,
         sources: list[dict[str, Any]] | None = None,
@@ -284,7 +297,7 @@ class SmplLogger:
 
     def setLevel(self, level: LogLevel) -> None:  # noqa: N802
         """Set the base log level."""
-        self.level = level.value
+        self.level = level
 
     def clearLevel(self) -> None:  # noqa: N802
         """Remove the base log level."""
@@ -326,7 +339,7 @@ class AsyncSmplLogger:
 
     id: str | None
     name: str
-    level: str | None
+    level: LogLevel | None
     group: str | None
     managed: bool | None
     sources: list[dict[str, Any]]
@@ -340,7 +353,7 @@ class AsyncSmplLogger:
         *,
         id: str | None = None,
         name: str,
-        level: str | None = None,
+        level: LogLevel | None = None,
         group: str | None = None,
         managed: bool | None = None,
         sources: list[dict[str, Any]] | None = None,
@@ -366,7 +379,7 @@ class AsyncSmplLogger:
 
     def setLevel(self, level: LogLevel) -> None:  # noqa: N802
         """Set the base log level."""
-        self.level = level.value
+        self.level = level
 
     def clearLevel(self) -> None:  # noqa: N802
         """Remove the base log level."""
@@ -408,7 +421,7 @@ class SmplLogGroup:
 
     id: str | None
     name: str
-    level: str | None
+    level: LogLevel | None
     group: str | None
     environments: dict[str, Any]
     created_at: Any
@@ -420,7 +433,7 @@ class SmplLogGroup:
         *,
         id: str | None = None,
         name: str,
-        level: str | None = None,
+        level: LogLevel | None = None,
         group: str | None = None,
         environments: dict[str, Any] | None = None,
         created_at: Any = None,
@@ -442,7 +455,7 @@ class SmplLogGroup:
 
     def setLevel(self, level: LogLevel) -> None:  # noqa: N802
         """Set the base log level."""
-        self.level = level.value
+        self.level = level
 
     def clearLevel(self) -> None:  # noqa: N802
         """Remove the base log level."""
@@ -482,7 +495,7 @@ class AsyncSmplLogGroup:
 
     id: str | None
     name: str
-    level: str | None
+    level: LogLevel | None
     group: str | None
     environments: dict[str, Any]
     created_at: Any
@@ -494,7 +507,7 @@ class AsyncSmplLogGroup:
         *,
         id: str | None = None,
         name: str,
-        level: str | None = None,
+        level: LogLevel | None = None,
         group: str | None = None,
         environments: dict[str, Any] | None = None,
         created_at: Any = None,
@@ -516,7 +529,7 @@ class AsyncSmplLogGroup:
 
     def setLevel(self, level: LogLevel) -> None:  # noqa: N802
         """Set the base log level."""
-        self.level = level.value
+        self.level = level
 
     def clearLevel(self) -> None:  # noqa: N802
         """Remove the base log level."""
@@ -692,6 +705,34 @@ class LoggingManagementClient:
             raise
         _check_response_status(response.status_code, response.content)
 
+    def register_sources(self, sources: list[LoggerSource]) -> None:
+        """Bulk-register explicit logger sources with the logging service.
+
+        Unlike :meth:`LoggingClient.start`, which auto-discovers loggers from
+        the current process, this method accepts explicit ``(service, environment)``
+        overrides — useful for sample-data seeding, cross-tenant migration, and
+        test fixtures.
+        """
+        items = [
+            LoggerBulkItem(
+                id=normalize_logger_name(src.name),
+                level=src.level.value if src.level is not None else None,
+                resolved_level=src.resolved_level.value,
+                service=src.service,
+                environment=src.environment,
+            )
+            for src in sources
+        ]
+        if not items:
+            return
+        body = LoggerBulkRequest(loggers=items)
+        try:
+            response = bulk_register_loggers.sync_detailed(client=self._parent._logging_http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
     def new_group(self, id: str, *, name: str | None = None, group: str | None = None) -> SmplLogGroup:
         """Return a new unsaved :class:`SmplLogGroup`.
 
@@ -772,7 +813,7 @@ class LoggingClient:
         body = _build_logger_body(
             logger_id=lg.id,
             name=lg.name,
-            level=lg.level,
+            level=lg.level.value if lg.level is not None else None,
             managed=lg.managed,
             group=lg.group,
             environments=lg.environments if lg.environments else None,
@@ -795,7 +836,7 @@ class LoggingClient:
         body = _build_group_body(
             group_id=grp.id,
             name=grp.name,
-            level=grp.level,
+            level=grp.level.value if grp.level is not None else None,
             group=grp.group,
             environments=grp.environments if grp.environments else None,
         )
@@ -1219,7 +1260,7 @@ class LoggingClient:
             self,
             id=_unset_to_none(resource.id) or "",
             name=attrs.name,
-            level=_unset_to_none(attrs.level),
+            level=_str_to_log_level(_unset_to_none(attrs.level)),
             group=_unset_to_none(attrs.group),
             managed=_unset_to_none(attrs.managed),
             sources=_extract_sources(getattr(attrs, "sources", None)),
@@ -1237,7 +1278,7 @@ class LoggingClient:
             self,
             id=_unset_to_none(resource.id) or "",
             name=attrs.name,
-            level=_unset_to_none(attrs.level),
+            level=_str_to_log_level(_unset_to_none(attrs.level)),
             group=_unset_to_none(attrs.parent_id),
             environments=_extract_environments(attrs.environments),
             created_at=_extract_datetime(attrs.created_at),
@@ -1299,6 +1340,34 @@ class AsyncLoggingManagementClient:
         """Delete a logger by id."""
         try:
             response = await delete_logger.asyncio_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    async def register_sources(self, sources: list[LoggerSource]) -> None:
+        """Bulk-register explicit logger sources with the logging service.
+
+        Unlike :meth:`AsyncLoggingClient.start`, which auto-discovers loggers from
+        the current process, this method accepts explicit ``(service, environment)``
+        overrides — useful for sample-data seeding, cross-tenant migration, and
+        test fixtures.
+        """
+        items = [
+            LoggerBulkItem(
+                id=normalize_logger_name(src.name),
+                level=src.level.value if src.level is not None else None,
+                resolved_level=src.resolved_level.value,
+                service=src.service,
+                environment=src.environment,
+            )
+            for src in sources
+        ]
+        if not items:
+            return
+        body = LoggerBulkRequest(loggers=items)
+        try:
+            response = await bulk_register_loggers.asyncio_detailed(client=self._parent._logging_http, body=body)
         except Exception as exc:
             _maybe_reraise_network_error(exc, self._parent._logging_base_url)
             raise
@@ -1384,7 +1453,7 @@ class AsyncLoggingClient:
         body = _build_logger_body(
             logger_id=lg.id,
             name=lg.name,
-            level=lg.level,
+            level=lg.level.value if lg.level is not None else None,
             managed=lg.managed,
             group=lg.group,
             environments=lg.environments if lg.environments else None,
@@ -1407,7 +1476,7 @@ class AsyncLoggingClient:
         body = _build_group_body(
             group_id=grp.id,
             name=grp.name,
-            level=grp.level,
+            level=grp.level.value if grp.level is not None else None,
             group=grp.group,
             environments=grp.environments if grp.environments else None,
         )
@@ -1927,7 +1996,7 @@ class AsyncLoggingClient:
             self,
             id=_unset_to_none(resource.id) or "",
             name=attrs.name,
-            level=_unset_to_none(attrs.level),
+            level=_str_to_log_level(_unset_to_none(attrs.level)),
             group=_unset_to_none(attrs.group),
             managed=_unset_to_none(attrs.managed),
             sources=_extract_sources(getattr(attrs, "sources", None)),
@@ -1945,7 +2014,7 @@ class AsyncLoggingClient:
             self,
             id=_unset_to_none(resource.id) or "",
             name=attrs.name,
-            level=_unset_to_none(attrs.level),
+            level=_str_to_log_level(_unset_to_none(attrs.level)),
             group=_unset_to_none(attrs.parent_id),
             environments=_extract_environments(attrs.environments),
             created_at=_extract_datetime(attrs.created_at),

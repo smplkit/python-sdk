@@ -5,7 +5,8 @@ PIP := $(VENV)/bin/pip
 .PHONY: install generate test lint \
 	config_runtime_showcase config_management_showcase \
 	flags_runtime_showcase flags_management_showcase \
-	logging_runtime_showcase logging_management_showcase
+	logging_runtime_showcase logging_management_showcase \
+	management_showcase
 
 install:
 	$(PIP) install -e '.[dev]'
@@ -36,3 +37,6 @@ logging_runtime_showcase: install
 
 logging_management_showcase: install
 	$(PYTHON) examples/logging_management_showcase.py
+
+management_showcase: install
+	$(PYTHON) examples/management_showcase.py

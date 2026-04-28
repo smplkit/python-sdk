@@ -18,6 +18,8 @@ from smplkit._ws import SharedWebSocket
 from smplkit.config.client import AsyncConfigClient, ConfigClient
 from smplkit.flags.client import AsyncFlagsClient, FlagsClient
 from smplkit.logging.client import AsyncLoggingClient, LoggingClient
+from smplkit.management._buffer import _ContextRegistrationBuffer
+from smplkit.management.client import AsyncManagementClient, ManagementClient
 
 logger = logging.getLogger("smplkit")
 
@@ -51,6 +53,7 @@ class SmplClient:
     config: ConfigClient
     flags: FlagsClient
     logging: LoggingClient
+    management: ManagementClient
 
     def __init__(
         self,
@@ -121,9 +124,17 @@ class SmplClient:
             )
 
         self._ws_manager: SharedWebSocket | None = None
+        self._context_buffer = _ContextRegistrationBuffer()
         self.config = ConfigClient(self)
-        self.flags = FlagsClient(self, flags_base_url=flags_url, app_base_url=app_url)
+        self.flags = FlagsClient(
+            self, flags_base_url=flags_url, app_base_url=app_url,
+            context_buffer=self._context_buffer,
+        )
         self.logging = LoggingClient(self, logging_base_url=logging_url, app_base_url=app_url)
+        self.management = ManagementClient(
+            self, app_base_url=app_url, api_key=cfg.api_key,
+            buffer=self._context_buffer,
+        )
 
         # Register service context (fire-and-forget, non-blocking)
         self._init_thread = threading.Thread(target=self._register_service_context, daemon=True)
@@ -194,6 +205,7 @@ class AsyncSmplClient:
     config: AsyncConfigClient
     flags: AsyncFlagsClient
     logging: AsyncLoggingClient
+    management: AsyncManagementClient
 
     def __init__(
         self,
@@ -264,9 +276,17 @@ class AsyncSmplClient:
             )
 
         self._ws_manager: SharedWebSocket | None = None
+        self._context_buffer = _ContextRegistrationBuffer()
         self.config = AsyncConfigClient(self)
-        self.flags = AsyncFlagsClient(self, flags_base_url=flags_url, app_base_url=app_url)
+        self.flags = AsyncFlagsClient(
+            self, flags_base_url=flags_url, app_base_url=app_url,
+            context_buffer=self._context_buffer,
+        )
         self.logging = AsyncLoggingClient(self, logging_base_url=logging_url, app_base_url=app_url)
+        self.management = AsyncManagementClient(
+            self, app_base_url=app_url, api_key=cfg.api_key,
+            buffer=self._context_buffer,
+        )
 
         # Register service context (fire-and-forget, non-blocking)
         self._init_thread = threading.Thread(target=self._register_service_context_sync, daemon=True)
