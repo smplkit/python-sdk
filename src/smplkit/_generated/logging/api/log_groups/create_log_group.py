@@ -82,7 +82,7 @@ def sync_detailed(
 ) -> Response[ErrorResponse | LogGroupResponse]:
     """Create Log Group
 
-     Create a new log group. The caller provides the key in data.id or attributes.key.
+     Create a new log group. The caller provides the key in data.id, or it is auto-generated from name.
 
     Args:
         body (LogGroupResponse):
@@ -113,7 +113,7 @@ def sync(
 ) -> ErrorResponse | LogGroupResponse | None:
     """Create Log Group
 
-     Create a new log group. The caller provides the key in data.id or attributes.key.
+     Create a new log group. The caller provides the key in data.id, or it is auto-generated from name.
 
     Args:
         body (LogGroupResponse):
@@ -139,7 +139,7 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | LogGroupResponse]:
     """Create Log Group
 
-     Create a new log group. The caller provides the key in data.id or attributes.key.
+     Create a new log group. The caller provides the key in data.id, or it is auto-generated from name.
 
     Args:
         body (LogGroupResponse):
@@ -168,7 +168,7 @@ async def asyncio(
 ) -> ErrorResponse | LogGroupResponse | None:
     """Create Log Group
 
-     Create a new log group. The caller provides the key in data.id or attributes.key.
+     Create a new log group. The caller provides the key in data.id, or it is auto-generated from name.
 
     Args:
         body (LogGroupResponse):
