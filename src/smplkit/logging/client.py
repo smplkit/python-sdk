@@ -94,10 +94,7 @@ def _loglevel_value(level: Any, *, where: str) -> str | None:
 
     if isinstance(level, _LogLevel):
         return level.value
-    raise TypeError(
-        f"{where}: level must be a LogLevel (got "
-        f"{type(level).__name__}: {level!r})"
-    )
+    raise TypeError(f"{where}: level must be a LogLevel (got {type(level).__name__}: {level!r})")
 
 
 def _unset_to_none(value: Any) -> Any:
@@ -738,9 +735,7 @@ class LoggingManagementClient:
             LoggerBulkItem(
                 id=normalize_logger_name(src.name),
                 level=_loglevel_value(src.level, where="register_sources[level]"),
-                resolved_level=_loglevel_value(
-                    src.resolved_level, where="register_sources[resolved_level]"
-                ),
+                resolved_level=_loglevel_value(src.resolved_level, where="register_sources[resolved_level]"),
                 service=src.service,
                 environment=src.environment,
             )
@@ -1380,9 +1375,7 @@ class AsyncLoggingManagementClient:
             LoggerBulkItem(
                 id=normalize_logger_name(src.name),
                 level=_loglevel_value(src.level, where="register_sources[level]"),
-                resolved_level=_loglevel_value(
-                    src.resolved_level, where="register_sources[resolved_level]"
-                ),
+                resolved_level=_loglevel_value(src.resolved_level, where="register_sources[resolved_level]"),
                 service=src.service,
                 environment=src.environment,
             )
