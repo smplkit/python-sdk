@@ -79,11 +79,11 @@ def _make_logging_client(**kwargs):
     return client
 
 
-
 def _new_mgmt_loggers():
     """Return a LoggersClient bound to a mock http (for management-flavored tests)."""
     from smplkit.management.client import LoggersClient
     from unittest.mock import MagicMock as _MM
+
     return LoggersClient(_MM(), base_url="http://logging:8003")
 
 
@@ -91,18 +91,21 @@ def _new_mgmt_log_groups():
     """Return a LogGroupsClient bound to a mock http."""
     from smplkit.management.client import LogGroupsClient
     from unittest.mock import MagicMock as _MM
+
     return LogGroupsClient(_MM(), base_url="http://logging:8003")
 
 
 def _new_mgmt():
     """Build a SmplManagementClient for management-flavored tests."""
     from smplkit import SmplManagementClient
+
     return SmplManagementClient(api_key="sk_test", base_domain="example.test")
 
 
 def _new_async_mgmt():
     """Build an AsyncSmplManagementClient for management-flavored tests."""
     from smplkit import AsyncSmplManagementClient
+
     return AsyncSmplManagementClient(api_key="sk_test", base_domain="example.test")
 
 
