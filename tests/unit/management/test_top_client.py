@@ -259,6 +259,23 @@ class TestResolveManagementConfig:
         assert cfg.base_domain == "smplkit.com"
         assert cfg.scheme == "https"
 
+    def test_config_file_provides_api_key_and_debug(self, monkeypatch, tmp_path):
+        """Values come from ~/.smplkit when env/args are unset."""
+        monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
+        monkeypatch.delenv("SMPLKIT_BASE_DOMAIN", raising=False)
+        monkeypatch.delenv("SMPLKIT_SCHEME", raising=False)
+        monkeypatch.delenv("SMPLKIT_DEBUG", raising=False)
+        monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
+        (tmp_path / ".smplkit").write_text(
+            "[default]\napi_key = sk_from_file\nbase_domain = file.smplkit.com\ndebug = true\n"
+        )
+        from smplkit._config import resolve_management_config
+
+        cfg = resolve_management_config(_home_dir=tmp_path)
+        assert cfg.api_key == "sk_from_file"
+        assert cfg.base_domain == "file.smplkit.com"
+        assert cfg.debug is True
+
 
 # ---------------------------------------------------------------------------
 # Model save() with no client raises (the new RuntimeError guard rail)
