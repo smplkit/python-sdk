@@ -76,9 +76,11 @@ def _make_logging_client(**kwargs):
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = kwargs.get("service", None)
-    parent.manage.loggers = _MgmtLoggersClient(MagicMock(), base_url="http://logging:8003")
+    manage = MagicMock()
+    manage.loggers = _MgmtLoggersClient(MagicMock(), base_url="http://logging:8003")
+    parent.manage = manage
     with patch("smplkit.logging.client.AuthenticatedClient"):
-        client = LoggingClient(parent)
+        client = LoggingClient(parent, manage=manage, metrics=parent._metrics)
     return client
 
 

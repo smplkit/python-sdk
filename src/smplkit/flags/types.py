@@ -1,7 +1,8 @@
-"""Public types for the Flags SDK: Context, Rule."""
+"""Public types for the Flags SDK: Context, FlagDeclaration, Rule."""
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Any
 
 
@@ -40,6 +41,23 @@ class Context:
 
     def __repr__(self) -> str:
         return f"Context(type={self.type!r}, key={self.key!r}, name={self.name!r}, attributes={self.attributes!r})"
+
+
+@dataclasses.dataclass
+class FlagDeclaration:
+    """Describes a flag declaration for buffered registration.
+
+    Used by :meth:`smplkit.SmplManagementClient.flags.register` to queue
+    declarations for bulk registration.  ``service`` and ``environment``
+    default to ``None``; the runtime client fills them from the active
+    ``SmplClient`` when it forwards declarations.
+    """
+
+    id: str
+    type: str
+    default: Any
+    service: str | None = None
+    environment: str | None = None
 
 
 class Rule:

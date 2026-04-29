@@ -21,38 +21,21 @@ import asyncio
 
 from smplkit import AsyncSmplManagementClient, Rule
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 
 def section(title: str) -> None:
-    """Print a section header for readability."""
-    print(f"\n{'=' * 60}")
-    print(f"  {title}")
-    print(f"{'=' * 60}\n")
+    print(f"\n{'=' * 60}\n  {title}\n{'=' * 60}\n")
 
 
 def step(description: str) -> None:
-    """Print a step within a section."""
     print(f"  → {description}")
 
 
 async def main() -> None:
 
-    # ======================================================================
-    # 1. SDK INITIALIZATION
-    # ======================================================================
-    section("1. SDK Initialization")
-
-    # Construct a new management client.  API key may be passed explicitly
-    # or via SMPLKIT_API_KEY environment variable.  Alternatively,
-    # SMPLKIT_PROFILE environment variable may be specified, in which case the
-    # API key will be loaded from the specified profile found in ~/.smplkit.
+    # create the client (use SmplManagementClient for synchronous use)
     async with AsyncSmplManagementClient() as mgmt:
-        step("AsyncSmplManagementClient initialized")
-
-        # Clean up leftover flags from previous runs.
+        # TODO move this code into a non-descript cleanup() method without
+        #  any comment here about it
         demo_flag_ids = {"checkout-v2", "banner-color", "max-retries", "ui-theme"}
         try:
             existing_flags = await mgmt.flags.list()
@@ -62,45 +45,14 @@ async def main() -> None:
         except Exception:
             pass
 
-        # ==================================================================
-        # 2. CREATE FLAGS
-        # ==================================================================
-        #
-        # Flags are created via typed factory methods on the FlagsClient:
-        #
-        #   newBooleanFlag(id, *, default, name=None, description=None)
-        #   newStringFlag(id, *, default, name=None, description=None, values=None)
-        #   newNumberFlag(id, *, default, name=None, description=None, values=None)
-        #   newJsonFlag(id, *, default, name=None, description=None, values=None)
-        #
-        # These return an unsaved Flag instance. Nothing is sent to the
-        # server until .save() is called.
-        # ==================================================================
-
-        # ------------------------------------------------------------------
-        # 2a. BOOLEAN flag
-        # ------------------------------------------------------------------
-        section("2a. Create a Boolean Flag")
-
+        # create flags
         checkout_flag = mgmt.flags.newBooleanFlag(
             "checkout-v2",
             default=False,
             description="Controls rollout of the new checkout experience.",
         )
-        step(f"Created locally: id={checkout_flag.id}, type={checkout_flag.type}")
-        step(f"  default={checkout_flag.default}")
-
         await checkout_flag.save()
-        step("  Saved")
 
-        # ------------------------------------------------------------------
-        # 2b. STRING flag
-        # ------------------------------------------------------------------
-        section("2b. Create a String Flag")
-
-        # The values parameter defines a closed set — this flag can only
-        # serve "red", "green", or "blue". This makes it a constrained
-        # flag. The Console UI shows dropdowns for value selection.
         banner_flag = mgmt.flags.newStringFlag(
             "banner-color",
             default="red",
@@ -113,35 +65,14 @@ async def main() -> None:
             ],
         )
         await banner_flag.save()
-        step(f"Created and saved: id={banner_flag.id}, type={banner_flag.type}")
-        step(f"  values={banner_flag.values}")
 
-        # ------------------------------------------------------------------
-        # 2c. NUMERIC flag
-        # ------------------------------------------------------------------
-        section("2c. Create a Numeric Flag — Unconstrained")
-
-        # Unlike banner-color above, this flag has no predefined values.
-        # Any number is valid as a default or rule serve-value. This is
-        # useful for tunables like thresholds, retry counts, and timeouts
-        # where the value space is open-ended.
-        #
-        # Omitting the values parameter creates an unconstrained flag.
         retry_flag = mgmt.flags.newNumberFlag(
             "max-retries",
             default=3,
             description="Maximum number of API retries before failing.",
         )
         await retry_flag.save()
-        step(f"Created and saved: id={retry_flag.id}, type={retry_flag.type}")
 
-        # ------------------------------------------------------------------
-        # 2d. JSON flag
-        # ------------------------------------------------------------------
-        section("2d. Create a JSON Flag")
-
-        # Like banner-color, this JSON flag is constrained — only the
-        # three declared theme objects can be served.
         theme_flag = mgmt.flags.newJsonFlag(
             "ui-theme",
             default={"mode": "light", "accent": "#0066cc"},
@@ -153,38 +84,8 @@ async def main() -> None:
             ],
         )
         await theme_flag.save()
-        step(f"Created and saved: id={theme_flag.id}, type={theme_flag.type}")
 
-        # ==================================================================
-        # 3. CONFIGURE ENVIRONMENTS AND RULES
-        # ==================================================================
-        #
-        # Each flag can be independently configured per environment. Use
-        # convenience methods for common operations, or manipulate the
-        # environments dict directly for full control.
-        #
-        # All mutations are LOCAL until save() is called. This lets you
-        # preview the full state before persisting.
-        #
-        # Rules can be built using the Rule builder (recommended) or as
-        # raw JSON Logic dicts.
-        #
-        #   Rule("description")
-        #       .environment("staging")       # which env to target
-        #       .when("user.plan", "==", "enterprise")
-        #       .serve(True)
-        #       .build()
-        #
-        # Multiple .when() calls are AND'd. Supported operators:
-        #   ==, !=, >, <, >=, <=, in, contains
-        # ==================================================================
-
-        # ------------------------------------------------------------------
-        # 3a. Configure checkout-v2 environments
-        # ------------------------------------------------------------------
-        section("3a. Configure checkout-v2 Environments")
-
-        # Convenience methods — local mutations, no API call
+        # create rules for staging
         checkout_flag.setEnvironmentEnabled("staging", True)
         checkout_flag.addRule(
             Rule("Enable for enterprise users in US region")
@@ -202,20 +103,12 @@ async def main() -> None:
             .build()
         )
 
+        # disable rules in production; serve false to everyone
         checkout_flag.setEnvironmentEnabled("production", False)
         checkout_flag.setEnvironmentDefault("production", False)
-
-        # All mutations are local — now persist
         await checkout_flag.save()
-        step("staging: enabled with 2 targeting rules")
-        step("production: disabled, default=false")
-        step("All changes persisted via single save()")
 
-        # ------------------------------------------------------------------
-        # 3b. Configure banner-color environments
-        # ------------------------------------------------------------------
-        section("3b. Configure banner-color Environments")
-
+        # create more rules
         banner_flag.setEnvironmentEnabled("staging", True)
         banner_flag.addRule(
             Rule("Blue for enterprise users")
@@ -232,6 +125,7 @@ async def main() -> None:
             .build()
         )
 
+        # enable all rules for this flag in production; serve 'blue' if no rules match
         banner_flag.setEnvironmentEnabled("production", True)
         banner_flag.setEnvironmentDefault("production", "blue")
 

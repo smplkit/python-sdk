@@ -174,17 +174,17 @@ def _make_flags_client():
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = None
-    # Real management subclients with real buffers so observe/flush plumbing
-    # behaves like production.
-    parent.manage.contexts = ContextsClient(MagicMock(), _ContextRegistrationBuffer())
-    parent.manage.flags = _MgmtFlagsClient(MagicMock())
+    manage = MagicMock()
+    manage.contexts = ContextsClient(MagicMock(), _ContextRegistrationBuffer())
+    manage.flags = _MgmtFlagsClient(MagicMock())
+    parent.manage = manage
     with patch("smplkit.flags.client.AuthenticatedClient"):
-        client = FlagsClient(parent)
+        client = FlagsClient(parent, manage=manage, metrics=parent._metrics)
     return client
 
 
 def _make_async_flags_client():
-    """Create an AsyncFlagsClient with a mocked parent that has a real `manage`."""
+    """Create an AsyncFlagsClient with a mocked parent + real management subclients."""
     from smplkit.management._buffer import _ContextRegistrationBuffer
     from smplkit.management.client import AsyncContextsClient
     from smplkit.management.client import AsyncFlagsClient as _MgmtAsyncFlagsClient
@@ -193,10 +193,12 @@ def _make_async_flags_client():
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = None
-    parent.manage.contexts = AsyncContextsClient(MagicMock(), _ContextRegistrationBuffer())
-    parent.manage.flags = _MgmtAsyncFlagsClient(MagicMock())
+    manage = MagicMock()
+    manage.contexts = AsyncContextsClient(MagicMock(), _ContextRegistrationBuffer())
+    manage.flags = _MgmtAsyncFlagsClient(MagicMock())
+    parent.manage = manage
     with patch("smplkit.flags.client.AuthenticatedClient"):
-        client = AsyncFlagsClient(parent)
+        client = AsyncFlagsClient(parent, manage=manage, metrics=parent._metrics)
     return client
 
 
@@ -1405,7 +1407,7 @@ class TestFlagsClientEvaluateHandle:
         client = _make_flags_client()
         client._connected = True
         client._environment = "staging"
-        client._parent._service = "my-svc"
+        client._service = "my-svc"
         client._flag_store = {
             "flag-a": {
                 "id": "flag-a",
@@ -1422,7 +1424,7 @@ class TestFlagsClientEvaluateHandle:
         client = _make_flags_client()
         client._connected = True
         client._environment = "staging"
-        client._parent._service = "my-svc"
+        client._service = "my-svc"
         client._flag_store = {
             "flag-a": {
                 "id": "flag-a",
@@ -2468,7 +2470,7 @@ class TestAsyncFlagsClientEvaluateHandle:
         client = _make_async_flags_client()
         client._connected = True
         client._environment = "staging"
-        client._parent._service = "my-svc"
+        client._service = "my-svc"
         client._flag_store = {
             "flag-a": {
                 "id": "flag-a",
@@ -2887,10 +2889,10 @@ class TestFlagRegistrationBuffer:
 class TestFlagsClientFlagRegistration:
     def test_booleanFlag_adds_to_buffer(self):
         client = _make_flags_client()
-        client._parent._service = "my-svc"
-        client._parent._environment = "prod"
+        client._service = "my-svc"
+        client._environment = "prod"
         client.booleanFlag("dark-mode", default=False)
-        batch = client._parent.manage.flags._buffer.drain()
+        batch = client._manage.flags._buffer.drain()
         assert len(batch) == 1
         assert batch[0]["id"] == "dark-mode"
         assert batch[0]["type"] == "BOOLEAN"
@@ -3082,10 +3084,10 @@ class TestFlagsClientFlagRegistration:
 class TestAsyncFlagsClientFlagRegistration:
     def test_booleanFlag_adds_to_buffer(self):
         client = _make_async_flags_client()
-        client._parent._service = "my-svc"
-        client._parent._environment = "prod"
+        client._service = "my-svc"
+        client._environment = "prod"
         client.booleanFlag("dark-mode", default=False)
-        batch = client._parent.manage.flags._buffer.drain()
+        batch = client._manage.flags._buffer.drain()
         assert len(batch) == 1
         assert batch[0]["id"] == "dark-mode"
         assert batch[0]["type"] == "BOOLEAN"

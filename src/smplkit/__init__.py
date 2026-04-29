@@ -12,7 +12,7 @@ from smplkit._errors import (
     SmplTimeoutError,
     SmplValidationError,
 )
-from smplkit.flags.types import Context, Rule
+from smplkit.flags.types import Context, FlagDeclaration, Rule
 from smplkit.logging._sources import LoggerSource
 from smplkit.management.client import AsyncSmplManagementClient, SmplManagementClient
 from smplkit.management.types import EnvironmentClassification
@@ -36,6 +36,7 @@ __all__ = [
     "AsyncSmplManagementClient",
     "Context",
     "EnvironmentClassification",
+    "FlagDeclaration",
     "LoggerSource",
     "LogLevel",
     "Rule",

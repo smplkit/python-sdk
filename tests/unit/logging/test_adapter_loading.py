@@ -61,9 +61,11 @@ def _make_sync_client(**kwargs):
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = kwargs.get("service", None)
-    parent.manage.loggers = _MgmtLoggersClient(MagicMock(), base_url="http://logging:8003")
+    manage = MagicMock()
+    manage.loggers = _MgmtLoggersClient(MagicMock(), base_url="http://logging:8003")
+    parent.manage = manage
     with patch("smplkit.logging.client.AuthenticatedClient"):
-        return LoggingClient(parent)
+        return LoggingClient(parent, manage=manage, metrics=parent._metrics)
 
 
 def _make_async_client(**kwargs):
@@ -73,9 +75,11 @@ def _make_async_client(**kwargs):
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = kwargs.get("service", None)
-    parent.manage.loggers = _MgmtAsyncLoggersClient(MagicMock(), base_url="http://logging:8003")
+    manage = MagicMock()
+    manage.loggers = _MgmtAsyncLoggersClient(MagicMock(), base_url="http://logging:8003")
+    parent.manage = manage
     with patch("smplkit.logging.client.AuthenticatedClient"):
-        return AsyncLoggingClient(parent)
+        return AsyncLoggingClient(parent, manage=manage, metrics=parent._metrics)
 
 
 class TestAutoLoadAdapters:

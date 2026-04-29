@@ -11,24 +11,24 @@ if TYPE_CHECKING:
 
 @dataclasses.dataclass
 class LoggerSource:
-    """Describes a logger to register via :meth:`LoggingManagementClient.register_sources`.
+    """Describes a logger to register via :meth:`SmplManagementClient.loggers.register`.
 
-    Unlike auto-discovery (which reads the current process's logging framework),
-    ``register_sources`` accepts explicit ``(service, environment)`` overrides —
-    useful for sample-data seeding, cross-tenant migration, and test fixtures.
+    Used both for buffered runtime discovery (called by ``SmplClient`` as adapters
+    discover loggers) and for explicit registration from setup scripts that already
+    know the ``(service, environment)`` they belong to.
 
     Args:
         name: Logger name (e.g. ``"sqlalchemy.engine"``).  Normalized to lowercase
             with slashes and colons replaced by dots before sending to the API.
-        service: Service name this source belongs to.
-        environment: Environment name this source belongs to.
         resolved_level: Effective log level for this source.
         level: Explicit (configured) log level, if different from ``resolved_level``.
             Pass ``None`` when the level is inherited.
+        service: Service name this source belongs to (optional).
+        environment: Environment name this source belongs to (optional).
     """
 
     name: str
-    service: str
-    environment: str
     resolved_level: LogLevel
     level: LogLevel | None = None
+    service: str | None = None
+    environment: str | None = None

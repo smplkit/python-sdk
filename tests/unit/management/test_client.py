@@ -975,27 +975,22 @@ class TestContextsClient:
 
 class TestAsyncContextsClient:
     def test_register_queues(self):
-        async def _run():
-            client = _make_async_contexts_client()
-            await client.register(Context("user", "u-1"))
-            assert client._buffer.pending_count == 1
-
-        asyncio.run(_run())
+        client = _make_async_contexts_client()
+        client.register(Context("user", "u-1"))
+        assert client._buffer.pending_count == 1
 
     def test_register_list(self):
-        async def _run():
-            client = _make_async_contexts_client()
-            await client.register([Context("user", "u-1"), Context("account", "acme")])
-            assert client._buffer.pending_count == 2
+        client = _make_async_contexts_client()
+        client.register([Context("user", "u-1"), Context("account", "acme")])
+        assert client._buffer.pending_count == 2
 
-        asyncio.run(_run())
-
-    def test_register_with_flush(self):
+    def test_register_then_flush(self):
         async def _run():
             mock_coro = AsyncMock(return_value=_ok_resp())
             with patch("smplkit.management.client._gen_bulk_register_contexts.asyncio_detailed", mock_coro):
                 client = _make_async_contexts_client()
-                await client.register(Context("user", "u-1"), flush=True)
+                client.register(Context("user", "u-1"))
+                await client.flush()
                 mock_coro.assert_called_once()
 
         asyncio.run(_run())
@@ -1283,3 +1278,72 @@ class TestAsyncSmplManagementClient:
         assert isinstance(mc.flags, AsyncMgmtFlagsClient)
         assert isinstance(mc.loggers, AsyncLoggersClient)
         assert isinstance(mc.log_groups, AsyncLogGroupsClient)
+
+
+# ---------------------------------------------------------------------------
+# FlagsClient.register / flush — buffered registration
+# ---------------------------------------------------------------------------
+
+
+class TestMgmtFlagsRegisterAndFlush:
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    def test_register_with_flush_sends_immediately(self, mock_bulk):
+        from smplkit.flags.types import FlagDeclaration
+        from smplkit.management.client import FlagsClient as _FlagsClient
+
+        mock_bulk.return_value = _ok_resp()
+        client = _FlagsClient(MagicMock())
+        client.register(
+            FlagDeclaration(id="checkout", type="BOOLEAN", default=False),
+            flush=True,
+        )
+        mock_bulk.assert_called_once()
+
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    def test_flush_propagates_unexpected_errors(self, mock_bulk):
+        from smplkit.flags.types import FlagDeclaration
+        from smplkit.management.client import FlagsClient as _FlagsClient
+
+        mock_bulk.side_effect = RuntimeError("oops")
+        client = _FlagsClient(MagicMock())
+        client.register(FlagDeclaration(id="x", type="BOOLEAN", default=False))
+        with pytest.raises(RuntimeError):
+            client.flush()
+
+
+class TestAsyncMgmtFlagsRegisterAndFlush:
+    def test_flush_propagates_unexpected_errors(self):
+        from smplkit.flags.types import FlagDeclaration
+        from smplkit.management.client import AsyncFlagsClient as _AsyncFlagsClient
+
+        async def _run():
+            mock_coro = AsyncMock(side_effect=RuntimeError("oops"))
+            with patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed", mock_coro):
+                client = _AsyncFlagsClient(MagicMock())
+                client.register(FlagDeclaration(id="x", type="BOOLEAN", default=False))
+                with pytest.raises(RuntimeError):
+                    await client.flush()
+
+        asyncio.run(_run())
+
+    def test_flush_sync_drains_buffer(self):
+        from smplkit.flags.types import FlagDeclaration
+        from smplkit.management.client import AsyncFlagsClient as _AsyncFlagsClient
+
+        with patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed") as mock_bulk:
+            mock_bulk.return_value = _ok_resp()
+            client = _AsyncFlagsClient(MagicMock())
+            client.register(FlagDeclaration(id="checkout", type="BOOLEAN", default=False))
+            client.flush_sync()
+            mock_bulk.assert_called_once()
+
+    def test_flush_sync_propagates_unexpected_errors(self):
+        from smplkit.flags.types import FlagDeclaration
+        from smplkit.management.client import AsyncFlagsClient as _AsyncFlagsClient
+
+        with patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed") as mock_bulk:
+            mock_bulk.side_effect = RuntimeError("oops")
+            client = _AsyncFlagsClient(MagicMock())
+            client.register(FlagDeclaration(id="x", type="BOOLEAN", default=False))
+            with pytest.raises(RuntimeError):
+                client.flush_sync()

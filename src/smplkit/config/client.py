@@ -35,8 +35,10 @@ from smplkit.config.helpers import _resource_to_async_config, _resource_to_confi
 from smplkit.config.models import AsyncConfig, Config
 
 if TYPE_CHECKING:
+    from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
     from smplkit._ws import SharedWebSocket
     from smplkit.client import AsyncSmplClient, SmplClient
+    from smplkit.management.client import AsyncSmplManagementClient, SmplManagementClient
 
 logger = logging.getLogger("smplkit")
 ws_logger = logging.getLogger("smplkit.config.ws")
@@ -186,8 +188,18 @@ class ConfigClient:
     moved to :class:`smplkit.SmplManagementClient` (``mgmt.configs.*``).
     """
 
-    def __init__(self, parent: SmplClient) -> None:
+    def __init__(
+        self,
+        parent: SmplClient,
+        *,
+        manage: SmplManagementClient,
+        metrics: _MetricsReporter | None,
+    ) -> None:
         self._parent = parent
+        self._manage = manage
+        self._metrics = metrics
+        self._service = parent._service
+        self._environment = parent._environment
         self._config_cache: dict[str, dict[str, Any]] = {}
         self._raw_config_cache: dict[str, Any] = {}
         self._connected = False
@@ -266,7 +278,7 @@ class ConfigClient:
         """
         self._connect_internal()
         values = dict(self._config_cache.get(id, {}))
-        metrics = self._parent._metrics
+        metrics = self._metrics
         if metrics is not None:
             metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
         if model is None:
@@ -370,7 +382,7 @@ class ConfigClient:
                 new_val = new_items.get(i_key)
                 if old_val == new_val:
                     continue
-                metrics = self._parent._metrics
+                metrics = self._metrics
                 if metrics is not None:
                     metrics.record("config.changes", unit="changes", dimensions={"config": cfg_id})
                 event = ConfigChangeEvent(
@@ -452,8 +464,18 @@ class AsyncConfigClient:
     :class:`smplkit.AsyncSmplManagementClient` (``mgmt.configs.*``).
     """
 
-    def __init__(self, parent: AsyncSmplClient) -> None:
+    def __init__(
+        self,
+        parent: AsyncSmplClient,
+        *,
+        manage: AsyncSmplManagementClient,
+        metrics: _AsyncMetricsReporter | None,
+    ) -> None:
         self._parent = parent
+        self._manage = manage
+        self._metrics = metrics
+        self._service = parent._service
+        self._environment = parent._environment
         self._config_cache: dict[str, dict[str, Any]] = {}
         self._raw_config_cache: dict[str, Any] = {}
         self._connected = False
@@ -519,7 +541,7 @@ class AsyncConfigClient:
         """
         await self._connect_internal()
         values = dict(self._config_cache.get(id, {}))
-        metrics = self._parent._metrics
+        metrics = self._metrics
         if metrics is not None:
             metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
         if model is None:
@@ -622,7 +644,7 @@ class AsyncConfigClient:
                 new_val = new_items.get(i_key)
                 if old_val == new_val:
                     continue
-                metrics = self._parent._metrics
+                metrics = self._metrics
                 if metrics is not None:
                     metrics.record("config.changes", unit="changes", dimensions={"config": cfg_id})
                 event = ConfigChangeEvent(

@@ -280,16 +280,16 @@ async def main() -> None:
         # ==================================================================
         # 8b. REGISTER SYNTHETIC LOGGER SOURCES
         # ==================================================================
-        # register_sources() accepts explicit (service, environment)
-        # overrides — useful for sample-data seeding, cross-tenant
-        # migration, and test fixtures.
+        # register() accepts explicit (service, environment) overrides —
+        # useful for sample-data seeding, cross-tenant migration, and
+        # test fixtures.
         # ==================================================================
 
         from smplkit.logging import LoggerSource
 
         section("8b. Register synthetic logger sources")
 
-        await mgmt.loggers.register_sources(
+        mgmt.loggers.register(
             [
                 LoggerSource(
                     "sqlalchemy.engine",
@@ -311,6 +311,7 @@ async def main() -> None:
                 ),
             ]
         )
+        await mgmt.loggers.flush()
         step("3 sources registered")
 
         # ==================================================================

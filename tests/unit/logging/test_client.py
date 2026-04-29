@@ -93,17 +93,18 @@ def _ok_response(parsed=None, status=HTTPStatus.OK):
 
 
 def _make_logging_client(**kwargs):
-    """Create a LoggingClient with a mocked parent that has a real `manage`."""
+    """Create a LoggingClient with a mocked parent + real management/loggers subclient."""
     from smplkit.management.client import LoggersClient as _MgmtLoggersClient
 
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = kwargs.get("service", None)
-    # Real LoggersClient with a real buffer so observe/flush plumbing behaves like prod.
-    parent.manage.loggers = _MgmtLoggersClient(MagicMock(), base_url="http://logging:8003")
+    manage = MagicMock()
+    manage.loggers = _MgmtLoggersClient(MagicMock(), base_url="http://logging:8003")
+    parent.manage = manage
     with patch("smplkit.logging.client.AuthenticatedClient"):
-        client = LoggingClient(parent)
+        client = LoggingClient(parent, manage=manage, metrics=parent._metrics)
     return client
 
 
@@ -1555,16 +1556,20 @@ class TestLogLevelValue:
 
         assert _loglevel_value(None, where="t") is None
 
-    def test_raw_string_raises_pointing_at_caller(self):
-        """A bare ``"WARN"`` violates the type contract; the helper should
-        say so clearly, including the ``where`` so the offending site is
-        obvious in the traceback."""
+    def test_valid_loglevel_string_is_accepted(self):
+        """A valid LogLevel-string is accepted and normalized to its wire value."""
+        from smplkit.logging.client import _loglevel_value
+
+        assert _loglevel_value("WARN", where="caller") == "WARN"
+
+    def test_invalid_string_raises_pointing_at_caller(self):
+        """An unrecognized string should raise a TypeError that names the caller."""
         import pytest
 
         from smplkit.logging.client import _loglevel_value
 
         with pytest.raises(TypeError, match="SmplLogGroup.save"):
-            _loglevel_value("WARN", where="SmplLogGroup.save")
+            _loglevel_value("NOT_A_LEVEL", where="SmplLogGroup.save")
 
     def test_other_garbage_raises(self):
         import pytest
@@ -1576,18 +1581,18 @@ class TestLogLevelValue:
 
 
 # ---------------------------------------------------------------------------
-# register_sources (sync)
+# register / flush (sync) — buffered and eager-flush registration
 # ---------------------------------------------------------------------------
 
 
-class TestRegisterSources:
+class TestRegisterAndFlush:
     @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
-    def test_register_sources_basic(self, mock_bulk):
+    def test_register_with_flush_sends_immediately(self, mock_bulk):
         from smplkit.logging._sources import LoggerSource
 
         mock_bulk.return_value = MagicMock(status_code=200, content=b"{}")
         mgmt = _new_mgmt()
-        mgmt.loggers.register_sources(
+        mgmt.loggers.register(
             [
                 LoggerSource(
                     name="sqlalchemy.engine",
@@ -1595,19 +1600,20 @@ class TestRegisterSources:
                     environment="production",
                     resolved_level=LogLevel.WARN,
                 ),
-            ]
+            ],
+            flush=True,
         )
         mock_bulk.assert_called_once()
         _, kwargs = mock_bulk.call_args
         assert kwargs["body"].loggers[0].service == "api"
 
     @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
-    def test_register_sources_with_level(self, mock_bulk):
+    def test_register_includes_explicit_level(self, mock_bulk):
         from smplkit.logging._sources import LoggerSource
 
         mock_bulk.return_value = MagicMock(status_code=200, content=b"{}")
         mgmt = _new_mgmt()
-        mgmt.loggers.register_sources(
+        mgmt.loggers.register(
             [
                 LoggerSource(
                     name="httpx",
@@ -1616,26 +1622,28 @@ class TestRegisterSources:
                     resolved_level=LogLevel.INFO,
                     level=LogLevel.DEBUG,
                 ),
-            ]
+            ],
+            flush=True,
         )
         _, kwargs = mock_bulk.call_args
         assert kwargs["body"].loggers[0].level == "DEBUG"
 
     @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
-    def test_register_sources_empty_list_skips_call(self, mock_bulk):
+    def test_flush_with_empty_buffer_skips_call(self, mock_bulk):
         mgmt = _new_mgmt()
-        mgmt.loggers.register_sources([])
+        mgmt.loggers.flush()
         mock_bulk.assert_not_called()
 
     @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
-    def test_register_sources_generic_error_reraises(self, mock_bulk):
+    def test_register_with_flush_propagates_unexpected_errors(self, mock_bulk):
         from smplkit.logging._sources import LoggerSource
 
         mock_bulk.side_effect = RuntimeError("unexpected")
         mgmt = _new_mgmt()
         with pytest.raises(RuntimeError):
-            mgmt.loggers.register_sources(
+            mgmt.loggers.register(
                 [
                     LoggerSource("app", service="svc", environment="prod", resolved_level=LogLevel.INFO),
-                ]
+                ],
+                flush=True,
             )

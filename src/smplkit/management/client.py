@@ -150,7 +150,7 @@ from smplkit.management.models import (
 from smplkit.management.types import EnvironmentClassification
 
 if TYPE_CHECKING:  # pragma: no cover
-    from smplkit.flags.types import Context
+    from smplkit.flags.types import Context, FlagDeclaration
     from smplkit.management._buffer import _ContextRegistrationBuffer
 
 logger = logging.getLogger("smplkit")
@@ -752,14 +752,9 @@ class ContextsClient:
         resp = _gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
 
-    # -- internal: used by the runtime client --
-    def _observe(self, items: list[Context]) -> None:
-        """Internal: queue items for bulk registration (called by the runtime client)."""
-        self._buffer.observe(items)
-
     @property
-    def _pending_count(self) -> int:
-        """Internal: pending observations awaiting flush."""
+    def pending_count(self) -> int:
+        """Number of observations queued and awaiting flush."""
         return self._buffer.pending_count
 
     def list(self, type: str) -> list[ContextEntity]:
@@ -808,11 +803,10 @@ class AsyncContextsClient:
         self._app_http = app_http
         self._buffer = buffer
 
-    async def register(self, items: Context | list[Context], *, flush: bool = False) -> None:
+    def register(self, items: Context | list[Context]) -> None:
+        """Buffer contexts for registration.  Call ``await flush()`` to send them."""
         batch = items if isinstance(items, list) else [items]
         self._buffer.observe(batch)
-        if flush:
-            await self.flush()
 
     async def flush(self) -> None:
         batch = self._buffer.drain()
@@ -822,24 +816,19 @@ class AsyncContextsClient:
         resp = await _gen_bulk_register_contexts.asyncio_detailed(client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
 
-    # -- internal: used by the runtime client --
-    def _observe(self, items: list[Context]) -> None:
-        """Internal: queue items for bulk registration (called by the runtime client)."""
-        self._buffer.observe(items)
-
-    @property
-    def _pending_count(self) -> int:
-        """Internal: pending observations awaiting flush."""
-        return self._buffer.pending_count
-
-    def _flush_sync(self) -> None:
-        """Internal: sync flush invoked from background threads in the async runtime."""
+    def flush_sync(self) -> None:
+        """Synchronous flush — for use from non-event-loop threads (e.g. atexit handlers)."""
         batch = self._buffer.drain()
         if not batch:
             return
         body = _build_bulk_register_body(batch)
         resp = _gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
+
+    @property
+    def pending_count(self) -> int:
+        """Number of observations queued and awaiting flush."""
+        return self._buffer.pending_count
 
     async def list(self, type: str) -> list[AsyncContextEntity]:
         resp = await _gen_list_contexts.asyncio_detailed(
@@ -1165,31 +1154,35 @@ class FlagsClient:
 
         self._buffer = _FlagRegistrationBuffer()
 
-    # -- internal: used by the runtime client --
-    def _observe(
+    def register(
         self,
-        flag_id: str,
-        flag_type: str,
-        default: Any,
-        service: str | None,
-        environment: str | None,
+        items: FlagDeclaration | list[FlagDeclaration],
+        *,
+        flush: bool = False,
     ) -> None:
-        """Internal: queue a declared flag for bulk registration."""
-        self._buffer.add(flag_id, flag_type, default, service, environment)
+        """Buffer flag declarations for registration; optionally flush immediately."""
+        batch = items if isinstance(items, list) else [items]
+        for d in batch:
+            self._buffer.add(d.id, d.type, d.default, d.service, d.environment)
+        if flush:
+            self.flush()
 
-    @property
-    def _pending_count(self) -> int:
-        """Internal: pending discoveries awaiting flush."""
-        return self._buffer.pending_count
-
-    def _flush(self) -> None:
-        """Internal: drain the discovery buffer and POST to the bulk endpoint."""
+    def flush(self) -> None:
+        """Drain the buffer and POST pending declarations to the bulk endpoint."""
         body = _build_flag_bulk_request(self._buffer)
         if body is None:
             return
-        response = _gen_bulk_register_flags.sync_detailed(client=self._http_client, body=body)
-        if response.status_code.value >= 300:
-            logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
+        try:
+            response = _gen_bulk_register_flags.sync_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    @property
+    def pending_count(self) -> int:
+        """Number of declarations queued and awaiting flush."""
+        return self._buffer.pending_count
 
     def newBooleanFlag(
         self,
@@ -1330,38 +1323,43 @@ class AsyncFlagsClient:
 
         self._buffer = _FlagRegistrationBuffer()
 
-    # -- internal: used by the runtime client --
-    def _observe(
+    def register(
         self,
-        flag_id: str,
-        flag_type: str,
-        default: Any,
-        service: str | None,
-        environment: str | None,
+        items: FlagDeclaration | list[FlagDeclaration],
     ) -> None:
-        self._buffer.add(flag_id, flag_type, default, service, environment)
+        """Buffer flag declarations for registration.  Call ``await flush()`` to send."""
+        batch = items if isinstance(items, list) else [items]
+        for d in batch:
+            self._buffer.add(d.id, d.type, d.default, d.service, d.environment)
+
+    async def flush(self) -> None:
+        """Drain the buffer and POST pending declarations to the bulk endpoint."""
+        body = _build_flag_bulk_request(self._buffer)
+        if body is None:
+            return
+        try:
+            response = await _gen_bulk_register_flags.asyncio_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    def flush_sync(self) -> None:
+        """Synchronous flush — for use from non-event-loop threads."""
+        body = _build_flag_bulk_request(self._buffer)
+        if body is None:
+            return
+        try:
+            response = _gen_bulk_register_flags.sync_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
 
     @property
-    def _pending_count(self) -> int:
+    def pending_count(self) -> int:
+        """Number of declarations queued and awaiting flush."""
         return self._buffer.pending_count
-
-    async def _flush(self) -> None:
-        """Internal: drain + async POST to the bulk endpoint."""
-        body = _build_flag_bulk_request(self._buffer)
-        if body is None:
-            return
-        response = await _gen_bulk_register_flags.asyncio_detailed(client=self._http_client, body=body)
-        if response.status_code.value >= 300:
-            logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
-
-    def _flush_sync(self) -> None:
-        """Internal: sync flush invoked from the async runtime's background thread."""
-        body = _build_flag_bulk_request(self._buffer)
-        if body is None:
-            return
-        response = _gen_bulk_register_flags.sync_detailed(client=self._http_client, body=body)
-        if response.status_code.value >= 300:
-            logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
 
     def newBooleanFlag(
         self,
@@ -1508,35 +1506,41 @@ class LoggersClient:
 
         self._buffer = _LoggerRegistrationBuffer()
 
-    # -- internal: used by the runtime client --
-    def _observe(
+    def register(
         self,
-        normalized_id: str,
-        smpl_level: str | None,
-        smpl_resolved_level: str,
-        service: str | None,
-        environment: str | None,
+        items: LoggerSource | list[LoggerSource],
+        *,
+        flush: bool = False,
     ) -> None:
-        """Internal: queue a discovered logger for bulk registration."""
-        self._buffer.add(normalized_id, smpl_level, smpl_resolved_level, service, environment)
+        """Buffer logger sources for registration; optionally flush immediately."""
+        batch = items if isinstance(items, list) else [items]
+        for src in batch:
+            self._buffer.add(
+                normalize_logger_name(src.name),
+                _loglevel_value(src.level, where="register[level]"),
+                _loglevel_value(src.resolved_level, where="register[resolved_level]"),
+                src.service,
+                src.environment,
+            )
+        if flush:
+            self.flush()
 
-    @property
-    def _pending_count(self) -> int:
-        return self._buffer.pending_count
-
-    def _flush(self) -> None:
-        """Internal: drain the discovery buffer and POST to the bulk endpoint."""
+    def flush(self) -> None:
+        """Drain the buffer and POST pending logger sources to the bulk endpoint."""
         body = _build_logger_bulk_request(self._buffer)
         if body is None:
             return
-        response = _gen_bulk_register_loggers.sync_detailed(client=self._http_client, body=body)
-        if response.status_code.value >= 300:
-            detail = response.content[:500] if response.content else b""
-            logger.warning(
-                "Bulk logger registration failed: HTTP %s: %s",
-                response.status_code.value,
-                detail.decode("utf-8", errors="replace"),
-            )
+        try:
+            response = _gen_bulk_register_loggers.sync_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    @property
+    def pending_count(self) -> int:
+        """Number of sources queued and awaiting flush."""
+        return self._buffer.pending_count
 
     def new(self, id: str, *, name: str | None = None, managed: bool = False) -> SmplLogger:
         return SmplLogger(
@@ -1576,31 +1580,6 @@ class LoggersClient:
             raise
         _check_status(int(response.status_code), response.content)
 
-    def register_sources(self, sources: list[LoggerSource]) -> None:
-        """Bulk-register explicit logger sources with the logging service."""
-        from smplkit._generated.logging.models.logger_bulk_item import LoggerBulkItem
-        from smplkit._generated.logging.models.logger_bulk_request import LoggerBulkRequest
-
-        items = [
-            LoggerBulkItem(
-                id=normalize_logger_name(src.name),
-                level=_loglevel_value(src.level, where="register_sources[level]"),
-                resolved_level=_loglevel_value(src.resolved_level, where="register_sources[resolved_level]"),
-                service=src.service,
-                environment=src.environment,
-            )
-            for src in sources
-        ]
-        if not items:
-            return
-        body = LoggerBulkRequest(loggers=items)
-        try:
-            response = _gen_bulk_register_loggers.sync_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
     def _save_logger(self, lg: SmplLogger) -> SmplLogger:
         body = _build_logger_body(
             logger_id=lg.id,
@@ -1633,48 +1612,49 @@ class AsyncLoggersClient:
 
         self._buffer = _LoggerRegistrationBuffer()
 
-    # -- internal: used by the runtime client --
-    def _observe(
+    def register(
         self,
-        normalized_id: str,
-        smpl_level: str | None,
-        smpl_resolved_level: str,
-        service: str | None,
-        environment: str | None,
+        items: LoggerSource | list[LoggerSource],
     ) -> None:
-        self._buffer.add(normalized_id, smpl_level, smpl_resolved_level, service, environment)
+        """Buffer logger sources for registration.  Call ``await flush()`` to send them."""
+        batch = items if isinstance(items, list) else [items]
+        for src in batch:
+            self._buffer.add(
+                normalize_logger_name(src.name),
+                _loglevel_value(src.level, where="register[level]"),
+                _loglevel_value(src.resolved_level, where="register[resolved_level]"),
+                src.service,
+                src.environment,
+            )
+
+    async def flush(self) -> None:
+        """Drain the buffer and POST pending logger sources to the bulk endpoint."""
+        body = _build_logger_bulk_request(self._buffer)
+        if body is None:
+            return
+        try:
+            response = await _gen_bulk_register_loggers.asyncio_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    def flush_sync(self) -> None:
+        """Synchronous flush — for use from non-event-loop threads."""
+        body = _build_logger_bulk_request(self._buffer)
+        if body is None:
+            return
+        try:
+            response = _gen_bulk_register_loggers.sync_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
 
     @property
-    def _pending_count(self) -> int:
+    def pending_count(self) -> int:
+        """Number of sources queued and awaiting flush."""
         return self._buffer.pending_count
-
-    async def _flush(self) -> None:
-        """Internal: drain + async POST to the bulk endpoint."""
-        body = _build_logger_bulk_request(self._buffer)
-        if body is None:
-            return
-        response = await _gen_bulk_register_loggers.asyncio_detailed(client=self._http_client, body=body)
-        if response.status_code.value >= 300:
-            detail = response.content[:500] if response.content else b""
-            logger.warning(
-                "Bulk logger registration failed: HTTP %s: %s",
-                response.status_code.value,
-                detail.decode("utf-8", errors="replace"),
-            )
-
-    def _flush_sync(self) -> None:
-        """Internal: sync flush invoked from the async runtime's background thread."""
-        body = _build_logger_bulk_request(self._buffer)
-        if body is None:
-            return
-        response = _gen_bulk_register_loggers.sync_detailed(client=self._http_client, body=body)
-        if response.status_code.value >= 300:
-            detail = response.content[:500] if response.content else b""
-            logger.warning(
-                "Bulk logger registration failed: HTTP %s: %s",
-                response.status_code.value,
-                detail.decode("utf-8", errors="replace"),
-            )
 
     def new(self, id: str, *, name: str | None = None, managed: bool = False) -> AsyncSmplLogger:
         return AsyncSmplLogger(
@@ -1709,30 +1689,6 @@ class AsyncLoggersClient:
     async def delete(self, id: str) -> None:
         try:
             response = await _gen_delete_logger.asyncio_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    async def register_sources(self, sources: list[LoggerSource]) -> None:
-        from smplkit._generated.logging.models.logger_bulk_item import LoggerBulkItem
-        from smplkit._generated.logging.models.logger_bulk_request import LoggerBulkRequest
-
-        items = [
-            LoggerBulkItem(
-                id=normalize_logger_name(src.name),
-                level=_loglevel_value(src.level, where="register_sources[level]"),
-                resolved_level=_loglevel_value(src.resolved_level, where="register_sources[resolved_level]"),
-                service=src.service,
-                environment=src.environment,
-            )
-            for src in sources
-        ]
-        if not items:
-            return
-        body = LoggerBulkRequest(loggers=items)
-        try:
-            response = await _gen_bulk_register_loggers.asyncio_detailed(client=self._http_client, body=body)
         except Exception as exc:
             _maybe_reraise_network_error(exc, self._base_url)
             raise

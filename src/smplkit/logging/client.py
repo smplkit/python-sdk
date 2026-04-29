@@ -65,9 +65,12 @@ from smplkit.logging.models import (  # noqa: F401  (re-exported below)
     SmplLogger,
 )
 from smplkit.logging._resolution import resolve_level
+from smplkit.logging._sources import LoggerSource
 
 if TYPE_CHECKING:
+    from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
     from smplkit.client import AsyncSmplClient, SmplClient
+    from smplkit.management.client import AsyncSmplManagementClient, SmplManagementClient
 
 logger = stdlib_logging.getLogger("smplkit")
 
@@ -170,10 +173,16 @@ class LoggingClient:
         self,
         parent: SmplClient,
         *,
+        manage: SmplManagementClient,
+        metrics: _MetricsReporter | None,
         logging_base_url: str = _DEFAULT_LOGGING_BASE_URL,
         app_base_url: str | None = None,
     ) -> None:
         self._parent = parent
+        self._manage = manage
+        self._metrics = metrics
+        self._service = parent._service
+        self._environment = parent._environment
         self._logging_base_url = logging_base_url
         self._logging_http = AuthenticatedClient(
             base_url=logging_base_url,
@@ -255,19 +264,14 @@ class LoggingClient:
             self._adapters = _auto_load_adapters()
 
         # 1. Discover existing loggers from all adapters
-        mgmt_loggers = self._parent.manage.loggers
+        mgmt_loggers = self._manage.loggers
         for adapter in self._adapters:
             try:
                 existing = adapter.discover()
                 debug("discovery", f"adapter {adapter.name!r} discovered {len(existing)} existing loggers")
                 for name, explicit_level, effective_level in existing:
-                    normalized = normalize_logger_name(name)
-                    self._name_map[name] = normalized
-                    smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
-                    smpl_effective = python_level_to_smpl(effective_level)
-                    mgmt_loggers._observe(
-                        normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment
-                    )
+                    self._name_map[name] = normalize_logger_name(name)
+                    mgmt_loggers.register(self._loggersource_for(name, explicit_level, effective_level))
             except Exception:
                 logger.warning("Adapter %s discover() failed", adapter.name, exc_info=True)
 
@@ -435,23 +439,31 @@ class LoggingClient:
 
     # --- Internal ---
 
+    def _loggersource_for(self, name: str, explicit_level: int | None, effective_level: int) -> LoggerSource:
+        """Build a LoggerSource from an adapter's (name, explicit, effective) discovery tuple."""
+        from smplkit import LogLevel
+
+        return LoggerSource(
+            name=name,
+            resolved_level=LogLevel(python_level_to_smpl(effective_level)),
+            level=LogLevel(python_level_to_smpl(explicit_level)) if explicit_level is not None else None,
+            service=self._service,
+            environment=self._environment,
+        )
+
     def _on_new_logger(self, name: str, explicit_level: int | None, effective_level: int) -> None:
         """Callback from adapters when a new logger is created."""
         normalized = normalize_logger_name(name)
         debug("discovery", f"new logger intercepted via callback: {name!r} (normalized: {normalized!r})")
         self._name_map[name] = normalized
-        smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
-        smpl_effective = python_level_to_smpl(effective_level)
-        mgmt_loggers = self._parent.manage.loggers
-        mgmt_loggers._observe(
-            normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment
-        )
+        mgmt_loggers = self._manage.loggers
+        mgmt_loggers.register(self._loggersource_for(name, explicit_level, effective_level))
         debug(
             "registration",
-            f"queued {name!r} for bulk registration (buffer size: {mgmt_loggers._pending_count})",
+            f"queued {name!r} for bulk registration (buffer size: {mgmt_loggers.pending_count})",
         )
 
-        if mgmt_loggers._pending_count >= _BULK_FLUSH_THRESHOLD:
+        if mgmt_loggers.pending_count >= _BULK_FLUSH_THRESHOLD:
             debug("registration", f"buffer threshold reached ({_BULK_FLUSH_THRESHOLD}), flushing")
             threading.Thread(target=self._flush_bulk_sync, daemon=True).start()
 
@@ -460,7 +472,7 @@ class LoggingClient:
             entry = self._loggers_cache[normalized]
             if entry.get("managed"):
                 debug("resolution", f"applying immediate level for newly discovered managed logger {name!r}")
-                resolved = resolve_level(normalized, self._parent._environment, self._loggers_cache, self._groups_cache)
+                resolved = resolve_level(normalized, self._environment, self._loggers_cache, self._groups_cache)
                 python_level = smpl_level_to_python(resolved)
                 for adapter in self._adapters:
                     try:
@@ -471,9 +483,13 @@ class LoggingClient:
     def _flush_bulk_sync(self) -> None:
         """Flush the registration buffer (delegates to mgmt.loggers)."""
         try:
-            self._parent.manage.loggers._flush()
+            self._manage.loggers.flush()
         except Exception as exc:
-            logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
+            status = getattr(exc, "status_code", None)
+            if status is not None:
+                logger.warning("Bulk logger registration failed: HTTP %s: %s", status, exc)
+            else:
+                logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
             debug("registration", traceback.format_exc().strip())
 
     def _schedule_flush(self) -> None:
@@ -547,14 +563,14 @@ class LoggingClient:
                 continue
             if not entry.get("managed"):
                 continue
-            resolved = resolve_level(normalized_id, self._parent._environment, self._loggers_cache, self._groups_cache)
+            resolved = resolve_level(normalized_id, self._environment, self._loggers_cache, self._groups_cache)
             python_level = smpl_level_to_python(resolved)
             for adapter in self._adapters:
                 try:
                     adapter.apply_level(original_name, python_level)
                 except Exception:
                     logger.warning("Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True)
-            metrics = self._parent._metrics
+            metrics = self._metrics
             if metrics is not None:
                 metrics.record("logging.level_changes", unit="changes", dimensions={"logger": normalized_id})
 
@@ -576,10 +592,16 @@ class AsyncLoggingClient:
         self,
         parent: AsyncSmplClient,
         *,
+        manage: AsyncSmplManagementClient,
+        metrics: _AsyncMetricsReporter | None,
         logging_base_url: str = _DEFAULT_LOGGING_BASE_URL,
         app_base_url: str | None = None,
     ) -> None:
         self._parent = parent
+        self._manage = manage
+        self._metrics = metrics
+        self._service = parent._service
+        self._environment = parent._environment
         self._logging_base_url = logging_base_url
         self._logging_http = AuthenticatedClient(
             base_url=logging_base_url,
@@ -661,18 +683,14 @@ class AsyncLoggingClient:
             self._adapters = _auto_load_adapters()
 
         # 1. Discover existing loggers from all adapters
+        mgmt_loggers = self._manage.loggers
         for adapter in self._adapters:
             try:
                 existing = adapter.discover()
                 debug("discovery", f"adapter {adapter.name!r} discovered {len(existing)} existing loggers")
                 for name, explicit_level, effective_level in existing:
-                    normalized = normalize_logger_name(name)
-                    self._name_map[name] = normalized
-                    smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
-                    smpl_effective = python_level_to_smpl(effective_level)
-                    self._parent.manage.loggers._observe(
-                        normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment
-                    )
+                    self._name_map[name] = normalize_logger_name(name)
+                    mgmt_loggers.register(self._loggersource_for(name, explicit_level, effective_level))
             except Exception:
                 logger.warning("Adapter %s discover() failed", adapter.name, exc_info=True)
 
@@ -899,27 +917,35 @@ class AsyncLoggingClient:
 
     # --- Internal ---
 
+    def _loggersource_for(self, name: str, explicit_level: int | None, effective_level: int) -> LoggerSource:
+        """Build a LoggerSource from an adapter's (name, explicit, effective) discovery tuple."""
+        from smplkit import LogLevel
+
+        return LoggerSource(
+            name=name,
+            resolved_level=LogLevel(python_level_to_smpl(effective_level)),
+            level=LogLevel(python_level_to_smpl(explicit_level)) if explicit_level is not None else None,
+            service=self._service,
+            environment=self._environment,
+        )
+
     def _on_new_logger(self, name: str, explicit_level: int | None, effective_level: int) -> None:
         """Callback from adapters when a new logger is created."""
         normalized = normalize_logger_name(name)
         debug("discovery", f"new logger intercepted via callback: {name!r} (normalized: {normalized!r})")
         self._name_map[name] = normalized
-        smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
-        smpl_effective = python_level_to_smpl(effective_level)
-        mgmt_loggers = self._parent.manage.loggers
-        mgmt_loggers._observe(
-            normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment
-        )
+        mgmt_loggers = self._manage.loggers
+        mgmt_loggers.register(self._loggersource_for(name, explicit_level, effective_level))
         debug(
             "registration",
-            f"queued {name!r} for bulk registration (buffer size: {mgmt_loggers._pending_count})",
+            f"queued {name!r} for bulk registration (buffer size: {mgmt_loggers.pending_count})",
         )
 
         if self._connected and normalized in self._loggers_cache:
             entry = self._loggers_cache[normalized]
             if entry.get("managed"):
                 debug("resolution", f"applying immediate level for newly discovered managed logger {name!r}")
-                resolved = resolve_level(normalized, self._parent._environment, self._loggers_cache, self._groups_cache)
+                resolved = resolve_level(normalized, self._environment, self._loggers_cache, self._groups_cache)
                 python_level = smpl_level_to_python(resolved)
                 for adapter in self._adapters:
                     try:
@@ -930,17 +956,25 @@ class AsyncLoggingClient:
     async def _flush_bulk_async(self) -> None:
         """Flush the registration buffer (delegates to mgmt.loggers)."""
         try:
-            await self._parent.manage.loggers._flush()
+            await self._manage.loggers.flush()
         except Exception as exc:
-            logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
+            status = getattr(exc, "status_code", None)
+            if status is not None:
+                logger.warning("Bulk logger registration failed: HTTP %s: %s", status, exc)
+            else:
+                logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
             debug("registration", traceback.format_exc().strip())
 
     def _flush_bulk_sync(self) -> None:
         """Sync flush for the timer thread (delegates to mgmt.loggers)."""
         try:
-            self._parent.manage.loggers._flush_sync()
+            self._manage.loggers.flush_sync()
         except Exception as exc:
-            logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
+            status = getattr(exc, "status_code", None)
+            if status is not None:
+                logger.warning("Bulk logger registration failed: HTTP %s: %s", status, exc)
+            else:
+                logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
             debug("registration", traceback.format_exc().strip())
 
     def _schedule_flush(self) -> None:
@@ -1016,13 +1050,13 @@ class AsyncLoggingClient:
                 continue
             if not entry.get("managed"):
                 continue
-            resolved = resolve_level(normalized_id, self._parent._environment, self._loggers_cache, self._groups_cache)
+            resolved = resolve_level(normalized_id, self._environment, self._loggers_cache, self._groups_cache)
             python_level = smpl_level_to_python(resolved)
             for adapter in self._adapters:
                 try:
                     adapter.apply_level(original_name, python_level)
                 except Exception:
                     logger.warning("Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True)
-            metrics = self._parent._metrics
+            metrics = self._metrics
             if metrics is not None:
                 metrics.record("logging.level_changes", unit="changes", dimensions={"logger": normalized_id})

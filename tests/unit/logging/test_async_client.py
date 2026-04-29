@@ -82,9 +82,11 @@ def _make_async_logging_client(**kwargs):
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = kwargs.get("service", None)
-    parent.manage.loggers = _MgmtAsyncLoggersClient(MagicMock(), base_url="http://logging:8003")
+    manage = MagicMock()
+    manage.loggers = _MgmtAsyncLoggersClient(MagicMock(), base_url="http://logging:8003")
+    parent.manage = manage
     with patch("smplkit.logging.client.AuthenticatedClient"):
-        client = AsyncLoggingClient(parent)
+        client = AsyncLoggingClient(parent, manage=manage, metrics=parent._metrics)
     return client
 
 
@@ -1370,19 +1372,19 @@ class TestWebSocketEventHandling:
 
 
 # ---------------------------------------------------------------------------
-# AsyncLoggingManagementClient.register_sources
+# AsyncLoggingManagementClient.register / flush — buffered registration
 # ---------------------------------------------------------------------------
 
 
-class TestAsyncRegisterSources:
-    def test_register_sources_basic(self):
+class TestAsyncRegisterAndFlush:
+    def test_register_then_flush_sends_batch(self):
         from smplkit.logging._sources import LoggerSource
 
         async def _run():
             mock_coro = AsyncMock(return_value=MagicMock(status_code=200, content=b"{}"))
             with patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed", mock_coro):
                 mgmt = _new_async_mgmt()
-                await mgmt.loggers.register_sources(
+                mgmt.loggers.register(
                     [
                         LoggerSource(
                             name="sqlalchemy.engine",
@@ -1392,20 +1394,21 @@ class TestAsyncRegisterSources:
                         ),
                     ]
                 )
+                await mgmt.loggers.flush()
                 mock_coro.assert_called_once()
                 _, kwargs = mock_coro.call_args
                 assert kwargs["body"].loggers[0].service == "api"
 
         asyncio.run(_run())
 
-    def test_register_sources_with_level(self):
+    def test_register_includes_explicit_level(self):
         from smplkit.logging._sources import LoggerSource
 
         async def _run():
             mock_coro = AsyncMock(return_value=MagicMock(status_code=200, content=b"{}"))
             with patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed", mock_coro):
                 mgmt = _new_async_mgmt()
-                await mgmt.loggers.register_sources(
+                mgmt.loggers.register(
                     [
                         LoggerSource(
                             name="httpx",
@@ -1416,33 +1419,35 @@ class TestAsyncRegisterSources:
                         ),
                     ]
                 )
+                await mgmt.loggers.flush()
                 _, kwargs = mock_coro.call_args
                 assert kwargs["body"].loggers[0].level == "DEBUG"
 
         asyncio.run(_run())
 
-    def test_register_sources_empty_list_skips_call(self):
+    def test_flush_with_empty_buffer_skips_call(self):
         async def _run():
             mock_coro = AsyncMock(return_value=MagicMock(status_code=200, content=b"{}"))
             with patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed", mock_coro):
                 mgmt = _new_async_mgmt()
-                await mgmt.loggers.register_sources([])
+                await mgmt.loggers.flush()
                 mock_coro.assert_not_called()
 
         asyncio.run(_run())
 
-    def test_register_sources_generic_error_reraises(self):
+    def test_flush_propagates_unexpected_errors(self):
         from smplkit.logging._sources import LoggerSource
 
         async def _run():
             mock_coro = AsyncMock(side_effect=RuntimeError("unexpected"))
             with patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed", mock_coro):
                 mgmt = _new_async_mgmt()
+                mgmt.loggers.register(
+                    [
+                        LoggerSource("app", service="svc", environment="prod", resolved_level=LogLevel.INFO),
+                    ]
+                )
                 with pytest.raises(RuntimeError):
-                    await mgmt.loggers.register_sources(
-                        [
-                            LoggerSource("app", service="svc", environment="prod", resolved_level=LogLevel.INFO),
-                        ]
-                    )
+                    await mgmt.loggers.flush()
 
         asyncio.run(_run())

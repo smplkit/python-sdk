@@ -129,24 +129,23 @@ async def main() -> None:
         # ==================================================================
         # 4. CONTEXTS
         # ==================================================================
-        # Write: register(items, flush=False).  flush=True awaits the
-        # round-trip; flush=False (default) batches for background flush.
+        # Write: register(items) buffers the contexts; flush() sends them.
         #
         # Read: list(type), get(id), delete(id).  ``id`` is the
         # colon-delimited "{type}:{key}" form, or pass (type, key) as
         # separate args.
         # ==================================================================
 
-        section("4a. Register contexts (immediate flush)")
+        section("4a. Register contexts (buffered, then flush)")
 
-        await mgmt.contexts.register(
+        mgmt.contexts.register(
             [
                 Context("user", "usr_a1b2c3", {"plan": "free", "region": "us"}),
                 Context("user", "usr_d4e5f6", {"plan": "enterprise", "region": "eu"}),
                 Context("account", "acct_acme_inc", {"tier": "enterprise", "industry": "retail"}),
-            ],
-            flush=True,
+            ]
         )
+        await mgmt.contexts.flush()
         step("3 contexts registered + flushed")
 
         section("4b. List contexts of a single type")

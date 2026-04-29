@@ -38,13 +38,20 @@ def _str_to_log_level(s: str | None) -> LogLevel | None:
 
 
 def _loglevel_value(level: Any, *, where: str) -> str | None:
-    """Return the wire-format string for a ``LogLevel | None`` argument."""
+    """Return the wire-format string for a ``LogLevel | str | None`` argument."""
     if level is None:
         return None
     from smplkit import LogLevel as _LogLevel  # lazy to avoid circular import
 
     if isinstance(level, _LogLevel):
         return level.value
+    if isinstance(level, str):
+        try:
+            return _LogLevel(level).value
+        except ValueError as exc:
+            raise TypeError(
+                f"{where}: level string must match a LogLevel (got {level!r})",
+            ) from exc
     raise TypeError(f"{where}: level must be a LogLevel (got {type(level).__name__}: {level!r})")
 
 

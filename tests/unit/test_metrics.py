@@ -750,10 +750,12 @@ class TestFlagsInstrumentation:
             )
         else:
             parent._metrics = None
+        manage = MagicMock()
+        parent.manage = manage
         with patch("smplkit.flags.client.AuthenticatedClient"):
             from smplkit.flags.client import FlagsClient
 
-            client = FlagsClient(parent)
+            client = FlagsClient(parent, manage=manage, metrics=parent._metrics)
         return client, parent
 
     def test_evaluation_records_metrics(self):
@@ -847,10 +849,12 @@ class TestConfigInstrumentation:
             )
         else:
             parent._metrics = None
+        manage = MagicMock()
+        parent.manage = manage
 
         from smplkit.config.client import ConfigClient
 
-        client = ConfigClient(parent)
+        client = ConfigClient(parent, manage=manage, metrics=parent._metrics)
         return client, parent
 
     def test_resolve_records_metric(self):

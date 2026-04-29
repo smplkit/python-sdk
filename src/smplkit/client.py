@@ -134,13 +134,21 @@ class SmplClient:
             self._metrics = None
 
         self._ws_manager: SharedWebSocket | None = None
-        self.config = ConfigClient(self)
+        self.config = ConfigClient(self, manage=self.manage, metrics=self._metrics)
         self.flags = FlagsClient(
             self,
+            manage=self.manage,
+            metrics=self._metrics,
             flags_base_url=flags_url,
             app_base_url=app_url,
         )
-        self.logging = LoggingClient(self, logging_base_url=logging_url, app_base_url=app_url)
+        self.logging = LoggingClient(
+            self,
+            manage=self.manage,
+            metrics=self._metrics,
+            logging_base_url=logging_url,
+            app_base_url=app_url,
+        )
 
         # Register service context (fire-and-forget, non-blocking)
         self._init_thread = threading.Thread(target=self._register_service_context, daemon=True)
@@ -275,13 +283,21 @@ class AsyncSmplClient:
             self._metrics = None
 
         self._ws_manager: SharedWebSocket | None = None
-        self.config = AsyncConfigClient(self)
+        self.config = AsyncConfigClient(self, manage=self.manage, metrics=self._metrics)
         self.flags = AsyncFlagsClient(
             self,
+            manage=self.manage,
+            metrics=self._metrics,
             flags_base_url=flags_url,
             app_base_url=app_url,
         )
-        self.logging = AsyncLoggingClient(self, logging_base_url=logging_url, app_base_url=app_url)
+        self.logging = AsyncLoggingClient(
+            self,
+            manage=self.manage,
+            metrics=self._metrics,
+            logging_base_url=logging_url,
+            app_base_url=app_url,
+        )
 
         # Register service context (fire-and-forget, non-blocking)
         self._init_thread = threading.Thread(target=self._register_service_context_sync, daemon=True)

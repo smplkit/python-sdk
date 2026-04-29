@@ -48,9 +48,11 @@ from smplkit.flags.models import (
 )
 
 if TYPE_CHECKING:
+    from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
     from smplkit._ws import SharedWebSocket
     from smplkit.client import AsyncSmplClient, SmplClient
     from smplkit.flags.types import Context
+    from smplkit.management.client import AsyncSmplManagementClient, SmplManagementClient
 
 logger = logging.getLogger("smplkit")
 ws_logger = logging.getLogger("smplkit.flags.ws")
@@ -205,17 +207,22 @@ class FlagsClient:
         self,
         parent: SmplClient,
         *,
+        manage: SmplManagementClient,
+        metrics: _MetricsReporter | None,
         flags_base_url: str = _DEFAULT_FLAGS_BASE_URL,
         app_base_url: str = _DEFAULT_APP_BASE_URL,
     ) -> None:
         self._parent = parent
+        self._manage = manage
+        self._metrics = metrics
+        self._service = parent._service
+        self._environment = parent._environment
         self._flags_http = AuthenticatedClient(
             base_url=flags_base_url,
             token=parent._api_key,
         )
 
         # Runtime state
-        self._environment: str | None = None
         self._flag_store: dict[str, dict[str, Any]] = {}
         self._connected = False
         self._cache = _ResolutionCache()
@@ -240,9 +247,19 @@ class FlagsClient:
 
     def _observe_declaration(self, flag_id: str, flag_type: str, default: Any) -> None:
         """Queue a declared flag with mgmt and schedule a background flush at threshold."""
-        mgmt_flags = self._parent.manage.flags
-        mgmt_flags._observe(flag_id, flag_type, default, self._parent._service, self._parent._environment)
-        if mgmt_flags._pending_count >= _FLAG_BULK_FLUSH_THRESHOLD:
+        from smplkit.flags.types import FlagDeclaration
+
+        mgmt_flags = self._manage.flags
+        mgmt_flags.register(
+            FlagDeclaration(
+                id=flag_id,
+                type=flag_type,
+                default=default,
+                service=self._service,
+                environment=self._environment,
+            )
+        )
+        if mgmt_flags.pending_count >= _FLAG_BULK_FLUSH_THRESHOLD:
             threading.Thread(target=self._flush_flags_sync, daemon=True).start()
 
     def booleanFlag(self, id: str, *, default: bool) -> BooleanFlag:
@@ -360,7 +377,7 @@ class FlagsClient:
 
     def _flush_contexts_sync(self) -> None:
         try:
-            self._parent.manage.contexts.flush()
+            self._manage.contexts.flush()
         except Exception:
             logger.warning("Context registration flush failed", exc_info=True)
 
@@ -371,7 +388,7 @@ class FlagsClient:
     def _flush_flags_sync(self) -> None:
         """Flush the flag registration buffer (delegates to mgmt.flags)."""
         try:
-            self._parent.manage.flags._flush()
+            self._manage.flags.flush()
         except Exception as exc:
             logger.warning("Bulk flag registration failed: %s", exc)
             debug("registration", traceback.format_exc().strip())
@@ -403,23 +420,23 @@ class FlagsClient:
             if self._context_provider is not None:
                 contexts = self._context_provider()
                 eval_dict = _contexts_to_eval_dict(contexts)
-                mgmt_contexts = self._parent.manage.contexts
-                mgmt_contexts._observe(contexts)
-                if mgmt_contexts._pending_count >= _CONTEXT_BATCH_FLUSH_SIZE:
+                mgmt_contexts = self._manage.contexts
+                mgmt_contexts.register(contexts)
+                if mgmt_contexts.pending_count >= _CONTEXT_BATCH_FLUSH_SIZE:
                     threading.Thread(target=self._flush_contexts_sync, daemon=True).start()
             else:
                 eval_dict = {}
 
         # Auto-inject service context if set and not already provided
-        if self._parent._service and "service" not in eval_dict:
-            eval_dict["service"] = {"key": self._parent._service}
+        if self._service and "service" not in eval_dict:
+            eval_dict["service"] = {"key": self._service}
 
         ctx_hash = _hash_context(eval_dict)
         cache_key = f"{flag_id}:{ctx_hash}"
 
         hit, cached_value = self._cache.get(cache_key)
         if hit:
-            metrics = self._parent._metrics
+            metrics = self._metrics
             if metrics is not None:
                 metrics.record("flags.cache_hits", unit="hits")
                 metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag": flag_id})
@@ -435,7 +452,7 @@ class FlagsClient:
             value = default
 
         self._cache.put(cache_key, value)
-        metrics = self._parent._metrics
+        metrics = self._metrics
         if metrics is not None:
             metrics.record("flags.cache_misses", unit="misses")
             metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag": flag_id})
@@ -582,17 +599,22 @@ class AsyncFlagsClient:
         self,
         parent: AsyncSmplClient,
         *,
+        manage: AsyncSmplManagementClient,
+        metrics: _AsyncMetricsReporter | None,
         flags_base_url: str = _DEFAULT_FLAGS_BASE_URL,
         app_base_url: str = _DEFAULT_APP_BASE_URL,
     ) -> None:
         self._parent = parent
+        self._manage = manage
+        self._metrics = metrics
+        self._service = parent._service
+        self._environment = parent._environment
         self._flags_http = AuthenticatedClient(
             base_url=flags_base_url,
             token=parent._api_key,
         )
 
         # Runtime state
-        self._environment: str | None = None
         self._flag_store: dict[str, dict[str, Any]] = {}
         self._connected = False
         self._cache = _ResolutionCache()
@@ -617,9 +639,19 @@ class AsyncFlagsClient:
 
     def _observe_declaration(self, flag_id: str, flag_type: str, default: Any) -> None:
         """Queue a declared flag with mgmt and schedule a background flush at threshold."""
-        mgmt_flags = self._parent.manage.flags
-        mgmt_flags._observe(flag_id, flag_type, default, self._parent._service, self._parent._environment)
-        if mgmt_flags._pending_count >= _FLAG_BULK_FLUSH_THRESHOLD:
+        from smplkit.flags.types import FlagDeclaration
+
+        mgmt_flags = self._manage.flags
+        mgmt_flags.register(
+            FlagDeclaration(
+                id=flag_id,
+                type=flag_type,
+                default=default,
+                service=self._service,
+                environment=self._environment,
+            )
+        )
+        if mgmt_flags.pending_count >= _FLAG_BULK_FLUSH_THRESHOLD:
             threading.Thread(target=self._flush_flags_sync, daemon=True).start()
 
     def booleanFlag(self, id: str, *, default: bool) -> AsyncBooleanFlag:
@@ -718,7 +750,7 @@ class AsyncFlagsClient:
 
     async def _flush_contexts_async(self) -> None:
         try:
-            await self._parent.manage.contexts.flush()
+            await self._manage.contexts.flush()
         except Exception:
             logger.warning("Context registration flush failed", exc_info=True)
 
@@ -729,7 +761,7 @@ class AsyncFlagsClient:
     async def _flush_flags_async(self) -> None:
         """Flush the flag registration buffer (delegates to mgmt.flags)."""
         try:
-            await self._parent.manage.flags._flush()
+            await self._manage.flags.flush()
         except Exception as exc:
             logger.warning("Bulk flag registration failed: %s", exc)
             debug("registration", traceback.format_exc().strip())
@@ -737,7 +769,7 @@ class AsyncFlagsClient:
     def _flush_flags_sync(self) -> None:
         """Sync flush for periodic timer (delegates to mgmt.flags)."""
         try:
-            self._parent.manage.flags._flush_sync()
+            self._manage.flags.flush_sync()
         except Exception as exc:
             logger.warning("Bulk flag registration failed: %s", exc)
             debug("registration", traceback.format_exc().strip())
@@ -784,22 +816,22 @@ class AsyncFlagsClient:
             if self._context_provider is not None:
                 contexts = self._context_provider()
                 eval_dict = _contexts_to_eval_dict(contexts)
-                mgmt_contexts = self._parent.manage.contexts
-                mgmt_contexts._observe(contexts)
-                if mgmt_contexts._pending_count >= _CONTEXT_BATCH_FLUSH_SIZE:
+                mgmt_contexts = self._manage.contexts
+                mgmt_contexts.register(contexts)
+                if mgmt_contexts.pending_count >= _CONTEXT_BATCH_FLUSH_SIZE:
                     threading.Thread(target=self._flush_contexts_bg, daemon=True).start()
             else:
                 eval_dict = {}
 
-        if self._parent._service and "service" not in eval_dict:
-            eval_dict["service"] = {"key": self._parent._service}
+        if self._service and "service" not in eval_dict:
+            eval_dict["service"] = {"key": self._service}
 
         ctx_hash = _hash_context(eval_dict)
         cache_key = f"{flag_id}:{ctx_hash}"
 
         hit, cached_value = self._cache.get(cache_key)
         if hit:
-            metrics = self._parent._metrics
+            metrics = self._metrics
             if metrics is not None:
                 metrics.record("flags.cache_hits", unit="hits")
                 metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag": flag_id})
@@ -815,7 +847,7 @@ class AsyncFlagsClient:
             value = default
 
         self._cache.put(cache_key, value)
-        metrics = self._parent._metrics
+        metrics = self._metrics
         if metrics is not None:
             metrics.record("flags.cache_misses", unit="misses")
             metrics.record("flags.evaluations", unit="evaluations", dimensions={"flag": flag_id})
@@ -823,7 +855,7 @@ class AsyncFlagsClient:
 
     def _flush_contexts_bg(self) -> None:
         try:
-            self._parent.manage.contexts._flush_sync()
+            self._manage.contexts.flush_sync()
         except Exception:
             logger.warning("Context registration flush failed", exc_info=True)
 
