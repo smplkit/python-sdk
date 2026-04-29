@@ -79,6 +79,27 @@ def _str_to_log_level(s: str | None) -> LogLevel | None:
         return None
 
 
+def _loglevel_value(level: Any, *, where: str) -> str | None:
+    """Return the wire-format string for a ``LogLevel | None`` argument.
+
+    ``where`` is included in the error message so the offending call site
+    is obvious — turning ``'str' object has no attribute 'value'`` into a
+    pointer at the actual contract violation. Type hints are the contract;
+    this helper just makes the failure mode legible when callers ignore
+    them.
+    """
+    if level is None:
+        return None
+    from smplkit import LogLevel as _LogLevel  # lazy to avoid circular import
+
+    if isinstance(level, _LogLevel):
+        return level.value
+    raise TypeError(
+        f"{where}: level must be a LogLevel (got "
+        f"{type(level).__name__}: {level!r})"
+    )
+
+
 def _unset_to_none(value: Any) -> Any:
     """Convert Unset sentinels to None."""
     type_name = type(value).__name__
@@ -716,8 +737,10 @@ class LoggingManagementClient:
         items = [
             LoggerBulkItem(
                 id=normalize_logger_name(src.name),
-                level=src.level.value if src.level is not None else None,
-                resolved_level=src.resolved_level.value,
+                level=_loglevel_value(src.level, where="register_sources[level]"),
+                resolved_level=_loglevel_value(
+                    src.resolved_level, where="register_sources[resolved_level]"
+                ),
                 service=src.service,
                 environment=src.environment,
             )
@@ -813,7 +836,7 @@ class LoggingClient:
         body = _build_logger_body(
             logger_id=lg.id,
             name=lg.name,
-            level=lg.level.value if lg.level is not None else None,
+            level=_loglevel_value(lg.level, where="SmplLogger.save"),
             managed=lg.managed,
             group=lg.group,
             environments=lg.environments if lg.environments else None,
@@ -836,7 +859,7 @@ class LoggingClient:
         body = _build_group_body(
             group_id=grp.id,
             name=grp.name,
-            level=grp.level.value if grp.level is not None else None,
+            level=_loglevel_value(grp.level, where="SmplLogGroup.save"),
             group=grp.group,
             environments=grp.environments if grp.environments else None,
         )
@@ -1356,8 +1379,10 @@ class AsyncLoggingManagementClient:
         items = [
             LoggerBulkItem(
                 id=normalize_logger_name(src.name),
-                level=src.level.value if src.level is not None else None,
-                resolved_level=src.resolved_level.value,
+                level=_loglevel_value(src.level, where="register_sources[level]"),
+                resolved_level=_loglevel_value(
+                    src.resolved_level, where="register_sources[resolved_level]"
+                ),
                 service=src.service,
                 environment=src.environment,
             )
@@ -1453,7 +1478,7 @@ class AsyncLoggingClient:
         body = _build_logger_body(
             logger_id=lg.id,
             name=lg.name,
-            level=lg.level.value if lg.level is not None else None,
+            level=_loglevel_value(lg.level, where="AsyncSmplLogger.save"),
             managed=lg.managed,
             group=lg.group,
             environments=lg.environments if lg.environments else None,
@@ -1476,7 +1501,7 @@ class AsyncLoggingClient:
         body = _build_group_body(
             group_id=grp.id,
             name=grp.name,
-            level=grp.level.value if grp.level is not None else None,
+            level=_loglevel_value(grp.level, where="AsyncSmplLogGroup.save"),
             group=grp.group,
             environments=grp.environments if grp.environments else None,
         )

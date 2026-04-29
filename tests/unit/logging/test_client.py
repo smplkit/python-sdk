@@ -1519,6 +1519,41 @@ class TestStrToLogLevel:
         assert _str_to_log_level(None) is None
 
 
+class TestLogLevelValue:
+    """``_loglevel_value`` is the boundary helper used by every save_*
+    method: enum in → wire string out, ``None`` passes through, anything
+    else raises a TypeError that names the call site."""
+
+    def test_enum_passes_through(self):
+        from smplkit.logging.client import _loglevel_value
+
+        assert _loglevel_value(LogLevel.WARN, where="t") == "WARN"
+
+    def test_none_returns_none(self):
+        from smplkit.logging.client import _loglevel_value
+
+        assert _loglevel_value(None, where="t") is None
+
+    def test_raw_string_raises_pointing_at_caller(self):
+        """A bare ``"WARN"`` violates the type contract; the helper should
+        say so clearly, including the ``where`` so the offending site is
+        obvious in the traceback."""
+        import pytest
+
+        from smplkit.logging.client import _loglevel_value
+
+        with pytest.raises(TypeError, match="SmplLogGroup.save"):
+            _loglevel_value("WARN", where="SmplLogGroup.save")
+
+    def test_other_garbage_raises(self):
+        import pytest
+
+        from smplkit.logging.client import _loglevel_value
+
+        with pytest.raises(TypeError, match=r"got int"):
+            _loglevel_value(42, where="anywhere")
+
+
 # ---------------------------------------------------------------------------
 # register_sources (sync)
 # ---------------------------------------------------------------------------
