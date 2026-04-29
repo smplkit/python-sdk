@@ -34,7 +34,7 @@ Usage::
 
 import asyncio
 
-from smplkit import AsyncSmplClient, AsyncSmplManagementClient, Context, Rule
+from smplkit import AsyncSmplClient, Context, Rule
 
 # Demo scaffolding — creates flags so this showcase can run standalone.
 # In a real app, flags are created via the Console UI.
@@ -92,16 +92,12 @@ def set_simulated_context(*, user: dict | None = None, account: dict | None = No
 
 async def main() -> None:
 
-    async with (
-        AsyncSmplClient(environment="staging", service="showcase-service") as client,
-        AsyncSmplManagementClient() as mgmt,
-    ):
+    async with AsyncSmplClient(environment="staging", service="showcase-service") as client:
         step("AsyncSmplClient initialized (environment=staging, service=showcase-service)")
-        step("AsyncSmplManagementClient initialized (used only for setup/teardown)")
 
         # Create demo flags (normally done via Console UI).
         print("  Setting up demo flags...")
-        demo_keys = await setup_demo_flags(mgmt)
+        demo_keys = await setup_demo_flags(client)
         print("  Demo flags ready.\n")
 
         # ==================================================================
@@ -193,7 +189,7 @@ async def main() -> None:
 
         section("3. Explicit Context Registration")
 
-        await mgmt.contexts.register(
+        await client.management.contexts.register(
             [
                 Context(
                     "user",
@@ -348,7 +344,7 @@ async def main() -> None:
 
         section("6. Context Registration")
 
-        await mgmt.contexts.flush()
+        await client.management.contexts.flush()
         step("Flushed pending context registrations")
         step("Context types, attributes, and values are now available")
         step("in the Console rule builder for autocomplete and suggestions.")
@@ -397,7 +393,7 @@ async def main() -> None:
         # ------------------------------------------------------------------
         step("Adding a rule to banner-color staging via management API...")
 
-        current_banner = await mgmt.flags.get("banner-color")
+        current_banner = await client.flags.management.get("banner-color")
         current_banner.addRule(
             Rule("Red for small companies")
             .environment("staging")
@@ -437,7 +433,7 @@ async def main() -> None:
         #             render_new_checkout()
         #
         #         # Middleware — register context on every request
-        #         mgmt.contexts.register([
+        #         client.management.contexts.register([
         #             Context("user", request.user.id, plan=request.user.plan),
         #         ])
 
@@ -448,7 +444,7 @@ async def main() -> None:
         # ==================================================================
         section("9. Cleanup")
 
-        await teardown_demo_flags(mgmt, demo_keys)
+        await teardown_demo_flags(client, demo_keys)
         step("Demo flags deleted")
 
         # ==================================================================

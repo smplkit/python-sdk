@@ -14,7 +14,6 @@ from smplkit._errors import (
 )
 from smplkit.flags.types import Context, Rule
 from smplkit.logging._sources import LoggerSource
-from smplkit.management.client import AsyncSmplManagementClient, SmplManagementClient
 from smplkit.management.types import EnvironmentClassification
 
 
@@ -33,7 +32,6 @@ class LogLevel(str, enum.Enum):
 __all__ = [
     "ApiErrorDetail",
     "AsyncSmplClient",
-    "AsyncSmplManagementClient",
     "Context",
     "EnvironmentClassification",
     "LoggerSource",
@@ -43,7 +41,6 @@ __all__ = [
     "SmplError",
     "SmplConnectionError",
     "SmplConflictError",
-    "SmplManagementClient",
     "SmplNotFoundError",
     "SmplTimeoutError",
     "SmplValidationError",

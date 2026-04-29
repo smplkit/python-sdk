@@ -32,7 +32,7 @@ Usage::
 import asyncio
 import logging as stdlib_logging
 
-from smplkit import AsyncSmplClient, AsyncSmplManagementClient, LogLevel
+from smplkit import AsyncSmplClient, LogLevel
 
 # Demo scaffolding — creates server-side loggers and groups so this
 # showcase can run standalone. In a real app, loggers are auto-discovered
@@ -87,16 +87,12 @@ async def main() -> None:
 
     ENVIRONMENT = "production"
 
-    async with (
-        AsyncSmplClient(environment=ENVIRONMENT, service="showcase-service") as client,
-        AsyncSmplManagementClient() as mgmt,
-    ):
+    async with AsyncSmplClient(environment=ENVIRONMENT, service="showcase-service") as client:
         step(f"AsyncSmplClient initialized (environment={ENVIRONMENT}, service=showcase-service)")
-        step("AsyncSmplManagementClient initialized (used only for setup/teardown)")
 
         # Create server-side state (normally done via Console UI).
         print("  Setting up demo loggers and groups...")
-        demo = await setup_demo_loggers(mgmt, environment=ENVIRONMENT)
+        demo = await setup_demo_loggers(client)
         print("  Demo loggers ready.\n")
 
         # ==================================================================
@@ -207,7 +203,7 @@ async def main() -> None:
         # ------------------------------------------------------------------
         section("5a. Dynamic Control — Change Group Level")
 
-        db_group = await mgmt.log_groups.get(demo["group_ids"][0])
+        db_group = await client.logging.management.get_group(demo["group_ids"][0])
         step(f"sqlalchemy.engine before: {python_level_name('sqlalchemy.engine')}")
 
         db_group.setEnvironmentLevel(ENVIRONMENT, LogLevel.DEBUG)
@@ -224,7 +220,7 @@ async def main() -> None:
         # ------------------------------------------------------------------
         section("5b. Dynamic Control — Change Ancestor Level")
 
-        app_lg = await mgmt.loggers.get("app")
+        app_lg = await client.logging.management.get("app")
         step(f"app.payments before: {python_level_name('app.payments')}")
 
         app_lg.setEnvironmentLevel(ENVIRONMENT, LogLevel.TRACE)
@@ -312,7 +308,7 @@ async def main() -> None:
         # ==================================================================
         section("9. Cleanup")
 
-        await teardown_demo_loggers(mgmt, demo)
+        await teardown_demo_loggers(client, demo)
         step("Demo loggers and groups deleted")
 
         # ==================================================================

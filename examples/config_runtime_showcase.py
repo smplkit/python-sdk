@@ -34,7 +34,7 @@ import asyncio
 
 from pydantic import BaseModel
 
-from smplkit import AsyncSmplClient, AsyncSmplManagementClient
+from smplkit import AsyncSmplClient
 
 # Demo scaffolding — creates server-side configs so this showcase can
 # run standalone. In a real app, configs are created and maintained via
@@ -84,16 +84,12 @@ class UserServiceConfig(BaseModel):
 
 async def main() -> None:
 
-    async with (
-        AsyncSmplClient(environment="production", service="showcase-service") as client,
-        AsyncSmplManagementClient() as mgmt,
-    ):
+    async with AsyncSmplClient(environment="production", service="showcase-service") as client:
         step("AsyncSmplClient initialized (environment=production, service=showcase-service)")
-        step("AsyncSmplManagementClient initialized (used only for setup/teardown)")
 
         # Create server-side state (normally done via Console UI).
         print("  Setting up demo configs...")
-        demo = await setup_demo_configs(mgmt)
+        demo = await setup_demo_configs(client)
         print("  Demo configs ready.\n")
 
         # The server now has:
@@ -239,7 +235,7 @@ async def main() -> None:
         # ------------------------------------------------------------------
         section("6b. Trigger a Change")
 
-        common = await mgmt.configs.get("common")
+        common = await client.config.management.get("common")
         common.environments["production"]["values"]["max_retries"] = {"value": 7}
         await common.save()
         step("Updated max_retries to 7 on common (production) via management API")
@@ -285,7 +281,7 @@ async def main() -> None:
         # ==================================================================
         section("8. Cleanup")
 
-        await teardown_demo_configs(mgmt, demo)
+        await teardown_demo_configs(client, demo)
         step("Demo configs deleted")
 
         # ==================================================================

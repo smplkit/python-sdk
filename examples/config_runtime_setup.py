@@ -9,10 +9,10 @@ UI (or the management API shown in ``config_management_showcase.py``).
 This file exists only as test scaffolding.
 """
 
-from smplkit import AsyncSmplManagementClient
+from smplkit import AsyncSmplClient
 
 
-async def setup_demo_configs(mgmt: AsyncSmplManagementClient) -> dict:
+async def setup_demo_configs(client: AsyncSmplClient) -> dict:
     """Create demo configs. Returns a dict of ids for cleanup.
 
     Creates:
@@ -23,13 +23,13 @@ async def setup_demo_configs(mgmt: AsyncSmplManagementClient) -> dict:
     # Clean up leftover configs from previous runs (order matters: children first).
     for leftover_key in ("auth_module", "user_service"):
         try:
-            await mgmt.configs.delete(leftover_key)
+            await client.config.management.delete(leftover_key)
         except Exception:
             pass
 
     # Update the built-in common config with org-wide defaults.
     # Reset items first to avoid type-change errors from previous runs.
-    common = await mgmt.configs.get("common")
+    common = await client.config.management.get("common")
     common.description = ""
     common.items = {}
     common.environments = {}
@@ -59,7 +59,7 @@ async def setup_demo_configs(mgmt: AsyncSmplManagementClient) -> dict:
     await common.save()
 
     # Create a service-specific config (inherits from common).
-    user_service = mgmt.configs.new(
+    user_service = client.config.management.new(
         "user_service",
         name="User Service",
         description="Configuration for the user microservice.",
@@ -87,7 +87,7 @@ async def setup_demo_configs(mgmt: AsyncSmplManagementClient) -> dict:
     await user_service.save()
 
     # Create auth_module config (also inherits from common).
-    auth_module = mgmt.configs.new(
+    auth_module = client.config.management.new(
         "auth_module",
         name="Auth Module",
         description="Authentication module within the user service.",
@@ -112,17 +112,17 @@ async def setup_demo_configs(mgmt: AsyncSmplManagementClient) -> dict:
     }
 
 
-async def teardown_demo_configs(mgmt: AsyncSmplManagementClient, demo: dict) -> None:
+async def teardown_demo_configs(client: AsyncSmplClient, demo: dict) -> None:
     """Delete demo configs and reset common."""
     for id in demo.get("config_ids", []):
         try:
-            await mgmt.configs.delete(id)
+            await client.config.management.delete(id)
         except Exception:
             pass
 
     # Reset common config to empty.
     try:
-        common = await mgmt.configs.get(demo["common_id"])
+        common = await client.config.management.get(demo["common_id"])
         common.description = ""
         common.items = {}
         common.environments = {}

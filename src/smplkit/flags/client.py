@@ -1,9 +1,4 @@
-"""FlagsClient and AsyncFlagsClient — runtime evaluation for Smpl Flags.
-
-Runtime: declare typed handles, evaluate via JSON Logic, cache
-results, and react to live updates over a shared WebSocket. CRUD has
-moved to :class:`smplkit.SmplManagementClient` (``mgmt.flags.*``).
-"""
+"""FlagsClient and AsyncFlagsClient — management + runtime for Smpl Flags."""
 
 from __future__ import annotations
 
@@ -24,6 +19,7 @@ from smplkit._errors import (
     SmplValidationError,
     _raise_for_status,
 )
+from smplkit._helpers import key_to_display_name
 from smplkit._generated.app.api.contexts import (
     bulk_register_contexts as gen_bulk_register_contexts,
 )
@@ -31,7 +27,7 @@ from smplkit.management._buffer import _ContextRegistrationBuffer
 from smplkit._generated.app.models.context_bulk_item import ContextBulkItem
 from smplkit._generated.app.models.context_bulk_item_attributes import ContextBulkItemAttributes
 from smplkit._generated.app.models.context_bulk_register import ContextBulkRegister
-from smplkit._generated.flags.api.flags import (  # noqa: F401  (re-exported)
+from smplkit._generated.flags.api.flags import (
     bulk_register_flags,
     create_flag,
     delete_flag,
@@ -42,7 +38,14 @@ from smplkit._generated.flags.api.flags import (  # noqa: F401  (re-exported)
 from smplkit._generated.flags.models.flag_bulk_item import FlagBulkItem
 from smplkit._generated.flags.models.flag_bulk_request import FlagBulkRequest
 from smplkit._generated.flags.client import AuthenticatedClient
-from smplkit.flags.helpers import _flag_dict_from_json
+from smplkit._generated.flags.models.flag import Flag as GenFlag
+from smplkit._generated.flags.models.flag_environment import FlagEnvironment as GenFlagEnvironment
+from smplkit._generated.flags.models.flag_environments import FlagEnvironments as GenFlagEnvironments
+from smplkit._generated.flags.models.flag_rule import FlagRule as GenFlagRule
+from smplkit._generated.flags.models.flag_rule_logic import FlagRuleLogic as GenFlagRuleLogic
+from smplkit._generated.flags.models.flag_value import FlagValue as GenFlagValue
+from smplkit._generated.flags.models.flag_resource import FlagResource as ResourceFlag
+from smplkit._generated.flags.models.flag_response import FlagResponse as ResponseFlag
 from smplkit.flags.models import (
     AsyncBooleanFlag,
     AsyncFlag,
@@ -91,7 +94,14 @@ def _exc_url(exc: Exception) -> str | None:
 
 
 def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) -> None:
-    """Re-raise httpx exceptions as SDK exceptions if applicable."""
+    """Re-raise httpx exceptions as SDK exceptions if applicable.
+
+    Args:
+        exc: The exception to inspect.
+        base_url: Fallback URL to include in the error message when the exception
+            does not carry request context (e.g. DNS failures before a request
+            object is attached by httpx).
+    """
     import httpx
 
     if isinstance(exc, httpx.TimeoutException):
@@ -104,6 +114,154 @@ def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) ->
         raise SmplConnectionError(msg) from exc
     if isinstance(exc, (SmplNotFoundError, SmplValidationError)):
         raise exc
+
+
+def _extract_environments(environments: Any) -> dict[str, Any]:
+    """Extract environments from a generated FlagEnvironments object to plain dicts."""
+    from smplkit._generated.flags.types import UNSET
+
+    if environments is None or isinstance(environments, type(UNSET)):
+        return {}
+    type_name = type(environments).__name__
+    if type_name == "Unset":
+        return {}
+    if isinstance(environments, GenFlagEnvironments):
+        result: dict[str, Any] = {}
+        for env_name, env_obj in environments.additional_properties.items():
+            entry: dict[str, Any] = {}
+            if not isinstance(env_obj.enabled, type(UNSET)):
+                entry["enabled"] = env_obj.enabled
+            default_val = env_obj.default
+            if not isinstance(default_val, type(UNSET)):
+                entry["default"] = default_val
+            rules_val = env_obj.rules
+            if not isinstance(rules_val, type(UNSET)):
+                entry["rules"] = [_extract_rule(r) for r in rules_val]
+            else:
+                entry["rules"] = []
+            result[env_name] = entry
+        return result
+    if isinstance(environments, dict):
+        return dict(environments)
+    return {}
+
+
+def _extract_rule(rule: Any) -> dict[str, Any]:
+    """Extract a FlagRule to a plain dict."""
+    from smplkit._generated.flags.types import UNSET
+
+    result: dict[str, Any] = {
+        "logic": dict(rule.logic.additional_properties) if hasattr(rule.logic, "additional_properties") else {},
+        "value": rule.value,
+    }
+    if not isinstance(rule.description, type(UNSET)) and rule.description is not None:
+        result["description"] = rule.description
+    return result
+
+
+def _extract_values(values: Any) -> list[dict[str, Any]] | None:
+    """Extract a list of FlagValue to plain dicts, or None for unconstrained."""
+    if values is None:
+        return None
+    if not values:
+        return []
+    result = []
+    for v in values:
+        entry: dict[str, Any] = {"name": v.name, "value": v.value}
+        result.append(entry)
+    return result
+
+
+def _unset_to_none(value: Any) -> Any:
+    """Convert Unset sentinels to None."""
+    type_name = type(value).__name__
+    if type_name == "Unset":
+        return None
+    return value
+
+
+def _build_gen_flag(
+    *,
+    name: str,
+    type_: str,
+    default: Any,
+    values: list[dict[str, Any]] | None,
+    description: str | None = None,
+    environments: dict[str, Any] | None = None,
+) -> GenFlag:
+    """Build a generated Flag model from plain values."""
+    gen_values: list[GenFlagValue] | None = None
+    if values is not None:
+        gen_values = [GenFlagValue(name=v["name"], value=v["value"]) for v in values]
+
+    gen_envs: GenFlagEnvironments | Any
+    if environments:
+        gen_envs = GenFlagEnvironments()
+        env_props: dict[str, GenFlagEnvironment] = {}
+        for env_name, env_data in environments.items():
+            rules = []
+            for r in env_data.get("rules", []):
+                logic_obj = GenFlagRuleLogic()
+                logic_obj.additional_properties = dict(r.get("logic", {}))
+                rule_obj = GenFlagRule(
+                    logic=logic_obj,
+                    value=r.get("value"),
+                    description=r.get("description"),
+                )
+                rules.append(rule_obj)
+            env_obj = GenFlagEnvironment(
+                enabled=env_data.get("enabled", False),
+                default=env_data.get("default"),
+                rules=rules,
+            )
+            env_props[env_name] = env_obj
+        gen_envs.additional_properties = env_props
+    else:
+        from smplkit._generated.flags.types import UNSET
+
+        gen_envs = UNSET
+
+    return GenFlag(
+        name=name,
+        type_=type_,
+        default=default,
+        values=gen_values,
+        description=description,
+        environments=gen_envs,
+    )
+
+
+def _build_request_body(gen_flag: GenFlag, *, flag_id: str | None = None) -> ResponseFlag:
+    """Wrap a generated Flag in the JSON:API request envelope."""
+    resource = ResourceFlag(attributes=gen_flag, id=flag_id, type_="flag")
+    return ResponseFlag(data=resource)
+
+
+def _flag_dict_from_json(data: dict[str, Any]) -> dict[str, Any]:
+    """Extract flat flag attributes from a JSON:API response ``data`` block."""
+    attrs = data["attributes"]
+    values_raw = attrs.get("values")
+    values: list[dict[str, Any]] | None = None
+    if values_raw is not None:
+        values = [{"name": v["name"], "value": v["value"]} for v in values_raw]
+    envs: dict[str, Any] = {}
+    for env_key, env_data in (attrs.get("environments") or {}).items():
+        envs[env_key] = {
+            "enabled": env_data.get("enabled", False),
+            "default": env_data.get("default"),
+            "rules": env_data.get("rules", []),
+        }
+    return {
+        "id": data.get("id", ""),
+        "name": attrs["name"],
+        "type": attrs["type"],
+        "default": attrs["default"],
+        "values": values,
+        "description": attrs.get("description"),
+        "environments": envs,
+        "created_at": attrs.get("created_at"),
+        "updated_at": attrs.get("updated_at"),
+    }
 
 
 def _contexts_to_eval_dict(contexts: list[Context]) -> dict[str, Any]:
@@ -250,14 +408,128 @@ class _FlagRegistrationBuffer:
 # ---------------------------------------------------------------------------
 
 
-class FlagsClient:
-    """Synchronous flags runtime namespace.
+class FlagsManagementClient:
+    """Management (CRUD) operations for Smpl Flags.
 
-    Obtained via ``SmplClient(...).flags``. Exposes typed handles
-    (``booleanFlag``/``stringFlag``/``numberFlag``/``jsonFlag``) and
-    runtime control (``refresh``, ``stats``, ``on_change``,
-    ``context_provider``). CRUD has moved to ``mgmt.flags.*``.
+    Obtained via ``SmplClient(...).flags.management``.
     """
+
+    def __init__(self, parent: FlagsClient) -> None:
+        self._parent = parent
+
+    def newBooleanFlag(
+        self,
+        id: str,
+        *,
+        default: bool,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> BooleanFlag:
+        """Create an unsaved boolean flag.  Call ``.save()`` to persist."""
+        return BooleanFlag(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="BOOLEAN",
+            default=default,
+            values=[{"name": "True", "value": True}, {"name": "False", "value": False}],
+            description=description,
+        )
+
+    def newStringFlag(
+        self,
+        id: str,
+        *,
+        default: str,
+        name: str | None = None,
+        description: str | None = None,
+        values: list[dict[str, Any]] | None = None,
+    ) -> StringFlag:
+        """Create an unsaved string flag.  Call ``.save()`` to persist."""
+        return StringFlag(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="STRING",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    def newNumberFlag(
+        self,
+        id: str,
+        *,
+        default: int | float,
+        name: str | None = None,
+        description: str | None = None,
+        values: list[dict[str, Any]] | None = None,
+    ) -> NumberFlag:
+        """Create an unsaved numeric flag.  Call ``.save()`` to persist."""
+        return NumberFlag(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="NUMERIC",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    def newJsonFlag(
+        self,
+        id: str,
+        *,
+        default: dict[str, Any],
+        name: str | None = None,
+        description: str | None = None,
+        values: list[dict[str, Any]] | None = None,
+    ) -> JsonFlag:
+        """Create an unsaved JSON flag.  Call ``.save()`` to persist."""
+        return JsonFlag(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="JSON",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    def get(self, id: str) -> Flag:
+        """Fetch a flag by id."""
+        try:
+            response = get_flag.sync_detailed(id, client=self._parent._flags_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._flags_http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        body = json.loads(response.content)
+        return self._parent._model_from_json(body["data"])
+
+    def list(self) -> list[Flag]:
+        """List all flags."""
+        try:
+            response = list_flags.sync_detailed(client=self._parent._flags_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._flags_http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        body = json.loads(response.content)
+        return [self._parent._model_from_json(r) for r in body.get("data", [])]
+
+    def delete(self, id: str) -> None:
+        """Delete a flag by id."""
+        try:
+            response = delete_flag.sync_detailed(id, client=self._parent._flags_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._flags_http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+
+class FlagsClient:
+    """Synchronous flags namespace.  Obtained via ``SmplClient(...).flags``."""
 
     def __init__(
         self,
@@ -293,11 +565,53 @@ class FlagsClient:
         # Shared WebSocket (set during connect)
         self._ws_manager: SharedWebSocket | None = None
 
+        self.management = FlagsManagementClient(self)
+
     def _close(self) -> None:
         """Release resources held by this client."""
         if self._flag_flush_timer is not None:
             self._flag_flush_timer.cancel()
             self._flag_flush_timer = None
+
+    def _create_flag(self, flag: Flag) -> Flag:
+        """Internal: POST a new flag.  Called by Flag.save() when created_at is None."""
+        gen_flag = _build_gen_flag(
+            name=flag.name,
+            type_=flag.type,
+            default=flag.default,
+            values=flag.values,
+            description=flag.description,
+            environments=flag.environments or None,
+        )
+        body = _build_request_body(gen_flag, flag_id=flag.id)
+        try:
+            response = create_flag.sync_detailed(client=self._flags_http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._flags_http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        resp_body = json.loads(response.content)
+        return self._model_from_json(resp_body["data"])
+
+    def _update_flag(self, *, flag: Flag) -> Flag:
+        """Internal: PUT a full flag update.  Called by Flag.save() when created_at is set."""
+        gen_flag = _build_gen_flag(
+            name=flag.name,
+            type_=flag.type,
+            default=flag.default,
+            values=flag.values,
+            description=flag.description,
+            environments=flag.environments or None,
+        )
+        body = _build_request_body(gen_flag, flag_id=flag.id)
+        try:
+            response = update_flag.sync_detailed(flag.id, client=self._flags_http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._flags_http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        resp_body = json.loads(response.content)
+        return self._model_from_json(resp_body["data"])
 
     # ------------------------------------------------------------------
     # Runtime: typed flag handles
@@ -651,17 +965,161 @@ class FlagsClient:
         for flag_id in self._flag_store:
             self._fire_change_listeners(flag_id, source)
 
+    # ------------------------------------------------------------------
+    # Model conversion
+    # ------------------------------------------------------------------
+
+    def _to_model(self, parsed: Any) -> Flag:
+        return self._resource_to_model(parsed.data)
+
+    def _resource_to_model(self, resource: Any) -> Flag:
+        attrs = resource.attributes
+        return Flag(
+            self,
+            id=_unset_to_none(resource.id) or "",
+            name=attrs.name,
+            type=attrs.type_,
+            default=attrs.default,
+            values=_extract_values(attrs.values),
+            description=_unset_to_none(attrs.description),
+            environments=_extract_environments(attrs.environments),
+            created_at=_unset_to_none(getattr(attrs, "created_at", None)),
+            updated_at=_unset_to_none(getattr(attrs, "updated_at", None)),
+        )
+
+    def _model_from_json(self, data: dict[str, Any]) -> Flag:
+        """Build a Flag from a raw JSON:API resource dict (handles null values)."""
+        d = _flag_dict_from_json(data)
+        return Flag(self, **d)
+
 
 # ---------------------------------------------------------------------------
 # AsyncFlagsClient
 # ---------------------------------------------------------------------------
 
 
-class AsyncFlagsClient:
-    """Asynchronous flags runtime namespace.  Obtained via ``AsyncSmplClient(...).flags``.
+class AsyncFlagsManagementClient:
+    """Management (CRUD) operations for Smpl Flags (async).
 
-    CRUD has moved to ``AsyncSmplManagementClient.flags`` (``mgmt.flags.*``).
+    Obtained via ``AsyncSmplClient(...).flags.management``.
     """
+
+    def __init__(self, parent: AsyncFlagsClient) -> None:
+        self._parent = parent
+
+    def newBooleanFlag(
+        self,
+        id: str,
+        *,
+        default: bool,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> AsyncBooleanFlag:
+        """Create an unsaved boolean flag.  Call ``.save()`` to persist."""
+        return AsyncBooleanFlag(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="BOOLEAN",
+            default=default,
+            values=[{"name": "True", "value": True}, {"name": "False", "value": False}],
+            description=description,
+        )
+
+    def newStringFlag(
+        self,
+        id: str,
+        *,
+        default: str,
+        name: str | None = None,
+        description: str | None = None,
+        values: list[dict[str, Any]] | None = None,
+    ) -> AsyncStringFlag:
+        """Create an unsaved string flag.  Call ``.save()`` to persist."""
+        return AsyncStringFlag(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="STRING",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    def newNumberFlag(
+        self,
+        id: str,
+        *,
+        default: int | float,
+        name: str | None = None,
+        description: str | None = None,
+        values: list[dict[str, Any]] | None = None,
+    ) -> AsyncNumberFlag:
+        """Create an unsaved numeric flag.  Call ``.save()`` to persist."""
+        return AsyncNumberFlag(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="NUMERIC",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    def newJsonFlag(
+        self,
+        id: str,
+        *,
+        default: dict[str, Any],
+        name: str | None = None,
+        description: str | None = None,
+        values: list[dict[str, Any]] | None = None,
+    ) -> AsyncJsonFlag:
+        """Create an unsaved JSON flag.  Call ``.save()`` to persist."""
+        return AsyncJsonFlag(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="JSON",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    async def get(self, id: str) -> AsyncFlag:
+        """Fetch a flag by id."""
+        try:
+            response = await get_flag.asyncio_detailed(id, client=self._parent._flags_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._flags_http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        body = json.loads(response.content)
+        return self._parent._model_from_json(body["data"])
+
+    async def list(self) -> list[AsyncFlag]:
+        """List all flags."""
+        try:
+            response = await list_flags.asyncio_detailed(client=self._parent._flags_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._flags_http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        body = json.loads(response.content)
+        return [self._parent._model_from_json(r) for r in body.get("data", [])]
+
+    async def delete(self, id: str) -> None:
+        """Delete a flag by id."""
+        try:
+            response = await delete_flag.asyncio_detailed(id, client=self._parent._flags_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._flags_http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+
+class AsyncFlagsClient:
+    """Asynchronous flags namespace.  Obtained via ``AsyncSmplClient(...).flags``."""
 
     def __init__(
         self,
@@ -697,11 +1155,53 @@ class AsyncFlagsClient:
         # Shared WebSocket (set during connect)
         self._ws_manager: SharedWebSocket | None = None
 
+        self.management = AsyncFlagsManagementClient(self)
+
     def _close(self) -> None:
         """Release resources held by this client."""
         if self._flag_flush_timer is not None:
             self._flag_flush_timer.cancel()
             self._flag_flush_timer = None
+
+    async def _create_flag(self, flag: AsyncFlag) -> AsyncFlag:
+        """Internal: POST a new flag."""
+        gen_flag = _build_gen_flag(
+            name=flag.name,
+            type_=flag.type,
+            default=flag.default,
+            values=flag.values,
+            description=flag.description,
+            environments=flag.environments or None,
+        )
+        body = _build_request_body(gen_flag, flag_id=flag.id)
+        try:
+            response = await create_flag.asyncio_detailed(client=self._flags_http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._flags_http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        resp_body = json.loads(response.content)
+        return self._model_from_json(resp_body["data"])
+
+    async def _update_flag(self, *, flag: AsyncFlag) -> AsyncFlag:
+        """Internal: PUT a full flag update."""
+        gen_flag = _build_gen_flag(
+            name=flag.name,
+            type_=flag.type,
+            default=flag.default,
+            values=flag.values,
+            description=flag.description,
+            environments=flag.environments or None,
+        )
+        body = _build_request_body(gen_flag, flag_id=flag.id)
+        try:
+            response = await update_flag.asyncio_detailed(flag.id, client=self._flags_http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._flags_http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        resp_body = json.loads(response.content)
+        return self._model_from_json(resp_body["data"])
 
     # ------------------------------------------------------------------
     # Runtime: typed flag handles
@@ -1108,6 +1608,33 @@ class AsyncFlagsClient:
     def _fire_change_listeners_all(self, source: str) -> None:
         for flag_id in self._flag_store:
             self._fire_change_listeners(flag_id, source)
+
+    # ------------------------------------------------------------------
+    # Model conversion
+    # ------------------------------------------------------------------
+
+    def _to_model(self, parsed: Any) -> AsyncFlag:
+        return self._resource_to_model(parsed.data)
+
+    def _resource_to_model(self, resource: Any) -> AsyncFlag:
+        attrs = resource.attributes
+        return AsyncFlag(
+            self,
+            id=_unset_to_none(resource.id) or "",
+            name=attrs.name,
+            type=attrs.type_,
+            default=attrs.default,
+            values=_extract_values(attrs.values),
+            description=_unset_to_none(attrs.description),
+            environments=_extract_environments(attrs.environments),
+            created_at=_unset_to_none(getattr(attrs, "created_at", None)),
+            updated_at=_unset_to_none(getattr(attrs, "updated_at", None)),
+        )
+
+    def _model_from_json(self, data: dict[str, Any]) -> AsyncFlag:
+        """Build an AsyncFlag from a raw JSON:API resource dict (handles null values)."""
+        d = _flag_dict_from_json(data)
+        return AsyncFlag(self, **d)
 
 
 # ---------------------------------------------------------------------------

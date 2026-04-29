@@ -17,11 +17,11 @@ from smplkit.management.client import (
     AsyncContextsClient,
     AsyncContextTypesClient,
     AsyncEnvironmentsClient,
-    AsyncSmplManagementClient,
+    AsyncManagementClient,
     ContextsClient,
     ContextTypesClient,
     EnvironmentsClient,
-    SmplManagementClient,
+    ManagementClient,
     _build_bulk_register_body,
     _check_status,
     _ct_from_parsed,
@@ -120,35 +120,41 @@ def _parsed_ctx_resp(composite_id="user:u-1", name=None, attributes=None):
 
 
 def _make_env_client():
+    parent = MagicMock()
     app_http = MagicMock()
-    return EnvironmentsClient(app_http)
+    return EnvironmentsClient(parent, app_http)
 
 
 def _make_async_env_client():
+    parent = MagicMock()
     app_http = MagicMock()
-    return AsyncEnvironmentsClient(app_http)
+    return AsyncEnvironmentsClient(parent, app_http)
 
 
 def _make_ct_client():
+    parent = MagicMock()
     app_http = MagicMock()
-    return ContextTypesClient(app_http)
+    return ContextTypesClient(parent, app_http)
 
 
 def _make_async_ct_client():
+    parent = MagicMock()
     app_http = MagicMock()
-    return AsyncContextTypesClient(app_http)
+    return AsyncContextTypesClient(parent, app_http)
 
 
 def _make_contexts_client():
+    parent = MagicMock()
     app_http = MagicMock()
     buf = _ContextRegistrationBuffer()
-    return ContextsClient(app_http, buf)
+    return ContextsClient(parent, app_http, buf)
 
 
 def _make_async_contexts_client():
+    parent = MagicMock()
     app_http = MagicMock()
     buf = _ContextRegistrationBuffer()
-    return AsyncContextsClient(app_http, buf)
+    return AsyncContextsClient(parent, app_http, buf)
 
 
 # ---------------------------------------------------------------------------
@@ -1100,7 +1106,8 @@ class TestAsyncContextsClient:
 
 class TestAccountSettingsClient:
     def _make_client(self):
-        return AccountSettingsClient("http://app:8000", "sk_test")
+        parent = MagicMock()
+        return AccountSettingsClient(parent, "http://app:8000", "sk_test")
 
     def test_get(self):
         with patch("smplkit.management.client.httpx.Client") as MockClient:
@@ -1156,7 +1163,8 @@ class TestAccountSettingsClient:
 
 class TestAsyncAccountSettingsClient:
     def _make_client(self):
-        return AsyncAccountSettingsClient("http://app:8000", "sk_test")
+        parent = MagicMock()
+        return AsyncAccountSettingsClient(parent, "http://app:8000", "sk_test")
 
     def test_get(self):
         async def _run():
@@ -1242,44 +1250,27 @@ class TestAsyncAccountSettingsClient:
 # ---------------------------------------------------------------------------
 
 
-class TestSmplManagementClient:
-    def test_init_wires_sub_clients(self, monkeypatch):
-        from smplkit.management.client import (
-            ConfigsClient,
-            FlagsClient as MgmtFlagsClient,
-            LogGroupsClient,
-            LoggersClient,
-        )
-
-        monkeypatch.setenv("SMPLKIT_API_KEY", "sk_test")
-        mc = SmplManagementClient(base_domain="example.test")
-        assert isinstance(mc.environments, EnvironmentsClient)
-        assert isinstance(mc.contexts, ContextsClient)
-        assert isinstance(mc.context_types, ContextTypesClient)
-        assert isinstance(mc.account_settings, AccountSettingsClient)
-        assert isinstance(mc.configs, ConfigsClient)
-        assert isinstance(mc.flags, MgmtFlagsClient)
-        assert isinstance(mc.loggers, LoggersClient)
-        assert isinstance(mc.log_groups, LogGroupsClient)
-        mc.close()
+class TestManagementClient:
+    def test_init_wires_sub_clients(self):
+        with patch("smplkit.management.client._AppAuthClient"):
+            parent = MagicMock()
+            buf = _ContextRegistrationBuffer()
+            mc = ManagementClient(parent, app_base_url="http://app:8000", api_key="sk_test", buffer=buf)
+            assert isinstance(mc.environments, EnvironmentsClient)
+            assert isinstance(mc.contexts, ContextsClient)
+            assert isinstance(mc.context_types, ContextTypesClient)
+            assert isinstance(mc.account_settings, AccountSettingsClient)
+            assert mc.contexts._buffer is buf
 
 
-class TestAsyncSmplManagementClient:
-    def test_init_wires_sub_clients(self, monkeypatch):
-        from smplkit.management.client import (
-            AsyncConfigsClient,
-            AsyncFlagsClient as AsyncMgmtFlagsClient,
-            AsyncLogGroupsClient,
-            AsyncLoggersClient,
-        )
-
-        monkeypatch.setenv("SMPLKIT_API_KEY", "sk_test")
-        mc = AsyncSmplManagementClient(base_domain="example.test")
-        assert isinstance(mc.environments, AsyncEnvironmentsClient)
-        assert isinstance(mc.contexts, AsyncContextsClient)
-        assert isinstance(mc.context_types, AsyncContextTypesClient)
-        assert isinstance(mc.account_settings, AsyncAccountSettingsClient)
-        assert isinstance(mc.configs, AsyncConfigsClient)
-        assert isinstance(mc.flags, AsyncMgmtFlagsClient)
-        assert isinstance(mc.loggers, AsyncLoggersClient)
-        assert isinstance(mc.log_groups, AsyncLogGroupsClient)
+class TestAsyncManagementClient:
+    def test_init_wires_sub_clients(self):
+        with patch("smplkit.management.client._AppAuthClient"):
+            parent = MagicMock()
+            buf = _ContextRegistrationBuffer()
+            mc = AsyncManagementClient(parent, app_base_url="http://app:8000", api_key="sk_test", buffer=buf)
+            assert isinstance(mc.environments, AsyncEnvironmentsClient)
+            assert isinstance(mc.contexts, AsyncContextsClient)
+            assert isinstance(mc.context_types, AsyncContextTypesClient)
+            assert isinstance(mc.account_settings, AsyncAccountSettingsClient)
+            assert mc.contexts._buffer is buf

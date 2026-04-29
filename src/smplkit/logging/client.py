@@ -1,9 +1,4 @@
-"""LoggingClient and AsyncLoggingClient — runtime control for Smpl Logging.
-
-Runtime: discover loggers via adapters, register them with the
-service, fetch resolved levels, and apply them. CRUD has moved to
-:class:`smplkit.SmplManagementClient` (``mgmt.loggers.*`` / ``mgmt.log_groups.*``).
-"""
+"""LoggingClient and AsyncLoggingClient — management and prescriptive operations for logging."""
 
 from __future__ import annotations
 
@@ -11,6 +6,8 @@ import importlib
 import logging as stdlib_logging
 import threading
 import traceback
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Callable
 
 from smplkit._debug import debug
@@ -22,54 +19,40 @@ from smplkit._errors import (
     SmplValidationError,
     _raise_for_status,
 )
+from smplkit._helpers import key_to_display_name
 from smplkit._generated.logging.client import AuthenticatedClient
-from smplkit._generated.logging.api.loggers import (  # noqa: F401  (re-exported for tests + management)
+from smplkit._generated.logging.api.loggers import (
     bulk_register_loggers,
     delete_logger,
     get_logger,
     list_loggers,
     update_logger,
 )
-from smplkit._generated.logging.api.log_groups import (  # noqa: F401  (re-exported)
+from smplkit._generated.logging.api.log_groups import (
     create_log_group,
     delete_log_group,
     get_log_group,
     list_log_groups,
     update_log_group,
 )
-from smplkit._generated.logging.models.log_group import LogGroup as GenLogGroup  # noqa: F401
-from smplkit._generated.logging.models.log_group_resource import LogGroupResource  # noqa: F401
-from smplkit._generated.logging.models.log_group_response import LogGroupResponse
-from smplkit._generated.logging.models.logger import Logger as GenLogger  # noqa: F401
-from smplkit._generated.logging.models.logger_resource import LoggerResource  # noqa: F401
+from smplkit._generated.logging.models.logger import Logger as GenLogger
+from smplkit._generated.logging.models.log_group import LogGroup as GenLogGroup
+from smplkit._generated.logging.models.logger_resource import LoggerResource
+from smplkit._generated.logging.models.log_group_resource import LogGroupResource
 from smplkit._generated.logging.models.logger_response import LoggerResponse
+from smplkit._generated.logging.models.log_group_response import LogGroupResponse
 from smplkit._generated.logging.models.logger_bulk_item import LoggerBulkItem
 from smplkit._generated.logging.models.logger_bulk_request import LoggerBulkRequest
+from smplkit._generated.logging.models.logger_environments_type_0 import LoggerEnvironmentsType0
+from smplkit._generated.logging.models.log_group_environments_type_0 import LogGroupEnvironmentsType0
 from smplkit.logging._levels import python_level_to_smpl, smpl_level_to_python
 from smplkit.logging._normalize import normalize_logger_name
-from smplkit.logging._registration_buffer import _LoggerRegistrationBuffer
+from smplkit.logging._sources import LoggerSource
 from smplkit.logging.adapters.base import LoggingAdapter
-from smplkit.logging.helpers import (  # noqa: F401  (re-exported below)
-    _build_log_group_body as _build_group_body,
-    _build_logger_body,
-    _extract_datetime,
-    _extract_environments,
-    _extract_sources,
-    _loglevel_value,
-    _make_environments,
-    _make_group_environments,
-    _str_to_log_level,
-    _unset_to_none,
-)
-from smplkit.logging.models import (  # noqa: F401  (re-exported below)
-    AsyncSmplLogGroup,
-    AsyncSmplLogger,
-    SmplLogGroup,
-    SmplLogger,
-)
 from smplkit.logging._resolution import resolve_level
 
 if TYPE_CHECKING:
+    from smplkit import LogLevel
     from smplkit.client import AsyncSmplClient, SmplClient
 
 logger = stdlib_logging.getLogger("smplkit")
@@ -79,12 +62,116 @@ _BULK_FLUSH_THRESHOLD = 50
 _BULK_FLUSH_INTERVAL = 5.0  # seconds
 
 
-def _check_response_status(status_code: Any, content: bytes) -> None:
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _str_to_log_level(s: str | None) -> LogLevel | None:
+    """Convert a raw wire-format level string to a LogLevel enum, or None."""
+    if s is None:
+        return None
+    from smplkit import LogLevel as _LogLevel  # lazy to avoid circular import
+
+    try:
+        return _LogLevel(s)
+    except ValueError:
+        return None
+
+
+def _loglevel_value(level: Any, *, where: str) -> str | None:
+    """Return the wire-format string for a ``LogLevel | None`` argument.
+
+    ``where`` is included in the error message so the offending call site
+    is obvious — turning ``'str' object has no attribute 'value'`` into a
+    pointer at the actual contract violation. Type hints are the contract;
+    this helper just makes the failure mode legible when callers ignore
+    them.
+    """
+    if level is None:
+        return None
+    from smplkit import LogLevel as _LogLevel  # lazy to avoid circular import
+
+    if isinstance(level, _LogLevel):
+        return level.value
+    raise TypeError(f"{where}: level must be a LogLevel (got {type(level).__name__}: {level!r})")
+
+
+def _unset_to_none(value: Any) -> Any:
+    """Convert Unset sentinels to None."""
+    type_name = type(value).__name__
+    if type_name == "Unset":
+        return None
+    return value
+
+
+def _extract_datetime(value: Any) -> Any:
+    """Pass through datetime objects, return None for Unset/None."""
+    if value is None:
+        return None
+    type_name = type(value).__name__
+    if type_name == "Unset":
+        return None
+    return value
+
+
+def _extract_environments(environments: Any) -> dict[str, Any]:
+    """Extract a plain dict from a generated environments object."""
+    if environments is None:
+        return {}
+    type_name = type(environments).__name__
+    if type_name == "Unset":
+        return {}
+    if isinstance(environments, (LoggerEnvironmentsType0, LogGroupEnvironmentsType0)):
+        return dict(environments.additional_properties)
+    if isinstance(environments, dict):
+        return dict(environments)
+    return {}
+
+
+def _make_environments(environments: dict[str, Any] | None) -> LoggerEnvironmentsType0 | None:
+    """Convert a plain dict to the generated LoggerEnvironmentsType0."""
+    if environments is None:
+        return None
+    obj = LoggerEnvironmentsType0()
+    obj.additional_properties = dict(environments)
+    return obj
+
+
+def _make_group_environments(environments: dict[str, Any] | None) -> LogGroupEnvironmentsType0 | None:
+    """Convert a plain dict to the generated LogGroupEnvironmentsType0."""
+    if environments is None:
+        return None
+    obj = LogGroupEnvironmentsType0()
+    obj.additional_properties = dict(environments)
+    return obj
+
+
+def _extract_sources(sources: Any) -> list[dict[str, Any]]:
+    """Extract sources list from generated model."""
+    if sources is None:
+        return []
+    type_name = type(sources).__name__
+    if type_name == "Unset":
+        return []
+    if isinstance(sources, list):
+        result = []
+        for item in sources:
+            if hasattr(item, "additional_properties"):
+                result.append(dict(item.additional_properties))
+            elif isinstance(item, dict):
+                result.append(item)
+        return result
+    return []
+
+
+def _check_response_status(status_code: HTTPStatus, content: bytes) -> None:
     """Map HTTP error status codes to SDK exceptions with full JSON:API error detail."""
     _raise_for_status(int(status_code), content)
 
 
 def _exc_url(exc: Exception) -> str | None:
+    """Extract URL from an httpx exception's associated request, if available."""
     try:
         return str(exc.request.url)  # type: ignore[attr-defined]
     except Exception:
@@ -92,7 +179,14 @@ def _exc_url(exc: Exception) -> str | None:
 
 
 def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) -> None:
-    """Re-raise httpx exceptions as SDK exceptions if applicable."""
+    """Re-raise httpx exceptions as SDK exceptions if applicable.
+
+    Args:
+        exc: The exception to inspect.
+        base_url: Fallback URL to include in the error message when the exception
+            does not carry request context (e.g. DNS failures before a request
+            object is attached by httpx).
+    """
     import httpx
 
     if isinstance(exc, httpx.TimeoutException):
@@ -105,6 +199,46 @@ def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) ->
         raise SmplConnectionError(msg) from exc
     if isinstance(exc, (SmplNotFoundError, SmplConflictError, SmplValidationError)):
         raise exc
+
+
+def _build_logger_body(
+    *,
+    logger_id: str | None = None,
+    name: str,
+    level: str | None = None,
+    group: str | None = None,
+    managed: bool | None = None,
+    environments: dict[str, Any] | None = None,
+) -> LoggerResponse:
+    """Build a JSON:API request body for logger create/update."""
+    attrs = GenLogger(
+        name=name,
+        level=level,
+        group=group,
+        managed=managed,
+        environments=_make_environments(environments),
+    )
+    resource = LoggerResource(attributes=attrs, id=logger_id, type_="logger")
+    return LoggerResponse(data=resource)
+
+
+def _build_group_body(
+    *,
+    group_id: str | None = None,
+    name: str,
+    level: str | None = None,
+    group: str | None = None,
+    environments: dict[str, Any] | None = None,
+) -> LogGroupResponse:
+    """Build a JSON:API request body for log group create/update."""
+    attrs = GenLogGroup(
+        name=name,
+        level=level,
+        parent_id=group,
+        environments=_make_group_environments(environments),
+    )
+    resource = LogGroupResource(attributes=attrs, id=group_id, type_="log_group")
+    return LogGroupResponse(data=resource)
 
 
 # ---------------------------------------------------------------------------
@@ -126,6 +260,379 @@ class LoggerChangeEvent:
 
     def __repr__(self) -> str:
         return f"LoggerChangeEvent(id={self.id!r}, source={self.source!r}, deleted={self.deleted!r})"
+
+
+# ---------------------------------------------------------------------------
+# SDK model classes
+# ---------------------------------------------------------------------------
+
+
+class SmplLogger:
+    """SDK model for a logger resource.
+
+    Modify properties locally, then call :meth:`save` to persist.
+    """
+
+    id: str | None
+    name: str
+    level: LogLevel | None
+    group: str | None
+    managed: bool | None
+    sources: list[dict[str, Any]]
+    environments: dict[str, Any]
+    created_at: Any
+    updated_at: Any
+
+    def __init__(
+        self,
+        client: LoggingClient | None = None,
+        *,
+        id: str | None = None,
+        name: str,
+        level: LogLevel | None = None,
+        group: str | None = None,
+        managed: bool | None = None,
+        sources: list[dict[str, Any]] | None = None,
+        environments: dict[str, Any] | None = None,
+        created_at: Any = None,
+        updated_at: Any = None,
+    ) -> None:
+        self._client = client
+        self.id = id
+        self.name = name
+        self.level = level
+        self.group = group
+        self.managed = managed
+        self.sources = sources or []
+        self.environments = environments or {}
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def save(self) -> None:
+        """Persist this logger to the server (create or update)."""
+        updated = self._client._save_logger(self)
+        self._apply(updated)
+
+    def setLevel(self, level: LogLevel) -> None:  # noqa: N802
+        """Set the base log level."""
+        self.level = level
+
+    def clearLevel(self) -> None:  # noqa: N802
+        """Remove the base log level."""
+        self.level = None
+
+    def setEnvironmentLevel(self, env: str, level: LogLevel) -> None:  # noqa: N802
+        """Set the log level for a specific environment."""
+        self.environments[env] = {"level": level.value}
+
+    def clearEnvironmentLevel(self, env: str) -> None:  # noqa: N802
+        """Remove the log level override for a specific environment."""
+        self.environments.pop(env, None)
+
+    def clearAllEnvironmentLevels(self) -> None:  # noqa: N802
+        """Remove all environment-level overrides."""
+        self.environments = {}
+
+    def _apply(self, other: SmplLogger) -> None:
+        """Copy all properties from other into self."""
+        self.id = other.id
+        self.name = other.name
+        self.level = other.level
+        self.group = other.group
+        self.managed = other.managed
+        self.sources = other.sources
+        self.environments = other.environments
+        self.created_at = other.created_at
+        self.updated_at = other.updated_at
+
+    def __repr__(self) -> str:
+        return f"SmplLogger(id={self.id!r}, name={self.name!r})"
+
+
+class AsyncSmplLogger:
+    """Async SDK model for a logger resource.
+
+    Modify properties locally, then call :meth:`save` to persist.
+    """
+
+    id: str | None
+    name: str
+    level: LogLevel | None
+    group: str | None
+    managed: bool | None
+    sources: list[dict[str, Any]]
+    environments: dict[str, Any]
+    created_at: Any
+    updated_at: Any
+
+    def __init__(
+        self,
+        client: AsyncLoggingClient | None = None,
+        *,
+        id: str | None = None,
+        name: str,
+        level: LogLevel | None = None,
+        group: str | None = None,
+        managed: bool | None = None,
+        sources: list[dict[str, Any]] | None = None,
+        environments: dict[str, Any] | None = None,
+        created_at: Any = None,
+        updated_at: Any = None,
+    ) -> None:
+        self._client = client
+        self.id = id
+        self.name = name
+        self.level = level
+        self.group = group
+        self.managed = managed
+        self.sources = sources or []
+        self.environments = environments or {}
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    async def save(self) -> None:
+        """Persist this logger to the server (create or update)."""
+        updated = await self._client._save_logger(self)
+        self._apply(updated)
+
+    def setLevel(self, level: LogLevel) -> None:  # noqa: N802
+        """Set the base log level."""
+        self.level = level
+
+    def clearLevel(self) -> None:  # noqa: N802
+        """Remove the base log level."""
+        self.level = None
+
+    def setEnvironmentLevel(self, env: str, level: LogLevel) -> None:  # noqa: N802
+        """Set the log level for a specific environment."""
+        self.environments[env] = {"level": level.value}
+
+    def clearEnvironmentLevel(self, env: str) -> None:  # noqa: N802
+        """Remove the log level override for a specific environment."""
+        self.environments.pop(env, None)
+
+    def clearAllEnvironmentLevels(self) -> None:  # noqa: N802
+        """Remove all environment-level overrides."""
+        self.environments = {}
+
+    def _apply(self, other: AsyncSmplLogger) -> None:
+        """Copy all properties from other into self."""
+        self.id = other.id
+        self.name = other.name
+        self.level = other.level
+        self.group = other.group
+        self.managed = other.managed
+        self.sources = other.sources
+        self.environments = other.environments
+        self.created_at = other.created_at
+        self.updated_at = other.updated_at
+
+    def __repr__(self) -> str:
+        return f"AsyncSmplLogger(id={self.id!r}, name={self.name!r})"
+
+
+class SmplLogGroup:
+    """SDK model for a log group resource.
+
+    Modify properties locally, then call :meth:`save` to persist.
+    """
+
+    id: str | None
+    name: str
+    level: LogLevel | None
+    group: str | None
+    environments: dict[str, Any]
+    created_at: Any
+    updated_at: Any
+
+    def __init__(
+        self,
+        client: LoggingClient | None = None,
+        *,
+        id: str | None = None,
+        name: str,
+        level: LogLevel | None = None,
+        group: str | None = None,
+        environments: dict[str, Any] | None = None,
+        created_at: Any = None,
+        updated_at: Any = None,
+    ) -> None:
+        self._client = client
+        self.id = id
+        self.name = name
+        self.level = level
+        self.group = group
+        self.environments = environments or {}
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def save(self) -> None:
+        """Persist this group to the server (create or update)."""
+        updated = self._client._save_group(self)
+        self._apply(updated)
+
+    def setLevel(self, level: LogLevel) -> None:  # noqa: N802
+        """Set the base log level."""
+        self.level = level
+
+    def clearLevel(self) -> None:  # noqa: N802
+        """Remove the base log level."""
+        self.level = None
+
+    def setEnvironmentLevel(self, env: str, level: LogLevel) -> None:  # noqa: N802
+        """Set the log level for a specific environment."""
+        self.environments[env] = {"level": level.value}
+
+    def clearEnvironmentLevel(self, env: str) -> None:  # noqa: N802
+        """Remove the log level override for a specific environment."""
+        self.environments.pop(env, None)
+
+    def clearAllEnvironmentLevels(self) -> None:  # noqa: N802
+        """Remove all environment-level overrides."""
+        self.environments = {}
+
+    def _apply(self, other: SmplLogGroup) -> None:
+        """Copy all properties from other into self."""
+        self.id = other.id
+        self.name = other.name
+        self.level = other.level
+        self.group = other.group
+        self.environments = other.environments
+        self.created_at = other.created_at
+        self.updated_at = other.updated_at
+
+    def __repr__(self) -> str:
+        return f"SmplLogGroup(id={self.id!r}, name={self.name!r})"
+
+
+class AsyncSmplLogGroup:
+    """Async SDK model for a log group resource.
+
+    Modify properties locally, then call :meth:`save` to persist.
+    """
+
+    id: str | None
+    name: str
+    level: LogLevel | None
+    group: str | None
+    environments: dict[str, Any]
+    created_at: Any
+    updated_at: Any
+
+    def __init__(
+        self,
+        client: AsyncLoggingClient | None = None,
+        *,
+        id: str | None = None,
+        name: str,
+        level: LogLevel | None = None,
+        group: str | None = None,
+        environments: dict[str, Any] | None = None,
+        created_at: Any = None,
+        updated_at: Any = None,
+    ) -> None:
+        self._client = client
+        self.id = id
+        self.name = name
+        self.level = level
+        self.group = group
+        self.environments = environments or {}
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    async def save(self) -> None:
+        """Persist this group to the server (create or update)."""
+        updated = await self._client._save_group(self)
+        self._apply(updated)
+
+    def setLevel(self, level: LogLevel) -> None:  # noqa: N802
+        """Set the base log level."""
+        self.level = level
+
+    def clearLevel(self) -> None:  # noqa: N802
+        """Remove the base log level."""
+        self.level = None
+
+    def setEnvironmentLevel(self, env: str, level: LogLevel) -> None:  # noqa: N802
+        """Set the log level for a specific environment."""
+        self.environments[env] = {"level": level.value}
+
+    def clearEnvironmentLevel(self, env: str) -> None:  # noqa: N802
+        """Remove the log level override for a specific environment."""
+        self.environments.pop(env, None)
+
+    def clearAllEnvironmentLevels(self) -> None:  # noqa: N802
+        """Remove all environment-level overrides."""
+        self.environments = {}
+
+    def _apply(self, other: AsyncSmplLogGroup) -> None:
+        """Copy all properties from other into self."""
+        self.id = other.id
+        self.name = other.name
+        self.level = other.level
+        self.group = other.group
+        self.environments = other.environments
+        self.created_at = other.created_at
+        self.updated_at = other.updated_at
+
+    def __repr__(self) -> str:
+        return f"AsyncSmplLogGroup(id={self.id!r}, name={self.name!r})"
+
+
+# ---------------------------------------------------------------------------
+# Logger registration buffer
+# ---------------------------------------------------------------------------
+
+
+class _LoggerRegistrationBuffer:
+    """Batches discovered loggers for bulk registration."""
+
+    def __init__(self) -> None:
+        self._seen: OrderedDict[str, str] = OrderedDict()  # normalized_id → resolved_level
+        self._pending: list[dict[str, Any]] = []
+        self._lock = threading.Lock()
+
+    def add(
+        self,
+        normalized_id: str,
+        smpl_level: str | None,
+        smpl_resolved_level: str,
+        service: str | None,
+        environment: str | None,
+    ) -> None:
+        """Queue a logger for registration if not already seen.
+
+        Args:
+            normalized_id: Normalized logger name.
+            smpl_level: Explicit smplkit level string, or None if the logger
+                inherits its level from a parent.
+            smpl_resolved_level: Effective smplkit level string (always non-None).
+            service: Service name to include in the payload, or None.
+            environment: Environment name to include in the payload, or None.
+        """
+        with self._lock:
+            if normalized_id not in self._seen:
+                self._seen[normalized_id] = smpl_resolved_level
+                item: dict[str, Any] = {"id": normalized_id, "resolved_level": smpl_resolved_level}
+                if smpl_level is not None:
+                    item["level"] = smpl_level
+                if service is not None:
+                    item["service"] = service
+                if environment is not None:
+                    item["environment"] = environment
+                self._pending.append(item)
+
+    def drain(self) -> list[dict[str, Any]]:
+        """Return and clear the pending batch."""
+        with self._lock:
+            batch = self._pending
+            self._pending = []
+            return batch
+
+    @property
+    def pending_count(self) -> int:
+        with self._lock:
+            return len(self._pending)
 
 
 # ---------------------------------------------------------------------------
@@ -162,12 +669,136 @@ def _auto_load_adapters() -> list[LoggingAdapter]:
 # ---------------------------------------------------------------------------
 
 
-class LoggingClient:
-    """Synchronous logging runtime namespace.  Obtained via ``SmplClient(...).logging``.
+class LoggingManagementClient:
+    """Management (CRUD) operations for Smpl Logging.
 
-    CRUD has moved to ``SmplManagementClient.loggers`` / ``.log_groups``
-    (``mgmt.loggers.*`` / ``mgmt.log_groups.*``).
+    Obtained via ``SmplClient(...).logging.management``.
     """
+
+    def __init__(self, parent: LoggingClient) -> None:
+        self._parent = parent
+
+    def new(self, id: str, *, name: str | None = None, managed: bool = False) -> SmplLogger:
+        """Return a new unsaved :class:`SmplLogger`.
+
+        Call :meth:`SmplLogger.save` to persist it.
+        """
+        return SmplLogger(
+            self._parent,
+            id=id,
+            name=name if name is not None else key_to_display_name(id),
+            managed=managed,
+        )
+
+    def list(self) -> list[SmplLogger]:
+        """List all loggers."""
+        try:
+            response = list_loggers.sync_detailed(client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [self._parent._logger_resource_to_model(r) for r in response.parsed.data]
+
+    def get(self, id: str) -> SmplLogger:
+        """Get a logger by id."""
+        try:
+            response = get_logger.sync_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise SmplNotFoundError(f"Logger with id {id!r} not found", status_code=404)
+        return self._parent._logger_to_model(response.parsed)
+
+    def delete(self, id: str) -> None:
+        """Delete a logger by id."""
+        try:
+            response = delete_logger.sync_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    def register_sources(self, sources: list[LoggerSource]) -> None:
+        """Bulk-register explicit logger sources with the logging service.
+
+        Unlike :meth:`LoggingClient.start`, which auto-discovers loggers from
+        the current process, this method accepts explicit ``(service, environment)``
+        overrides — useful for sample-data seeding, cross-tenant migration, and
+        test fixtures.
+        """
+        items = [
+            LoggerBulkItem(
+                id=normalize_logger_name(src.name),
+                level=_loglevel_value(src.level, where="register_sources[level]"),
+                resolved_level=_loglevel_value(src.resolved_level, where="register_sources[resolved_level]"),
+                service=src.service,
+                environment=src.environment,
+            )
+            for src in sources
+        ]
+        if not items:
+            return
+        body = LoggerBulkRequest(loggers=items)
+        try:
+            response = bulk_register_loggers.sync_detailed(client=self._parent._logging_http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    def new_group(self, id: str, *, name: str | None = None, group: str | None = None) -> SmplLogGroup:
+        """Return a new unsaved :class:`SmplLogGroup`.
+
+        Call :meth:`SmplLogGroup.save` to persist it.
+        """
+        return SmplLogGroup(
+            self._parent,
+            id=id,
+            name=name if name is not None else key_to_display_name(id),
+            group=group,
+        )
+
+    def list_groups(self) -> list[SmplLogGroup]:
+        """List all log groups."""
+        try:
+            response = list_log_groups.sync_detailed(client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [self._parent._group_resource_to_model(r) for r in response.parsed.data]
+
+    def get_group(self, id: str) -> SmplLogGroup:
+        """Get a log group by id."""
+        try:
+            response = get_log_group.sync_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise SmplNotFoundError(f"Log group with id {id!r} not found", status_code=404)
+        return self._parent._group_to_model(response.parsed)
+
+    def delete_group(self, id: str) -> None:
+        """Delete a log group by id."""
+        try:
+            response = delete_log_group.sync_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+
+class LoggingClient:
+    """Synchronous logging namespace.  Obtained via ``SmplClient(...).logging``."""
 
     def __init__(
         self,
@@ -193,6 +824,55 @@ class LoggingClient:
         self._adapters: list[LoggingAdapter] = []
         self._explicit_adapters = False
         self._ws_manager: Any = None
+        self.management = LoggingManagementClient(self)
+
+    def _save_logger(self, lg: SmplLogger) -> SmplLogger:
+        """Create or update a logger. Called by SmplLogger.save(). PUT has upsert semantics."""
+        body = _build_logger_body(
+            logger_id=lg.id,
+            name=lg.name,
+            level=_loglevel_value(lg.level, where="SmplLogger.save"),
+            managed=lg.managed,
+            group=lg.group,
+            environments=lg.environments if lg.environments else None,
+        )
+        try:
+            response = update_logger.sync_detailed(lg.id, client=self._logging_http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return self._logger_to_model(response.parsed)
+
+    def _save_group(self, grp: SmplLogGroup) -> SmplLogGroup:
+        """Create or update a group. Called by SmplLogGroup.save()."""
+        body = _build_group_body(
+            group_id=grp.id,
+            name=grp.name,
+            level=_loglevel_value(grp.level, where="SmplLogGroup.save"),
+            group=grp.group,
+            environments=grp.environments if grp.environments else None,
+        )
+        try:
+            if grp.created_at is None:
+                response = create_log_group.sync_detailed(client=self._logging_http, body=body)
+            else:
+                response = update_log_group.sync_detailed(grp.id, client=self._logging_http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return self._group_to_model(response.parsed)
 
     # --- Adapter registration ---
 
@@ -587,19 +1267,178 @@ class LoggingClient:
             if metrics is not None:
                 metrics.record("logging.level_changes", unit="changes", dimensions={"logger": normalized_id})
 
+    # --- Model conversion ---
+
+    def _logger_to_model(self, parsed: Any) -> SmplLogger:
+        return self._logger_resource_to_model(parsed.data)
+
+    def _logger_resource_to_model(self, resource: Any) -> SmplLogger:
+        attrs = resource.attributes
+        return SmplLogger(
+            self,
+            id=_unset_to_none(resource.id) or "",
+            name=attrs.name,
+            level=_str_to_log_level(_unset_to_none(attrs.level)),
+            group=_unset_to_none(attrs.group),
+            managed=_unset_to_none(attrs.managed),
+            sources=_extract_sources(getattr(attrs, "sources", None)),
+            environments=_extract_environments(attrs.environments),
+            created_at=_extract_datetime(attrs.created_at),
+            updated_at=_extract_datetime(attrs.updated_at),
+        )
+
+    def _group_to_model(self, parsed: Any) -> SmplLogGroup:
+        return self._group_resource_to_model(parsed.data)
+
+    def _group_resource_to_model(self, resource: Any) -> SmplLogGroup:
+        attrs = resource.attributes
+        return SmplLogGroup(
+            self,
+            id=_unset_to_none(resource.id) or "",
+            name=attrs.name,
+            level=_str_to_log_level(_unset_to_none(attrs.level)),
+            group=_unset_to_none(attrs.parent_id),
+            environments=_extract_environments(attrs.environments),
+            created_at=_extract_datetime(attrs.created_at),
+            updated_at=_extract_datetime(attrs.updated_at),
+        )
+
 
 # ---------------------------------------------------------------------------
 # AsyncLoggingClient
 # ---------------------------------------------------------------------------
 
 
-class AsyncLoggingClient:
-    """Asynchronous logging runtime namespace.
+class AsyncLoggingManagementClient:
+    """Management (CRUD) operations for Smpl Logging (async).
 
-    Obtained via ``AsyncSmplClient(...).logging``. CRUD has moved to
-    ``AsyncSmplManagementClient.loggers`` / ``.log_groups``
-    (``mgmt.loggers.*`` / ``mgmt.log_groups.*``).
+    Obtained via ``AsyncSmplClient(...).logging.management``.
     """
+
+    def __init__(self, parent: AsyncLoggingClient) -> None:
+        self._parent = parent
+
+    def new(self, id: str, *, name: str | None = None, managed: bool = False) -> AsyncSmplLogger:
+        """Return a new unsaved :class:`AsyncSmplLogger`.
+
+        Call :meth:`AsyncSmplLogger.save` to persist it.
+        """
+        return AsyncSmplLogger(
+            self._parent,
+            id=id,
+            name=name if name is not None else key_to_display_name(id),
+            managed=managed,
+        )
+
+    async def list(self) -> list[AsyncSmplLogger]:
+        """List all loggers."""
+        try:
+            response = await list_loggers.asyncio_detailed(client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [self._parent._logger_resource_to_model(r) for r in response.parsed.data]
+
+    async def get(self, id: str) -> AsyncSmplLogger:
+        """Get a logger by id."""
+        try:
+            response = await get_logger.asyncio_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise SmplNotFoundError(f"Logger with id {id!r} not found", status_code=404)
+        return self._parent._logger_to_model(response.parsed)
+
+    async def delete(self, id: str) -> None:
+        """Delete a logger by id."""
+        try:
+            response = await delete_logger.asyncio_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    async def register_sources(self, sources: list[LoggerSource]) -> None:
+        """Bulk-register explicit logger sources with the logging service.
+
+        Unlike :meth:`AsyncLoggingClient.start`, which auto-discovers loggers from
+        the current process, this method accepts explicit ``(service, environment)``
+        overrides — useful for sample-data seeding, cross-tenant migration, and
+        test fixtures.
+        """
+        items = [
+            LoggerBulkItem(
+                id=normalize_logger_name(src.name),
+                level=_loglevel_value(src.level, where="register_sources[level]"),
+                resolved_level=_loglevel_value(src.resolved_level, where="register_sources[resolved_level]"),
+                service=src.service,
+                environment=src.environment,
+            )
+            for src in sources
+        ]
+        if not items:
+            return
+        body = LoggerBulkRequest(loggers=items)
+        try:
+            response = await bulk_register_loggers.asyncio_detailed(client=self._parent._logging_http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    def new_group(self, id: str, *, name: str | None = None, group: str | None = None) -> AsyncSmplLogGroup:
+        """Return a new unsaved :class:`AsyncSmplLogGroup`.
+
+        Call :meth:`AsyncSmplLogGroup.save` to persist it.
+        """
+        return AsyncSmplLogGroup(
+            self._parent,
+            id=id,
+            name=name if name is not None else key_to_display_name(id),
+            group=group,
+        )
+
+    async def list_groups(self) -> list[AsyncSmplLogGroup]:
+        """List all log groups."""
+        try:
+            response = await list_log_groups.asyncio_detailed(client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [self._parent._group_resource_to_model(r) for r in response.parsed.data]
+
+    async def get_group(self, id: str) -> AsyncSmplLogGroup:
+        """Get a log group by id."""
+        try:
+            response = await get_log_group.asyncio_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise SmplNotFoundError(f"Log group with id {id!r} not found", status_code=404)
+        return self._parent._group_to_model(response.parsed)
+
+    async def delete_group(self, id: str) -> None:
+        """Delete a log group by id."""
+        try:
+            response = await delete_log_group.asyncio_detailed(id, client=self._parent._logging_http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+
+class AsyncLoggingClient:
+    """Asynchronous logging namespace.  Obtained via ``AsyncSmplClient(...).logging``."""
 
     def __init__(
         self,
@@ -625,6 +1464,55 @@ class AsyncLoggingClient:
         self._adapters: list[LoggingAdapter] = []
         self._explicit_adapters = False
         self._ws_manager: Any = None
+        self.management = AsyncLoggingManagementClient(self)
+
+    async def _save_logger(self, lg: AsyncSmplLogger) -> AsyncSmplLogger:
+        """Create or update a logger. Called by AsyncSmplLogger.save(). PUT has upsert semantics."""
+        body = _build_logger_body(
+            logger_id=lg.id,
+            name=lg.name,
+            level=_loglevel_value(lg.level, where="AsyncSmplLogger.save"),
+            managed=lg.managed,
+            group=lg.group,
+            environments=lg.environments if lg.environments else None,
+        )
+        try:
+            response = await update_logger.asyncio_detailed(lg.id, client=self._logging_http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return self._logger_to_model(response.parsed)
+
+    async def _save_group(self, grp: AsyncSmplLogGroup) -> AsyncSmplLogGroup:
+        """Create or update a group. Called by AsyncSmplLogGroup.save()."""
+        body = _build_group_body(
+            group_id=grp.id,
+            name=grp.name,
+            level=_loglevel_value(grp.level, where="AsyncSmplLogGroup.save"),
+            group=grp.group,
+            environments=grp.environments if grp.environments else None,
+        )
+        try:
+            if grp.created_at is None:
+                response = await create_log_group.asyncio_detailed(client=self._logging_http, body=body)
+            else:
+                response = await update_log_group.asyncio_detailed(grp.id, client=self._logging_http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._logging_base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return self._group_to_model(response.parsed)
 
     # --- Adapter registration ---
 
@@ -1114,3 +2002,39 @@ class AsyncLoggingClient:
             metrics = self._parent._metrics
             if metrics is not None:
                 metrics.record("logging.level_changes", unit="changes", dimensions={"logger": normalized_id})
+
+    # --- Model conversion ---
+
+    def _logger_to_model(self, parsed: Any) -> AsyncSmplLogger:
+        return self._logger_resource_to_model(parsed.data)
+
+    def _logger_resource_to_model(self, resource: Any) -> AsyncSmplLogger:
+        attrs = resource.attributes
+        return AsyncSmplLogger(
+            self,
+            id=_unset_to_none(resource.id) or "",
+            name=attrs.name,
+            level=_str_to_log_level(_unset_to_none(attrs.level)),
+            group=_unset_to_none(attrs.group),
+            managed=_unset_to_none(attrs.managed),
+            sources=_extract_sources(getattr(attrs, "sources", None)),
+            environments=_extract_environments(attrs.environments),
+            created_at=_extract_datetime(attrs.created_at),
+            updated_at=_extract_datetime(attrs.updated_at),
+        )
+
+    def _group_to_model(self, parsed: Any) -> AsyncSmplLogGroup:
+        return self._group_resource_to_model(parsed.data)
+
+    def _group_resource_to_model(self, resource: Any) -> AsyncSmplLogGroup:
+        attrs = resource.attributes
+        return AsyncSmplLogGroup(
+            self,
+            id=_unset_to_none(resource.id) or "",
+            name=attrs.name,
+            level=_str_to_log_level(_unset_to_none(attrs.level)),
+            group=_unset_to_none(attrs.parent_id),
+            environments=_extract_environments(attrs.environments),
+            created_at=_extract_datetime(attrs.created_at),
+            updated_at=_extract_datetime(attrs.updated_at),
+        )

@@ -25,16 +25,14 @@ from smplkit._generated.config.models.environment_override_values_type_0 import 
     EnvironmentOverrideValuesType0,
 )
 from smplkit.config.client import (
+    _build_request_body,
     _check_response_status,
-    _maybe_reraise_network_error,
-)
-from smplkit.config.helpers import (
-    _build_config_request_body as _build_request_body,
     _extract_datetime,
     _extract_environments,
     _extract_items,
     _make_environments,
     _make_items,
+    _maybe_reraise_network_error,
     _unset_to_none,
 )
 

@@ -1,10 +1,4 @@
-"""ConfigClient and AsyncConfigClient — runtime operations for configs.
-
-Runtime config operations: lazy-fetch all configs for the SDK's
-current environment, resolve values down the inheritance chain, and
-emit change events when the server's WebSocket signals a refresh.
-CRUD lives on :class:`smplkit.SmplManagementClient`.
-"""
+"""ConfigClient and AsyncConfigClient — management and runtime operations for configs."""
 
 from __future__ import annotations
 
@@ -23,15 +17,22 @@ from smplkit._errors import (
     SmplValidationError,
     _raise_for_status,
 )
+from smplkit._helpers import key_to_display_name
 from smplkit._resolver import resolve
-from smplkit._generated.config.api.configs import (  # noqa: F401  (re-exported for test patches)
+from smplkit._generated.config.api.configs import (
     create_config,
     delete_config,
     get_config,
     list_configs,
     update_config,
 )
-from smplkit.config.helpers import _resource_to_async_config, _resource_to_config
+from smplkit._generated.config.models.config import Config as GenConfig
+from smplkit._generated.config.models.config_environments_type_0 import (
+    ConfigEnvironmentsType0,
+)
+from smplkit._generated.config.models.config_items_type_0 import ConfigItemsType0
+from smplkit._generated.config.models.config_resource import ConfigResource
+from smplkit._generated.config.models.config_response import ConfigResponse
 from smplkit.config.models import AsyncConfig, Config
 
 if TYPE_CHECKING:
@@ -42,9 +43,175 @@ logger = logging.getLogger("smplkit")
 ws_logger = logging.getLogger("smplkit.config.ws")
 
 
+def _make_items(items: dict[str, Any] | None) -> ConfigItemsType0 | None:
+    """Convert a plain items dict to the generated ConfigItemsType0 model.
+
+    Accepts items in the typed shape ``{key: {value, type, description}}``.
+    Plain ``{key: raw_value}`` dicts are auto-wrapped for convenience.
+    """
+    if items is None:
+        return None
+    from smplkit._generated.config.models.config_item_definition import (
+        ConfigItemDefinition,
+    )
+
+    obj = ConfigItemsType0()
+    wrapped: dict[str, ConfigItemDefinition] = {}
+    for k, v in items.items():
+        if isinstance(v, dict) and "value" in v:
+            wrapped[k] = ConfigItemDefinition(
+                value=v["value"],
+                type_=v.get("type"),
+                description=v.get("description"),
+            )
+        else:
+            wrapped[k] = ConfigItemDefinition(value=v)
+    obj.additional_properties = wrapped
+    return obj
+
+
+def _make_environments(
+    environments: dict[str, Any] | None,
+) -> ConfigEnvironmentsType0 | None:
+    """Convert a plain dict to the generated ConfigEnvironmentsType0 model.
+
+    Environment override values are wrapped as ``{key: {value: raw}}``.
+    """
+    if environments is None:
+        return None
+    from smplkit._generated.config.models.config_item_override import (
+        ConfigItemOverride,
+    )
+    from smplkit._generated.config.models.environment_override import (
+        EnvironmentOverride,
+    )
+    from smplkit._generated.config.models.environment_override_values_type_0 import (
+        EnvironmentOverrideValuesType0,
+    )
+
+    obj = ConfigEnvironmentsType0()
+    env_props: dict[str, EnvironmentOverride] = {}
+    for env_name, env_data in environments.items():
+        if isinstance(env_data, dict):
+            raw_values = env_data.get("values") or {}
+            vals_obj = EnvironmentOverrideValuesType0()
+            wrapped_vals: dict[str, ConfigItemOverride] = {}
+            for k, v in raw_values.items():
+                if isinstance(v, dict) and "value" in v:
+                    wrapped_vals[k] = ConfigItemOverride(value=v["value"])
+                else:
+                    wrapped_vals[k] = ConfigItemOverride(value=v)
+            vals_obj.additional_properties = wrapped_vals
+            env_props[env_name] = EnvironmentOverride(values=vals_obj)
+        else:
+            env_props[env_name] = EnvironmentOverride()
+    obj.additional_properties = env_props
+    return obj
+
+
+def _extract_items(items: Any) -> dict[str, Any]:
+    """Extract a typed items dict from a generated items object.
+
+    Returns ``{key: {value, type, description}}`` (the full typed shape).
+    """
+    if items is None or isinstance(items, type(None)):
+        return {}
+    type_name = type(items).__name__
+    if type_name == "Unset":
+        return {}
+    if isinstance(items, ConfigItemsType0):
+        result: dict[str, Any] = {}
+        for k, item_def in items.additional_properties.items():
+            entry: dict[str, Any] = {"value": item_def.value}
+            type_val = getattr(item_def, "type_", None)
+            if type_val is not None and type(type_val).__name__ != "Unset":
+                entry["type"] = type_val.value if hasattr(type_val, "value") else str(type_val)
+            desc_val = getattr(item_def, "description", None)
+            if desc_val is not None and type(desc_val).__name__ != "Unset":
+                entry["description"] = desc_val
+            result[k] = entry
+        return result
+    if isinstance(items, dict):
+        return dict(items)
+    return {}
+
+
+def _extract_environments(environments: Any) -> dict[str, Any]:
+    """Extract a plain dict from a generated environments object.
+
+    Environment override values are unwrapped from ``{key: {value: raw}}``
+    back to ``{key: raw}`` for the SDK model layer.
+    """
+    if environments is None or isinstance(environments, type(None)):
+        return {}
+    type_name = type(environments).__name__
+    if type_name == "Unset":
+        return {}
+    if isinstance(environments, ConfigEnvironmentsType0):
+        result: dict[str, Any] = {}
+        for env_name, env_override in environments.additional_properties.items():
+            env_entry: dict[str, Any] = {}
+            if hasattr(env_override, "values") and env_override.values is not None:
+                vals_type = type(env_override.values).__name__
+                if vals_type != "Unset":
+                    raw_vals: dict[str, Any] = {}
+                    if hasattr(env_override.values, "additional_properties"):
+                        for k, item_override in env_override.values.additional_properties.items():
+                            if hasattr(item_override, "value"):
+                                raw_vals[k] = item_override.value
+                            else:
+                                raw_vals[k] = item_override
+                    env_entry["values"] = raw_vals
+            result[env_name] = env_entry
+        return result
+    if isinstance(environments, dict):
+        return dict(environments)
+    return {}
+
+
+def _extract_datetime(value: Any) -> Any:
+    """Pass through datetime objects, return None for Unset/None."""
+    if value is None:
+        return None
+    # Check for Unset sentinel
+    type_name = type(value).__name__
+    if type_name == "Unset":
+        return None
+    return value
+
+
+def _unset_to_none(value: Any) -> Any:
+    """Convert Unset sentinels to None."""
+    type_name = type(value).__name__
+    if type_name == "Unset":
+        return None
+    return value
+
+
 def _check_response_status(status_code: HTTPStatus, content: bytes) -> None:
     """Map HTTP error status codes to SDK exceptions with full JSON:API error detail."""
     _raise_for_status(int(status_code), content)
+
+
+def _build_request_body(
+    *,
+    config_id: str | None = None,
+    name: str,
+    description: str | None = None,
+    parent: str | None = None,
+    items: dict[str, Any] | None = None,
+    environments: dict[str, Any] | None = None,
+) -> ConfigResponse:
+    """Build a JSON:API request body for create/update operations."""
+    attrs = GenConfig(
+        name=name,
+        description=description,
+        parent=parent,
+        items=_make_items(items),
+        environments=_make_environments(environments),
+    )
+    resource = ConfigResource(attributes=attrs, id=config_id, type_="config")
+    return ConfigResponse(data=resource)
 
 
 def _unflatten(flat: dict[str, Any]) -> dict[str, Any]:
@@ -178,12 +345,112 @@ class LiveConfigProxy:
         return f"LiveConfigProxy(config_id={config_id!r})"
 
 
-class ConfigClient:
-    """Synchronous runtime client for Smpl Config.
+class ConfigManagementClient:
+    """Management (CRUD) operations for Smpl Config.
 
-    Obtained via ``SmplClient(...).config``. Exposes value resolution
-    (``get``/``subscribe``) and refresh/change-listener APIs. CRUD has
-    moved to :class:`smplkit.SmplManagementClient` (``mgmt.configs.*``).
+    Obtained via ``SmplClient(...).config.management``.
+    """
+
+    def __init__(self, parent: ConfigClient) -> None:
+        self._parent = parent
+
+    def new(
+        self,
+        id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        parent: str | None = None,
+    ) -> Config:
+        """Return a new unsaved :class:`Config`.
+
+        Call :meth:`Config.save` to persist it.
+
+        Args:
+            id: Config identifier (slug).
+            name: Display name. Auto-generated from *id* if omitted.
+            description: Optional description.
+            parent: Parent config id (slug), or ``None``.
+
+        Returns:
+            A new :class:`Config` that has not yet been saved.
+        """
+        return Config(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            description=description,
+            parent=parent,
+        )
+
+    def get(self, id: str) -> Config:
+        """Fetch a config by id.
+
+        Args:
+            id: The config identifier (slug).
+
+        Returns:
+            The matching :class:`Config`.
+
+        Raises:
+            SmplNotFoundError: If no matching config exists.
+        """
+        try:
+            response = get_config.sync_detailed(
+                id,
+                client=self._parent._parent._http_client,
+            )
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            raise SmplNotFoundError(f"Config with id '{id}' not found", status_code=404)
+        return self._parent._resource_to_model(response.parsed.data)
+
+    def list(self) -> list[Config]:
+        """List all configs for the account.
+
+        Returns:
+            A list of :class:`Config` objects.
+        """
+        try:
+            response = list_configs.sync_detailed(
+                client=self._parent._parent._http_client,
+            )
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [self._parent._resource_to_model(r) for r in response.parsed.data]
+
+    def delete(self, id: str) -> None:
+        """Delete a config by id.
+
+        Args:
+            id: The config identifier (slug).
+
+        Raises:
+            SmplNotFoundError: If the config does not exist.
+            SmplConflictError: If the config has children.
+        """
+        try:
+            response = delete_config.sync_detailed(
+                id,
+                client=self._parent._parent._http_client,
+            )
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+
+class ConfigClient:
+    """Synchronous client for Smpl Config.
+
+    Obtained via ``SmplClient(...).config``.
     """
 
     def __init__(self, parent: SmplClient) -> None:
@@ -194,6 +461,7 @@ class ConfigClient:
         self._cache_lock = threading.Lock()
         self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
         self._ws_manager: SharedWebSocket | None = None
+        self.management = ConfigManagementClient(self)
 
     def _connect_internal(self) -> None:
         """Fetch all configs, resolve values for the environment, and cache.
@@ -202,7 +470,7 @@ class ConfigClient:
         """
         if self._connected:
             return
-        configs = self._fetch_all_configs()
+        configs = self.management.list()
         environment = self._parent._environment
         cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
@@ -217,30 +485,6 @@ class ConfigClient:
         self._ws_manager.on("config_changed", self._handle_config_changed)
         self._ws_manager.on("config_deleted", self._handle_config_deleted)
         self._ws_manager.on("configs_changed", self._handle_configs_changed)
-
-    def _fetch_all_configs(self) -> list[Config]:
-        """List configs directly from the API (no management indirection)."""
-        try:
-            response = list_configs.sync_detailed(client=self._parent._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [_resource_to_config(None, r) for r in response.parsed.data]
-
-    def _fetch_config(self, config_id: str) -> Config | None:
-        """Fetch a single config from the API. Returns ``None`` on missing data."""
-        try:
-            response = get_config.sync_detailed(config_id, client=self._parent._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return None
-        return _resource_to_config(None, response.parsed.data)
 
     # ------------------------------------------------------------------
     # Runtime: get / subscribe
@@ -307,7 +551,7 @@ class ConfigClient:
         self._do_refresh("manual")
 
     def _do_refresh(self, source: str) -> None:
-        configs = self._fetch_all_configs()
+        configs = self.management.list()
         environment = self._parent._environment
         new_cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
@@ -409,11 +653,9 @@ class ConfigClient:
             old_values = dict(self._config_cache.get(key, {}))
             raw_cache = dict(self._raw_config_cache)
         try:
-            cfg = self._fetch_config(key)
+            cfg = self.management.get(key)
         except Exception:
             ws_logger.error("Failed to fetch config %r after WS event", key, exc_info=True)
-            return
-        if cfg is None:
             return
         raw_cache[key] = cfg
         chain = cfg._build_chain(list(raw_cache.values()))
@@ -444,12 +686,193 @@ class ConfigClient:
         except Exception:
             ws_logger.error("Failed to refresh configs after WS event", exc_info=True)
 
+    # ------------------------------------------------------------------
+    # Internal: create / update for Config.save()
+    # ------------------------------------------------------------------
+
+    def _create_config(self, config: Config) -> Config:
+        """Internal: POST a new config from a Config model (for Config.save)."""
+        body = _build_request_body(
+            config_id=config.id,
+            name=config.name,
+            description=config.description,
+            parent=config.parent,
+            items=config._items_raw,
+            environments=config.environments,
+        )
+        try:
+            response = create_config.sync_detailed(
+                client=self._parent._http_client,
+                body=body,
+            )
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return self._to_model(response.parsed)
+
+    def _update_config_from_model(self, config: Config) -> Config:
+        """Internal: PUT a config update from a Config model (for Config.save)."""
+        body = _build_request_body(
+            config_id=config.id,
+            name=config.name,
+            description=config.description,
+            parent=config.parent,
+            items=config._items_raw,
+            environments=config.environments,
+        )
+        try:
+            response = update_config.sync_detailed(
+                config.id,
+                client=self._parent._http_client,
+                body=body,
+            )
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return self._to_model(response.parsed)
+
+    # ------------------------------------------------------------------
+    # Internal: model conversion
+    # ------------------------------------------------------------------
+
+    def _to_model(self, parsed: Any) -> Config:
+        """Convert a ConfigResponse (single resource) to a Config model."""
+        return self._resource_to_model(parsed.data)
+
+    def _resource_to_model(self, resource: Any) -> Config:
+        """Convert a ConfigResource to a Config model."""
+        attrs = resource.attributes
+        return Config(
+            self,
+            id=_unset_to_none(resource.id) or "",
+            name=attrs.name,
+            description=_unset_to_none(attrs.description),
+            parent=_unset_to_none(attrs.parent),
+            items=_extract_items(attrs.items),
+            environments=_extract_environments(attrs.environments),
+            created_at=_extract_datetime(attrs.created_at),
+            updated_at=_extract_datetime(attrs.updated_at),
+        )
+
+
+class AsyncConfigManagementClient:
+    """Management (CRUD) operations for Smpl Config (async).
+
+    Obtained via ``AsyncSmplClient(...).config.management``.
+    """
+
+    def __init__(self, parent: AsyncConfigClient) -> None:
+        self._parent = parent
+
+    def new(
+        self,
+        id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        parent: str | None = None,
+    ) -> AsyncConfig:
+        """Return a new unsaved :class:`AsyncConfig`.
+
+        Call :meth:`AsyncConfig.save` to persist it.
+
+        Args:
+            id: Config identifier (slug).
+            name: Display name. Auto-generated from *id* if omitted.
+            description: Optional description.
+            parent: Parent config id (slug), or ``None``.
+
+        Returns:
+            A new :class:`AsyncConfig` that has not yet been saved.
+        """
+        return AsyncConfig(
+            self._parent,
+            id=id,
+            name=name or key_to_display_name(id),
+            description=description,
+            parent=parent,
+        )
+
+    async def get(self, id: str) -> AsyncConfig:
+        """Fetch a config by id.
+
+        Args:
+            id: The config identifier (slug).
+
+        Returns:
+            The matching :class:`AsyncConfig`.
+
+        Raises:
+            SmplNotFoundError: If no matching config exists.
+        """
+        try:
+            response = await get_config.asyncio_detailed(
+                id,
+                client=self._parent._parent._http_client,
+            )
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            raise SmplNotFoundError(f"Config with id '{id}' not found", status_code=404)
+        return self._parent._resource_to_model(response.parsed.data)
+
+    async def list(self) -> list[AsyncConfig]:
+        """List all configs for the account.
+
+        Returns:
+            A list of :class:`AsyncConfig` objects.
+        """
+        try:
+            response = await list_configs.asyncio_detailed(
+                client=self._parent._parent._http_client,
+            )
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [self._parent._resource_to_model(r) for r in response.parsed.data]
+
+    async def delete(self, id: str) -> None:
+        """Delete a config by id.
+
+        Args:
+            id: The config identifier (slug).
+
+        Raises:
+            SmplNotFoundError: If the config does not exist.
+            SmplConflictError: If the config has children.
+        """
+        try:
+            response = await delete_config.asyncio_detailed(
+                id,
+                client=self._parent._parent._http_client,
+            )
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
 
 class AsyncConfigClient:
-    """Asynchronous runtime client for Smpl Config.
+    """Asynchronous client for Smpl Config.
 
-    Obtained via ``AsyncSmplClient(...).config``. CRUD has moved to
-    :class:`smplkit.AsyncSmplManagementClient` (``mgmt.configs.*``).
+    Obtained via ``AsyncSmplClient(...).config``.
     """
 
     def __init__(self, parent: AsyncSmplClient) -> None:
@@ -460,6 +883,7 @@ class AsyncConfigClient:
         self._cache_lock = threading.Lock()
         self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
         self._ws_manager: SharedWebSocket | None = None
+        self.management = AsyncConfigManagementClient(self)
 
     async def _connect_internal(self) -> None:
         """Fetch all configs, resolve values for the environment, and cache.
@@ -468,7 +892,7 @@ class AsyncConfigClient:
         """
         if self._connected:
             return
-        configs = await self._fetch_all_configs_async()
+        configs = await self.management.list()
         environment = self._parent._environment
         cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
@@ -483,17 +907,6 @@ class AsyncConfigClient:
         self._ws_manager.on("config_changed", self._handle_config_changed)
         self._ws_manager.on("config_deleted", self._handle_config_deleted)
         self._ws_manager.on("configs_changed", self._handle_configs_changed)
-
-    async def _fetch_all_configs_async(self) -> list[AsyncConfig]:
-        try:
-            response = await list_configs.asyncio_detailed(client=self._parent._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [_resource_to_async_config(None, r) for r in response.parsed.data]
 
     # ------------------------------------------------------------------
     # Runtime: get / subscribe
@@ -559,7 +972,7 @@ class AsyncConfigClient:
         await self._do_refresh("manual")
 
     async def _do_refresh(self, source: str) -> None:
-        configs = await self._fetch_all_configs_async()
+        configs = await self.management.list()
         environment = self._parent._environment
         new_cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
@@ -665,7 +1078,7 @@ class AsyncConfigClient:
             _check_response_status(response.status_code, response.content)
             if response.parsed is None or not hasattr(response.parsed, "data"):
                 return
-            cfg = _resource_to_async_config(None, response.parsed.data)
+            cfg = self._resource_to_model(response.parsed.data)
         except Exception:
             ws_logger.error("Failed to fetch config %r after WS event", key, exc_info=True)
             return
@@ -698,7 +1111,7 @@ class AsyncConfigClient:
             _check_response_status(response.status_code, response.content)
             if response.parsed is None or not hasattr(response.parsed, "data"):
                 return
-            models = [_resource_to_async_config(None, r) for r in response.parsed.data]
+            models = [self._resource_to_model(r) for r in response.parsed.data]
             environment = self._parent._environment
             models_by_id = {m.id: m for m in models}
             new_cache: dict[str, dict[str, Any]] = {}
@@ -712,6 +1125,86 @@ class AsyncConfigClient:
             self._fire_change_listeners(old_cache, new_cache, source="websocket")
         except Exception:
             ws_logger.error("Failed to refresh configs after WS event", exc_info=True)
+
+    # ------------------------------------------------------------------
+    # Internal: create / update for AsyncConfig.save()
+    # ------------------------------------------------------------------
+
+    async def _create_config(self, config: AsyncConfig) -> AsyncConfig:
+        """Internal: POST a new config from an AsyncConfig model (for AsyncConfig.save)."""
+        body = _build_request_body(
+            config_id=config.id,
+            name=config.name,
+            description=config.description,
+            parent=config.parent,
+            items=config._items_raw,
+            environments=config.environments,
+        )
+        try:
+            response = await create_config.asyncio_detailed(
+                client=self._parent._http_client,
+                body=body,
+            )
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return self._to_model(response.parsed)
+
+    async def _update_config_from_model(self, config: AsyncConfig) -> AsyncConfig:
+        """Internal: PUT a config update from an AsyncConfig model (for AsyncConfig.save)."""
+        body = _build_request_body(
+            config_id=config.id,
+            name=config.name,
+            description=config.description,
+            parent=config.parent,
+            items=config._items_raw,
+            environments=config.environments,
+        )
+        try:
+            response = await update_config.asyncio_detailed(
+                config.id,
+                client=self._parent._http_client,
+                body=body,
+            )
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            _raise_for_status(int(response.status_code), response.content)
+            raise SmplValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return self._to_model(response.parsed)
+
+    # ------------------------------------------------------------------
+    # Internal: model conversion
+    # ------------------------------------------------------------------
+
+    def _to_model(self, parsed: Any) -> AsyncConfig:
+        """Convert a ConfigResponse (single resource) to an AsyncConfig model."""
+        return self._resource_to_model(parsed.data)
+
+    def _resource_to_model(self, resource: Any) -> AsyncConfig:
+        """Convert a ConfigResource to an AsyncConfig model."""
+        attrs = resource.attributes
+        return AsyncConfig(
+            self,
+            id=_unset_to_none(resource.id) or "",
+            name=attrs.name,
+            description=_unset_to_none(attrs.description),
+            parent=_unset_to_none(attrs.parent),
+            items=_extract_items(attrs.items),
+            environments=_extract_environments(attrs.environments),
+            created_at=_extract_datetime(attrs.created_at),
+            updated_at=_extract_datetime(attrs.updated_at),
+        )
 
 
 def _exc_url(exc: Exception) -> str | None:

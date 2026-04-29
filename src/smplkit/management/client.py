@@ -1,41 +1,15 @@
-"""Smpl management-plane sub-clients and top-level :class:`SmplManagementClient`.
+"""Smpl management-plane sub-clients.
 
-This module owns every CRUD/management surface in the SDK.  The top-level
-:class:`SmplManagementClient` (and :class:`AsyncSmplManagementClient`)
-expose them as flat namespaces:
-
-- ``mgmt.contexts.*``         (was ``client.management.contexts.*``)
-- ``mgmt.context_types.*``    (was ``client.management.context_types.*``)
-- ``mgmt.environments.*``     (was ``client.management.environments.*``)
-- ``mgmt.account_settings.*`` (was ``client.management.account_settings.*``)
-- ``mgmt.configs.*``          (was ``client.config.management.*``)
-- ``mgmt.flags.*``            (was ``client.flags.management.*``)
-- ``mgmt.loggers.*``          (was ``client.logging.management.*`` — logger surface)
-- ``mgmt.log_groups.*``       (was ``client.logging.management.*`` — group surface)
-
-The runtime :class:`smplkit.SmplClient` no longer exposes a ``.management``
-attribute anywhere; runtime and management are strictly separated.
+Provides ``client.management.{environments, contexts, context_types,
+account_settings}`` for app-service-owned resources.
 """
 
 from __future__ import annotations
 
 import json
-import logging
 from typing import TYPE_CHECKING, Any, overload
 
-import httpx
-
-from smplkit._config import _service_url, resolve_management_config
-from smplkit._debug import enable_debug
-from smplkit._errors import (
-    SmplConflictError,
-    SmplConnectionError,
-    SmplNotFoundError,
-    SmplTimeoutError,
-    SmplValidationError,
-    _raise_for_status,
-)
-from smplkit._helpers import key_to_display_name
+from smplkit._errors import SmplNotFoundError, SmplValidationError, _raise_for_status
 from smplkit._generated.app.api.context_types import (
     create_context_type as _gen_create_context_type,
     delete_context_type as _gen_delete_context_type,
@@ -69,71 +43,6 @@ from smplkit._generated.app.models import (
     EnvironmentResource as _GenEnvironmentResource,
     EnvironmentResponse as _GenEnvironmentResponse,
 )
-from smplkit._generated.config.api.configs import (
-    create_config as _gen_create_config,
-    delete_config as _gen_delete_config,
-    get_config as _gen_get_config,
-    list_configs as _gen_list_configs,
-    update_config as _gen_update_config,
-)
-from smplkit._generated.config.client import AuthenticatedClient as _ConfigAuthClient
-from smplkit._generated.flags.api.flags import (
-    create_flag as _gen_create_flag,
-    delete_flag as _gen_delete_flag,
-    get_flag as _gen_get_flag,
-    list_flags as _gen_list_flags,
-    update_flag as _gen_update_flag,
-)
-from smplkit._generated.flags.client import AuthenticatedClient as _FlagsAuthClient
-from smplkit._generated.logging.api.log_groups import (
-    create_log_group as _gen_create_log_group,
-    delete_log_group as _gen_delete_log_group,
-    get_log_group as _gen_get_log_group,
-    list_log_groups as _gen_list_log_groups,
-    update_log_group as _gen_update_log_group,
-)
-from smplkit._generated.logging.api.loggers import (
-    bulk_register_loggers as _gen_bulk_register_loggers,
-    delete_logger as _gen_delete_logger,
-    get_logger as _gen_get_logger,
-    list_loggers as _gen_list_loggers,
-    update_logger as _gen_update_logger,
-)
-from smplkit._generated.logging.client import AuthenticatedClient as _LoggingAuthClient
-from smplkit.config.helpers import (
-    _build_config_request_body,
-    _resource_to_config,
-    _resource_to_async_config,
-)
-from smplkit.config.models import AsyncConfig, Config
-from smplkit.flags.helpers import (
-    _build_flag_request_body,
-    _flag_dict_from_json,
-)
-from smplkit.flags.models import (
-    AsyncBooleanFlag,
-    AsyncFlag,
-    AsyncJsonFlag,
-    AsyncNumberFlag,
-    AsyncStringFlag,
-    BooleanFlag,
-    Flag,
-    JsonFlag,
-    NumberFlag,
-    StringFlag,
-)
-from smplkit.logging._normalize import normalize_logger_name
-from smplkit.logging._sources import LoggerSource
-from smplkit.logging.helpers import (
-    _build_log_group_body,
-    _build_logger_body,
-    _logger_resource_to_async_model,
-    _logger_resource_to_model,
-    _loglevel_value,
-    _log_group_resource_to_async_model,
-    _log_group_resource_to_model,
-)
-from smplkit.logging.models import AsyncSmplLogGroup, AsyncSmplLogger, SmplLogGroup, SmplLogger
 from smplkit.management.models import (
     AccountSettings,
     AsyncAccountSettings,
@@ -147,10 +56,9 @@ from smplkit.management.models import (
 from smplkit.management.types import EnvironmentClassification
 
 if TYPE_CHECKING:  # pragma: no cover
+    from smplkit.client import AsyncSmplClient, SmplClient
     from smplkit.flags.types import Context
     from smplkit.management._buffer import _ContextRegistrationBuffer
-
-logger = logging.getLogger("smplkit")
 
 
 # ---------------------------------------------------------------------------
@@ -308,36 +216,16 @@ def _check_status(status_code: int, content: bytes) -> None:
     _raise_for_status(int(status_code), content)
 
 
-def _exc_url(exc: Exception) -> str | None:
-    try:
-        return str(exc.request.url)  # type: ignore[attr-defined]
-    except Exception:
-        return None
-
-
-def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) -> None:
-    """Re-raise httpx exceptions as SDK exceptions when applicable."""
-    if isinstance(exc, httpx.TimeoutException):
-        url = _exc_url(exc) or base_url
-        msg = f"Request timed out connecting to {url}" if url else f"Request timed out: {exc}"
-        raise SmplTimeoutError(msg) from exc
-    if isinstance(exc, httpx.HTTPError):
-        url = _exc_url(exc) or base_url
-        msg = f"Cannot connect to {url}: {exc}" if url else f"Connection error: {exc}"
-        raise SmplConnectionError(msg) from exc
-    if isinstance(exc, (SmplNotFoundError, SmplConflictError, SmplValidationError)):
-        raise exc
-
-
 # ---------------------------------------------------------------------------
 # Environments
 # ---------------------------------------------------------------------------
 
 
 class EnvironmentsClient:
-    """Sync environment CRUD (``mgmt.environments``)."""
+    """Sync environment CRUD."""
 
-    def __init__(self, app_http: _AppAuthClient) -> None:
+    def __init__(self, parent: SmplClient, app_http: _AppAuthClient) -> None:
+        self._parent = parent
         self._app_http = app_http
 
     def new(
@@ -400,9 +288,10 @@ class EnvironmentsClient:
 
 
 class AsyncEnvironmentsClient:
-    """Async environment CRUD (``mgmt.environments``)."""
+    """Async environment CRUD."""
 
-    def __init__(self, app_http: _AppAuthClient) -> None:
+    def __init__(self, parent: AsyncSmplClient, app_http: _AppAuthClient) -> None:
+        self._parent = parent
         self._app_http = app_http
 
     def new(
@@ -469,7 +358,11 @@ def _env_resource_from_dict(
     sync_client: EnvironmentsClient | None = None,
     async_client: AsyncEnvironmentsClient | None = None,
 ) -> Any:
-    """Build an Environment from a raw JSON resource dict (used by list)."""
+    """Build an Environment from a raw JSON resource dict.
+
+    Used by list() — each entry is a ``{"id", "type", "attributes"}``
+    dict, not a pre-parsed model.
+    """
     attrs = item.get("attributes") or {}
     classification = (
         EnvironmentClassification.AD_HOC
@@ -503,9 +396,10 @@ def _env_resource_from_dict(
 
 
 class ContextTypesClient:
-    """Sync context-type CRUD (``mgmt.context_types``)."""
+    """Sync context-type CRUD."""
 
-    def __init__(self, app_http: _AppAuthClient) -> None:
+    def __init__(self, parent: SmplClient, app_http: _AppAuthClient) -> None:
+        self._parent = parent
         self._app_http = app_http
 
     def new(
@@ -565,7 +459,8 @@ class ContextTypesClient:
 
 
 class AsyncContextTypesClient:
-    def __init__(self, app_http: _AppAuthClient) -> None:
+    def __init__(self, parent: AsyncSmplClient, app_http: _AppAuthClient) -> None:
+        self._parent = parent
         self._app_http = app_http
 
     def new(
@@ -678,18 +573,26 @@ def _build_bulk_register_body(items: list[dict[str, Any]]) -> _GenContextBulkReg
 
 
 class ContextsClient:
-    """Sync context registration + read/delete (``mgmt.contexts``)."""
+    """Sync context registration + read/delete."""
 
     def __init__(
         self,
+        parent: SmplClient,
         app_http: _AppAuthClient,
         buffer: _ContextRegistrationBuffer,
     ) -> None:
+        self._parent = parent
         self._app_http = app_http
         self._buffer = buffer
 
     def register(self, items: Context | list[Context], *, flush: bool = False) -> None:
-        """Buffer contexts for registration; optionally flush immediately."""
+        """Buffer contexts for registration; optionally flush immediately.
+
+        When ``flush=False`` (default) contexts are queued for the
+        SDK's background flush — right for high-frequency observation
+        from a live request handler. When ``flush=True`` the call
+        awaits the round-trip — right for IaC scripts.
+        """
         batch = items if isinstance(items, list) else [items]
         self._buffer.observe(batch)
         if flush:
@@ -744,9 +647,11 @@ class ContextsClient:
 class AsyncContextsClient:
     def __init__(
         self,
+        parent: AsyncSmplClient,
         app_http: _AppAuthClient,
         buffer: _ContextRegistrationBuffer,
     ) -> None:
+        self._parent = parent
         self._app_http = app_http
         self._buffer = buffer
 
@@ -824,14 +729,18 @@ def _ctx_entity_from_dict(item: dict[str, Any], *, async_: bool = False) -> Any:
 # ---------------------------------------------------------------------------
 
 
+import httpx  # noqa: E402  (kept here so the management module is self-contained)
+
+
 class AccountSettingsClient:
-    """Sync account-settings get/save (``mgmt.account_settings``).
+    """Sync account-settings get/save.
 
     The endpoint isn't JSON:API — body is a raw JSON object — so we
     use httpx directly rather than going through a generated client.
     """
 
-    def __init__(self, app_base_url: str, api_key: str) -> None:
+    def __init__(self, parent: SmplClient, app_base_url: str, api_key: str) -> None:
+        self._parent = parent
         self._base_url = app_base_url
         self._headers = {
             "Authorization": f"Bearer {api_key}",
@@ -852,7 +761,8 @@ class AccountSettingsClient:
 
 
 class AsyncAccountSettingsClient:
-    def __init__(self, app_base_url: str, api_key: str) -> None:
+    def __init__(self, parent: AsyncSmplClient, app_base_url: str, api_key: str) -> None:
+        self._parent = parent
         self._base_url = app_base_url
         self._headers = {
             "Authorization": f"Bearer {api_key}",
@@ -873,990 +783,51 @@ class AsyncAccountSettingsClient:
 
 
 # ---------------------------------------------------------------------------
-# Configs
+# Top-level ManagementClient
 # ---------------------------------------------------------------------------
 
 
-class ConfigsClient:
-    """Sync config CRUD (``mgmt.configs``)."""
+class ManagementClient:
+    """Sync ``client.management`` namespace."""
 
-    def __init__(self, http_client: _ConfigAuthClient) -> None:
-        self._http_client = http_client
-
-    def new(
-        self,
-        id: str,
-        *,
-        name: str | None = None,
-        description: str | None = None,
-        parent: str | None = None,
-    ) -> Config:
-        """Return a new unsaved :class:`Config`. Call :meth:`Config.save` to persist."""
-        return Config(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            description=description,
-            parent=parent,
-        )
-
-    def get(self, id: str) -> Config:
-        try:
-            response = _gen_get_config.sync_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            raise SmplNotFoundError(f"Config with id '{id}' not found", status_code=404)
-        return _resource_to_config(self, response.parsed.data)
-
-    def list(self) -> list[Config]:
-        try:
-            response = _gen_list_configs.sync_detailed(client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [_resource_to_config(self, r) for r in response.parsed.data]
-
-    def delete(self, id: str) -> None:
-        try:
-            response = _gen_delete_config.sync_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    def _create_config(self, config: Config) -> Config:
-        body = _build_config_request_body(
-            config_id=config.id,
-            name=config.name,
-            description=config.description,
-            parent=config.parent,
-            items=config._items_raw,
-            environments=config.environments,
-        )
-        try:
-            response = _gen_create_config.sync_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None:
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return _resource_to_config(self, response.parsed.data)
-
-    def _update_config_from_model(self, config: Config) -> Config:
-        body = _build_config_request_body(
-            config_id=config.id,
-            name=config.name,
-            description=config.description,
-            parent=config.parent,
-            items=config._items_raw,
-            environments=config.environments,
-        )
-        try:
-            response = _gen_update_config.sync_detailed(config.id, client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None:
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return _resource_to_config(self, response.parsed.data)
-
-
-class AsyncConfigsClient:
-    """Async config CRUD (``mgmt.configs``)."""
-
-    def __init__(self, http_client: _ConfigAuthClient) -> None:
-        self._http_client = http_client
-
-    def new(
-        self,
-        id: str,
-        *,
-        name: str | None = None,
-        description: str | None = None,
-        parent: str | None = None,
-    ) -> AsyncConfig:
-        return AsyncConfig(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            description=description,
-            parent=parent,
-        )
-
-    async def get(self, id: str) -> AsyncConfig:
-        try:
-            response = await _gen_get_config.asyncio_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            raise SmplNotFoundError(f"Config with id '{id}' not found", status_code=404)
-        return _resource_to_async_config(self, response.parsed.data)
-
-    async def list(self) -> list[AsyncConfig]:
-        try:
-            response = await _gen_list_configs.asyncio_detailed(client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [_resource_to_async_config(self, r) for r in response.parsed.data]
-
-    async def delete(self, id: str) -> None:
-        try:
-            response = await _gen_delete_config.asyncio_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    async def _create_config(self, config: AsyncConfig) -> AsyncConfig:
-        body = _build_config_request_body(
-            config_id=config.id,
-            name=config.name,
-            description=config.description,
-            parent=config.parent,
-            items=config._items_raw,
-            environments=config.environments,
-        )
-        try:
-            response = await _gen_create_config.asyncio_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None:
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return _resource_to_async_config(self, response.parsed.data)
-
-    async def _update_config_from_model(self, config: AsyncConfig) -> AsyncConfig:
-        body = _build_config_request_body(
-            config_id=config.id,
-            name=config.name,
-            description=config.description,
-            parent=config.parent,
-            items=config._items_raw,
-            environments=config.environments,
-        )
-        try:
-            response = await _gen_update_config.asyncio_detailed(config.id, client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None:
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return _resource_to_async_config(self, response.parsed.data)
-
-
-# ---------------------------------------------------------------------------
-# Flags
-# ---------------------------------------------------------------------------
-
-
-class FlagsClient:
-    """Sync flag CRUD (``mgmt.flags``).
-
-    Distinct from the runtime :class:`smplkit.flags.client.FlagsClient` —
-    this class only exposes management operations and never participates
-    in flag evaluation, caching, or context registration.
-    """
-
-    def __init__(self, http_client: _FlagsAuthClient) -> None:
-        self._http_client = http_client
-
-    def newBooleanFlag(
-        self,
-        id: str,
-        *,
-        default: bool,
-        name: str | None = None,
-        description: str | None = None,
-    ) -> BooleanFlag:
-        return BooleanFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="BOOLEAN",
-            default=default,
-            values=[{"name": "True", "value": True}, {"name": "False", "value": False}],
-            description=description,
-        )
-
-    def newStringFlag(
-        self,
-        id: str,
-        *,
-        default: str,
-        name: str | None = None,
-        description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
-    ) -> StringFlag:
-        return StringFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="STRING",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    def newNumberFlag(
-        self,
-        id: str,
-        *,
-        default: int | float,
-        name: str | None = None,
-        description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
-    ) -> NumberFlag:
-        return NumberFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="NUMERIC",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    def newJsonFlag(
-        self,
-        id: str,
-        *,
-        default: dict[str, Any],
-        name: str | None = None,
-        description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
-    ) -> JsonFlag:
-        return JsonFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="JSON",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    def get(self, id: str) -> Flag:
-        try:
-            response = _gen_get_flag.sync_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        body = json.loads(response.content)
-        return self._model_from_json(body["data"])
-
-    def list(self) -> list[Flag]:
-        try:
-            response = _gen_list_flags.sync_detailed(client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        body = json.loads(response.content)
-        return [self._model_from_json(r) for r in body.get("data", [])]
-
-    def delete(self, id: str) -> None:
-        try:
-            response = _gen_delete_flag.sync_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    def _create_flag(self, flag: Flag) -> Flag:
-        body = _build_flag_request_body(flag, flag_id=flag.id)
-        try:
-            response = _gen_create_flag.sync_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        resp_body = json.loads(response.content)
-        return self._model_from_json(resp_body["data"])
-
-    def _update_flag(self, *, flag: Flag) -> Flag:
-        body = _build_flag_request_body(flag, flag_id=flag.id)
-        try:
-            response = _gen_update_flag.sync_detailed(flag.id, client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        resp_body = json.loads(response.content)
-        return self._model_from_json(resp_body["data"])
-
-    def _model_from_json(self, data: dict[str, Any]) -> Flag:
-        d = _flag_dict_from_json(data)
-        return Flag(self, **d)
-
-
-class AsyncFlagsClient:
-    """Async flag CRUD (``mgmt.flags``)."""
-
-    def __init__(self, http_client: _FlagsAuthClient) -> None:
-        self._http_client = http_client
-
-    def newBooleanFlag(
-        self,
-        id: str,
-        *,
-        default: bool,
-        name: str | None = None,
-        description: str | None = None,
-    ) -> AsyncBooleanFlag:
-        return AsyncBooleanFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="BOOLEAN",
-            default=default,
-            values=[{"name": "True", "value": True}, {"name": "False", "value": False}],
-            description=description,
-        )
-
-    def newStringFlag(
-        self,
-        id: str,
-        *,
-        default: str,
-        name: str | None = None,
-        description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
-    ) -> AsyncStringFlag:
-        return AsyncStringFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="STRING",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    def newNumberFlag(
-        self,
-        id: str,
-        *,
-        default: int | float,
-        name: str | None = None,
-        description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
-    ) -> AsyncNumberFlag:
-        return AsyncNumberFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="NUMERIC",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    def newJsonFlag(
-        self,
-        id: str,
-        *,
-        default: dict[str, Any],
-        name: str | None = None,
-        description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
-    ) -> AsyncJsonFlag:
-        return AsyncJsonFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="JSON",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    async def get(self, id: str) -> AsyncFlag:
-        try:
-            response = await _gen_get_flag.asyncio_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        body = json.loads(response.content)
-        return self._model_from_json(body["data"])
-
-    async def list(self) -> list[AsyncFlag]:
-        try:
-            response = await _gen_list_flags.asyncio_detailed(client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        body = json.loads(response.content)
-        return [self._model_from_json(r) for r in body.get("data", [])]
-
-    async def delete(self, id: str) -> None:
-        try:
-            response = await _gen_delete_flag.asyncio_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    async def _create_flag(self, flag: AsyncFlag) -> AsyncFlag:
-        body = _build_flag_request_body(flag, flag_id=flag.id)
-        try:
-            response = await _gen_create_flag.asyncio_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        resp_body = json.loads(response.content)
-        return self._model_from_json(resp_body["data"])
-
-    async def _update_flag(self, *, flag: AsyncFlag) -> AsyncFlag:
-        body = _build_flag_request_body(flag, flag_id=flag.id)
-        try:
-            response = await _gen_update_flag.asyncio_detailed(flag.id, client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        resp_body = json.loads(response.content)
-        return self._model_from_json(resp_body["data"])
-
-    def _model_from_json(self, data: dict[str, Any]) -> AsyncFlag:
-        d = _flag_dict_from_json(data)
-        return AsyncFlag(self, **d)
-
-
-# ---------------------------------------------------------------------------
-# Loggers
-# ---------------------------------------------------------------------------
-
-
-class LoggersClient:
-    """Sync logger CRUD (``mgmt.loggers``)."""
-
-    def __init__(self, http_client: _LoggingAuthClient, *, base_url: str) -> None:
-        self._http_client = http_client
-        self._base_url = base_url
-
-    def new(self, id: str, *, name: str | None = None, managed: bool = False) -> SmplLogger:
-        return SmplLogger(
-            self,
-            id=id,
-            name=name if name is not None else key_to_display_name(id),
-            managed=managed,
-        )
-
-    def list(self) -> list[SmplLogger]:
-        try:
-            response = _gen_list_loggers.sync_detailed(client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [_logger_resource_to_model(self, r) for r in response.parsed.data]
-
-    def get(self, id: str) -> SmplLogger:
-        try:
-            response = _gen_get_logger.sync_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None:
-            raise SmplNotFoundError(f"Logger with id {id!r} not found", status_code=404)
-        return _logger_resource_to_model(self, response.parsed.data)
-
-    def delete(self, id: str) -> None:
-        try:
-            response = _gen_delete_logger.sync_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    def register_sources(self, sources: list[LoggerSource]) -> None:
-        """Bulk-register explicit logger sources with the logging service."""
-        from smplkit._generated.logging.models.logger_bulk_item import LoggerBulkItem
-        from smplkit._generated.logging.models.logger_bulk_request import LoggerBulkRequest
-
-        items = [
-            LoggerBulkItem(
-                id=normalize_logger_name(src.name),
-                level=_loglevel_value(src.level, where="register_sources[level]"),
-                resolved_level=_loglevel_value(src.resolved_level, where="register_sources[resolved_level]"),
-                service=src.service,
-                environment=src.environment,
-            )
-            for src in sources
-        ]
-        if not items:
-            return
-        body = LoggerBulkRequest(loggers=items)
-        try:
-            response = _gen_bulk_register_loggers.sync_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    def _save_logger(self, lg: SmplLogger) -> SmplLogger:
-        body = _build_logger_body(
-            logger_id=lg.id,
-            name=lg.name,
-            level=_loglevel_value(lg.level, where="SmplLogger.save"),
-            managed=lg.managed,
-            group=lg.group,
-            environments=lg.environments if lg.environments else None,
-        )
-        try:
-            response = _gen_update_logger.sync_detailed(lg.id, client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None:
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return _logger_resource_to_model(self, response.parsed.data)
-
-
-class AsyncLoggersClient:
-    """Async logger CRUD (``mgmt.loggers``)."""
-
-    def __init__(self, http_client: _LoggingAuthClient, *, base_url: str) -> None:
-        self._http_client = http_client
-        self._base_url = base_url
-
-    def new(self, id: str, *, name: str | None = None, managed: bool = False) -> AsyncSmplLogger:
-        return AsyncSmplLogger(
-            self,
-            id=id,
-            name=name if name is not None else key_to_display_name(id),
-            managed=managed,
-        )
-
-    async def list(self) -> list[AsyncSmplLogger]:
-        try:
-            response = await _gen_list_loggers.asyncio_detailed(client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [_logger_resource_to_async_model(self, r) for r in response.parsed.data]
-
-    async def get(self, id: str) -> AsyncSmplLogger:
-        try:
-            response = await _gen_get_logger.asyncio_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None:
-            raise SmplNotFoundError(f"Logger with id {id!r} not found", status_code=404)
-        return _logger_resource_to_async_model(self, response.parsed.data)
-
-    async def delete(self, id: str) -> None:
-        try:
-            response = await _gen_delete_logger.asyncio_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    async def register_sources(self, sources: list[LoggerSource]) -> None:
-        from smplkit._generated.logging.models.logger_bulk_item import LoggerBulkItem
-        from smplkit._generated.logging.models.logger_bulk_request import LoggerBulkRequest
-
-        items = [
-            LoggerBulkItem(
-                id=normalize_logger_name(src.name),
-                level=_loglevel_value(src.level, where="register_sources[level]"),
-                resolved_level=_loglevel_value(src.resolved_level, where="register_sources[resolved_level]"),
-                service=src.service,
-                environment=src.environment,
-            )
-            for src in sources
-        ]
-        if not items:
-            return
-        body = LoggerBulkRequest(loggers=items)
-        try:
-            response = await _gen_bulk_register_loggers.asyncio_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    async def _save_logger(self, lg: AsyncSmplLogger) -> AsyncSmplLogger:
-        body = _build_logger_body(
-            logger_id=lg.id,
-            name=lg.name,
-            level=_loglevel_value(lg.level, where="AsyncSmplLogger.save"),
-            managed=lg.managed,
-            group=lg.group,
-            environments=lg.environments if lg.environments else None,
-        )
-        try:
-            response = await _gen_update_logger.asyncio_detailed(lg.id, client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None:
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return _logger_resource_to_async_model(self, response.parsed.data)
-
-
-# ---------------------------------------------------------------------------
-# Log Groups
-# ---------------------------------------------------------------------------
-
-
-class LogGroupsClient:
-    """Sync log-group CRUD (``mgmt.log_groups``)."""
-
-    def __init__(self, http_client: _LoggingAuthClient, *, base_url: str) -> None:
-        self._http_client = http_client
-        self._base_url = base_url
-
-    def new(self, id: str, *, name: str | None = None, group: str | None = None) -> SmplLogGroup:
-        return SmplLogGroup(
-            self,
-            id=id,
-            name=name if name is not None else key_to_display_name(id),
-            group=group,
-        )
-
-    def list(self) -> list[SmplLogGroup]:
-        try:
-            response = _gen_list_log_groups.sync_detailed(client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [_log_group_resource_to_model(self, r) for r in response.parsed.data]
-
-    def get(self, id: str) -> SmplLogGroup:
-        try:
-            response = _gen_get_log_group.sync_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None:
-            raise SmplNotFoundError(f"Log group with id {id!r} not found", status_code=404)
-        return _log_group_resource_to_model(self, response.parsed.data)
-
-    def delete(self, id: str) -> None:
-        try:
-            response = _gen_delete_log_group.sync_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    def _save_group(self, grp: SmplLogGroup) -> SmplLogGroup:
-        body = _build_log_group_body(
-            group_id=grp.id,
-            name=grp.name,
-            level=_loglevel_value(grp.level, where="SmplLogGroup.save"),
-            group=grp.group,
-            environments=grp.environments if grp.environments else None,
-        )
-        try:
-            if grp.created_at is None:
-                response = _gen_create_log_group.sync_detailed(client=self._http_client, body=body)
-            else:
-                response = _gen_update_log_group.sync_detailed(grp.id, client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None:
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return _log_group_resource_to_model(self, response.parsed.data)
-
-
-class AsyncLogGroupsClient:
-    """Async log-group CRUD (``mgmt.log_groups``)."""
-
-    def __init__(self, http_client: _LoggingAuthClient, *, base_url: str) -> None:
-        self._http_client = http_client
-        self._base_url = base_url
-
-    def new(self, id: str, *, name: str | None = None, group: str | None = None) -> AsyncSmplLogGroup:
-        return AsyncSmplLogGroup(
-            self,
-            id=id,
-            name=name if name is not None else key_to_display_name(id),
-            group=group,
-        )
-
-    async def list(self) -> list[AsyncSmplLogGroup]:
-        try:
-            response = await _gen_list_log_groups.asyncio_detailed(client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [_log_group_resource_to_async_model(self, r) for r in response.parsed.data]
-
-    async def get(self, id: str) -> AsyncSmplLogGroup:
-        try:
-            response = await _gen_get_log_group.asyncio_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None:
-            raise SmplNotFoundError(f"Log group with id {id!r} not found", status_code=404)
-        return _log_group_resource_to_async_model(self, response.parsed.data)
-
-    async def delete(self, id: str) -> None:
-        try:
-            response = await _gen_delete_log_group.asyncio_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    async def _save_group(self, grp: AsyncSmplLogGroup) -> AsyncSmplLogGroup:
-        body = _build_log_group_body(
-            group_id=grp.id,
-            name=grp.name,
-            level=_loglevel_value(grp.level, where="AsyncSmplLogGroup.save"),
-            group=grp.group,
-            environments=grp.environments if grp.environments else None,
-        )
-        try:
-            if grp.created_at is None:
-                response = await _gen_create_log_group.asyncio_detailed(client=self._http_client, body=body)
-            else:
-                response = await _gen_update_log_group.asyncio_detailed(grp.id, client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None:
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return _log_group_resource_to_async_model(self, response.parsed.data)
-
-
-# ---------------------------------------------------------------------------
-# Top-level SmplManagementClient
-# ---------------------------------------------------------------------------
-
-
-class SmplManagementClient:
-    """Synchronous management-only entry point for the smplkit SDK.
-
-    Use this client for setup scripts, CI/CD jobs, admin tools, and
-    anywhere else the goal is CRUD against the platform — not runtime
-    instrumentation. Construction has zero side effects: no service
-    registration, no metrics thread, no websocket, no logger discovery.
-
-    Usage::
-
-        from smplkit import SmplManagementClient
-
-        with SmplManagementClient() as mgmt:
-            for env in mgmt.environments.list():
-                print(env.id)
-
-    Args:
-        api_key: API key for authenticating with the smplkit platform.
-            When omitted, resolved from ``SMPLKIT_API_KEY`` or ``~/.smplkit``.
-        profile: Named profile section to read from ``~/.smplkit``.
-        base_domain: Base domain for API requests (default ``"smplkit.com"``).
-        scheme: URL scheme (default ``"https"``).
-        debug: Enable debug logging in the SDK.
-    """
-
+    environments: EnvironmentsClient
     contexts: ContextsClient
     context_types: ContextTypesClient
-    environments: EnvironmentsClient
     account_settings: AccountSettingsClient
-    configs: ConfigsClient
-    flags: FlagsClient
-    loggers: LoggersClient
-    log_groups: LogGroupsClient
 
     def __init__(
         self,
-        api_key: str | None = None,
+        parent: SmplClient,
         *,
-        profile: str | None = None,
-        base_domain: str | None = None,
-        scheme: str | None = None,
-        debug: bool | None = None,
+        app_base_url: str,
+        api_key: str,
+        buffer: _ContextRegistrationBuffer,
     ) -> None:
-        cfg = resolve_management_config(
-            profile=profile,
-            api_key=api_key,
-            base_domain=base_domain,
-            scheme=scheme,
-            debug=debug,
-        )
-        if cfg.debug:
-            enable_debug()
-            logger.setLevel(logging.DEBUG)
-
-        self._api_key = cfg.api_key
-        self._base_domain = cfg.base_domain
-        self._scheme = cfg.scheme
-
-        config_url = _service_url(cfg.scheme, "config", cfg.base_domain)
-        app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
-        flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
-        logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
-
-        self._app_http = _AppAuthClient(base_url=app_url, token=cfg.api_key)
-        self._config_http = _ConfigAuthClient(base_url=config_url, token=cfg.api_key)
-        self._flags_http = _FlagsAuthClient(base_url=flags_url, token=cfg.api_key)
-        self._logging_http = _LoggingAuthClient(base_url=logging_url, token=cfg.api_key)
-
-        # Lightweight buffer for Contexts.register; not a runtime side-effect
-        # — just shared state for batched flushes within this client.
-        from smplkit.management._buffer import _ContextRegistrationBuffer
-
-        self._context_buffer = _ContextRegistrationBuffer()
-
-        self.contexts = ContextsClient(self._app_http, self._context_buffer)
-        self.context_types = ContextTypesClient(self._app_http)
-        self.environments = EnvironmentsClient(self._app_http)
-        self.account_settings = AccountSettingsClient(app_url, cfg.api_key)
-        self.configs = ConfigsClient(self._config_http)
-        self.flags = FlagsClient(self._flags_http)
-        self.loggers = LoggersClient(self._logging_http, base_url=logging_url)
-        self.log_groups = LogGroupsClient(self._logging_http, base_url=logging_url)
-
-    def close(self) -> None:
-        """Release HTTP resources held by this client."""
-        for http in (self._app_http, self._config_http, self._flags_http, self._logging_http):
-            client = http._client
-            if client is not None:
-                client.close()
-                http._client = None
-
-    def __enter__(self) -> SmplManagementClient:
-        return self
-
-    def __exit__(self, *args: object) -> None:
-        self.close()
+        self._parent = parent
+        app_http = _AppAuthClient(base_url=app_base_url, token=api_key)
+        self.environments = EnvironmentsClient(parent, app_http)
+        self.contexts = ContextsClient(parent, app_http, buffer)
+        self.context_types = ContextTypesClient(parent, app_http)
+        self.account_settings = AccountSettingsClient(parent, app_base_url, api_key)
 
 
-class AsyncSmplManagementClient:
-    """Asynchronous management-only entry point for the smplkit SDK.
-
-    Mirrors :class:`SmplManagementClient` but exposes async sub-clients.
-    Construction has the same zero-side-effect contract.
-    """
-
+class AsyncManagementClient:
+    environments: AsyncEnvironmentsClient
     contexts: AsyncContextsClient
     context_types: AsyncContextTypesClient
-    environments: AsyncEnvironmentsClient
     account_settings: AsyncAccountSettingsClient
-    configs: AsyncConfigsClient
-    flags: AsyncFlagsClient
-    loggers: AsyncLoggersClient
-    log_groups: AsyncLogGroupsClient
 
     def __init__(
         self,
-        api_key: str | None = None,
+        parent: AsyncSmplClient,
         *,
-        profile: str | None = None,
-        base_domain: str | None = None,
-        scheme: str | None = None,
-        debug: bool | None = None,
+        app_base_url: str,
+        api_key: str,
+        buffer: _ContextRegistrationBuffer,
     ) -> None:
-        cfg = resolve_management_config(
-            profile=profile,
-            api_key=api_key,
-            base_domain=base_domain,
-            scheme=scheme,
-            debug=debug,
-        )
-        if cfg.debug:
-            enable_debug()
-            logger.setLevel(logging.DEBUG)
-
-        self._api_key = cfg.api_key
-        self._base_domain = cfg.base_domain
-        self._scheme = cfg.scheme
-
-        config_url = _service_url(cfg.scheme, "config", cfg.base_domain)
-        app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
-        flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
-        logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
-
-        self._app_http = _AppAuthClient(base_url=app_url, token=cfg.api_key)
-        self._config_http = _ConfigAuthClient(base_url=config_url, token=cfg.api_key)
-        self._flags_http = _FlagsAuthClient(base_url=flags_url, token=cfg.api_key)
-        self._logging_http = _LoggingAuthClient(base_url=logging_url, token=cfg.api_key)
-
-        from smplkit.management._buffer import _ContextRegistrationBuffer
-
-        self._context_buffer = _ContextRegistrationBuffer()
-
-        self.contexts = AsyncContextsClient(self._app_http, self._context_buffer)
-        self.context_types = AsyncContextTypesClient(self._app_http)
-        self.environments = AsyncEnvironmentsClient(self._app_http)
-        self.account_settings = AsyncAccountSettingsClient(app_url, cfg.api_key)
-        self.configs = AsyncConfigsClient(self._config_http)
-        self.flags = AsyncFlagsClient(self._flags_http)
-        self.loggers = AsyncLoggersClient(self._logging_http, base_url=logging_url)
-        self.log_groups = AsyncLogGroupsClient(self._logging_http, base_url=logging_url)
-
-    async def close(self) -> None:
-        """Release HTTP resources held by this client."""
-        for http in (self._app_http, self._config_http, self._flags_http, self._logging_http):
-            ac = http._async_client
-            if ac is not None:
-                await ac.aclose()
-                http._async_client = None
-
-    async def __aenter__(self) -> AsyncSmplManagementClient:
-        return self
-
-    async def __aexit__(self, *args: object) -> None:
-        await self.close()
+        self._parent = parent
+        app_http = _AppAuthClient(base_url=app_base_url, token=api_key)
+        self.environments = AsyncEnvironmentsClient(parent, app_http)
+        self.contexts = AsyncContextsClient(parent, app_http, buffer)
+        self.context_types = AsyncContextTypesClient(parent, app_http)
+        self.account_settings = AsyncAccountSettingsClient(parent, app_base_url, api_key)
