@@ -79,9 +79,7 @@ class TestSmplManagementClientConstruction:
         request is fired.
         """
         before = {t.ident for t in threading.enumerate()}
-        with patch("httpx.Client") as mock_sync_client, patch(
-            "httpx.AsyncClient"
-        ) as mock_async_client:
+        with patch("httpx.Client") as mock_sync_client, patch("httpx.AsyncClient") as mock_async_client:
             mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
         after = {t.ident for t in threading.enumerate()}
         # No new threads spawned during construction
@@ -219,9 +217,7 @@ class TestAsyncSmplManagementClientConstruction:
 
     def test_async_context_manager(self):
         async def _run():
-            async with AsyncSmplManagementClient(
-                api_key="sk_test", base_domain="example.test"
-            ) as mgmt:
+            async with AsyncSmplManagementClient(api_key="sk_test", base_domain="example.test") as mgmt:
                 assert isinstance(mgmt, AsyncSmplManagementClient)
             assert mgmt._app_http._async_client is None
 

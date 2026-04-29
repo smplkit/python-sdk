@@ -21,12 +21,14 @@ from smplkit.config.helpers import _resource_to_config
 def _new_mgmt():
     """Build a SmplManagementClient for management-flavored tests."""
     from smplkit import SmplManagementClient
+
     return SmplManagementClient(api_key="sk_test", base_domain="example.test")
 
 
 def _new_async_mgmt():
     """Build an AsyncSmplManagementClient for management-flavored tests."""
     from smplkit import AsyncSmplManagementClient
+
     return AsyncSmplManagementClient(api_key="sk_test", base_domain="example.test")
 
 
@@ -1037,7 +1039,9 @@ class TestAsyncConfigClientConnectInternal:
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             mock_cfg = self._make_mock_config("db", {"host": {"value": "localhost"}})
-            with patch.object(client.config, "_fetch_all_configs_async", new_callable=AsyncMock, return_value=[mock_cfg]):
+            with patch.object(
+                client.config, "_fetch_all_configs_async", new_callable=AsyncMock, return_value=[mock_cfg]
+            ):
                 await client.config._connect_internal()
             assert client.config._connected is True
             assert "db" in client.config._config_cache
@@ -1465,7 +1469,9 @@ class TestAsyncConfigClientWebSocket:
             mock_cfg._items_raw = {}
             mock_cfg.environments = {}
             mock_cfg._build_chain = AsyncMock(return_value=[{"id": "db", "items": {}, "environments": {}}])
-            with patch.object(client.config, "_fetch_all_configs_async", new_callable=AsyncMock, return_value=[mock_cfg]):
+            with patch.object(
+                client.config, "_fetch_all_configs_async", new_callable=AsyncMock, return_value=[mock_cfg]
+            ):
                 await client.config._connect_internal()
             client._ensure_ws.assert_called_once()
             mock_ws.on.assert_any_call("config_changed", client.config._handle_config_changed)
