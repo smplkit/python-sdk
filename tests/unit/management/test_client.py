@@ -1315,15 +1315,17 @@ class TestMetricsClient:
 
         mock_post.return_value = _ok_resp(202, b"")
         client = _make_metrics_client()
-        client.bulk_ingest([
-            MetricItem(
-                name="flags.evaluations",
-                value=1482,
-                recorded_at=_dt.datetime(2026, 4, 10, 18, 0, tzinfo=_dt.timezone.utc),
-                unit="evaluations",
-                dimensions={"environment": "production"},
-            ),
-        ])
+        client.bulk_ingest(
+            [
+                MetricItem(
+                    name="flags.evaluations",
+                    value=1482,
+                    recorded_at=_dt.datetime(2026, 4, 10, 18, 0, tzinfo=_dt.timezone.utc),
+                    unit="evaluations",
+                    dimensions={"environment": "production"},
+                ),
+            ]
+        )
         mock_post.assert_called_once()
         body = mock_post.call_args.kwargs["body"]
         assert len(body.data) == 1
@@ -1341,11 +1343,9 @@ class TestMetricsClient:
         mock_post.return_value = _ok_resp(500, b'{"errors":[{"status":"500","title":"oops"}]}')
         client = _make_metrics_client()
         with pytest.raises(Exception):
-            client.bulk_ingest([
-                MetricItem(
-                    name="x", value=1, recorded_at=_dt.datetime(2026, 1, 1, tzinfo=_dt.timezone.utc)
-                )
-            ])
+            client.bulk_ingest(
+                [MetricItem(name="x", value=1, recorded_at=_dt.datetime(2026, 1, 1, tzinfo=_dt.timezone.utc))]
+            )
 
 
 class TestAsyncMetricsClient:
@@ -1356,3 +1356,37 @@ class TestAsyncMetricsClient:
             client = _make_async_metrics_client()
             asyncio.run(client.bulk_ingest([]))
             mock_post.assert_not_called()
+
+    def test_bulk_ingest_serializes_items_async(self):
+        import asyncio
+        import datetime as _dt
+
+        from smplkit.management.client import MetricItem
+
+        async def _runner(client, items):
+            await client.bulk_ingest(items)
+
+        with patch("smplkit.management.client._gen_bulk_ingest_metrics.asyncio_detailed") as mock_post:
+
+            async def _resp_ok(*_a, **_kw):
+                return _ok_resp(202, b"")
+
+            mock_post.side_effect = _resp_ok
+            client = _make_async_metrics_client()
+            asyncio.run(
+                _runner(
+                    client,
+                    [
+                        MetricItem(
+                            name="config.resolutions",
+                            value=42,
+                            recorded_at=_dt.datetime(2026, 4, 10, 18, 0, tzinfo=_dt.timezone.utc),
+                            dimensions={"environment": "staging"},
+                        ),
+                    ],
+                )
+            )
+            mock_post.assert_called_once()
+            body = mock_post.call_args.kwargs["body"]
+            assert len(body.data) == 1
+            assert body.data[0].attributes.name == "config.resolutions"
