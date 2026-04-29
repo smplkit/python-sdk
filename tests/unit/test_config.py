@@ -16,7 +16,7 @@ class TestResolveConfigDefaults:
         monkeypatch.delenv("SMPLKIT_BASE_DOMAIN", raising=False)
         monkeypatch.delenv("SMPLKIT_SCHEME", raising=False)
         monkeypatch.delenv("SMPLKIT_DEBUG", raising=False)
-        monkeypatch.delenv("SMPLKIT_DISABLE_TELEMETRY", raising=False)
+        monkeypatch.delenv("SMPLKIT_TELEMETRY", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         cfg = resolve_config(
             api_key="sk_api_test",
@@ -27,7 +27,7 @@ class TestResolveConfigDefaults:
         assert cfg.base_domain == "smplkit.com"
         assert cfg.scheme == "https"
         assert cfg.debug is False
-        assert cfg.disable_telemetry is False
+        assert cfg.telemetry is True
 
 
 class TestResolveConfigFile:
@@ -225,20 +225,15 @@ class TestResolveConfigFile:
 
     def test_boolean_from_file(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_DEBUG", raising=False)
-        monkeypatch.delenv("SMPLKIT_DISABLE_TELEMETRY", raising=False)
+        monkeypatch.delenv("SMPLKIT_TELEMETRY", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config = tmp_path / ".smplkit"
         config.write_text(
-            "[default]\n"
-            "api_key = sk_api_test\n"
-            "environment = test\n"
-            "service = svc\n"
-            "debug = true\n"
-            "disable_telemetry = yes\n"
+            "[default]\napi_key = sk_api_test\nenvironment = test\nservice = svc\ndebug = true\ntelemetry = no\n"
         )
         cfg = resolve_config(_home_dir=tmp_path)
         assert cfg.debug is True
-        assert cfg.disable_telemetry is True
+        assert cfg.telemetry is False
 
 
 class TestResolveConfigEnvVars:
@@ -266,7 +261,7 @@ class TestResolveConfigEnvVars:
 
     def test_boolean_from_env(self, monkeypatch, tmp_path):
         monkeypatch.setenv("SMPLKIT_DEBUG", "1")
-        monkeypatch.setenv("SMPLKIT_DISABLE_TELEMETRY", "YES")
+        monkeypatch.setenv("SMPLKIT_TELEMETRY", "no")
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         cfg = resolve_config(
             api_key="sk_api_test",
@@ -275,7 +270,7 @@ class TestResolveConfigEnvVars:
             _home_dir=tmp_path,
         )
         assert cfg.debug is True
-        assert cfg.disable_telemetry is True
+        assert cfg.telemetry is False
 
     def test_base_domain_and_scheme_from_env(self, monkeypatch, tmp_path):
         monkeypatch.setenv("SMPLKIT_BASE_DOMAIN", "localhost")
@@ -307,7 +302,7 @@ class TestResolveConfigConstructorArgs:
             base_domain="custom.example.com",
             scheme="http",
             debug=True,
-            disable_telemetry=True,
+            telemetry=False,
             _home_dir=tmp_path,
         )
         assert cfg.api_key == "sk_api_explicit"
@@ -316,7 +311,7 @@ class TestResolveConfigConstructorArgs:
         assert cfg.base_domain == "custom.example.com"
         assert cfg.scheme == "http"
         assert cfg.debug is True
-        assert cfg.disable_telemetry is True
+        assert cfg.telemetry is False
 
     def test_explicit_false_overrides_file_true(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_DEBUG", raising=False)

@@ -79,19 +79,25 @@ def _ok_response(parsed=None, status=HTTPStatus.OK):
 
 
 def _make_sync_client(**kwargs):
+    from smplkit.management.client import LoggersClient as _MgmtLoggersClient
+
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = kwargs.get("service", None)
+    parent.manage.loggers = _MgmtLoggersClient(MagicMock(), base_url="http://logging:8003")
     with patch("smplkit.logging.client.AuthenticatedClient"):
         return LoggingClient(parent)
 
 
 def _make_async_client(**kwargs):
+    from smplkit.management.client import AsyncLoggersClient as _MgmtAsyncLoggersClient
+
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = kwargs.get("service", None)
+    parent.manage.loggers = _MgmtAsyncLoggersClient(MagicMock(), base_url="http://logging:8003")
     with patch("smplkit.logging.client.AuthenticatedClient"):
         return AsyncLoggingClient(parent)
 
@@ -293,12 +299,12 @@ class TestAsyncBareRaise:
 
 
 class TestTickCallback:
-    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
     def test_sync_tick(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_sync_client()
         client._connected = True
-        client._buffer.add("a", "INFO", "INFO", None, None)
+        client._parent.manage.loggers._buffer.add("a", "INFO", "INFO", None, None)
 
         client._schedule_flush()
         timer = client._flush_timer
@@ -307,12 +313,12 @@ class TestTickCallback:
         if client._flush_timer is not None:
             client._flush_timer.cancel()
 
-    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
     def test_async_tick(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_async_client()
         client._connected = True
-        client._buffer.add("a", "INFO", "INFO", None, None)
+        client._parent.manage.loggers._buffer.add("a", "INFO", "INFO", None, None)
 
         client._schedule_flush()
         timer = client._flush_timer

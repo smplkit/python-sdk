@@ -2,22 +2,7 @@
 Smpl Flags SDK Showcase — Runtime Evaluation
 ==============================================
 
-Demonstrates the smplkit Python SDK's runtime evaluation for Smpl Flags:
-
-- Typed flag declarations with code-level defaults (booleanFlag, etc.)
-- Context providers and typed context entities
-- Explicit context registration (middleware pattern)
-- Lazy initialization — first .get() fetches flags and opens WebSocket
-- Evaluating flags — local JSON Logic, no network per call
-- Resolution caching and cache stats
-- Explicit context overrides
-- Real-time updates via WebSocket and change listeners
-- @client.flags.on_change decorator with optional id scoping
-
-This is the SDK experience that 99%% of customers will use. Flags are
-created and configured via the Console UI (or the management API shown
-in ``flags_management_showcase.py``). This script focuses entirely on
-the runtime: declaring, evaluating, and reacting to changes.
+Demonstrates the smplkit Python SDK's runtime evaluation for Smpl Flags.
 
 Prerequisites:
     - ``pip install smplkit-sdk``
@@ -34,7 +19,7 @@ Usage::
 
 import asyncio
 
-from smplkit import AsyncSmplClient, AsyncSmplManagementClient, Context, Rule
+from smplkit import AsyncSmplClient, Context, Rule
 
 # Demo scaffolding — creates flags so this showcase can run standalone.
 # In a real app, flags are created via the Console UI.
@@ -92,33 +77,19 @@ def set_simulated_context(*, user: dict | None = None, account: dict | None = No
 
 async def main() -> None:
 
-    async with (
-        AsyncSmplClient(environment="staging", service="showcase-service") as client,
-        AsyncSmplManagementClient() as mgmt,
-    ):
-        step("AsyncSmplClient initialized (environment=staging, service=showcase-service)")
-        step("AsyncSmplManagementClient initialized (used only for setup/teardown)")
+    async with AsyncSmplClient(environment="staging", service="showcase-service") as client:
+        step("AsyncSmplClient initialized")
 
-        # Create demo flags (normally done via Console UI).
-        print("  Setting up demo flags...")
-        demo_keys = await setup_demo_flags(mgmt)
-        print("  Demo flags ready.\n")
+        demo_keys = await setup_demo_flags(client.manage)
 
         # ==================================================================
-        # 1. TYPED FLAG DECLARATIONS
+        # 1. FLAG DECLARATIONS
         # ==================================================================
         #
-        # Flag declarations are local to the SDK. They do NOT create flags
-        # on the server and do NOT trigger lazy initialization.
-        #
-        # The code-level default is a required keyword argument. It
-        # represents "what should this code path do if we can't reach
-        # smplkit?" — typically the safe/conservative value.
-        #
-        # booleanFlag(id, *, default) → BooleanFlag
-        # stringFlag(id, *, default)  → StringFlag
-        # numberFlag(id, *, default)  → NumberFlag
-        # jsonFlag(id, *, default)    → JsonFlag
+        # Declare typed flags.  Specify the flag ID and default.  Flags do NOT
+        # need to exist to begin using them.  If the flag does not exist, or
+        # smplkit is unreachable or misconfigured, the code-based default will
+        # be used.
         # ==================================================================
 
         section("1. Declare Typed Flag Handles")
@@ -142,15 +113,6 @@ async def main() -> None:
         # The context provider is a function called on every flag.get().
         # It returns a list of Context objects, each describing a typed
         # entity in the evaluation context.
-        #
-        #   Context(type, key, **attributes)
-        #   Context(type, key, attributes_dict)
-        #   Context(type, key, attributes_dict, **more_attributes)
-        #
-        # The SDK uses this for two purposes:
-        #   1. Building the nested object for JSON Logic evaluation
-        #   2. Registering observed contexts with the server (powers
-        #      Console rule builder autocomplete)
         # ==================================================================
 
         section("2. Register Context Provider")
@@ -175,63 +137,20 @@ async def main() -> None:
             ]
 
         step("Context provider registered")
-        step("  Returns: [Context('user', 'user-001', plan='enterprise', ...), ...]")
-        step("  JSON Logic sees: {'user': {'key': 'user-001', 'plan': '...'}, 'account': {...}}")
 
         # ==================================================================
-        # 3. EXPLICIT CONTEXT REGISTRATION (Middleware Pattern)
+        # 3. EVALUATE FLAGS
         # ==================================================================
         #
-        # In a real application, your middleware registers context on every
-        # request — regardless of whether any flags are evaluated. This
-        # ensures the Console rule builder always has fresh context data.
-        #
-        # register() works before lazy initialization. Contexts are queued
-        # locally and flushed when the WebSocket is established or
-        # flush_contexts() is called.
-        # ==================================================================
-
-        section("3. Explicit Context Registration")
-
-        await mgmt.contexts.register(
-            [
-                Context(
-                    "user",
-                    _current_user["id"],
-                    first_name=_current_user["first_name"],
-                    plan=_current_user["plan"],
-                    beta_tester=_current_user["beta_tester"],
-                ),
-                Context(
-                    "account",
-                    _current_account["id"],
-                    industry=_current_account["industry"],
-                    region=_current_account["region"],
-                    employee_count=_current_account["employee_count"],
-                ),
-            ]
-        )
-        step("Registered user + account contexts (queued for background flush)")
-
-        # ==================================================================
-        # 4. EVALUATE FLAGS — Lazy Init + Local Evaluation
-        # ==================================================================
-        #
-        # The FIRST .get() call triggers lazy initialization:
-        #   1. Bulk-fetches all flag definitions (GET /api/v1/flags)
-        #   2. Opens the shared WebSocket for live updates
-        #   3. Populates the local flag store
-        #
-        # Subsequent .get() calls are pure local evaluation — no network.
-        # There is no connect() call. Initialization is transparent.
+        # Call .get() on a flag handle to read its current value for the
+        # configured environment and context.
         # ==================================================================
 
         # ------------------------------------------------------------------
-        # 4a. Evaluate with current context (Alice, enterprise, US, tech, 500)
+        # 3a. Evaluate with current context (Alice, enterprise, US, tech, 500)
         # ------------------------------------------------------------------
-        section("4a. Evaluate Flags (Alice — enterprise, US, tech company)")
+        section("3a. Evaluate Flags (Alice — enterprise, US, tech company)")
 
-        # This first .get() triggers lazy initialization behind the scenes.
         checkout_result = checkout_v2.get()
         step(f"checkout-v2 = {checkout_result}")
         assert checkout_result is True, f"Expected True, got {checkout_result}"
@@ -257,9 +176,9 @@ async def main() -> None:
         step("All assertions passed ✓")
 
         # ------------------------------------------------------------------
-        # 4b. Switch context — simulate a different user/request
+        # 3b. Switch context — simulate a different user/request
         # ------------------------------------------------------------------
-        section("4b. Evaluate Flags (Bob — free, EU, retail, 10 employees)")
+        section("3b. Evaluate Flags (Bob — free, EU, retail, 10 employees)")
 
         set_simulated_context(
             user={
@@ -300,9 +219,9 @@ async def main() -> None:
         )
 
         # ------------------------------------------------------------------
-        # 4c. Explicit context override — bypass the provider
+        # 3c. Explicit context override — bypass the provider
         # ------------------------------------------------------------------
-        section("4c. Explicit Context Override")
+        section("3c. Explicit Context Override")
 
         explicit_result = checkout_v2.get(
             context=[
@@ -325,42 +244,17 @@ async def main() -> None:
         step("Explicit context override works ✓")
 
         # ==================================================================
-        # 5. RESOLUTION CACHING
+        # 4. REAL-TIME UPDATES
+        # ==================================================================
+        #
+        # Flag definitions stay current automatically.  Register a listener
+        # to react to changes — globally, or scoped to a specific flag id.
         # ==================================================================
 
-        section("5. Resolution Caching")
-
-        stats = client.flags.stats()
-        step(f"Cache hits so far: {stats.cache_hits}")
-        step(f"Cache misses so far: {stats.cache_misses}")
-
-        for _ in range(100):
-            checkout_v2.get()
-
-        stats_after = client.flags.stats()
-        step(f"Cache hits after 100 reads: {stats_after.cache_hits}")
-        assert stats_after.cache_hits >= stats.cache_hits + 100
-        step("PASSED — repeated evaluations served from cache ✓")
-
-        # ==================================================================
-        # 6. CONTEXT REGISTRATION
-        # ==================================================================
-
-        section("6. Context Registration")
-
-        await mgmt.contexts.flush()
-        step("Flushed pending context registrations")
-        step("Context types, attributes, and values are now available")
-        step("in the Console rule builder for autocomplete and suggestions.")
-
-        # ==================================================================
-        # 7. REAL-TIME UPDATES — WebSocket + Change Listeners
-        # ==================================================================
-
-        section("7. Real-Time Updates via WebSocket")
+        section("4. Real-Time Updates")
 
         # ------------------------------------------------------------------
-        # 7a. Register change listeners — @client.flags.on_change decorator
+        # 4a. Register change listeners
         # ------------------------------------------------------------------
 
         # Global listener — fires when ANY flag definition changes.
@@ -393,11 +287,11 @@ async def main() -> None:
         step("Scoped listener registered for checkout-v2")
 
         # ------------------------------------------------------------------
-        # 7b. Simulate a change via the management API
+        # 4b. Simulate a change
         # ------------------------------------------------------------------
-        step("Adding a rule to banner-color staging via management API...")
+        step("Adding a rule to banner-color staging...")
 
-        current_banner = await mgmt.flags.get("banner-color")
+        current_banner = await client.manage.flags.get("banner-color")
         current_banner.addRule(
             Rule("Red for small companies")
             .environment("staging")
@@ -416,9 +310,9 @@ async def main() -> None:
         # Expected: global=1, banner=1, checkout=0 (only banner was changed)
 
         # ==================================================================
-        # 8. SYNC CLIENT DEMO
+        # 5. SYNC CLIENT DEMO
         # ==================================================================
-        section("8. Sync Client (same API, no await)")
+        section("5. Sync Client (same API, no await)")
 
         # For sync applications (Django, Flask, CLI tools):
         #
@@ -431,32 +325,19 @@ async def main() -> None:
         #             return [Context("user", request.user.id, plan=request.user.plan)]
         #
         #         checkout = client.flags.booleanFlag("checkout-v2", default=False)
-        #
-        #         # First .get() triggers lazy init — no connect() needed
         #         if checkout.get():
         #             render_new_checkout()
-        #
-        #         # Middleware — register context on every request
-        #         mgmt.contexts.register([
-        #             Context("user", request.user.id, plan=request.user.plan),
-        #         ])
 
         step("(See code comments for sync usage examples)")
 
         # ==================================================================
-        # 9. CLEANUP
+        # 6. CLEANUP
         # ==================================================================
-        section("9. Cleanup")
+        section("6. Cleanup")
 
-        await teardown_demo_flags(mgmt, demo_keys)
-        step("Demo flags deleted")
+        await teardown_demo_flags(client.manage, demo_keys)
 
-        # ==================================================================
-        # DONE
-        # ==================================================================
         section("ALL DONE")
-        print("  The Flags Runtime showcase completed successfully.")
-        print("  If you got here, Smpl Flags is ready to ship.\n")
 
 
 if __name__ == "__main__":

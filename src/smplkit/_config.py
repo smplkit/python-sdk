@@ -18,7 +18,7 @@ _CONFIG_KEYS: dict[str, str] = {
     "environment": "SMPLKIT_ENVIRONMENT",
     "service": "SMPLKIT_SERVICE",
     "debug": "SMPLKIT_DEBUG",
-    "disable_telemetry": "SMPLKIT_DISABLE_TELEMETRY",
+    "telemetry": "SMPLKIT_TELEMETRY",
 }
 
 _BOOL_TRUE = frozenset({"true", "1", "yes"})
@@ -35,7 +35,7 @@ class ResolvedConfig:
     environment: str
     service: str
     debug: bool
-    disable_telemetry: bool
+    telemetry: bool
 
 
 @dataclass(frozen=True)
@@ -129,7 +129,7 @@ def resolve_config(
     environment: str | None = None,
     service: str | None = None,
     debug: bool | None = None,
-    disable_telemetry: bool | None = None,
+    telemetry: bool | None = None,
     _home_dir: Path | None = None,
 ) -> ResolvedConfig:
     """Resolve SDK configuration using the 4-step algorithm.
@@ -150,7 +150,7 @@ def resolve_config(
         "environment": None,
         "service": None,
         "debug": False,
-        "disable_telemetry": False,
+        "telemetry": True,
     }
 
     # Determine profile: constructor arg > SMPLKIT_PROFILE env > "default"
@@ -161,7 +161,7 @@ def resolve_config(
     for key in _CONFIG_KEYS:
         if key in file_values:
             val = file_values[key]
-            if key in ("debug", "disable_telemetry"):
+            if key in ("debug", "telemetry"):
                 resolved[key] = _parse_bool(val, key)
             else:
                 resolved[key] = val
@@ -170,7 +170,7 @@ def resolve_config(
     for key, env_var in _CONFIG_KEYS.items():
         env_val = os.environ.get(env_var, "")
         if env_val:
-            if key in ("debug", "disable_telemetry"):
+            if key in ("debug", "telemetry"):
                 resolved[key] = _parse_bool(env_val, env_var)
             else:
                 resolved[key] = env_val
@@ -183,7 +183,7 @@ def resolve_config(
         "environment": environment,
         "service": service,
         "debug": debug,
-        "disable_telemetry": disable_telemetry,
+        "telemetry": telemetry,
     }
     for key, val in constructor_args.items():
         if val is not None:
@@ -221,7 +221,7 @@ def resolve_config(
         environment=str(resolved["environment"]),
         service=str(resolved["service"]),
         debug=bool(resolved["debug"]),
-        disable_telemetry=bool(resolved["disable_telemetry"]),
+        telemetry=bool(resolved["telemetry"]),
     )
 
 

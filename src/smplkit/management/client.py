@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any, overload
 
 import httpx
 
-from smplkit._config import _service_url, resolve_management_config
+from smplkit._config import ResolvedManagementConfig, _service_url, resolve_management_config
 from smplkit._debug import enable_debug
 from smplkit._errors import (
     SmplConflictError,
@@ -78,12 +78,15 @@ from smplkit._generated.config.api.configs import (
 )
 from smplkit._generated.config.client import AuthenticatedClient as _ConfigAuthClient
 from smplkit._generated.flags.api.flags import (
+    bulk_register_flags as _gen_bulk_register_flags,
     create_flag as _gen_create_flag,
     delete_flag as _gen_delete_flag,
     get_flag as _gen_get_flag,
     list_flags as _gen_list_flags,
     update_flag as _gen_update_flag,
 )
+from smplkit._generated.flags.models.flag_bulk_item import FlagBulkItem as _GenFlagBulkItem
+from smplkit._generated.flags.models.flag_bulk_request import FlagBulkRequest as _GenFlagBulkRequest
 from smplkit._generated.flags.client import AuthenticatedClient as _FlagsAuthClient
 from smplkit._generated.logging.api.log_groups import (
     create_log_group as _gen_create_log_group,
@@ -662,6 +665,51 @@ def _ct_resource_from_dict(
 # ---------------------------------------------------------------------------
 
 
+def _build_logger_bulk_request(buffer: Any) -> Any:
+    """Drain the logger-discovery buffer and build a JSON:API bulk request body.
+
+    Returns ``None`` when there is nothing to flush.
+    """
+    from smplkit._generated.logging.models.logger_bulk_item import LoggerBulkItem
+    from smplkit._generated.logging.models.logger_bulk_request import LoggerBulkRequest
+
+    batch = buffer.drain()
+    if not batch:
+        return None
+    items = [
+        LoggerBulkItem(
+            id=b["id"],
+            level=b.get("level"),
+            resolved_level=b["resolved_level"],
+            service=b.get("service"),
+            environment=b.get("environment"),
+        )
+        for b in batch
+    ]
+    return LoggerBulkRequest(loggers=items)
+
+
+def _build_flag_bulk_request(buffer: Any) -> _GenFlagBulkRequest | None:
+    """Drain the flag-discovery buffer and build a JSON:API bulk request body.
+
+    Returns ``None`` when there is nothing to flush.
+    """
+    batch = buffer.drain()
+    if not batch:
+        return None
+    items = [
+        _GenFlagBulkItem(
+            id=b["id"],
+            type_=b["type"],
+            default=b["default"],
+            service=b.get("service"),
+            environment=b.get("environment"),
+        )
+        for b in batch
+    ]
+    return _GenFlagBulkRequest(flags=items)
+
+
 def _build_bulk_register_body(items: list[dict[str, Any]]) -> _GenContextBulkRegister:
     bulk: list[_GenContextBulkItem] = []
     for item in items:
@@ -703,6 +751,16 @@ class ContextsClient:
         body = _build_bulk_register_body(batch)
         resp = _gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
+
+    # -- internal: used by the runtime client --
+    def _observe(self, items: list[Context]) -> None:
+        """Internal: queue items for bulk registration (called by the runtime client)."""
+        self._buffer.observe(items)
+
+    @property
+    def _pending_count(self) -> int:
+        """Internal: pending observations awaiting flush."""
+        return self._buffer.pending_count
 
     def list(self, type: str) -> list[ContextEntity]:
         """List all contexts of a given type."""
@@ -762,6 +820,25 @@ class AsyncContextsClient:
             return
         body = _build_bulk_register_body(batch)
         resp = await _gen_bulk_register_contexts.asyncio_detailed(client=self._app_http, body=body)
+        _check_status(int(resp.status_code), resp.content)
+
+    # -- internal: used by the runtime client --
+    def _observe(self, items: list[Context]) -> None:
+        """Internal: queue items for bulk registration (called by the runtime client)."""
+        self._buffer.observe(items)
+
+    @property
+    def _pending_count(self) -> int:
+        """Internal: pending observations awaiting flush."""
+        return self._buffer.pending_count
+
+    def _flush_sync(self) -> None:
+        """Internal: sync flush invoked from background threads in the async runtime."""
+        batch = self._buffer.drain()
+        if not batch:
+            return
+        body = _build_bulk_register_body(batch)
+        resp = _gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
 
     async def list(self, type: str) -> list[AsyncContextEntity]:
@@ -1077,12 +1154,42 @@ class FlagsClient:
     """Sync flag CRUD (``mgmt.flags``).
 
     Distinct from the runtime :class:`smplkit.flags.client.FlagsClient` —
-    this class only exposes management operations and never participates
-    in flag evaluation, caching, or context registration.
+    this class exposes management operations.  It also owns the
+    flag-discovery buffer that the runtime client populates when
+    customer code declares typed flag handles.
     """
 
     def __init__(self, http_client: _FlagsAuthClient) -> None:
         self._http_client = http_client
+        from smplkit.management._buffer import _FlagRegistrationBuffer
+
+        self._buffer = _FlagRegistrationBuffer()
+
+    # -- internal: used by the runtime client --
+    def _observe(
+        self,
+        flag_id: str,
+        flag_type: str,
+        default: Any,
+        service: str | None,
+        environment: str | None,
+    ) -> None:
+        """Internal: queue a declared flag for bulk registration."""
+        self._buffer.add(flag_id, flag_type, default, service, environment)
+
+    @property
+    def _pending_count(self) -> int:
+        """Internal: pending discoveries awaiting flush."""
+        return self._buffer.pending_count
+
+    def _flush(self) -> None:
+        """Internal: drain the discovery buffer and POST to the bulk endpoint."""
+        body = _build_flag_bulk_request(self._buffer)
+        if body is None:
+            return
+        response = _gen_bulk_register_flags.sync_detailed(client=self._http_client, body=body)
+        if response.status_code.value >= 300:
+            logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
 
     def newBooleanFlag(
         self,
@@ -1219,6 +1326,42 @@ class AsyncFlagsClient:
 
     def __init__(self, http_client: _FlagsAuthClient) -> None:
         self._http_client = http_client
+        from smplkit.management._buffer import _FlagRegistrationBuffer
+
+        self._buffer = _FlagRegistrationBuffer()
+
+    # -- internal: used by the runtime client --
+    def _observe(
+        self,
+        flag_id: str,
+        flag_type: str,
+        default: Any,
+        service: str | None,
+        environment: str | None,
+    ) -> None:
+        self._buffer.add(flag_id, flag_type, default, service, environment)
+
+    @property
+    def _pending_count(self) -> int:
+        return self._buffer.pending_count
+
+    async def _flush(self) -> None:
+        """Internal: drain + async POST to the bulk endpoint."""
+        body = _build_flag_bulk_request(self._buffer)
+        if body is None:
+            return
+        response = await _gen_bulk_register_flags.asyncio_detailed(client=self._http_client, body=body)
+        if response.status_code.value >= 300:
+            logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
+
+    def _flush_sync(self) -> None:
+        """Internal: sync flush invoked from the async runtime's background thread."""
+        body = _build_flag_bulk_request(self._buffer)
+        if body is None:
+            return
+        response = _gen_bulk_register_flags.sync_detailed(client=self._http_client, body=body)
+        if response.status_code.value >= 300:
+            logger.warning("Bulk flag registration failed: HTTP %s", response.status_code.value)
 
     def newBooleanFlag(
         self,
@@ -1361,6 +1504,39 @@ class LoggersClient:
     def __init__(self, http_client: _LoggingAuthClient, *, base_url: str) -> None:
         self._http_client = http_client
         self._base_url = base_url
+        from smplkit.management._buffer import _LoggerRegistrationBuffer
+
+        self._buffer = _LoggerRegistrationBuffer()
+
+    # -- internal: used by the runtime client --
+    def _observe(
+        self,
+        normalized_id: str,
+        smpl_level: str | None,
+        smpl_resolved_level: str,
+        service: str | None,
+        environment: str | None,
+    ) -> None:
+        """Internal: queue a discovered logger for bulk registration."""
+        self._buffer.add(normalized_id, smpl_level, smpl_resolved_level, service, environment)
+
+    @property
+    def _pending_count(self) -> int:
+        return self._buffer.pending_count
+
+    def _flush(self) -> None:
+        """Internal: drain the discovery buffer and POST to the bulk endpoint."""
+        body = _build_logger_bulk_request(self._buffer)
+        if body is None:
+            return
+        response = _gen_bulk_register_loggers.sync_detailed(client=self._http_client, body=body)
+        if response.status_code.value >= 300:
+            detail = response.content[:500] if response.content else b""
+            logger.warning(
+                "Bulk logger registration failed: HTTP %s: %s",
+                response.status_code.value,
+                detail.decode("utf-8", errors="replace"),
+            )
 
     def new(self, id: str, *, name: str | None = None, managed: bool = False) -> SmplLogger:
         return SmplLogger(
@@ -1453,6 +1629,52 @@ class AsyncLoggersClient:
     def __init__(self, http_client: _LoggingAuthClient, *, base_url: str) -> None:
         self._http_client = http_client
         self._base_url = base_url
+        from smplkit.management._buffer import _LoggerRegistrationBuffer
+
+        self._buffer = _LoggerRegistrationBuffer()
+
+    # -- internal: used by the runtime client --
+    def _observe(
+        self,
+        normalized_id: str,
+        smpl_level: str | None,
+        smpl_resolved_level: str,
+        service: str | None,
+        environment: str | None,
+    ) -> None:
+        self._buffer.add(normalized_id, smpl_level, smpl_resolved_level, service, environment)
+
+    @property
+    def _pending_count(self) -> int:
+        return self._buffer.pending_count
+
+    async def _flush(self) -> None:
+        """Internal: drain + async POST to the bulk endpoint."""
+        body = _build_logger_bulk_request(self._buffer)
+        if body is None:
+            return
+        response = await _gen_bulk_register_loggers.asyncio_detailed(client=self._http_client, body=body)
+        if response.status_code.value >= 300:
+            detail = response.content[:500] if response.content else b""
+            logger.warning(
+                "Bulk logger registration failed: HTTP %s: %s",
+                response.status_code.value,
+                detail.decode("utf-8", errors="replace"),
+            )
+
+    def _flush_sync(self) -> None:
+        """Internal: sync flush invoked from the async runtime's background thread."""
+        body = _build_logger_bulk_request(self._buffer)
+        if body is None:
+            return
+        response = _gen_bulk_register_loggers.sync_detailed(client=self._http_client, body=body)
+        if response.status_code.value >= 300:
+            detail = response.content[:500] if response.content else b""
+            logger.warning(
+                "Bulk logger registration failed: HTTP %s: %s",
+                response.status_code.value,
+                detail.decode("utf-8", errors="replace"),
+            )
 
     def new(self, id: str, *, name: str | None = None, managed: bool = False) -> AsyncSmplLogger:
         return AsyncSmplLogger(
@@ -1736,6 +1958,16 @@ class SmplManagementClient:
             scheme=scheme,
             debug=debug,
         )
+        self._init_from_resolved(cfg)
+
+    @classmethod
+    def _from_resolved(cls, cfg: "ResolvedManagementConfig") -> "SmplManagementClient":
+        """Construct from an already-resolved config (used by ``SmplClient``)."""
+        instance = cls.__new__(cls)
+        instance._init_from_resolved(cfg)
+        return instance
+
+    def _init_from_resolved(self, cfg: "ResolvedManagementConfig") -> None:
         if cfg.debug:
             enable_debug()
             logger.setLevel(logging.DEBUG)
@@ -1754,8 +1986,6 @@ class SmplManagementClient:
         self._flags_http = _FlagsAuthClient(base_url=flags_url, token=cfg.api_key)
         self._logging_http = _LoggingAuthClient(base_url=logging_url, token=cfg.api_key)
 
-        # Lightweight buffer for Contexts.register; not a runtime side-effect
-        # — just shared state for batched flushes within this client.
         from smplkit.management._buffer import _ContextRegistrationBuffer
 
         self._context_buffer = _ContextRegistrationBuffer()
@@ -1816,6 +2046,16 @@ class AsyncSmplManagementClient:
             scheme=scheme,
             debug=debug,
         )
+        self._init_from_resolved(cfg)
+
+    @classmethod
+    def _from_resolved(cls, cfg: "ResolvedManagementConfig") -> "AsyncSmplManagementClient":
+        """Construct from an already-resolved config (used by ``AsyncSmplClient``)."""
+        instance = cls.__new__(cls)
+        instance._init_from_resolved(cfg)
+        return instance
+
+    def _init_from_resolved(self, cfg: "ResolvedManagementConfig") -> None:
         if cfg.debug:
             enable_debug()
             logger.setLevel(logging.DEBUG)

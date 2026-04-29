@@ -21,7 +21,6 @@ from smplkit.flags.client import (
     FlagsClient,
     FlagStats,
     _FLAG_BULK_FLUSH_THRESHOLD,
-    _FlagRegistrationBuffer,
     _ResolutionCache,
     _check_response_status,
     _contexts_to_eval_dict,
@@ -51,7 +50,11 @@ from smplkit.flags.models import (
     StringFlag,
 )
 from smplkit.flags.types import Context
-from smplkit.management._buffer import _ContextRegistrationBuffer, _CONTEXT_REGISTRATION_LRU_SIZE
+from smplkit.management._buffer import (
+    _CONTEXT_REGISTRATION_LRU_SIZE,
+    _ContextRegistrationBuffer,
+    _FlagRegistrationBuffer,
+)
 
 
 def _new_mgmt():
@@ -162,22 +165,36 @@ def _ok_json_response(data, status=HTTPStatus.OK):
 
 
 def _make_flags_client():
-    """Create a FlagsClient with a mocked parent."""
+    """Create a FlagsClient with a mocked parent that has a real `manage`."""
+    from smplkit.management._buffer import _ContextRegistrationBuffer
+    from smplkit.management.client import ContextsClient
+    from smplkit.management.client import FlagsClient as _MgmtFlagsClient
+
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = None
+    # Real management subclients with real buffers so observe/flush plumbing
+    # behaves like production.
+    parent.manage.contexts = ContextsClient(MagicMock(), _ContextRegistrationBuffer())
+    parent.manage.flags = _MgmtFlagsClient(MagicMock())
     with patch("smplkit.flags.client.AuthenticatedClient"):
         client = FlagsClient(parent)
     return client
 
 
 def _make_async_flags_client():
-    """Create an AsyncFlagsClient with a mocked parent."""
+    """Create an AsyncFlagsClient with a mocked parent that has a real `manage`."""
+    from smplkit.management._buffer import _ContextRegistrationBuffer
+    from smplkit.management.client import AsyncContextsClient
+    from smplkit.management.client import AsyncFlagsClient as _MgmtAsyncFlagsClient
+
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = None
+    parent.manage.contexts = AsyncContextsClient(MagicMock(), _ContextRegistrationBuffer())
+    parent.manage.flags = _MgmtAsyncFlagsClient(MagicMock())
     with patch("smplkit.flags.client.AuthenticatedClient"):
         client = AsyncFlagsClient(parent)
     return client
@@ -1170,7 +1187,7 @@ class TestFlagsClientContextProvider:
 
 
 class TestFlagsClientLifecycle:
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_connect_internal(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -1192,7 +1209,7 @@ class TestFlagsClientLifecycle:
         assert client._flag_flush_timer is not None
         client._flag_flush_timer.cancel()
 
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_connect_internal_idempotent(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -1235,25 +1252,25 @@ class TestFlagsClientLifecycle:
 
 
 class TestFlagsClientFlushContextsSync:
-    @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_contexts.sync_detailed")
     def test_flush_contexts_sync_with_pending(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_flags_client()
-        client._context_buffer.observe([Context("user", "u-1", plan="pro")])
+        client._parent.manage.contexts._buffer.observe([Context("user", "u-1", plan="pro")])
         client._flush_contexts_sync()
         mock_bulk.assert_called_once()
 
-    @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_contexts.sync_detailed")
     def test_flush_contexts_sync_empty(self, mock_bulk):
         client = _make_flags_client()
         client._flush_contexts_sync()
         mock_bulk.assert_not_called()
 
-    @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_contexts.sync_detailed")
     def test_flush_contexts_sync_exception_swallowed(self, mock_bulk):
         mock_bulk.side_effect = httpx.ConnectError("fail")
         client = _make_flags_client()
-        client._context_buffer.observe([Context("user", "u-1")])
+        client._parent.manage.contexts._buffer.observe([Context("user", "u-1")])
         client._flush_contexts_sync()  # should not raise
 
 
@@ -1263,7 +1280,7 @@ class TestFlagsClientFlushContextsSync:
 
 
 class TestFlagsClientEvaluateHandle:
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_lazy_connects_on_first_call(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -1315,7 +1332,7 @@ class TestFlagsClientEvaluateHandle:
 
         result = client._evaluate_handle("flag-a", "off", None)
         assert result == "off"
-        assert client._context_buffer.pending_count > 0
+        assert client._parent.manage.contexts._buffer.pending_count > 0
 
     @patch("smplkit.flags.client.threading.Thread")
     def test_context_provider_triggers_flush_when_buffer_full(self, mock_thread):
@@ -1326,7 +1343,7 @@ class TestFlagsClientEvaluateHandle:
         client._flag_store = {"flag-a": {"id": "flag-a", "default": False, "environments": {}}}
 
         for i in range(100):
-            client._context_buffer.observe([Context("user", f"u-{i}")])
+            client._parent.manage.contexts._buffer.observe([Context("user", f"u-{i}")])
 
         client._context_provider = lambda: [Context("user", "trigger")]
         client._evaluate_handle("flag-a", False, None)
@@ -2199,7 +2216,7 @@ class TestAsyncFlagsClientContextProvider:
 
 
 class TestAsyncFlagsClientLifecycle:
-    @patch("smplkit.flags.client.bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_connect_internal(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -2222,7 +2239,7 @@ class TestAsyncFlagsClientLifecycle:
 
         asyncio.run(_run())
 
-    @patch("smplkit.flags.client.bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_connect_internal_idempotent(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -2268,25 +2285,25 @@ class TestAsyncFlagsClientLifecycle:
 
 
 class TestAsyncFlagsClientFlushBg:
-    @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_contexts.sync_detailed")
     def test_flush_contexts_bg(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_async_flags_client()
-        client._context_buffer.observe([Context("user", "u-1")])
+        client._parent.manage.contexts._buffer.observe([Context("user", "u-1")])
         client._flush_contexts_bg()
         mock_bulk.assert_called_once()
 
-    @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_contexts.sync_detailed")
     def test_flush_contexts_bg_empty(self, mock_bulk):
         client = _make_async_flags_client()
         client._flush_contexts_bg()
         mock_bulk.assert_not_called()
 
-    @patch("smplkit.flags.client.gen_bulk_register_contexts.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_contexts.sync_detailed")
     def test_flush_contexts_bg_exception_swallowed(self, mock_bulk):
         mock_bulk.side_effect = httpx.ConnectError("fail")
         client = _make_async_flags_client()
-        client._context_buffer.observe([Context("user", "u-1")])
+        client._parent.manage.contexts._buffer.observe([Context("user", "u-1")])
         client._flush_contexts_bg()  # should not raise
 
 
@@ -2296,19 +2313,19 @@ class TestAsyncFlagsClientFlushBg:
 
 
 class TestAsyncFlagsClientFlushContextsAsync:
-    @patch("smplkit.flags.client.gen_bulk_register_contexts.asyncio_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_contexts.asyncio_detailed")
     def test_flush_contexts_async_with_pending(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
 
         async def _run():
             client = _make_async_flags_client()
-            client._context_buffer.observe([Context("user", "u-1", plan="pro")])
+            client._parent.manage.contexts._buffer.observe([Context("user", "u-1", plan="pro")])
             await client._flush_contexts_async()
             mock_bulk.assert_called_once()
 
         asyncio.run(_run())
 
-    @patch("smplkit.flags.client.gen_bulk_register_contexts.asyncio_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_contexts.asyncio_detailed")
     def test_flush_contexts_async_empty(self, mock_bulk):
         async def _run():
             client = _make_async_flags_client()
@@ -2317,13 +2334,13 @@ class TestAsyncFlagsClientFlushContextsAsync:
 
         asyncio.run(_run())
 
-    @patch("smplkit.flags.client.gen_bulk_register_contexts.asyncio_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_contexts.asyncio_detailed")
     def test_flush_contexts_async_exception_swallowed(self, mock_bulk):
         mock_bulk.side_effect = httpx.ConnectError("fail")
 
         async def _run():
             client = _make_async_flags_client()
-            client._context_buffer.observe([Context("user", "u-1")])
+            client._parent.manage.contexts._buffer.observe([Context("user", "u-1")])
             await client._flush_contexts_async()  # should not raise
 
         asyncio.run(_run())
@@ -2335,7 +2352,7 @@ class TestAsyncFlagsClientFlushContextsAsync:
 
 
 class TestAsyncFlagsClientEvaluateHandle:
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_lazy_connects_on_first_call(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -2386,7 +2403,7 @@ class TestAsyncFlagsClientEvaluateHandle:
         client._context_provider = lambda: [Context("user", "u-1")]
         result = client._evaluate_handle("flag-a", "off", None)
         assert result == "off"
-        assert client._context_buffer.pending_count > 0
+        assert client._parent.manage.contexts._buffer.pending_count > 0
 
     @patch("smplkit.flags.client.threading.Thread")
     def test_context_provider_triggers_flush(self, mock_thread):
@@ -2396,7 +2413,7 @@ class TestAsyncFlagsClientEvaluateHandle:
         client._parent._service = None
         client._flag_store = {"flag-a": {"id": "flag-a", "default": False, "environments": {}}}
         for i in range(100):
-            client._context_buffer.observe([Context("user", f"u-{i}")])
+            client._parent.manage.contexts._buffer.observe([Context("user", f"u-{i}")])
         client._context_provider = lambda: [Context("user", "trigger")]
         client._evaluate_handle("flag-a", False, None)
         mock_thread.assert_called_once()
@@ -2873,7 +2890,7 @@ class TestFlagsClientFlagRegistration:
         client._parent._service = "my-svc"
         client._parent._environment = "prod"
         client.booleanFlag("dark-mode", default=False)
-        batch = client._flag_buffer.drain()
+        batch = client._parent.manage.flags._buffer.drain()
         assert len(batch) == 1
         assert batch[0]["id"] == "dark-mode"
         assert batch[0]["type"] == "BOOLEAN"
@@ -2884,7 +2901,7 @@ class TestFlagsClientFlagRegistration:
     def test_stringFlag_adds_to_buffer(self):
         client = _make_flags_client()
         client.stringFlag("color", default="red")
-        batch = client._flag_buffer.drain()
+        batch = client._parent.manage.flags._buffer.drain()
         assert len(batch) == 1
         assert batch[0]["type"] == "STRING"
         assert batch[0]["default"] == "red"
@@ -2892,7 +2909,7 @@ class TestFlagsClientFlagRegistration:
     def test_numberFlag_adds_to_buffer(self):
         client = _make_flags_client()
         client.numberFlag("retries", default=3)
-        batch = client._flag_buffer.drain()
+        batch = client._parent.manage.flags._buffer.drain()
         assert len(batch) == 1
         assert batch[0]["type"] == "NUMERIC"
         assert batch[0]["default"] == 3
@@ -2900,7 +2917,7 @@ class TestFlagsClientFlagRegistration:
     def test_jsonFlag_adds_to_buffer(self):
         client = _make_flags_client()
         client.jsonFlag("config", default={"a": 1})
-        batch = client._flag_buffer.drain()
+        batch = client._parent.manage.flags._buffer.drain()
         assert len(batch) == 1
         assert batch[0]["type"] == "JSON"
         assert batch[0]["default"] == {"a": 1}
@@ -2909,10 +2926,10 @@ class TestFlagsClientFlagRegistration:
         client = _make_flags_client()
         client.booleanFlag("flag-a", default=True)
         client.booleanFlag("flag-a", default=False)  # same id, different default
-        batch = client._flag_buffer.drain()
+        batch = client._parent.manage.flags._buffer.drain()
         assert len(batch) == 1  # deduped
 
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     def test_flush_flags_sync(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_flags_client()
@@ -2929,27 +2946,27 @@ class TestFlagsClientFlagRegistration:
         assert body.flags[1].id == "f2"
         assert body.flags[1].type_ == "STRING"
 
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     def test_flush_flags_sync_empty_batch(self, mock_bulk):
         client = _make_flags_client()
         client._flush_flags_sync()
         mock_bulk.assert_not_called()
 
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     def test_flush_flags_sync_exception_swallowed(self, mock_bulk):
         mock_bulk.side_effect = httpx.ConnectError("fail")
         client = _make_flags_client()
         client.booleanFlag("f1", default=True)
         client._flush_flags_sync()  # should not raise
 
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     def test_flush_flags_sync_http_error_logged(self, mock_bulk):
         mock_bulk.return_value = _ok_response(status=HTTPStatus.INTERNAL_SERVER_ERROR)
         client = _make_flags_client()
         client.booleanFlag("f1", default=True)
         client._flush_flags_sync()  # should not raise
 
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_connect_internal_flushes_before_fetch(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -2985,7 +3002,7 @@ class TestFlagsClientFlagRegistration:
         client = _make_flags_client()
         client._close()  # should not raise
 
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_connect_schedules_periodic_flush(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": []})
@@ -3000,7 +3017,7 @@ class TestFlagsClientFlagRegistration:
         assert client._flag_flush_timer.daemon is True
         client._flag_flush_timer.cancel()
 
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     def test_threshold_triggers_flush_booleanFlag(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_flags_client()
@@ -3035,7 +3052,7 @@ class TestFlagsClientFlagRegistration:
             client.jsonFlag(f"jflag-{_FLAG_BULK_FLUSH_THRESHOLD - 1}", default={})
             mock_thread.assert_called_once()
 
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     def test_schedule_flag_flush_tick(self, mock_bulk):
         """Verify the timer tick calls flush and reschedules."""
         mock_bulk.return_value = _ok_response()
@@ -3068,7 +3085,7 @@ class TestAsyncFlagsClientFlagRegistration:
         client._parent._service = "my-svc"
         client._parent._environment = "prod"
         client.booleanFlag("dark-mode", default=False)
-        batch = client._flag_buffer.drain()
+        batch = client._parent.manage.flags._buffer.drain()
         assert len(batch) == 1
         assert batch[0]["id"] == "dark-mode"
         assert batch[0]["type"] == "BOOLEAN"
@@ -3078,22 +3095,22 @@ class TestAsyncFlagsClientFlagRegistration:
     def test_stringFlag_adds_to_buffer(self):
         client = _make_async_flags_client()
         client.stringFlag("color", default="red")
-        batch = client._flag_buffer.drain()
+        batch = client._parent.manage.flags._buffer.drain()
         assert batch[0]["type"] == "STRING"
 
     def test_numberFlag_adds_to_buffer(self):
         client = _make_async_flags_client()
         client.numberFlag("retries", default=3)
-        batch = client._flag_buffer.drain()
+        batch = client._parent.manage.flags._buffer.drain()
         assert batch[0]["type"] == "NUMERIC"
 
     def test_jsonFlag_adds_to_buffer(self):
         client = _make_async_flags_client()
         client.jsonFlag("config", default={"a": 1})
-        batch = client._flag_buffer.drain()
+        batch = client._parent.manage.flags._buffer.drain()
         assert batch[0]["type"] == "JSON"
 
-    @patch("smplkit.flags.client.bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
     def test_flush_flags_async(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
 
@@ -3110,7 +3127,7 @@ class TestAsyncFlagsClientFlagRegistration:
 
         asyncio.run(_run())
 
-    @patch("smplkit.flags.client.bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
     def test_flush_flags_async_empty_batch(self, mock_bulk):
         async def _run():
             client = _make_async_flags_client()
@@ -3119,7 +3136,7 @@ class TestAsyncFlagsClientFlagRegistration:
 
         asyncio.run(_run())
 
-    @patch("smplkit.flags.client.bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
     def test_flush_flags_async_exception_swallowed(self, mock_bulk):
         mock_bulk.side_effect = httpx.ConnectError("fail")
 
@@ -3130,7 +3147,7 @@ class TestAsyncFlagsClientFlagRegistration:
 
         asyncio.run(_run())
 
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     def test_flush_flags_sync(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_async_flags_client()
@@ -3138,13 +3155,13 @@ class TestAsyncFlagsClientFlagRegistration:
         client._flush_flags_sync()
         mock_bulk.assert_called_once()
 
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     def test_flush_flags_sync_empty_batch(self, mock_bulk):
         client = _make_async_flags_client()
         client._flush_flags_sync()
         mock_bulk.assert_not_called()
 
-    @patch("smplkit.flags.client.bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_connect_internal_flushes_before_fetch(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": []})
@@ -3166,7 +3183,7 @@ class TestAsyncFlagsClientFlagRegistration:
 
         asyncio.run(_run())
 
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_evaluate_handle_lazy_init_flushes(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -3221,7 +3238,7 @@ class TestAsyncFlagsClientFlagRegistration:
             client.jsonFlag(f"jflag-{_FLAG_BULK_FLUSH_THRESHOLD - 1}", default={})
             mock_thread.assert_called_once()
 
-    @patch("smplkit.flags.client.bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
     def test_flush_flags_async_http_error_logged(self, mock_bulk):
         mock_bulk.return_value = _ok_response(status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
@@ -3232,21 +3249,21 @@ class TestAsyncFlagsClientFlagRegistration:
 
         asyncio.run(_run())
 
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     def test_flush_flags_sync_http_error_logged(self, mock_bulk):
         mock_bulk.return_value = _ok_response(status=HTTPStatus.INTERNAL_SERVER_ERROR)
         client = _make_async_flags_client()
         client.booleanFlag("f1", default=True)
         client._flush_flags_sync()  # should not raise
 
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     def test_flush_flags_sync_exception_swallowed(self, mock_bulk):
         mock_bulk.side_effect = httpx.ConnectError("fail")
         client = _make_async_flags_client()
         client.booleanFlag("f1", default=True)
         client._flush_flags_sync()  # should not raise
 
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     def test_schedule_flag_flush_tick(self, mock_bulk):
         """Verify the timer tick calls flush and reschedules."""
         mock_bulk.return_value = _ok_response()
@@ -3264,7 +3281,7 @@ class TestAsyncFlagsClientFlagRegistration:
             tick_fn()
         mock_bulk.assert_called_once()
 
-    @patch("smplkit.flags.client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     def test_threshold_triggers_flush_booleanFlag(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_async_flags_client()

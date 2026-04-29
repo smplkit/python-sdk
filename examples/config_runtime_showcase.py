@@ -2,21 +2,7 @@
 Smpl Config SDK Showcase — Runtime
 ====================================
 
-Demonstrates the smplkit Python SDK's runtime experience for Smpl Config:
-
-- Lazy initialization — first resolve() fetches configs and opens WebSocket
-- resolve(id) → plain dict of resolved values
-- resolve(id, Model) → typed Pydantic model
-- subscribe() → live proxy that updates automatically
-- Config inheritance (common → service / module)
-- Environment-specific override resolution
-- @client.config.on_change decorator with optional id/item scoping
-
-This is the SDK experience that 99%% of customers will use. Configs are
-created and maintained via the Console UI (or the management API shown
-in ``config_management_showcase.py``). This script focuses entirely on
-the runtime: resolving values, subscribing for updates, and reacting
-to changes.
+Demonstrates the smplkit Python SDK's runtime experience for Smpl Config.
 
 Prerequisites:
     - ``pip install smplkit-sdk``
@@ -34,11 +20,8 @@ import asyncio
 
 from pydantic import BaseModel
 
-from smplkit import AsyncSmplClient, AsyncSmplManagementClient
+from smplkit import AsyncSmplClient
 
-# Demo scaffolding — creates server-side configs so this showcase can
-# run standalone. In a real app, configs are created and maintained via
-# the Console UI.
 from config_runtime_setup import setup_demo_configs, teardown_demo_configs
 
 # ---------------------------------------------------------------------------
@@ -84,40 +67,20 @@ class UserServiceConfig(BaseModel):
 
 async def main() -> None:
 
-    async with (
-        AsyncSmplClient(environment="production", service="showcase-service") as client,
-        AsyncSmplManagementClient() as mgmt,
-    ):
-        step("AsyncSmplClient initialized (environment=production, service=showcase-service)")
-        step("AsyncSmplManagementClient initialized (used only for setup/teardown)")
+    async with AsyncSmplClient(environment="production", service="showcase-service") as client:
+        step("AsyncSmplClient initialized")
 
-        # Create server-side state (normally done via Console UI).
-        print("  Setting up demo configs...")
-        demo = await setup_demo_configs(mgmt)
-        print("  Demo configs ready.\n")
-
-        # The server now has:
-        #   "common"       — org-wide defaults, with production + staging overrides
-        #   "user_service" — service config (inherits from common), with production overrides
-        #   "auth_module"  — auth config (inherits from common), with production overrides
+        demo = await setup_demo_configs(client.manage)
 
         # ==================================================================
-        # 2. RESOLVE — Plain Dict
+        # 1. RESOLVE — Plain Dict
         # ==================================================================
         #
-        # resolve(id) returns a flat dict of resolved values for the
-        # current environment. Inheritance is walked, environment overrides
-        # applied, values unwrapped from their typed definitions.
-        #
-        # The FIRST resolve() call triggers lazy initialization:
-        #   1. Bulk-fetches all configs
-        #   2. Resolves inheritance and environment overrides
-        #   3. Opens the shared WebSocket for live updates
-        #
-        # Subsequent calls are pure local cache reads — no network.
+        # client.config.get(id) returns a flat dict of resolved values for
+        # the current environment.
         # ==================================================================
 
-        section("2. Resolve — Plain Dict")
+        section("1. Resolve — Plain Dict")
 
         config_dict = await client.config.get("user_service")
         step(f"Total resolved keys: {len(config_dict)}")
@@ -141,20 +104,15 @@ async def main() -> None:
         # Expected: None
 
         # ==================================================================
-        # 3. RESOLVE — Typed Model
+        # 2. RESOLVE — Typed Model
         # ==================================================================
         #
-        # resolve(id, Model) builds a nested dict from flat dot-notation
-        # keys and constructs the model from it:
-        #   "database.host" + "database.port" → {"database": {"host": ..., "port": ...}}
-        #   → UserServiceConfig(database=Database(host=..., port=...))
-        #
-        # Works with Pydantic models (which handle nested coercion
-        # automatically via model_validate) or any class whose
-        # constructor accepts keyword arguments.
+        # Pass a model class to client.config.get() to receive a typed
+        # instance instead of a dict.  Dot-notation keys are expanded into
+        # nested attributes (``database.host`` → ``cfg.database.host``).
         # ==================================================================
 
-        section("3. Resolve — Typed Model")
+        section("2. Resolve — Typed Model")
 
         cfg = await client.config.get("user_service", UserServiceConfig)
         step(f"cfg.database.host = {cfg.database.host}")
@@ -166,17 +124,16 @@ async def main() -> None:
 
         assert isinstance(cfg, UserServiceConfig)
         assert isinstance(cfg.database, Database)
-        step("Type assertions passed ✓")
 
         # ==================================================================
-        # 4. INHERITANCE
+        # 3. INHERITANCE
         # ==================================================================
         #
         # auth_module inherits from common. Values defined in auth_module
         # take precedence; anything not overridden falls through to common.
         # ==================================================================
 
-        section("4. Inheritance (auth_module)")
+        section("3. Inheritance (auth_module)")
 
         auth_dict = await client.config.get("auth_module")
         step(f"session_ttl_minutes = {auth_dict.get('session_ttl_minutes')}")
@@ -189,33 +146,32 @@ async def main() -> None:
         # Expected: "Acme SaaS Platform"
 
         # ==================================================================
-        # 5. SUBSCRIBE — Live Proxy
+        # 4. SUBSCRIBE — Live Proxy
         # ==================================================================
         #
-        # subscribe() returns a live proxy that always reflects the latest
-        # server-side state without re-fetching. When a WebSocket event
-        # arrives, the proxy's underlying data is updated automatically.
+        # client.config.subscribe() returns a live proxy that auto-updates
+        # when config values change on the server.
         # ==================================================================
 
-        section("5. Subscribe — Live Proxy")
+        section("4. Subscribe — Live Proxy")
 
         live = await client.config.subscribe("user_service", UserServiceConfig)
         step(f"live.database.host = {live.database.host}")
         step(f"live.cache_ttl_seconds = {live.cache_ttl_seconds}")
-        step("This proxy will reflect new values after server-side changes")
-        step("propagate via WebSocket — no polling, no re-fetch needed.")
 
         # ==================================================================
-        # 6. CHANGE LISTENERS
+        # 5. CHANGE LISTENERS
         # ==================================================================
         #
-        # @client.config.on_change — fires when ANY config changes
-        # @client.config.on_change("user-service") — scoped to a config id
-        # @client.config.on_change("user-service", item_key="database.host")
-        #     — scoped to a specific item
+        # Register a listener with @client.config.on_change.  Three forms:
+        #
+        #   @client.config.on_change                       — any change
+        #   @client.config.on_change("user_service")       — config-scoped
+        #   @client.config.on_change("user_service", item_key="database.host")
+        #                                                  — item-scoped
         # ==================================================================
 
-        section("6a. Change Listeners")
+        section("5a. Change Listeners")
 
         changes: list = []
 
@@ -235,65 +191,54 @@ async def main() -> None:
         step("Item-specific listener registered for common.max_retries")
 
         # ------------------------------------------------------------------
-        # 6b. Trigger a change via management API, then let WebSocket deliver
+        # 5b. Simulate a change
         # ------------------------------------------------------------------
-        section("6b. Trigger a Change")
+        section("5b. Simulate a Change")
 
-        common = await mgmt.configs.get("common")
+        common = await client.manage.configs.get("common")
         common.environments["production"]["values"]["max_retries"] = {"value": 7}
         await common.save()
-        step("Updated max_retries to 7 on common (production) via management API")
+        step("Updated max_retries to 7 on common (production)")
 
-        # Give WebSocket a moment to deliver the update.
         await asyncio.sleep(2)
 
         # Read the updated value — should reflect the change.
         new_retries = (await client.config.get("user_service")).get("max_retries")
-        step(f"max_retries after WebSocket update = {new_retries}")
+        step(f"max_retries after update = {new_retries}")
         # Expected: 7
 
         step(f"Global changes received: {len(changes)}")
         step(f"Retries-specific changes received: {len(retries_changes)}")
 
         # ==================================================================
-        # 7. SYNC CLIENT DEMO
+        # 6. SYNC CLIENT DEMO
         # ==================================================================
-        section("7. Sync Client (same API, no await)")
+        section("6. Sync Client (same API, no await)")
 
         # For sync applications (Django, Flask, CLI tools):
         #
         #     from smplkit import SmplClient
         #
         #     with SmplClient(environment="production", service="my-service") as client:
-        #
-        #         # First resolve() triggers lazy init
         #         config = client.config.get("user_service")
         #         host = config["database.host"]
         #
-        #         # Typed resolution
         #         cfg = client.config.get("user_service", UserServiceConfig)
         #         print(cfg.database.host)
         #
-        #         # Live proxy
         #         live = client.config.subscribe("user_service", UserServiceConfig)
-        #         print(live.database.host)  # always current
+        #         print(live.database.host)
 
         step("(See code comments for sync usage examples)")
 
         # ==================================================================
-        # 8. CLEANUP
+        # 7. CLEANUP
         # ==================================================================
-        section("8. Cleanup")
+        section("7. Cleanup")
 
-        await teardown_demo_configs(mgmt, demo)
-        step("Demo configs deleted")
+        await teardown_demo_configs(client.manage, demo)
 
-        # ==================================================================
-        # DONE
-        # ==================================================================
         section("ALL DONE")
-        print("  The Config Runtime showcase completed successfully.")
-        print("  If you got here, Smpl Config is ready to ship.\n")
 
 
 if __name__ == "__main__":

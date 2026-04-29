@@ -70,10 +70,13 @@ def _ok_response(parsed=None, status=HTTPStatus.OK):
 
 
 def _make_logging_client(**kwargs):
+    from smplkit.management.client import LoggersClient as _MgmtLoggersClient
+
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = kwargs.get("service", None)
+    parent.manage.loggers = _MgmtLoggersClient(MagicMock(), base_url="http://logging:8003")
     with patch("smplkit.logging.client.AuthenticatedClient"):
         client = LoggingClient(parent)
     return client
@@ -113,7 +116,7 @@ class TestSyncOnNewLogger:
     def test_callback_adds_to_buffer(self):
         client = _make_logging_client()
         client._on_new_logger("my.sync.logger", 20, 20)
-        assert client._buffer.pending_count == 1
+        assert client._parent.manage.loggers._buffer.pending_count == 1
         assert "my.sync.logger" in client._name_map
 
     def test_callback_applies_level_when_connected(self):
@@ -138,10 +141,10 @@ class TestSyncOnNewLogger:
     def test_callback_triggers_flush_at_threshold(self, mock_thread):
         client = _make_logging_client()
         for i in range(50):
-            client._buffer.add(f"logger.{i}", "INFO", "INFO", None, None)
-        client._buffer.drain()
+            client._parent.manage.loggers._buffer.add(f"logger.{i}", "INFO", "INFO", None, None)
+        client._parent.manage.loggers._buffer.drain()
         for i in range(50):
-            client._buffer.add(f"logger.thresh.{i}", "INFO", "INFO", None, None)
+            client._parent.manage.loggers._buffer.add(f"logger.thresh.{i}", "INFO", "INFO", None, None)
         client._on_new_logger("trigger.flush", 20, 20)
         mock_thread.assert_called()
 
@@ -157,7 +160,7 @@ class TestSyncScheduleFlush:
 class TestSyncConnectWithService:
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_with_service(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
@@ -174,7 +177,7 @@ class TestSyncConnectWithService:
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_fetch_failure_resilient(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()

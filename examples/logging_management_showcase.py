@@ -2,22 +2,7 @@
 Smpl Logging SDK Showcase — Management API
 ============================================
 
-Demonstrates the smplkit Python SDK's management plane for Smpl Logging:
-
-- Logger CRUD: new() + save(), get(id), list(), delete(id)
-- Active record pattern: fetch → mutate → save()
-- LogLevel enum for type-safe level management
-- Convenience methods: setLevel, clearLevel, setEnvironmentLevel, etc.
-- Log group CRUD: new_group() + save(), get_group(id), list_groups(), delete_group(id)
-- Group assignment
-- Promote / release: toggling managed status
-
-Most customers will manage loggers via the Console UI. This showcase
-demonstrates the programmatic equivalent — useful for infrastructure-
-as-code, CI/CD pipelines, setup scripts, and automated testing.
-
-For the runtime experience (auto-discovery, start(), level resolution,
-dynamic control), see ``logging_runtime_showcase.py``.
+Demonstrates the smplkit Python SDK's management plane for Smpl Logging.
 
 Prerequisites:
     - ``pip install smplkit-sdk``
@@ -59,10 +44,12 @@ async def main() -> None:
     # ======================================================================
     section("1. SDK Initialization")
 
-    # Management operations do not require start() — they are stateless
-    # HTTP calls. No monkey-patching, no discovery, no WebSocket.
+    # Construct a new management client.  API key may be passed explicitly
+    # or via SMPLKIT_API_KEY environment variable.  Alternatively,
+    # SMPLKIT_PROFILE environment variable may be specified, in which case the
+    # API key will be loaded from the specified profile found in ~/.smplkit.
     async with AsyncSmplManagementClient() as mgmt:
-        step("AsyncSmplManagementClient initialized (no service registration, no telemetry)")
+        step("AsyncSmplManagementClient initialized")
 
         # Clean up leftover loggers and groups from previous runs.
         demo_logger_ids = {"app", "app.payments", "sqlalchemy.engine", "app.internal.debug"}
@@ -85,14 +72,11 @@ async def main() -> None:
             pass
 
         # ==================================================================
-        # 2. CREATE LOGGERS — new() + save()
+        # 2. CREATE LOGGERS
         # ==================================================================
         #
         # mgmt.loggers.new(id, *, name=None, managed=False) creates a
         # local Logger instance. Nothing hits the server until save().
-        #
-        # Convenience methods (setLevel, setEnvironmentLevel) accept
-        # LogLevel enum values only — no string coercion.
         # ==================================================================
 
         section("2a. Create Managed Loggers")
@@ -139,7 +123,7 @@ async def main() -> None:
         step(f"  environments={fetched.environments}")
 
         # ==================================================================
-        # 4. LEVEL CONTROL — Convenience Methods
+        # 4. LEVEL CONTROL
         # ==================================================================
         #
         # setLevel(LogLevel)               — set base level
@@ -147,8 +131,6 @@ async def main() -> None:
         # setEnvironmentLevel(env, level)  — set per-env override
         # clearEnvironmentLevel(env)       — clear per-env override
         # clearAllEnvironmentLevels()      — clear all env overrides
-        #
-        # All are local mutations. save() persists.
         # ==================================================================
 
         section("4a. Set Base Level")
@@ -298,37 +280,37 @@ async def main() -> None:
         # ==================================================================
         # 8b. REGISTER SYNTHETIC LOGGER SOURCES
         # ==================================================================
-        # ``client.logging.start()`` registers loggers seen in the
-        # current process under the current SmplClient's
-        # service+environment. ``register_sources()`` accepts explicit
-        # (service, environment) overrides — useful for sample-data
-        # seeding, cross-tenant migration, and test fixtures.
+        # register_sources() accepts explicit (service, environment)
+        # overrides — useful for sample-data seeding, cross-tenant
+        # migration, and test fixtures.
         # ==================================================================
 
         from smplkit.logging import LoggerSource
 
         section("8b. Register synthetic logger sources")
 
-        await mgmt.loggers.register_sources([
-            LoggerSource(
-                "sqlalchemy.engine",
-                service="user-service",
-                environment="production",
-                resolved_level=LogLevel.WARN,
-            ),
-            LoggerSource(
-                "sqlalchemy.engine",
-                service="payment-service",
-                environment="production",
-                resolved_level=LogLevel.WARN,
-            ),
-            LoggerSource(
-                "httpx",
-                service="checkout-service",
-                environment="staging",
-                resolved_level=LogLevel.INFO,
-            ),
-        ])
+        await mgmt.loggers.register_sources(
+            [
+                LoggerSource(
+                    "sqlalchemy.engine",
+                    service="user-service",
+                    environment="production",
+                    resolved_level=LogLevel.WARN,
+                ),
+                LoggerSource(
+                    "sqlalchemy.engine",
+                    service="payment-service",
+                    environment="production",
+                    resolved_level=LogLevel.WARN,
+                ),
+                LoggerSource(
+                    "httpx",
+                    service="checkout-service",
+                    environment="staging",
+                    resolved_level=LogLevel.INFO,
+                ),
+            ]
+        )
         step("3 sources registered")
 
         # ==================================================================
@@ -346,12 +328,7 @@ async def main() -> None:
             await mgmt.loggers.delete(lg.id)
             step(f"Deleted logger: {lg.id}")
 
-        # ==================================================================
-        # DONE
-        # ==================================================================
         section("ALL DONE")
-        print("  The Logging Management showcase completed successfully.")
-        print("  All loggers and log groups have been cleaned up.\n")
 
 
 if __name__ == "__main__":

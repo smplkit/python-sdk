@@ -2,26 +2,7 @@
 Smpl Flags SDK Showcase — Management API
 ==========================================
 
-Demonstrates the smplkit Python SDK's management plane for Smpl Flags:
-
-- Client initialization (no connect() needed for management)
-- Typed flag creation via factory methods: newBooleanFlag, newStringFlag,
-  newNumberFlag, newJsonFlag
-- Active record pattern: local mutations + save() to persist
-- Rule builder: fluent API for constructing JSON Logic rules
-- addRule() as local mutation, save() to persist
-- Environment convenience methods: setEnvironmentEnabled, setEnvironmentDefault
-- Listing and inspecting flags via get(id) and list()
-- Deleting flags by id
-
-Most customers will create and configure flags via the Console UI.
-This showcase demonstrates the programmatic equivalent — useful for
-infrastructure-as-code, CI/CD pipelines, setup scripts, and automated
-testing.
-
-For the runtime evaluation experience (declaring flags in code,
-evaluating them, context providers, caching, live updates), see
-``flags_runtime_showcase.py``.
+Demonstrates the smplkit Python SDK's management plane for Smpl Flags.
 
 Prerequisites:
     - ``pip install smplkit-sdk``
@@ -64,11 +45,12 @@ async def main() -> None:
     # ======================================================================
     section("1. SDK Initialization")
 
-    # Management operations do not require connect() or start() — they
-    # are stateless HTTP calls. The constructor resolves environment,
-    # service, and API key, then registers the service with the server.
+    # Construct a new management client.  API key may be passed explicitly
+    # or via SMPLKIT_API_KEY environment variable.  Alternatively,
+    # SMPLKIT_PROFILE environment variable may be specified, in which case the
+    # API key will be loaded from the specified profile found in ~/.smplkit.
     async with AsyncSmplManagementClient() as mgmt:
-        step("AsyncSmplManagementClient initialized (no service registration, no telemetry)")
+        step("AsyncSmplManagementClient initialized")
 
         # Clean up leftover flags from previous runs.
         demo_flag_ids = {"checkout-v2", "banner-color", "max-retries", "ui-theme"}
@@ -81,7 +63,7 @@ async def main() -> None:
             pass
 
         # ==================================================================
-        # 2. CREATE FLAGS — Typed Factory Methods
+        # 2. CREATE FLAGS
         # ==================================================================
         #
         # Flags are created via typed factory methods on the FlagsClient:
@@ -92,11 +74,7 @@ async def main() -> None:
         #   newJsonFlag(id, *, default, name=None, description=None, values=None)
         #
         # These return an unsaved Flag instance. Nothing is sent to the
-        # server until .save() is called. The flag type is implicit in the
-        # factory method name — no FlagType enum needed.
-        #
-        # When name is omitted, the SDK generates a display name from the
-        # id (e.g., "checkout-v2" → "Checkout V2").
+        # server until .save() is called.
         # ==================================================================
 
         # ------------------------------------------------------------------
@@ -287,21 +265,21 @@ async def main() -> None:
 
         section("4. List and Inspect Flags")
 
-        # List all flags — always an HTTP request.
+        # List all flags.
         flags = await mgmt.flags.list()
         step(f"Total flags: {len(flags)}")
         for f in flags:
             env_keys = list(f.environments.keys()) if f.environments else []
             step(f"  {f.id} ({f.type}) — default={f.default}, environments={env_keys}")
 
-        # Fetch a single flag by id — always an HTTP request.
+        # Fetch a single flag by id.
         fetched = await mgmt.flags.get("checkout-v2")
         step(f"\nFetched by id: {fetched.id}")
         step(f"  staging rules: {len(fetched.environments.get('staging', {}).get('rules', []))}")
         step(f"  production enabled: {fetched.environments.get('production', {}).get('enabled')}")
 
         # ==================================================================
-        # 5. UPDATE A FLAG — Active Record Pattern
+        # 5. UPDATE A FLAG
         # ==================================================================
 
         section("5. Update a Flag")
@@ -352,10 +330,10 @@ async def main() -> None:
             step(f"  [{i}] {rule.get('description', 'no description')}")
 
         # ==================================================================
-        # 6. CLEAR RULES AND ENVIRONMENT CONVENIENCE METHODS
+        # 6. CLEAR RULES
         # ==================================================================
 
-        section("6. Environment Convenience Methods")
+        section("6. Clear Rules")
 
         # clearRules() removes all rules from an environment.
         checkout_flag.clearRules("staging")
@@ -406,12 +384,7 @@ async def main() -> None:
             await mgmt.flags.delete(flag_id)
             step(f"Deleted flag: {flag_id}")
 
-        # ==================================================================
-        # DONE
-        # ==================================================================
         section("ALL DONE")
-        print("  The Flags Management showcase completed successfully.")
-        print("  All flags have been cleaned up.\n")
 
 
 if __name__ == "__main__":

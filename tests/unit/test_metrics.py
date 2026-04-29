@@ -712,7 +712,7 @@ class TestSmplClientTelemetry:
     def test_telemetry_disabled(self):
         from smplkit import SmplClient
 
-        client = SmplClient(api_key="sk_api_test", environment="test", disable_telemetry=True)
+        client = SmplClient(api_key="sk_api_test", environment="test", telemetry=False)
         assert client._metrics is None
         client.close()
 
@@ -726,7 +726,7 @@ class TestSmplClientTelemetry:
     def test_async_telemetry_disabled(self):
         from smplkit import AsyncSmplClient
 
-        client = AsyncSmplClient(api_key="sk_api_test", environment="test", disable_telemetry=True)
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test", telemetry=False)
         assert client._metrics is None
         asyncio.run(client.close())
 

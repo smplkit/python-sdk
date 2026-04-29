@@ -2,24 +2,7 @@
 Smpl SDK Showcase — Management API
 ====================================
 
-Demonstrates :class:`AsyncSmplManagementClient` — the management plane
-for setup scripts, CI/CD, and admin tooling. Construction is side-effect
-free (no service registration, no metrics, no websocket), making this
-the right entry point for IaC-style work.
-
-Exposed namespaces:
-
-- ``mgmt.environments`` — environment CRUD (built-ins + AD_HOC)
-- ``mgmt.context_types`` — targeting-rule entity schemas
-- ``mgmt.contexts`` — register / list / get / delete context instances
-- ``mgmt.account_settings`` — per-account settings (environment_order, …)
-- ``mgmt.configs`` — typed config CRUD (was ``client.config.management``)
-- ``mgmt.flags`` — flag CRUD (was ``client.flags.management``)
-- ``mgmt.loggers`` — logger CRUD (was ``client.logging.management``)
-- ``mgmt.log_groups`` — log-group CRUD (was ``client.logging.management``)
-
-For runtime experiences (evaluating flags, resolving config values,
-controlling log levels) use :class:`SmplClient` / :class:`AsyncSmplClient`.
+Demonstrates :class:`AsyncSmplManagementClient`.
 
 Prerequisites:
     - ``pip install smplkit-sdk``
@@ -51,8 +34,12 @@ async def main() -> None:
     # ======================================================================
     section("1. SDK Initialization")
 
+    # Construct a new management client.  API key may be passed explicitly
+    # or via SMPLKIT_API_KEY environment variable.  Alternatively,
+    # SMPLKIT_PROFILE environment variable may be specified, in which case the
+    # API key will be loaded from the specified profile found in ~/.smplkit.
     async with AsyncSmplManagementClient() as mgmt:
-        step("AsyncSmplManagementClient initialized (no service registration, no telemetry)")
+        step("AsyncSmplManagementClient initialized")
 
         # Best-effort cleanup of leftovers from previous runs.
         for env_id in ("preview_acme",):
@@ -67,7 +54,7 @@ async def main() -> None:
                 pass
 
         # ==================================================================
-        # 2. ENVIRONMENTS — mgmt.environments
+        # 2. ENVIRONMENTS
         # ==================================================================
         # Active record: new() / save() / get(id) / list() / delete(id).
         # Built-ins (production/staging/development) ship STANDARD;
@@ -98,16 +85,12 @@ async def main() -> None:
         step(f"Updated: id={prod.id!r} color={prod.color!r}")
 
         # ==================================================================
-        # 3. CONTEXT TYPES — mgmt.context_types
+        # 3. CONTEXT TYPES
         # ==================================================================
         # Targeting-rule entity schemas. Registering a Context against
         # an unknown type lazily creates one with default metadata;
         # use this namespace when you want polished display names and
         # an explicit known-attribute schema.
-        #
-        # Mutate attributes via add_attribute / remove_attribute /
-        # update_attribute — never by reassigning the dict — so the
-        # diff against the server stays clean.
         # ==================================================================
 
         section("3a. Create context types")
@@ -144,16 +127,14 @@ async def main() -> None:
         step(f"user attributes now: {list(existing.attributes)}")
 
         # ==================================================================
-        # 4. CONTEXTS — mgmt.contexts
+        # 4. CONTEXTS
         # ==================================================================
-        # Write side: register(items, flush=False). Flush=False (default)
-        # buffers for background flush — right for high-frequency runtime
-        # observation. flush=True awaits the round-trip — right for IaC
-        # scripts that need confirmation.
+        # Write: register(items, flush=False).  flush=True awaits the
+        # round-trip; flush=False (default) batches for background flush.
         #
-        # Read side: list(type), get(id), delete(id). ``id`` is the
-        # colon-delimited "{type}:{key}" form; a (type, key) overload is
-        # accepted everywhere ``id`` appears for ergonomics.
+        # Read: list(type), get(id), delete(id).  ``id`` is the
+        # colon-delimited "{type}:{key}" form, or pass (type, key) as
+        # separate args.
         # ==================================================================
 
         section("4a. Register contexts (immediate flush)")
@@ -185,12 +166,10 @@ async def main() -> None:
         step("deleted user:usr_a1b2c3")
 
         # ==================================================================
-        # 5. ACCOUNT SETTINGS — mgmt.account_settings
+        # 5. ACCOUNT SETTINGS
         # ==================================================================
-        # Wire format is opaque JSON; the SDK exposes a typed
-        # AccountSettings model with active record semantics.
-        # Documented keys (e.g. environment_order) are typed
-        # properties; unknown keys are preserved through .raw.
+        # Documented keys (e.g. environment_order) are typed properties;
+        # unknown keys are preserved through .raw.
         # ==================================================================
 
         section("5a. Read settings")

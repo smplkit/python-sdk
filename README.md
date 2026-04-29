@@ -39,6 +39,10 @@ with SmplClient(api_key="sk_api_...", environment="production", service="my-svc"
 
     # Opt in to runtime logging level control
     client.logging.start()
+
+    # Need to reach the management API from a runtime context?
+    # Every SmplClient owns an internal management client at `client.manage`.
+    cfg = client.manage.configs.get("database")
 ```
 
 ### Management: `SmplManagementClient`
@@ -90,22 +94,22 @@ async with AsyncSmplManagementClient(api_key="sk_api_...") as mgmt:
 - **Inside a request handler / running service** → `SmplClient`. You want lazy-fetched runtime state, the context registration loop, metrics, and the live-update websocket.
 - **In a setup script / CI job / admin CLI / seeder** → `SmplManagementClient`. No runtime side effects, no auto-registered service rows leaking into target accounts, no websocket dangling open.
 
-The two clients can be used together in the same process — e.g. a runtime app that occasionally needs to reach into the management API for an admin endpoint.
+The two clients can be used together in the same process — e.g. a runtime app that occasionally needs to reach into the management API for an admin endpoint. To save you from juggling two clients, every `SmplClient` exposes a built-in management client at `client.manage` (sharing HTTP transports under the hood); reach for `SmplManagementClient` directly only for setup scripts, CI jobs, and admin tooling that have no runtime side effects to begin with.
 
 ### Management namespaces
 
-The `SmplManagementClient` exposes eight flat namespaces (one per resource family):
+`SmplManagementClient` (and `client.manage` on the runtime client) exposes eight flat namespaces (one per resource family):
 
 | Namespace | Resource |
 |-----------|----------|
-| `mgmt.contexts` | Context instances (register / list / get / delete) |
-| `mgmt.context_types` | Targeting-rule entity schemas |
-| `mgmt.environments` | Environments (built-ins + AD_HOC) |
-| `mgmt.account_settings` | Per-account settings |
-| `mgmt.configs` | Smpl Config CRUD |
-| `mgmt.flags` | Smpl Flags CRUD |
-| `mgmt.loggers` | Smpl Logging logger CRUD |
-| `mgmt.log_groups` | Smpl Logging log-group CRUD |
+| `manage.contexts` | Context instances (register / list / get / delete) |
+| `manage.context_types` | Targeting-rule entity schemas |
+| `manage.environments` | Environments (built-ins + AD_HOC) |
+| `manage.account_settings` | Per-account settings |
+| `manage.configs` | Smpl Config CRUD |
+| `manage.flags` | Smpl Flags CRUD |
+| `manage.loggers` | Smpl Logging logger CRUD |
+| `manage.log_groups` | Smpl Logging log-group CRUD |
 
 ## Configuration
 

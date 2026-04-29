@@ -6,21 +6,34 @@ import logging
 import threading
 import traceback
 
-from smplkit._config import _service_url, resolve_config
+from smplkit._config import ResolvedManagementConfig, _service_url, resolve_config
 from smplkit._debug import debug, enable_debug
 from smplkit._generated.app.api.contexts import bulk_register_contexts as gen_bulk_register_contexts
 from smplkit._generated.app.models.context_bulk_item import ContextBulkItem
 from smplkit._generated.app.models.context_bulk_item_attributes import ContextBulkItemAttributes
 from smplkit._generated.app.models.context_bulk_register import ContextBulkRegister
-from smplkit._generated.config.client import AuthenticatedClient
 from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
 from smplkit._ws import SharedWebSocket
 from smplkit.config.client import AsyncConfigClient, ConfigClient
 from smplkit.flags.client import AsyncFlagsClient, FlagsClient
 from smplkit.logging.client import AsyncLoggingClient, LoggingClient
-from smplkit.management._buffer import _ContextRegistrationBuffer
+from smplkit.management.client import AsyncSmplManagementClient, SmplManagementClient
 
 logger = logging.getLogger("smplkit")
+
+
+def _to_management_config(cfg) -> ResolvedManagementConfig:
+    """Project the runtime ResolvedConfig down to the management subset.
+
+    SmplClient's resolved config is a superset of SmplManagementClient's;
+    this drops the runtime-only fields (environment, service, telemetry).
+    """
+    return ResolvedManagementConfig(
+        api_key=cfg.api_key,
+        base_domain=cfg.base_domain,
+        scheme=cfg.scheme,
+        debug=cfg.debug,
+    )
 
 
 class SmplClient:
@@ -46,9 +59,10 @@ class SmplClient:
         base_domain: Base domain for API requests (default ``"smplkit.com"``).
         scheme: URL scheme (default ``"https"``).
         debug: Enable debug logging in the SDK.
-        disable_telemetry: Disable anonymous usage telemetry.
+        telemetry: Enable anonymous usage telemetry (default ``True``).
     """
 
+    manage: SmplManagementClient
     config: ConfigClient
     flags: FlagsClient
     logging: LoggingClient
@@ -63,7 +77,7 @@ class SmplClient:
         base_domain: str | None = None,
         scheme: str | None = None,
         debug: bool | None = None,
-        disable_telemetry: bool | None = None,
+        telemetry: bool | None = None,
     ) -> None:
         cfg = resolve_config(
             profile=profile,
@@ -73,7 +87,7 @@ class SmplClient:
             environment=environment,
             service=service,
             debug=debug,
-            disable_telemetry=disable_telemetry,
+            telemetry=telemetry,
         )
         if cfg.debug:
             enable_debug()
@@ -93,42 +107,38 @@ class SmplClient:
             f"SmplClient init: api_key={masked_key}"
             f" env={cfg.environment!r} service={cfg.service!r}"
             f" base_domain={cfg.base_domain!r} scheme={cfg.scheme!r}"
-            f" debug={cfg.debug} disable_telemetry={cfg.disable_telemetry}",
+            f" debug={cfg.debug} telemetry={cfg.telemetry}",
         )
 
-        config_url = _service_url(cfg.scheme, "config", cfg.base_domain)
+        # Construct the management client first; the runtime client uses
+        # its HTTP transports + registration buffers under the hood.
+        self.manage = SmplManagementClient._from_resolved(_to_management_config(cfg))
+
         app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
         flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
         logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
 
-        self._http_client = AuthenticatedClient(
-            base_url=config_url,
-            token=cfg.api_key,
-        )
-        self._app_http = AuthenticatedClient(
-            base_url=app_url,
-            token=cfg.api_key,
-        )
+        # Alias the management's HTTP transports — single connection pool per service.
+        self._http_client = self.manage._config_http
+        self._app_http = self.manage._app_http
         self._app_base_url = app_url
 
         # Metrics reporter
-        if cfg.disable_telemetry:
-            self._metrics: _MetricsReporter | None = None
-        else:
-            self._metrics = _MetricsReporter(
+        if cfg.telemetry:
+            self._metrics: _MetricsReporter | None = _MetricsReporter(
                 http_client=self._app_http,
                 environment=cfg.environment,
                 service=cfg.service,
             )
+        else:
+            self._metrics = None
 
         self._ws_manager: SharedWebSocket | None = None
-        self._context_buffer = _ContextRegistrationBuffer()
         self.config = ConfigClient(self)
         self.flags = FlagsClient(
             self,
             flags_base_url=flags_url,
             app_base_url=app_url,
-            context_buffer=self._context_buffer,
         )
         self.logging = LoggingClient(self, logging_base_url=logging_url, app_base_url=app_url)
 
@@ -170,10 +180,8 @@ class SmplClient:
         if self._ws_manager is not None:
             self._ws_manager.stop()
             self._ws_manager = None
-        client = self._http_client._client
-        if client is not None:
-            client.close()
-            self._http_client._client = None
+        # Close shared HTTP transports owned by self.manage.
+        self.manage.close()
 
     def __enter__(self) -> SmplClient:
         return self
@@ -198,6 +206,7 @@ class AsyncSmplClient:
     file. See ADR-021 for the full resolution algorithm.
     """
 
+    manage: AsyncSmplManagementClient
     config: AsyncConfigClient
     flags: AsyncFlagsClient
     logging: AsyncLoggingClient
@@ -212,7 +221,7 @@ class AsyncSmplClient:
         base_domain: str | None = None,
         scheme: str | None = None,
         debug: bool | None = None,
-        disable_telemetry: bool | None = None,
+        telemetry: bool | None = None,
     ) -> None:
         cfg = resolve_config(
             profile=profile,
@@ -222,7 +231,7 @@ class AsyncSmplClient:
             environment=environment,
             service=service,
             debug=debug,
-            disable_telemetry=disable_telemetry,
+            telemetry=telemetry,
         )
         if cfg.debug:
             enable_debug()
@@ -242,42 +251,35 @@ class AsyncSmplClient:
             f"AsyncSmplClient init: api_key={masked_key}"
             f" env={cfg.environment!r} service={cfg.service!r}"
             f" base_domain={cfg.base_domain!r} scheme={cfg.scheme!r}"
-            f" debug={cfg.debug} disable_telemetry={cfg.disable_telemetry}",
+            f" debug={cfg.debug} telemetry={cfg.telemetry}",
         )
 
-        config_url = _service_url(cfg.scheme, "config", cfg.base_domain)
+        self.manage = AsyncSmplManagementClient._from_resolved(_to_management_config(cfg))
+
         app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
         flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
         logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
 
-        self._http_client = AuthenticatedClient(
-            base_url=config_url,
-            token=cfg.api_key,
-        )
-        self._app_http = AuthenticatedClient(
-            base_url=app_url,
-            token=cfg.api_key,
-        )
+        self._http_client = self.manage._config_http
+        self._app_http = self.manage._app_http
         self._app_base_url = app_url
 
         # Metrics reporter
-        if cfg.disable_telemetry:
-            self._metrics: _AsyncMetricsReporter | None = None
-        else:
-            self._metrics = _AsyncMetricsReporter(
+        if cfg.telemetry:
+            self._metrics: _AsyncMetricsReporter | None = _AsyncMetricsReporter(
                 http_client=self._app_http,
                 environment=cfg.environment,
                 service=cfg.service,
             )
+        else:
+            self._metrics = None
 
         self._ws_manager: SharedWebSocket | None = None
-        self._context_buffer = _ContextRegistrationBuffer()
         self.config = AsyncConfigClient(self)
         self.flags = AsyncFlagsClient(
             self,
             flags_base_url=flags_url,
             app_base_url=app_url,
-            context_buffer=self._context_buffer,
         )
         self.logging = AsyncLoggingClient(self, logging_base_url=logging_url, app_base_url=app_url)
 
@@ -332,10 +334,7 @@ class AsyncSmplClient:
         if self._ws_manager is not None:
             self._ws_manager.stop()
             self._ws_manager = None
-        client = self._http_client._async_client
-        if client is not None:
-            await client.aclose()
-            self._http_client._async_client = None
+        await self.manage.close()
 
     async def __aenter__(self) -> AsyncSmplClient:
         return self

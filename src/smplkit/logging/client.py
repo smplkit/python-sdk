@@ -43,11 +43,8 @@ from smplkit._generated.logging.models.log_group_response import LogGroupRespons
 from smplkit._generated.logging.models.logger import Logger as GenLogger  # noqa: F401
 from smplkit._generated.logging.models.logger_resource import LoggerResource  # noqa: F401
 from smplkit._generated.logging.models.logger_response import LoggerResponse
-from smplkit._generated.logging.models.logger_bulk_item import LoggerBulkItem
-from smplkit._generated.logging.models.logger_bulk_request import LoggerBulkRequest
 from smplkit.logging._levels import python_level_to_smpl, smpl_level_to_python
 from smplkit.logging._normalize import normalize_logger_name
-from smplkit.logging._registration_buffer import _LoggerRegistrationBuffer
 from smplkit.logging.adapters.base import LoggingAdapter
 from smplkit.logging.helpers import (  # noqa: F401  (re-exported below)
     _build_log_group_body as _build_group_body,
@@ -184,7 +181,6 @@ class LoggingClient:
         )
         self._connected = False
         self._name_map: dict[str, str] = {}  # original_name → normalized_id
-        self._buffer = _LoggerRegistrationBuffer()
         self._flush_timer: threading.Timer | None = None
         self._loggers_cache: dict[str, dict[str, Any]] = {}  # id → logger data
         self._groups_cache: dict[str, dict[str, Any]] = {}  # id → group data
@@ -259,6 +255,7 @@ class LoggingClient:
             self._adapters = _auto_load_adapters()
 
         # 1. Discover existing loggers from all adapters
+        mgmt_loggers = self._parent.manage.loggers
         for adapter in self._adapters:
             try:
                 existing = adapter.discover()
@@ -268,7 +265,7 @@ class LoggingClient:
                     self._name_map[name] = normalized
                     smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
                     smpl_effective = python_level_to_smpl(effective_level)
-                    self._buffer.add(
+                    mgmt_loggers._observe(
                         normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment
                     )
             except Exception:
@@ -445,10 +442,16 @@ class LoggingClient:
         self._name_map[name] = normalized
         smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
         smpl_effective = python_level_to_smpl(effective_level)
-        self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment)
-        debug("registration", f"queued {name!r} for bulk registration (buffer size: {self._buffer.pending_count})")
+        mgmt_loggers = self._parent.manage.loggers
+        mgmt_loggers._observe(
+            normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment
+        )
+        debug(
+            "registration",
+            f"queued {name!r} for bulk registration (buffer size: {mgmt_loggers._pending_count})",
+        )
 
-        if self._buffer.pending_count >= _BULK_FLUSH_THRESHOLD:
+        if mgmt_loggers._pending_count >= _BULK_FLUSH_THRESHOLD:
             debug("registration", f"buffer threshold reached ({_BULK_FLUSH_THRESHOLD}), flushing")
             threading.Thread(target=self._flush_bulk_sync, daemon=True).start()
 
@@ -466,41 +469,9 @@ class LoggingClient:
                         logger.warning("Adapter %s apply_level() failed for %s", adapter.name, name, exc_info=True)
 
     def _flush_bulk_sync(self) -> None:
-        """Flush the registration buffer to the logging service."""
-        batch = self._buffer.drain()
-        if not batch:
-            return
-        debug("registration", f"flushing {len(batch)} loggers to POST /api/v1/loggers/bulk")
-        items = [
-            LoggerBulkItem(
-                id=b["id"],
-                level=b.get("level"),
-                resolved_level=b["resolved_level"],
-                service=b.get("service"),
-                environment=b.get("environment"),
-            )
-            for b in batch
-        ]
-        body = LoggerBulkRequest(loggers=items)
+        """Flush the registration buffer (delegates to mgmt.loggers)."""
         try:
-            debug("api", f"POST /api/v1/loggers/bulk ({len(items)} loggers)")
-            response = bulk_register_loggers.sync_detailed(client=self._logging_http, body=body)
-            if response.status_code.value >= 300:
-                detail = response.content[:500] if response.content else b""
-                logger.warning(
-                    "Bulk logger registration failed: HTTP %s: %s",
-                    response.status_code.value,
-                    detail.decode("utf-8", errors="replace"),
-                )
-                debug("api", f"POST /api/v1/loggers/bulk -> {response.status_code.value} (error)")
-            else:
-                debug(
-                    "api",
-                    f"POST /api/v1/loggers/bulk -> {response.status_code.value} ({len(items)} loggers registered)",
-                )
-                metrics = self._parent._metrics
-                if metrics is not None:
-                    metrics.record("logging.loggers_discovered", len(items), unit="loggers")
+            self._parent.manage.loggers._flush()
         except Exception as exc:
             logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
             debug("registration", traceback.format_exc().strip())
@@ -616,7 +587,6 @@ class AsyncLoggingClient:
         )
         self._connected = False
         self._name_map: dict[str, str] = {}
-        self._buffer = _LoggerRegistrationBuffer()
         self._flush_timer: threading.Timer | None = None
         self._loggers_cache: dict[str, dict[str, Any]] = {}
         self._groups_cache: dict[str, dict[str, Any]] = {}
@@ -700,7 +670,7 @@ class AsyncLoggingClient:
                     self._name_map[name] = normalized
                     smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
                     smpl_effective = python_level_to_smpl(effective_level)
-                    self._buffer.add(
+                    self._parent.manage.loggers._observe(
                         normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment
                     )
             except Exception:
@@ -936,8 +906,14 @@ class AsyncLoggingClient:
         self._name_map[name] = normalized
         smpl_explicit = python_level_to_smpl(explicit_level) if explicit_level is not None else None
         smpl_effective = python_level_to_smpl(effective_level)
-        self._buffer.add(normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment)
-        debug("registration", f"queued {name!r} for bulk registration (buffer size: {self._buffer.pending_count})")
+        mgmt_loggers = self._parent.manage.loggers
+        mgmt_loggers._observe(
+            normalized, smpl_explicit, smpl_effective, self._parent._service, self._parent._environment
+        )
+        debug(
+            "registration",
+            f"queued {name!r} for bulk registration (buffer size: {mgmt_loggers._pending_count})",
+        )
 
         if self._connected and normalized in self._loggers_cache:
             entry = self._loggers_cache[normalized]
@@ -952,81 +928,17 @@ class AsyncLoggingClient:
                         logger.warning("Adapter %s apply_level() failed for %s", adapter.name, name, exc_info=True)
 
     async def _flush_bulk_async(self) -> None:
-        """Flush the registration buffer to the logging service."""
-        batch = self._buffer.drain()
-        if not batch:
-            return
-        debug("registration", f"flushing {len(batch)} loggers to POST /api/v1/loggers/bulk")
-        items = [
-            LoggerBulkItem(
-                id=b["id"],
-                level=b.get("level"),
-                resolved_level=b["resolved_level"],
-                service=b.get("service"),
-                environment=b.get("environment"),
-            )
-            for b in batch
-        ]
-        body = LoggerBulkRequest(loggers=items)
+        """Flush the registration buffer (delegates to mgmt.loggers)."""
         try:
-            debug("api", f"POST /api/v1/loggers/bulk ({len(items)} loggers)")
-            response = await bulk_register_loggers.asyncio_detailed(client=self._logging_http, body=body)
-            if response.status_code.value >= 300:
-                detail = response.content[:500] if response.content else b""
-                logger.warning(
-                    "Bulk logger registration failed: HTTP %s: %s",
-                    response.status_code.value,
-                    detail.decode("utf-8", errors="replace"),
-                )
-                debug("api", f"POST /api/v1/loggers/bulk -> {response.status_code.value} (error)")
-            else:
-                debug(
-                    "api",
-                    f"POST /api/v1/loggers/bulk -> {response.status_code.value} ({len(items)} loggers registered)",
-                )
-                metrics = self._parent._metrics
-                if metrics is not None:
-                    metrics.record("logging.loggers_discovered", len(items), unit="loggers")
+            await self._parent.manage.loggers._flush()
         except Exception as exc:
             logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
             debug("registration", traceback.format_exc().strip())
 
     def _flush_bulk_sync(self) -> None:
-        """Sync flush for the timer thread."""
-        batch = self._buffer.drain()
-        if not batch:
-            return
-        debug("registration", f"flushing {len(batch)} loggers to POST /api/v1/loggers/bulk (sync timer)")
-        items = [
-            LoggerBulkItem(
-                id=b["id"],
-                level=b.get("level"),
-                resolved_level=b["resolved_level"],
-                service=b.get("service"),
-                environment=b.get("environment"),
-            )
-            for b in batch
-        ]
-        body = LoggerBulkRequest(loggers=items)
+        """Sync flush for the timer thread (delegates to mgmt.loggers)."""
         try:
-            debug("api", f"POST /api/v1/loggers/bulk ({len(items)} loggers)")
-            response = bulk_register_loggers.sync_detailed(client=self._logging_http, body=body)
-            if response.status_code.value >= 300:
-                detail = response.content[:500] if response.content else b""
-                logger.warning(
-                    "Bulk logger registration failed: HTTP %s: %s",
-                    response.status_code.value,
-                    detail.decode("utf-8", errors="replace"),
-                )
-                debug("api", f"POST /api/v1/loggers/bulk -> {response.status_code.value} (error)")
-            else:
-                debug(
-                    "api",
-                    f"POST /api/v1/loggers/bulk -> {response.status_code.value} ({len(items)} loggers registered)",
-                )
-                metrics = self._parent._metrics
-                if metrics is not None:
-                    metrics.record("logging.loggers_discovered", len(items), unit="loggers")
+            self._parent.manage.loggers._flush_sync()
         except Exception as exc:
             logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
             debug("registration", traceback.format_exc().strip())

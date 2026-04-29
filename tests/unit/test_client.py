@@ -241,7 +241,7 @@ def test_smpl_client_default_urls():
     assert client._http_client._base_url == "https://config.smplkit.com"
     assert client._app_base_url == "https://app.smplkit.com"
     assert client.flags._flags_http._base_url == "https://flags.smplkit.com"
-    assert client.flags._app_http._base_url == "https://app.smplkit.com"
+    assert client.manage._app_http._base_url == "https://app.smplkit.com"
     assert client.logging._logging_http._base_url == "https://logging.smplkit.com"
 
 
@@ -256,7 +256,7 @@ def test_smpl_client_custom_base_domain():
     assert client._http_client._base_url == "http://config.localhost"
     assert client._app_base_url == "http://app.localhost"
     assert client.flags._flags_http._base_url == "http://flags.localhost"
-    assert client.flags._app_http._base_url == "http://app.localhost"
+    assert client.manage._app_http._base_url == "http://app.localhost"
     assert client.logging._logging_http._base_url == "http://logging.localhost"
 
 
@@ -293,7 +293,7 @@ def test_async_smpl_client_custom_base_domain():
     assert client._http_client._base_url == "http://config.localhost"
     assert client._app_base_url == "http://app.localhost"
     assert client.flags._flags_http._base_url == "http://flags.localhost"
-    assert client.flags._app_http._base_url == "http://app.localhost"
+    assert client.manage._app_http._base_url == "http://app.localhost"
     assert client.logging._logging_http._base_url == "http://logging.localhost"
 
 

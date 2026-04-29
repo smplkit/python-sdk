@@ -2,19 +2,7 @@
 Smpl Config SDK Showcase — Management API
 ===========================================
 
-Demonstrates the smplkit Python SDK's management plane for Smpl Config:
-
-- Config CRUD: new() + save(), get(id), list(), delete(id)
-- Active record pattern: fetch → mutate → save()
-- Base items and environment-specific overrides
-- Config inheritance from the common root
-
-Most customers will manage configs via the Console UI. This showcase
-demonstrates the programmatic equivalent — useful for infrastructure-
-as-code, CI/CD pipelines, setup scripts, and automated testing.
-
-For the runtime experience (resolve, subscribe, change listeners),
-see ``config_runtime_showcase.py``.
+Demonstrates the smplkit Python SDK's management plane for Smpl Config.
 
 Prerequisites:
     - ``pip install smplkit-sdk``
@@ -56,10 +44,12 @@ async def main() -> None:
     # ======================================================================
     section("1. SDK Initialization")
 
-    # Management operations do not require connect() or lazy init — they
-    # are stateless HTTP calls that bypass the runtime cache entirely.
+    # Construct a new management client.  API key may be passed explicitly
+    # or via SMPLKIT_API_KEY environment variable.  Alternatively,
+    # SMPLKIT_PROFILE environment variable may be specified, in which case the
+    # API key will be loaded from the specified profile found in ~/.smplkit.
     async with AsyncSmplManagementClient() as mgmt:
-        step("AsyncSmplManagementClient initialized (no service registration, no telemetry)")
+        step("AsyncSmplManagementClient initialized")
 
         # Clean up leftover configs from previous runs (order matters: children first).
         for leftover_key in ("auth_module", "user_service"):
@@ -197,7 +187,7 @@ async def main() -> None:
         step(f"  items: {list(fetched.items.keys())}")
 
         # ==================================================================
-        # 5. UPDATE A CONFIG — Active Record
+        # 5. UPDATE A CONFIG
         # ==================================================================
 
         section("5. Update a Config")
@@ -251,12 +241,7 @@ async def main() -> None:
         await common.save()
         step("Common config reset to empty")
 
-        # ==================================================================
-        # DONE
-        # ==================================================================
         section("ALL DONE")
-        print("  The Config Management showcase completed successfully.")
-        print("  All configs have been cleaned up.\n")
 
 
 if __name__ == "__main__":
