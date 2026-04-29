@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from smplkit.flags.client import AsyncFlagsClient, FlagsClient
+    from smplkit.management.client import AsyncFlagsClient as AsyncMgmtFlagsClient
+    from smplkit.management.client import FlagsClient as MgmtFlagsClient
 
 
 class Flag:
@@ -30,7 +32,7 @@ class Flag:
 
     def __init__(
         self,
-        client: FlagsClient,
+        client: FlagsClient | MgmtFlagsClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -61,7 +63,11 @@ class Flag:
         """Persist this flag to the server.
 
         Creates a new flag if unsaved, or updates the existing one.
+        Requires a management client (i.e. the flag was constructed via
+        ``mgmt.flags.new*`` or returned from ``mgmt.flags.get/list``).
         """
+        if self._client is None:
+            raise RuntimeError("Flag was constructed without a client; cannot save")
         if self.created_at is None:
             created = self._client._create_flag(self)
             self._apply(created)
@@ -195,7 +201,7 @@ class AsyncFlag:
 
     def __init__(
         self,
-        client: AsyncFlagsClient,
+        client: AsyncFlagsClient | AsyncMgmtFlagsClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -226,7 +232,10 @@ class AsyncFlag:
         """Persist this flag to the server (async).
 
         Creates a new flag if unsaved, or updates the existing one.
+        Requires a management client.
         """
+        if self._client is None:
+            raise RuntimeError("AsyncFlag was constructed without a client; cannot save")
         if self.created_at is None:
             created = await self._client._create_flag(self)
             self._apply(created)

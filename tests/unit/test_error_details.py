@@ -374,14 +374,14 @@ class TestConfigClientErrors:
                 ]
             },
         )
-        from smplkit.client import SmplClient
         from smplkit.config.models import Config
 
         import datetime
 
-        client = SmplClient(api_key="sk_test", environment="test")
+        from smplkit import SmplManagementClient
+        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
         cfg = Config(
-            client.config,
+            mgmt.configs,
             id="test",
             name="test",
             created_at=datetime.datetime(2025, 1, 1),
@@ -415,10 +415,10 @@ class TestConfigClientErrors:
                 ]
             },
         )
-        from smplkit.client import SmplClient
 
-        client = SmplClient(api_key="sk_test", environment="test")
-        cfg = client.config.management.new("test-key", name="test")
+        from smplkit import SmplManagementClient
+        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
+        cfg = mgmt.configs.new("test-key", name="test")
         with pytest.raises(SmplValidationError) as exc_info:
             cfg.save()
         exc = exc_info.value
@@ -439,11 +439,11 @@ class TestConfigClientErrors:
                 ]
             },
         )
-        from smplkit.client import SmplClient
 
-        client = SmplClient(api_key="sk_test", environment="test")
+        from smplkit import SmplManagementClient
+        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
         with pytest.raises(SmplNotFoundError) as exc_info:
-            client.config.management.get("abc")
+            mgmt.configs.get("abc")
         exc = exc_info.value
         assert exc.status_code == 404
         assert "Config 'abc' does not exist." in str(exc)
@@ -462,11 +462,11 @@ class TestConfigClientErrors:
                 ]
             },
         )
-        from smplkit.client import SmplClient
 
-        client = SmplClient(api_key="sk_test", environment="test")
+        from smplkit import SmplManagementClient
+        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
         with pytest.raises(SmplConflictError) as exc_info:
-            client.config.management.delete("test-config")
+            mgmt.configs.delete("test-config")
         exc = exc_info.value
         assert exc.status_code == 409
         assert "Config has children" in str(exc)
@@ -479,10 +479,10 @@ class TestConfigClientErrors:
         resp.parsed = None
         mock_create.return_value = resp
 
-        from smplkit.client import SmplClient
 
-        client = SmplClient(api_key="sk_test", environment="test")
-        cfg = client.config.management.new("test-key", name="test")
+        from smplkit import SmplManagementClient
+        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
+        cfg = mgmt.configs.new("test-key", name="test")
         with pytest.raises(SmplError) as exc_info:
             cfg.save()
         exc = exc_info.value
@@ -507,12 +507,12 @@ class TestFlagsClientErrors:
                 ]
             },
         )
-        from smplkit.client import SmplClient
         from smplkit.flags.models import Flag
 
-        client = SmplClient(api_key="sk_test", environment="test")
+        from smplkit import SmplManagementClient
+        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
         flag = Flag(
-            client.flags,
+            mgmt.flags,
             id="test",
             name="Test",
             type="boolean",
@@ -538,11 +538,11 @@ class TestFlagsClientErrors:
                 ]
             },
         )
-        from smplkit.client import SmplClient
 
-        client = SmplClient(api_key="sk_test", environment="test")
+        from smplkit import SmplManagementClient
+        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
         with pytest.raises(SmplNotFoundError) as exc_info:
-            client.flags.management.get("test-flag")
+            mgmt.flags.get("test-flag")
         exc = exc_info.value
         assert exc.status_code == 404
         assert "Flag does not exist." in str(exc)
@@ -551,15 +551,15 @@ class TestFlagsClientErrors:
 class TestLoggingClientErrors:
     @patch("smplkit.logging.client.update_logger.sync_detailed")
     def test_save_new_logger_upserts_via_put(self, mock_update):
-        from smplkit.client import SmplClient
         from smplkit._errors import SmplConnectionError
         import httpx
 
         # Simulate PUT failing with a network error to verify a single
         # HTTP call is made (upsert — no bulk pre-step).
         mock_update.side_effect = httpx.ConnectError("refused")
-        client = SmplClient(api_key="sk_test", environment="test")
-        lg = client.logging.management.new("test-key", name="Test")
+        from smplkit import SmplManagementClient
+        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
+        lg = mgmt.loggers.new("test-key", name="Test")
         with pytest.raises(SmplConnectionError):
             lg.save()
         mock_update.assert_called_once()
@@ -578,11 +578,11 @@ class TestLoggingClientErrors:
                 ]
             },
         )
-        from smplkit.client import SmplClient
 
-        client = SmplClient(api_key="sk_test", environment="test")
+        from smplkit import SmplManagementClient
+        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
         with pytest.raises(SmplNotFoundError) as exc_info:
-            client.logging.management.get("test-key")
+            mgmt.loggers.get("test-key")
         exc = exc_info.value
         assert exc.status_code == 404
         assert "Logger does not exist." in str(exc)

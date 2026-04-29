@@ -101,82 +101,109 @@ def _make_async_client(**kwargs):
 # ---------------------------------------------------------------------------
 
 
+
+def _new_mgmt_loggers():
+    """Return a LoggersClient bound to a mock http (for management-flavored tests)."""
+    from smplkit.management.client import LoggersClient
+    from unittest.mock import MagicMock as _MM
+    return LoggersClient(_MM(), base_url="http://logging:8003")
+
+
+def _new_mgmt_log_groups():
+    """Return a LogGroupsClient bound to a mock http."""
+    from smplkit.management.client import LogGroupsClient
+    from unittest.mock import MagicMock as _MM
+    return LogGroupsClient(_MM(), base_url="http://logging:8003")
+
+
+def _new_mgmt():
+    """Build a SmplManagementClient for management-flavored tests."""
+    from smplkit import SmplManagementClient
+    return SmplManagementClient(api_key="sk_test", base_domain="example.test")
+
+
+def _new_async_mgmt():
+    """Build an AsyncSmplManagementClient for management-flavored tests."""
+    from smplkit import AsyncSmplManagementClient
+    return AsyncSmplManagementClient(api_key="sk_test", base_domain="example.test")
+
+
 class TestSyncBareRaise:
     """Cover the `raise` line after _maybe_reraise_network_error for non-httpx errors."""
 
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     def test_list_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
-        client = _make_sync_client()
+        mgmt = _new_mgmt()
         with pytest.raises(RuntimeError, match="boom"):
-            client.management.list()
+            mgmt.loggers.list()
 
     @patch("smplkit.logging.client.get_logger.sync_detailed")
     def test_get_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
-        client = _make_sync_client()
+        mgmt = _new_mgmt()
         with pytest.raises(RuntimeError, match="boom"):
-            client.management.get("sql")
+            mgmt.loggers.get("sql")
 
     @patch("smplkit.logging.client.update_logger.sync_detailed")
     def test_save_logger_unknown_error(self, mock_update):
         mock_update.side_effect = RuntimeError("boom")
-        client = _make_sync_client()
-        lg = SmplLogger(client, id=_TEST_UUID, name="SQL Logger", created_at="2026-01-01T00:00:00Z")
+        mgmt = _new_mgmt()
+        lg = SmplLogger(mgmt.loggers, id=_TEST_UUID, name="SQL Logger", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(RuntimeError, match="boom"):
-            client._save_logger(lg)
+            mgmt.loggers._save_logger(lg)
 
     @patch("smplkit.logging.client.update_logger.sync_detailed")
     def test_save_logger_create_upsert_unknown_error(self, mock_update):
         mock_update.side_effect = RuntimeError("boom")
-        client = _make_sync_client()
-        lg = SmplLogger(client, id=_TEST_UUID, name="SQL Logger")
+        mgmt = _new_mgmt()
+        lg = SmplLogger(mgmt.loggers, id=_TEST_UUID, name="SQL Logger")
         with pytest.raises(RuntimeError, match="boom"):
-            client._save_logger(lg)
+            mgmt.loggers._save_logger(lg)
 
     @patch("smplkit.logging.client.delete_logger.sync_detailed")
     def test_delete_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
-        client = _make_sync_client()
+        mgmt = _new_mgmt()
         with pytest.raises(RuntimeError, match="boom"):
-            client.management.delete("sql")
+            mgmt.loggers.delete("sql")
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     def test_list_groups_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
-        client = _make_sync_client()
+        mgmt = _new_mgmt()
         with pytest.raises(RuntimeError, match="boom"):
-            client.management.list_groups()
+            mgmt.log_groups.list()
 
     @patch("smplkit.logging.client.get_log_group.sync_detailed")
     def test_get_group_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
-        client = _make_sync_client()
+        mgmt = _new_mgmt()
         with pytest.raises(RuntimeError, match="boom"):
-            client.management.get_group("db")
+            mgmt.log_groups.get("db")
 
     @patch("smplkit.logging.client.update_log_group.sync_detailed")
     def test_save_group_unknown_error(self, mock_update):
         mock_update.side_effect = RuntimeError("boom")
-        client = _make_sync_client()
-        grp = SmplLogGroup(client, id=_TEST_UUID, name="DB", created_at="2026-01-01T00:00:00Z")
+        mgmt = _new_mgmt()
+        grp = SmplLogGroup(mgmt.log_groups, id=_TEST_UUID, name="DB", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(RuntimeError, match="boom"):
-            client._save_group(grp)
+            mgmt.log_groups._save_group(grp)
 
     @patch("smplkit.logging.client.create_log_group.sync_detailed")
     def test_save_group_create_unknown_error(self, mock_create):
         mock_create.side_effect = RuntimeError("boom")
-        client = _make_sync_client()
-        grp = SmplLogGroup(client, id=None, name="DB")
+        mgmt = _new_mgmt()
+        grp = SmplLogGroup(mgmt.log_groups, id=None, name="DB")
         with pytest.raises(RuntimeError, match="boom"):
-            client._save_group(grp)
+            mgmt.log_groups._save_group(grp)
 
     @patch("smplkit.logging.client.delete_log_group.sync_detailed")
     def test_delete_group_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
-        client = _make_sync_client()
+        mgmt = _new_mgmt()
         with pytest.raises(RuntimeError, match="boom"):
-            client.management.delete_group("db")
+            mgmt.log_groups.delete("db")
 
 
 class TestAsyncBareRaise:
@@ -185,76 +212,76 @@ class TestAsyncBareRaise:
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
     def test_list_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
-        client = _make_async_client()
+        mgmt = _new_async_mgmt()
         with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(client.management.list())
+            asyncio.run(mgmt.loggers.list())
 
     @patch("smplkit.logging.client.get_logger.asyncio_detailed")
     def test_get_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
-        client = _make_async_client()
+        mgmt = _new_async_mgmt()
         with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(client.management.get("sql"))
+            asyncio.run(mgmt.loggers.get("sql"))
 
     @patch("smplkit.logging.client.delete_logger.asyncio_detailed")
     def test_delete_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
-        client = _make_async_client()
+        mgmt = _new_async_mgmt()
         with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(client.management.delete("sql"))
+            asyncio.run(mgmt.loggers.delete("sql"))
 
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     def test_list_groups_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
-        client = _make_async_client()
+        mgmt = _new_async_mgmt()
         with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(client.management.list_groups())
+            asyncio.run(mgmt.log_groups.list())
 
     @patch("smplkit.logging.client.get_log_group.asyncio_detailed")
     def test_get_group_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
-        client = _make_async_client()
+        mgmt = _new_async_mgmt()
         with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(client.management.get_group("db"))
+            asyncio.run(mgmt.log_groups.get("db"))
 
     @patch("smplkit.logging.client.delete_log_group.asyncio_detailed")
     def test_delete_group_unknown_error(self, mock):
         mock.side_effect = RuntimeError("boom")
-        client = _make_async_client()
+        mgmt = _new_async_mgmt()
         with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(client.management.delete_group("db"))
+            asyncio.run(mgmt.log_groups.delete("db"))
 
     @patch("smplkit.logging.client.update_logger.asyncio_detailed")
     def test_save_logger_unknown_error(self, mock_update):
         mock_update.side_effect = RuntimeError("boom")
-        client = _make_async_client()
-        lg = AsyncSmplLogger(client, id=_TEST_UUID, name="SQL Logger", created_at="2026-01-01T00:00:00Z")
+        mgmt = _new_async_mgmt()
+        lg = AsyncSmplLogger(mgmt.loggers, id=_TEST_UUID, name="SQL Logger", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(client._save_logger(lg))
+            asyncio.run(mgmt.loggers._save_logger(lg))
 
     @patch("smplkit.logging.client.update_logger.asyncio_detailed")
     def test_save_logger_create_upsert_unknown_error(self, mock_update):
         mock_update.side_effect = RuntimeError("boom")
-        client = _make_async_client()
-        lg = AsyncSmplLogger(client, id=_TEST_UUID, name="SQL Logger")
+        mgmt = _new_async_mgmt()
+        lg = AsyncSmplLogger(mgmt.loggers, id=_TEST_UUID, name="SQL Logger")
         with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(client._save_logger(lg))
+            asyncio.run(mgmt.loggers._save_logger(lg))
 
     @patch("smplkit.logging.client.update_log_group.asyncio_detailed")
     def test_save_group_unknown_error(self, mock_update):
         mock_update.side_effect = RuntimeError("boom")
-        client = _make_async_client()
-        grp = AsyncSmplLogGroup(client, id=_TEST_UUID, name="DB", created_at="2026-01-01T00:00:00Z")
+        mgmt = _new_async_mgmt()
+        grp = AsyncSmplLogGroup(mgmt.log_groups, id=_TEST_UUID, name="DB", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(client._save_group(grp))
+            asyncio.run(mgmt.log_groups._save_group(grp))
 
     @patch("smplkit.logging.client.create_log_group.asyncio_detailed")
     def test_save_group_create_unknown_error(self, mock_create):
         mock_create.side_effect = RuntimeError("boom")
-        client = _make_async_client()
-        grp = AsyncSmplLogGroup(client, id=None, name="DB")
+        mgmt = _new_async_mgmt()
+        grp = AsyncSmplLogGroup(mgmt.log_groups, id=None, name="DB")
         with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(client._save_group(grp))
+            asyncio.run(mgmt.log_groups._save_group(grp))
 
 
 # ---------------------------------------------------------------------------
@@ -344,76 +371,76 @@ class TestAsyncNetworkErrors:
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
     def test_list_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_async_client()
+        mgmt = _new_async_mgmt()
         with pytest.raises(SmplConnectionError):
-            asyncio.run(client.management.list())
+            asyncio.run(mgmt.loggers.list())
 
     @patch("smplkit.logging.client.get_logger.asyncio_detailed")
     def test_get_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_async_client()
+        mgmt = _new_async_mgmt()
         with pytest.raises(SmplConnectionError):
-            asyncio.run(client.management.get("sql"))
+            asyncio.run(mgmt.loggers.get("sql"))
 
     @patch("smplkit.logging.client.delete_logger.asyncio_detailed")
     def test_delete_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_async_client()
+        mgmt = _new_async_mgmt()
         with pytest.raises(SmplConnectionError):
-            asyncio.run(client.management.delete("sql"))
+            asyncio.run(mgmt.loggers.delete("sql"))
 
     @patch("smplkit.logging.client.update_logger.asyncio_detailed")
     def test_save_logger_create_upsert_network_error(self, mock_update):
         mock_update.side_effect = httpx.ConnectError("refused")
-        client = _make_async_client()
-        lg = AsyncSmplLogger(client, id=_TEST_UUID, name="SQL Logger")
+        mgmt = _new_async_mgmt()
+        lg = AsyncSmplLogger(mgmt.loggers, id=_TEST_UUID, name="SQL Logger")
         with pytest.raises(SmplConnectionError):
-            asyncio.run(client._save_logger(lg))
+            asyncio.run(mgmt.loggers._save_logger(lg))
 
     @patch("smplkit.logging.client.update_logger.asyncio_detailed")
     def test_save_logger_update_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_async_client()
-        lg = AsyncSmplLogger(client, id=_TEST_UUID, name="SQL Logger", created_at="2026-01-01T00:00:00Z")
+        mgmt = _new_async_mgmt()
+        lg = AsyncSmplLogger(mgmt.loggers, id=_TEST_UUID, name="SQL Logger", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(SmplConnectionError):
-            asyncio.run(client._save_logger(lg))
+            asyncio.run(mgmt.loggers._save_logger(lg))
 
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     def test_list_groups_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_async_client()
+        mgmt = _new_async_mgmt()
         with pytest.raises(SmplConnectionError):
-            asyncio.run(client.management.list_groups())
+            asyncio.run(mgmt.log_groups.list())
 
     @patch("smplkit.logging.client.get_log_group.asyncio_detailed")
     def test_get_group_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_async_client()
+        mgmt = _new_async_mgmt()
         with pytest.raises(SmplConnectionError):
-            asyncio.run(client.management.get_group("db"))
+            asyncio.run(mgmt.log_groups.get("db"))
 
     @patch("smplkit.logging.client.delete_log_group.asyncio_detailed")
     def test_delete_group_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_async_client()
+        mgmt = _new_async_mgmt()
         with pytest.raises(SmplConnectionError):
-            asyncio.run(client.management.delete_group("db"))
+            asyncio.run(mgmt.log_groups.delete("db"))
 
     @patch("smplkit.logging.client.create_log_group.asyncio_detailed")
     def test_save_group_create_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_async_client()
-        grp = AsyncSmplLogGroup(client, id=None, name="DB")
+        mgmt = _new_async_mgmt()
+        grp = AsyncSmplLogGroup(mgmt.log_groups, id=None, name="DB")
         with pytest.raises(SmplConnectionError):
-            asyncio.run(client._save_group(grp))
+            asyncio.run(mgmt.log_groups._save_group(grp))
 
     @patch("smplkit.logging.client.update_log_group.asyncio_detailed")
     def test_save_group_update_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_async_client()
-        grp = AsyncSmplLogGroup(client, id=_TEST_UUID, name="DB", created_at="2026-01-01T00:00:00Z")
+        mgmt = _new_async_mgmt()
+        grp = AsyncSmplLogGroup(mgmt.log_groups, id=_TEST_UUID, name="DB", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(SmplConnectionError):
-            asyncio.run(client._save_group(grp))
+            asyncio.run(mgmt.log_groups._save_group(grp))
 
 
 # ---------------------------------------------------------------------------
@@ -425,73 +452,73 @@ class TestSyncNetworkErrors:
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     def test_list_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_sync_client()
+        mgmt = _new_mgmt()
         with pytest.raises(SmplConnectionError):
-            client.management.list()
+            mgmt.loggers.list()
 
     @patch("smplkit.logging.client.get_logger.sync_detailed")
     def test_get_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_sync_client()
+        mgmt = _new_mgmt()
         with pytest.raises(SmplConnectionError):
-            client.management.get("sql")
+            mgmt.loggers.get("sql")
 
     @patch("smplkit.logging.client.delete_logger.sync_detailed")
     def test_delete_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_sync_client()
+        mgmt = _new_mgmt()
         with pytest.raises(SmplConnectionError):
-            client.management.delete("sql")
+            mgmt.loggers.delete("sql")
 
     @patch("smplkit.logging.client.update_logger.sync_detailed")
     def test_save_logger_create_upsert_network_error(self, mock_update):
         mock_update.side_effect = httpx.ConnectError("refused")
-        client = _make_sync_client()
-        lg = SmplLogger(client, id=_TEST_UUID, name="SQL Logger")
+        mgmt = _new_mgmt()
+        lg = SmplLogger(mgmt.loggers, id=_TEST_UUID, name="SQL Logger")
         with pytest.raises(SmplConnectionError):
-            client._save_logger(lg)
+            mgmt.loggers._save_logger(lg)
 
     @patch("smplkit.logging.client.update_logger.sync_detailed")
     def test_save_logger_update_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_sync_client()
-        lg = SmplLogger(client, id=_TEST_UUID, name="SQL Logger", created_at="2026-01-01T00:00:00Z")
+        mgmt = _new_mgmt()
+        lg = SmplLogger(mgmt.loggers, id=_TEST_UUID, name="SQL Logger", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(SmplConnectionError):
-            client._save_logger(lg)
+            mgmt.loggers._save_logger(lg)
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     def test_list_groups_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_sync_client()
+        mgmt = _new_mgmt()
         with pytest.raises(SmplConnectionError):
-            client.management.list_groups()
+            mgmt.log_groups.list()
 
     @patch("smplkit.logging.client.get_log_group.sync_detailed")
     def test_get_group_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_sync_client()
+        mgmt = _new_mgmt()
         with pytest.raises(SmplConnectionError):
-            client.management.get_group("db")
+            mgmt.log_groups.get("db")
 
     @patch("smplkit.logging.client.delete_log_group.sync_detailed")
     def test_delete_group_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_sync_client()
+        mgmt = _new_mgmt()
         with pytest.raises(SmplConnectionError):
-            client.management.delete_group("db")
+            mgmt.log_groups.delete("db")
 
     @patch("smplkit.logging.client.create_log_group.sync_detailed")
     def test_save_group_create_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_sync_client()
-        grp = SmplLogGroup(client, id=None, name="DB")
+        mgmt = _new_mgmt()
+        grp = SmplLogGroup(mgmt.log_groups, id=None, name="DB")
         with pytest.raises(SmplConnectionError):
-            client._save_group(grp)
+            mgmt.log_groups._save_group(grp)
 
     @patch("smplkit.logging.client.update_log_group.sync_detailed")
     def test_save_group_update_network_error(self, mock):
         mock.side_effect = httpx.ConnectError("refused")
-        client = _make_sync_client()
-        grp = SmplLogGroup(client, id=_TEST_UUID, name="DB", created_at="2026-01-01T00:00:00Z")
+        mgmt = _new_mgmt()
+        grp = SmplLogGroup(mgmt.log_groups, id=_TEST_UUID, name="DB", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(SmplConnectionError):
-            client._save_group(grp)
+            mgmt.log_groups._save_group(grp)

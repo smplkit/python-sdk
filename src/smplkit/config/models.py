@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from smplkit.config.client import AsyncConfigClient, ConfigClient
+    from smplkit.management.client import AsyncConfigsClient, ConfigsClient
 
 logger = logging.getLogger("smplkit")
 
@@ -37,7 +38,7 @@ class Config:
 
     def __init__(
         self,
-        client: ConfigClient,
+        client: ConfigsClient | ConfigClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -87,7 +88,10 @@ class Config:
         Raises:
             SmplNotFoundError: If the config no longer exists (update).
             SmplValidationError: If the server rejects the request.
+            RuntimeError: If the model was constructed without a management client.
         """
+        if self._client is None:
+            raise RuntimeError("Config was constructed without a client; cannot save")
         if self.created_at is None:
             other = self._client._create_config(self)
         else:
@@ -118,6 +122,10 @@ class Config:
         while current.parent is not None:
             parent_config = configs_by_id.get(current.parent)
             if parent_config is None:
+                if self._client is None:
+                    raise RuntimeError(
+                        f"cannot resolve parent config {current.parent!r} without a client",
+                    )
                 parent_config = self._client.get(current.parent)
             chain.append(
                 {
@@ -158,7 +166,7 @@ class AsyncConfig:
 
     def __init__(
         self,
-        client: AsyncConfigClient,
+        client: AsyncConfigsClient | AsyncConfigClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -208,7 +216,10 @@ class AsyncConfig:
         Raises:
             SmplNotFoundError: If the config no longer exists (update).
             SmplValidationError: If the server rejects the request.
+            RuntimeError: If the model was constructed without a management client.
         """
+        if self._client is None:
+            raise RuntimeError("AsyncConfig was constructed without a client; cannot save")
         if self.created_at is None:
             other = await self._client._create_config(self)
         else:
@@ -239,6 +250,10 @@ class AsyncConfig:
         while current.parent is not None:
             parent_config = configs_by_id.get(current.parent)
             if parent_config is None:
+                if self._client is None:
+                    raise RuntimeError(
+                        f"cannot resolve parent config {current.parent!r} without a client",
+                    )
                 parent_config = await self._client.get(current.parent)
             chain.append(
                 {
