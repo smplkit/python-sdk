@@ -6,9 +6,7 @@ account_settings}`` for app-service-owned resources.
 
 from __future__ import annotations
 
-import datetime as _datetime
 import json
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, overload
 
 from smplkit._errors import SmplNotFoundError, SmplValidationError, _raise_for_status
@@ -32,11 +30,7 @@ from smplkit._generated.app.api.environments import (
     list_environments as _gen_list_environments,
     update_environment as _gen_update_environment,
 )
-from smplkit._generated.app.api.metrics import (
-    bulk_ingest_metrics as _gen_bulk_ingest_metrics,
-)
 from smplkit._generated.app.client import AuthenticatedClient as _AppAuthClient
-from smplkit._generated.app.types import UNSET, Unset
 from smplkit._generated.app.models import (
     ContextBulkItem as _GenContextBulkItem,
     ContextBulkItemAttributes as _GenContextBulkItemAttributes,
@@ -48,12 +42,6 @@ from smplkit._generated.app.models import (
     Environment as _GenEnvironment,
     EnvironmentResource as _GenEnvironmentResource,
     EnvironmentResponse as _GenEnvironmentResponse,
-    MetricAttributes as _GenMetricAttributes,
-    MetricBulkRequest as _GenMetricBulkRequest,
-    MetricResource as _GenMetricResource,
-)
-from smplkit._generated.app.models.metric_attributes_dimensions import (
-    MetricAttributesDimensions as _GenMetricAttributesDimensions,
 )
 from smplkit.management.models import (
     AccountSettings,
@@ -795,81 +783,6 @@ class AsyncAccountSettingsClient:
 
 
 # ---------------------------------------------------------------------------
-# Metrics (bulk ingest of pre-aggregated points)
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class MetricItem:
-    """A single pre-aggregated metric point for bulk ingest.
-
-    Mirrors the ``MetricBulkRequest`` body shape with sensible defaults.
-    Used by :meth:`MetricsClient.bulk_ingest` and its async counterpart.
-    """
-
-    name: str
-    value: float | int
-    recorded_at: _datetime.datetime
-    period_seconds: int = 60
-    unit: str | None = None
-    dimensions: dict[str, str] | None = None
-
-
-def _to_metric_resource(item: MetricItem) -> _GenMetricResource:
-    dims: _GenMetricAttributesDimensions | Unset
-    if item.dimensions:
-        dims = _GenMetricAttributesDimensions()
-        for k, v in item.dimensions.items():
-            dims[k] = v
-    else:
-        dims = UNSET
-    attrs = _GenMetricAttributes(
-        name=item.name,
-        value=item.value,
-        period_seconds=item.period_seconds,
-        recorded_at=item.recorded_at,
-        unit=item.unit if item.unit is not None else UNSET,
-        dimensions=dims,
-    )
-    return _GenMetricResource(type_="metric", attributes=attrs)
-
-
-class MetricsClient:
-    """Sync ``client.management.metrics`` — bulk-ingest pre-aggregated points."""
-
-    def __init__(self, parent: SmplClient, app_http: _AppAuthClient) -> None:
-        self._parent = parent
-        self._app_http = app_http
-
-    def bulk_ingest(self, items: list[MetricItem]) -> None:
-        """POST a batch of pre-aggregated metric points to ``/metrics/bulk``.
-
-        Returns when the server has accepted the batch (HTTP 202). The
-        endpoint is fire-and-forget — there is no per-item response.
-        """
-        if not items:
-            return
-        body = _GenMetricBulkRequest(data=[_to_metric_resource(i) for i in items])
-        resp = _gen_bulk_ingest_metrics.sync_detailed(client=self._app_http, body=body)
-        _raise_for_status(int(resp.status_code), resp.content)
-
-
-class AsyncMetricsClient:
-    """Async ``client.management.metrics``."""
-
-    def __init__(self, parent: AsyncSmplClient, app_http: _AppAuthClient) -> None:
-        self._parent = parent
-        self._app_http = app_http
-
-    async def bulk_ingest(self, items: list[MetricItem]) -> None:
-        if not items:
-            return
-        body = _GenMetricBulkRequest(data=[_to_metric_resource(i) for i in items])
-        resp = await _gen_bulk_ingest_metrics.asyncio_detailed(client=self._app_http, body=body)
-        _raise_for_status(int(resp.status_code), resp.content)
-
-
-# ---------------------------------------------------------------------------
 # Top-level ManagementClient
 # ---------------------------------------------------------------------------
 
@@ -881,7 +794,6 @@ class ManagementClient:
     contexts: ContextsClient
     context_types: ContextTypesClient
     account_settings: AccountSettingsClient
-    metrics: MetricsClient
 
     def __init__(
         self,
@@ -897,7 +809,6 @@ class ManagementClient:
         self.contexts = ContextsClient(parent, app_http, buffer)
         self.context_types = ContextTypesClient(parent, app_http)
         self.account_settings = AccountSettingsClient(parent, app_base_url, api_key)
-        self.metrics = MetricsClient(parent, app_http)
 
 
 class AsyncManagementClient:
@@ -905,7 +816,6 @@ class AsyncManagementClient:
     contexts: AsyncContextsClient
     context_types: AsyncContextTypesClient
     account_settings: AsyncAccountSettingsClient
-    metrics: AsyncMetricsClient
 
     def __init__(
         self,
@@ -921,4 +831,3 @@ class AsyncManagementClient:
         self.contexts = AsyncContextsClient(parent, app_http, buffer)
         self.context_types = AsyncContextTypesClient(parent, app_http)
         self.account_settings = AsyncAccountSettingsClient(parent, app_base_url, api_key)
-        self.metrics = AsyncMetricsClient(parent, app_http)
