@@ -2,18 +2,24 @@
 Smpl SDK Showcase — Management API
 ====================================
 
-Demonstrates ``client.management.*`` — the management plane for
-app-service-owned resources that aren't tied to a specific
-microservice: environments, contexts, context types, and per-account
-settings.
+Demonstrates :class:`AsyncSmplManagementClient` — the management plane
+for setup scripts, CI/CD, and admin tooling. Construction is side-effect
+free (no service registration, no metrics, no websocket), making this
+the right entry point for IaC-style work.
 
-Just as ``client.config.management``, ``client.flags.management``,
-and ``client.logging.management`` cover the per-microservice
-management surfaces, ``client.management`` is the catch-all for the
-app/control-plane.
+Exposed namespaces:
 
-For runtime experiences (resolving configs, evaluating flags,
-controlling log levels) see the per-service runtime showcases.
+- ``mgmt.environments`` — environment CRUD (built-ins + AD_HOC)
+- ``mgmt.context_types`` — targeting-rule entity schemas
+- ``mgmt.contexts`` — register / list / get / delete context instances
+- ``mgmt.account_settings`` — per-account settings (environment_order, …)
+- ``mgmt.configs`` — typed config CRUD (was ``client.config.management``)
+- ``mgmt.flags`` — flag CRUD (was ``client.flags.management``)
+- ``mgmt.loggers`` — logger CRUD (was ``client.logging.management``)
+- ``mgmt.log_groups`` — log-group CRUD (was ``client.logging.management``)
+
+For runtime experiences (evaluating flags, resolving config values,
+controlling log levels) use :class:`SmplClient` / :class:`AsyncSmplClient`.
 
 Prerequisites:
     - ``pip install smplkit-sdk``
@@ -27,7 +33,7 @@ Usage::
 
 import asyncio
 
-from smplkit import AsyncSmplClient, Context, EnvironmentClassification
+from smplkit import AsyncSmplManagementClient, Context, EnvironmentClassification
 
 
 def section(title: str) -> None:
@@ -45,26 +51,23 @@ async def main() -> None:
     # ======================================================================
     section("1. SDK Initialization")
 
-    async with AsyncSmplClient(
-        environment="production",
-        service="management-showcase",
-    ) as client:
-        step("AsyncSmplClient initialized")
+    async with AsyncSmplManagementClient() as mgmt:
+        step("AsyncSmplManagementClient initialized (no service registration, no telemetry)")
 
         # Best-effort cleanup of leftovers from previous runs.
         for env_id in ("preview_acme",):
             try:
-                await client.management.environments.delete(env_id)
+                await mgmt.environments.delete(env_id)
             except Exception:
                 pass
         for ct_id in ("user", "account", "device"):
             try:
-                await client.management.context_types.delete(ct_id)
+                await mgmt.context_types.delete(ct_id)
             except Exception:
                 pass
 
         # ==================================================================
-        # 2. ENVIRONMENTS — client.management.environments
+        # 2. ENVIRONMENTS — mgmt.environments
         # ==================================================================
         # Active record: new() / save() / get(id) / list() / delete(id).
         # Built-ins (production/staging/development) ship STANDARD;
@@ -73,12 +76,12 @@ async def main() -> None:
 
         section("2a. List built-in environments")
 
-        for e in await client.management.environments.list():
+        for e in await mgmt.environments.list():
             step(f"id={e.id!r} name={e.name!r} classification={e.classification.value!r}")
 
         section("2b. Create an AD_HOC environment")
 
-        preview = client.management.environments.new(
+        preview = mgmt.environments.new(
             "preview_acme",
             name="Preview Acme branch",
             color="#8b5cf6",
@@ -89,13 +92,13 @@ async def main() -> None:
 
         section("2c. Update an environment in place")
 
-        prod = await client.management.environments.get("production")
+        prod = await mgmt.environments.get("production")
         prod.color = "#ef4444"
         await prod.save()
         step(f"Updated: id={prod.id!r} color={prod.color!r}")
 
         # ==================================================================
-        # 3. CONTEXT TYPES — client.management.context_types
+        # 3. CONTEXT TYPES — mgmt.context_types
         # ==================================================================
         # Targeting-rule entity schemas. Registering a Context against
         # an unknown type lazily creates one with default metadata;
@@ -109,7 +112,7 @@ async def main() -> None:
 
         section("3a. Create context types")
 
-        user_ct = client.management.context_types.new("user", name="User")
+        user_ct = mgmt.context_types.new("user", name="User")
         user_ct.add_attribute("plan")
         user_ct.add_attribute("region")
         user_ct.add_attribute("beta_tester")
@@ -118,12 +121,12 @@ async def main() -> None:
         await user_ct.save()
         step(f"user: attributes={list(user_ct.attributes)}")
 
-        account_ct = client.management.context_types.new("account", name="Account")
+        account_ct = mgmt.context_types.new("account", name="Account")
         for attr in ("tier", "industry", "region", "employee_count", "annual_revenue"):
             account_ct.add_attribute(attr)
         await account_ct.save()
 
-        device_ct = client.management.context_types.new("device", name="Device")
+        device_ct = mgmt.context_types.new("device", name="Device")
         for attr in ("os", "version", "type"):
             device_ct.add_attribute(attr)
         await device_ct.save()
@@ -131,17 +134,17 @@ async def main() -> None:
 
         section("3b. List + mutate an existing context type")
 
-        for t in await client.management.context_types.list():
+        for t in await mgmt.context_types.list():
             step(f"id={t.id!r} name={t.name!r}")
 
-        existing = await client.management.context_types.get("user")
+        existing = await mgmt.context_types.get("user")
         existing.add_attribute("lifetime_value")
         existing.remove_attribute("account_age_days")
         await existing.save()
         step(f"user attributes now: {list(existing.attributes)}")
 
         # ==================================================================
-        # 4. CONTEXTS — client.management.contexts
+        # 4. CONTEXTS — mgmt.contexts
         # ==================================================================
         # Write side: register(items, flush=False). Flush=False (default)
         # buffers for background flush — right for high-frequency runtime
@@ -155,7 +158,7 @@ async def main() -> None:
 
         section("4a. Register contexts (immediate flush)")
 
-        await client.management.contexts.register(
+        await mgmt.contexts.register(
             [
                 Context("user", "usr_a1b2c3", {"plan": "free", "region": "us"}),
                 Context("user", "usr_d4e5f6", {"plan": "enterprise", "region": "eu"}),
@@ -167,22 +170,22 @@ async def main() -> None:
 
         section("4b. List contexts of a single type")
 
-        for c in await client.management.contexts.list("user"):
+        for c in await mgmt.contexts.list("user"):
             step(f"  type={c.type!r} key={c.key!r} attributes={c.attributes}")
 
         section("4c. Get + delete by composite id (or by (type, key))")
 
-        one = await client.management.contexts.get("user:usr_a1b2c3")
+        one = await mgmt.contexts.get("user:usr_a1b2c3")
         step(f"got: {one.type}:{one.key}")
 
-        same = await client.management.contexts.get("user", "usr_a1b2c3")
+        same = await mgmt.contexts.get("user", "usr_a1b2c3")
         step(f"got via (type, key): {same.type}:{same.key}")
 
-        await client.management.contexts.delete("user:usr_a1b2c3")
+        await mgmt.contexts.delete("user:usr_a1b2c3")
         step("deleted user:usr_a1b2c3")
 
         # ==================================================================
-        # 5. ACCOUNT SETTINGS — client.management.account_settings
+        # 5. ACCOUNT SETTINGS — mgmt.account_settings
         # ==================================================================
         # Wire format is opaque JSON; the SDK exposes a typed
         # AccountSettings model with active record semantics.
@@ -192,7 +195,7 @@ async def main() -> None:
 
         section("5a. Read settings")
 
-        settings = await client.management.account_settings.get()
+        settings = await mgmt.account_settings.get()
         step(f"environment_order={settings.environment_order}")
         step(f"raw={settings.raw}")
 
@@ -207,19 +210,19 @@ async def main() -> None:
         # ==================================================================
         section("6. Cleanup")
 
-        for c in await client.management.contexts.list("user"):
-            await client.management.contexts.delete(c.type, c.key)
-        for c in await client.management.contexts.list("account"):
-            await client.management.contexts.delete(c.type, c.key)
+        for c in await mgmt.contexts.list("user"):
+            await mgmt.contexts.delete(c.type, c.key)
+        for c in await mgmt.contexts.list("account"):
+            await mgmt.contexts.delete(c.type, c.key)
 
         for ct_id in ("user", "account", "device"):
             try:
-                await client.management.context_types.delete(ct_id)
+                await mgmt.context_types.delete(ct_id)
             except Exception:
                 pass
 
         try:
-            await client.management.environments.delete("preview_acme")
+            await mgmt.environments.delete("preview_acme")
         except Exception:
             pass
 

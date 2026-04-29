@@ -38,6 +38,21 @@ class ResolvedConfig:
     disable_telemetry: bool
 
 
+@dataclass(frozen=True)
+class ResolvedManagementConfig:
+    """Resolved configuration for the management-only client.
+
+    Management operations (CRUD against the platform API) are not tied
+    to an environment or service, so those fields are not part of the
+    resolved config and not required at construction time.
+    """
+
+    api_key: str
+    base_domain: str
+    scheme: str
+    debug: bool
+
+
 def _parse_bool(value: str, key: str) -> bool:
     """Parse a boolean string value. Raises SmplError for invalid values."""
     lower = value.strip().lower()
@@ -207,4 +222,75 @@ def resolve_config(
         service=str(resolved["service"]),
         debug=bool(resolved["debug"]),
         disable_telemetry=bool(resolved["disable_telemetry"]),
+    )
+
+
+def resolve_management_config(
+    *,
+    profile: str | None = None,
+    api_key: str | None = None,
+    base_domain: str | None = None,
+    scheme: str | None = None,
+    debug: bool | None = None,
+    _home_dir: Path | None = None,
+) -> ResolvedManagementConfig:
+    """Resolve management-only configuration.
+
+    Mirrors :func:`resolve_config` but skips ``environment`` / ``service``
+    requirements — they have no meaning for CRUD operations.
+    """
+    resolved: dict[str, str | bool | None] = {
+        "api_key": None,
+        "base_domain": "smplkit.com",
+        "scheme": "https",
+        "debug": False,
+    }
+
+    active_profile = profile or os.environ.get("SMPLKIT_PROFILE") or "default"
+
+    file_values = _read_config_file(active_profile, home_dir=_home_dir)
+    for key in ("api_key", "base_domain", "scheme", "debug"):
+        if key in file_values:
+            val = file_values[key]
+            if key == "debug":
+                resolved[key] = _parse_bool(val, key)
+            else:
+                resolved[key] = val
+
+    for key, env_var in (
+        ("api_key", "SMPLKIT_API_KEY"),
+        ("base_domain", "SMPLKIT_BASE_DOMAIN"),
+        ("scheme", "SMPLKIT_SCHEME"),
+        ("debug", "SMPLKIT_DEBUG"),
+    ):
+        env_val = os.environ.get(env_var, "")
+        if env_val:
+            if key == "debug":
+                resolved[key] = _parse_bool(env_val, env_var)
+            else:
+                resolved[key] = env_val
+
+    constructor_args: dict[str, str | bool | None] = {
+        "api_key": api_key,
+        "base_domain": base_domain,
+        "scheme": scheme,
+        "debug": debug,
+    }
+    for key, val in constructor_args.items():
+        if val is not None:
+            resolved[key] = val
+
+    if not resolved["api_key"]:
+        raise SmplError(
+            "No API key provided. Set one of:\n"
+            "  1. Pass api_key to the constructor\n"
+            "  2. Set the SMPLKIT_API_KEY environment variable\n"
+            f"  3. Add api_key to the [{active_profile}] section in ~/.smplkit"
+        )
+
+    return ResolvedManagementConfig(
+        api_key=str(resolved["api_key"]),
+        base_domain=str(resolved["base_domain"]),
+        scheme=str(resolved["scheme"]),
+        debug=bool(resolved["debug"]),
     )

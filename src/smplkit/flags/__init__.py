@@ -2,10 +2,8 @@
 
 from smplkit.flags.client import (
     AsyncFlagsClient,
-    AsyncFlagsManagementClient,
     FlagChangeEvent,
     FlagsClient,
-    FlagsManagementClient,
     FlagStats,
 )
 from smplkit.flags.models import (
@@ -26,7 +24,6 @@ __all__ = [
     "AsyncBooleanFlag",
     "AsyncFlag",
     "AsyncFlagsClient",
-    "AsyncFlagsManagementClient",
     "AsyncJsonFlag",
     "AsyncNumberFlag",
     "AsyncStringFlag",
@@ -35,7 +32,6 @@ __all__ = [
     "Flag",
     "FlagChangeEvent",
     "FlagsClient",
-    "FlagsManagementClient",
     "FlagStats",
     "JsonFlag",
     "NumberFlag",

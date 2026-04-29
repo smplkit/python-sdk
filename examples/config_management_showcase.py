@@ -30,7 +30,7 @@ Usage::
 
 import asyncio
 
-from smplkit import AsyncSmplClient
+from smplkit import AsyncSmplManagementClient
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -58,13 +58,13 @@ async def main() -> None:
 
     # Management operations do not require connect() or lazy init — they
     # are stateless HTTP calls that bypass the runtime cache entirely.
-    async with AsyncSmplClient(environment="production", service="showcase-service") as client:
-        step("AsyncSmplClient initialized (environment=production, service=showcase-service)")
+    async with AsyncSmplManagementClient() as mgmt:
+        step("AsyncSmplManagementClient initialized (no service registration, no telemetry)")
 
         # Clean up leftover configs from previous runs (order matters: children first).
         for leftover_key in ("auth_module", "user_service"):
             try:
-                await client.config.management.delete(leftover_key)
+                await mgmt.configs.delete(leftover_key)
             except Exception:
                 pass
 
@@ -78,7 +78,7 @@ async def main() -> None:
 
         section("2a. Update the Common Config")
 
-        common = await client.config.management.get("common")
+        common = await mgmt.configs.get("common")
         step(f"Fetched common config: id={common.id}")
 
         # Mutate items — local until save()
@@ -123,7 +123,7 @@ async def main() -> None:
         # ------------------------------------------------------------------
         section("3a. Create the User Service Config")
 
-        user_service = client.config.management.new(
+        user_service = mgmt.configs.new(
             "user_service",
             name="User Service",
             description="Configuration for the user microservice.",
@@ -157,7 +157,7 @@ async def main() -> None:
         # ------------------------------------------------------------------
         section("3b. Create the Auth Module Config")
 
-        auth_module = client.config.management.new(
+        auth_module = mgmt.configs.new(
             "auth_module",
             name="Auth Module",
             description="Authentication module within the user service.",
@@ -183,14 +183,14 @@ async def main() -> None:
 
         section("4a. List All Configs")
 
-        configs = await client.config.management.list()
+        configs = await mgmt.configs.list()
         for cfg in configs:
             parent_info = f" (parent: {cfg.parent})" if cfg.parent else " (root)"
             step(f"{cfg.id}{parent_info}")
 
         section("4b. Get a Config by ID")
 
-        fetched = await client.config.management.get("user_service")
+        fetched = await mgmt.configs.get("user_service")
         step(f"Fetched: id={fetched.id}, name={fetched.name}")
         step(f"  description={fetched.description}")
         step(f"  parent={fetched.parent or '(none)'}")
@@ -214,22 +214,22 @@ async def main() -> None:
 
         # For sync applications (Django, Flask, CLI tools):
         #
-        #     from smplkit import SmplClient
+        #     from smplkit import SmplManagementClient
         #
-        #     with SmplClient(environment="production", service="my-service") as client:
+        #     with SmplManagementClient() as mgmt:
         #
         #         # Fetch, mutate, save
-        #         common = client.config.management.get("common")
+        #         common = mgmt.configs.get("common")
         #         common.items["key"] = {"value": "val", "type": "STRING"}
         #         common.save()
         #
         #         # Create new config
-        #         svc = client.config.management.new("my_svc", name="My Service")
+        #         svc = mgmt.configs.new("my_svc", name="My Service")
         #         svc.items = {"db.host": {"value": "localhost", "type": "STRING"}}
         #         svc.save()
         #
-        #         configs = client.config.management.list()
-        #         client.config.management.delete("my_svc")
+        #         configs = mgmt.configs.list()
+        #         mgmt.configs.delete("my_svc")
 
         step("(See code comments for sync usage examples)")
 
@@ -238,13 +238,13 @@ async def main() -> None:
         # ==================================================================
         section("7. Cleanup")
 
-        await client.config.management.delete("auth_module")
+        await mgmt.configs.delete("auth_module")
         step("Deleted auth_module")
 
-        await client.config.management.delete("user_service")
+        await mgmt.configs.delete("user_service")
         step("Deleted user_service")
 
-        common = await client.config.management.get("common")
+        common = await mgmt.configs.get("common")
         common.description = ""
         common.items = {}
         common.environments = {}

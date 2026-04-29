@@ -9,10 +9,10 @@ In a real application, loggers are auto-discovered and promoted via the
 Console UI — this file exists only as test scaffolding.
 """
 
-from smplkit import AsyncSmplClient, LogLevel
+from smplkit import AsyncSmplManagementClient, LogLevel
 
 
-async def setup_demo_loggers(client: AsyncSmplClient) -> dict:
+async def setup_demo_loggers(mgmt: AsyncSmplManagementClient, environment: str) -> dict:
     """Create demo loggers and groups. Returns a dict of ids for cleanup.
 
     Creates:
@@ -21,43 +21,42 @@ async def setup_demo_loggers(client: AsyncSmplClient) -> dict:
       - "app.payments" logger: managed, no level (inherits from ancestor "app")
       - "sqlalchemy.engine" logger: managed, no level, assigned to "databases" group
     """
-    environment = client._environment
 
     # Clean up leftover loggers and groups from previous runs.
     demo_logger_ids = {"app", "app.payments", "sqlalchemy.engine"}
     demo_group_ids = {"databases"}
     try:
-        existing = await client.logging.management.list()
+        existing = await mgmt.loggers.list()
         for lg in existing:
             if lg.id in demo_logger_ids:
-                await client.logging.management.delete(lg.id)
+                await mgmt.loggers.delete(lg.id)
     except Exception:
         pass
     try:
-        existing_groups = await client.logging.management.list_groups()
+        existing_groups = await mgmt.log_groups.list()
         for g in existing_groups:
             # Server assigns group IDs from the name (e.g. "Databases"), normalize for comparison
             if g.id.lower().replace(" ", "_") in demo_group_ids:
-                await client.logging.management.delete_group(g.id)
+                await mgmt.log_groups.delete(g.id)
     except Exception:
         pass
 
     # Create log group first (loggers will reference it).
-    db_group = client.logging.management.new_group("databases", name="Databases")
+    db_group = mgmt.log_groups.new("databases", name="Databases")
     db_group.setLevel(LogLevel.ERROR)
     db_group.setEnvironmentLevel(environment, LogLevel.WARN)
     await db_group.save()
 
     # Create managed loggers.
-    app_lg = client.logging.management.new("app", name="app", managed=True)
+    app_lg = mgmt.loggers.new("app", name="app", managed=True)
     app_lg.setLevel(LogLevel.WARN)
     app_lg.setEnvironmentLevel(environment, LogLevel.ERROR)
     await app_lg.save()
 
-    payments_lg = client.logging.management.new("app.payments", name="app.payments", managed=True)
+    payments_lg = mgmt.loggers.new("app.payments", name="app.payments", managed=True)
     await payments_lg.save()
 
-    sqla_lg = client.logging.management.new("sqlalchemy.engine", name="sqlalchemy.engine", managed=True)
+    sqla_lg = mgmt.loggers.new("sqlalchemy.engine", name="sqlalchemy.engine", managed=True)
     sqla_lg.group = db_group.id
     await sqla_lg.save()
 
@@ -67,25 +66,25 @@ async def setup_demo_loggers(client: AsyncSmplClient) -> dict:
     }
 
 
-async def teardown_demo_loggers(client: AsyncSmplClient, demo: dict) -> None:
+async def teardown_demo_loggers(mgmt: AsyncSmplManagementClient, demo: dict) -> None:
     """Delete demo loggers and groups."""
     for id in demo.get("logger_ids", []):
         try:
-            await client.logging.management.delete(id)
+            await mgmt.loggers.delete(id)
         except Exception:
             pass
 
     for id in demo.get("group_ids", []):
         try:
-            await client.logging.management.delete_group(id)
+            await mgmt.log_groups.delete(id)
         except Exception:
             pass
 
     # Clean up any other loggers that were auto-discovered during the
     # runtime showcase (e.g., "app.notifications", SDK-internal loggers).
     try:
-        remaining = await client.logging.management.list()
+        remaining = await mgmt.loggers.list()
         for lg in remaining:
-            await client.logging.management.delete(lg.id)
+            await mgmt.loggers.delete(lg.id)
     except Exception:
         pass
