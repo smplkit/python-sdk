@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from smplkit import LogLevel
-from smplkit._errors import SmplNotFoundError, SmplValidationError
+from smplkit._errors import NotFoundError, ValidationError
 from smplkit.logging.client import (
     AsyncLoggingClient,
     AsyncSmplLogGroup,
@@ -223,14 +223,14 @@ class TestAsyncGet:
     def test_get_not_found_404(self, mock_get):
         mock_get.return_value = _ok_response(None, HTTPStatus.NOT_FOUND)
         mgmt = _new_async_mgmt()
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             asyncio.run(mgmt.loggers.get("sql"))
 
     @patch("smplkit.logging.client.get_logger.asyncio_detailed")
     def test_get_not_found_null_parsed(self, mock_get):
         mock_get.return_value = _ok_response(None)
         mgmt = _new_async_mgmt()
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             asyncio.run(mgmt.loggers.get("sql"))
 
 
@@ -308,7 +308,7 @@ class TestAsyncSaveLogger:
             managed=True,
             created_at="2026-01-01T00:00:00Z",
         )
-        with pytest.raises(SmplValidationError):
+        with pytest.raises(ValidationError):
             asyncio.run(logger.save())
 
 
@@ -331,7 +331,7 @@ class TestAsyncDelete:
     def test_delete_not_found(self, mock_delete):
         mock_delete.return_value = _ok_response(status=HTTPStatus.NOT_FOUND)
         mgmt = _new_async_mgmt()
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             asyncio.run(mgmt.loggers.delete("nonexistent"))
 
 
@@ -382,14 +382,14 @@ class TestAsyncGetGroup:
         mock_get.return_value = _ok_response(None, HTTPStatus.NOT_FOUND)
 
         mgmt = _new_async_mgmt()
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             asyncio.run(mgmt.log_groups.get("db-loggers"))
 
     @patch("smplkit.logging.client.get_log_group.asyncio_detailed")
     def test_get_group_not_found_null_parsed(self, mock_get):
         mock_get.return_value = _ok_response(None)
         mgmt = _new_async_mgmt()
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             asyncio.run(mgmt.log_groups.get("db-loggers"))
 
 
@@ -445,7 +445,7 @@ class TestAsyncSaveGroup:
             level=LogLevel.ERROR,
             created_at="2026-01-01T00:00:00Z",
         )
-        with pytest.raises(SmplValidationError):
+        with pytest.raises(ValidationError):
             asyncio.run(group.save())
 
 
@@ -468,7 +468,7 @@ class TestAsyncDeleteGroup:
     def test_delete_group_not_found(self, mock_delete):
         mock_delete.return_value = _ok_response(status=HTTPStatus.NOT_FOUND)
         mgmt = _new_async_mgmt()
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             asyncio.run(mgmt.log_groups.delete("nonexistent"))
 
 

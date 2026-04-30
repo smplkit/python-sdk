@@ -75,6 +75,12 @@ class Flag:
             updated = self._client._update_flag(flag=self)
             self._apply(updated)
 
+    def delete(self) -> None:
+        """Delete this flag from the server."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("Flag was constructed without a client or id; cannot delete")
+        self._client.delete(self.id)
+
     # ------------------------------------------------------------------
     # Management: local mutations
     # ------------------------------------------------------------------
@@ -242,6 +248,12 @@ class AsyncFlag:
         else:
             updated = await self._client._update_flag(flag=self)
             self._apply(updated)
+
+    async def delete(self) -> None:
+        """Delete this flag from the server."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("AsyncFlag was constructed without a client or id; cannot delete")
+        await self._client.delete(self.id)
 
     # ------------------------------------------------------------------
     # Management: local mutations (sync)

@@ -9,10 +9,10 @@ import httpx
 import pytest
 
 from smplkit._errors import (
-    SmplConnectionError,
-    SmplNotFoundError,
-    SmplTimeoutError,
-    SmplValidationError,
+    ConnectionError,
+    NotFoundError,
+    TimeoutError,
+    ValidationError,
 )
 from smplkit.client import AsyncSmplClient, SmplClient
 from smplkit.flags.client import (
@@ -236,63 +236,63 @@ class TestCheckResponseStatus:
         _check_response_status(200, b"ok")
 
     def test_404_raises_not_found(self):
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             _check_response_status(404, b"not found")
 
     def test_422_raises_validation(self):
-        with pytest.raises(SmplValidationError):
+        with pytest.raises(ValidationError):
             _check_response_status(422, b"validation detail")
 
 
 class TestMaybeReraiseNetworkError:
     def test_timeout_exception(self):
-        with pytest.raises(SmplTimeoutError):
+        with pytest.raises(TimeoutError):
             _maybe_reraise_network_error(httpx.TimeoutException("timed out"))
 
     def test_timeout_includes_url_when_available(self):
         exc = httpx.TimeoutException("timed out")
         exc.request = httpx.Request("GET", "http://flags.localhost/api/v1/flags")
-        with pytest.raises(SmplTimeoutError, match="http://flags.localhost/api/v1/flags"):
+        with pytest.raises(TimeoutError, match="http://flags.localhost/api/v1/flags"):
             _maybe_reraise_network_error(exc)
 
     def test_connect_error(self):
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             _maybe_reraise_network_error(httpx.ConnectError("refused"))
 
     def test_connect_error_includes_url_when_available(self):
         exc = httpx.ConnectError("nodename nor servname provided, or not known")
         exc.request = httpx.Request("GET", "http://flags.localhost/api/v1/flags")
-        with pytest.raises(SmplConnectionError, match="http://flags.localhost/api/v1/flags"):
+        with pytest.raises(ConnectionError, match="http://flags.localhost/api/v1/flags"):
             _maybe_reraise_network_error(exc)
 
     def test_connect_error_fallback_message_without_url(self):
         exc = httpx.ConnectError("nodename nor servname provided, or not known")
-        with pytest.raises(SmplConnectionError, match="Connection error"):
+        with pytest.raises(ConnectionError, match="Connection error"):
             _maybe_reraise_network_error(exc)
 
     def test_connection_error_uses_base_url_when_request_not_attached(self):
         exc = httpx.ConnectError("nodename nor servname provided, or not known")
-        with pytest.raises(SmplConnectionError, match="http://flags.localhost"):
+        with pytest.raises(ConnectionError, match="http://flags.localhost"):
             _maybe_reraise_network_error(exc, "http://flags.localhost")
 
     def test_timeout_uses_base_url_when_request_not_attached(self):
         exc = httpx.TimeoutException("timed out")
-        with pytest.raises(SmplTimeoutError, match="http://flags.localhost"):
+        with pytest.raises(TimeoutError, match="http://flags.localhost"):
             _maybe_reraise_network_error(exc, "http://flags.localhost")
 
     def test_exc_url_takes_precedence_over_base_url(self):
         exc = httpx.ConnectError("refused")
         exc.request = httpx.Request("GET", "http://flags.localhost/api/v1/flags")
-        with pytest.raises(SmplConnectionError, match="http://flags.localhost/api/v1/flags"):
+        with pytest.raises(ConnectionError, match="http://flags.localhost/api/v1/flags"):
             _maybe_reraise_network_error(exc, "http://other.host")
 
     def test_reraises_not_found(self):
-        with pytest.raises(SmplNotFoundError):
-            _maybe_reraise_network_error(SmplNotFoundError("nope"))
+        with pytest.raises(NotFoundError):
+            _maybe_reraise_network_error(NotFoundError("nope"))
 
     def test_reraises_validation(self):
-        with pytest.raises(SmplValidationError):
-            _maybe_reraise_network_error(SmplValidationError("bad"))
+        with pytest.raises(ValidationError):
+            _maybe_reraise_network_error(ValidationError("bad"))
 
     def test_ignores_generic_exception(self):
         _maybe_reraise_network_error(ValueError("other"))
@@ -912,21 +912,21 @@ class TestFlagsClientCRUD:
     def test_get_not_found(self, mock_get):
         mock_get.return_value = _ok_json_response({}, status=HTTPStatus.NOT_FOUND)
         mgmt = _new_mgmt()
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             mgmt.flags.get("test-flag")
 
     @patch("smplkit.flags.client.get_flag.sync_detailed")
     def test_get_network_error(self, mock_get):
         mock_get.side_effect = httpx.ConnectError("refused")
         mgmt = _new_mgmt()
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             mgmt.flags.get("test-flag")
 
     @patch("smplkit.flags.client.get_flag.sync_detailed")
     def test_get_timeout(self, mock_get):
         mock_get.side_effect = httpx.ReadTimeout("timed out")
         mgmt = _new_mgmt()
-        with pytest.raises(SmplTimeoutError):
+        with pytest.raises(TimeoutError):
             mgmt.flags.get("test-flag")
 
     @patch("smplkit.flags.client.get_flag.sync_detailed")
@@ -954,7 +954,7 @@ class TestFlagsClientCRUD:
     def test_list_network_error(self, mock_list):
         mock_list.side_effect = httpx.ConnectError("fail")
         mgmt = _new_mgmt()
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             mgmt.flags.list()
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
@@ -975,14 +975,14 @@ class TestFlagsClientCRUD:
     def test_delete_not_found(self, mock_delete):
         mock_delete.return_value = _ok_json_response({}, status=HTTPStatus.NOT_FOUND)
         mgmt = _new_mgmt()
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             mgmt.flags.delete("test-flag")
 
     @patch("smplkit.flags.client.delete_flag.sync_detailed")
     def test_delete_network_error(self, mock_delete):
         mock_delete.side_effect = httpx.ConnectError("refused")
         mgmt = _new_mgmt()
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             mgmt.flags.delete("test-flag")
 
     @patch("smplkit.flags.client.delete_flag.sync_detailed")
@@ -1043,7 +1043,7 @@ class TestFlagsClientCreateUpdateFlag:
         client = _make_flags_client()
         mgmt = _new_mgmt()
         flag = Flag(client, id="new-flag", name="New", type="BOOLEAN", default=False)
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             mgmt.flags._create_flag(flag)
 
     @patch("smplkit.flags.client.create_flag.sync_detailed")
@@ -1080,7 +1080,7 @@ class TestFlagsClientCreateUpdateFlag:
         client = _make_flags_client()
         mgmt = _new_mgmt()
         flag = _make_mock_flag(client)
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             mgmt.flags._update_flag(flag=flag)
 
     @patch("smplkit.flags.client.update_flag.sync_detailed")
@@ -1502,7 +1502,7 @@ class TestFlagsClientEventHandlers:
     def test_handle_flag_changed_fetch_error_propagates(self, mock_get):
         mock_get.side_effect = httpx.ConnectError("fail")
         client = _make_flags_client()
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             client._handle_flag_changed({"id": "test-flag"})
 
     def test_handle_flag_changed_no_id_is_noop(self):
@@ -1763,7 +1763,7 @@ class TestFlagsClientFetchInternals:
     def test_fetch_flags_list_network_error(self, mock_list):
         mock_list.side_effect = httpx.ConnectError("fail")
         client = _make_flags_client()
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             client._fetch_flags_list()
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")
@@ -1920,7 +1920,7 @@ class TestAsyncFlagsClientCRUD:
 
         async def _run():
             mgmt = _new_async_mgmt()
-            with pytest.raises(SmplNotFoundError):
+            with pytest.raises(NotFoundError):
                 await mgmt.flags.get("test-flag")
 
         asyncio.run(_run())
@@ -1931,7 +1931,7 @@ class TestAsyncFlagsClientCRUD:
 
         async def _run():
             mgmt = _new_async_mgmt()
-            with pytest.raises(SmplConnectionError):
+            with pytest.raises(ConnectionError):
                 await mgmt.flags.get("test-flag")
 
         asyncio.run(_run())
@@ -1984,7 +1984,7 @@ class TestAsyncFlagsClientCRUD:
 
         async def _run():
             mgmt = _new_async_mgmt()
-            with pytest.raises(SmplConnectionError):
+            with pytest.raises(ConnectionError):
                 await mgmt.flags.list()
 
         asyncio.run(_run())
@@ -2017,7 +2017,7 @@ class TestAsyncFlagsClientCRUD:
 
         async def _run():
             mgmt = _new_async_mgmt()
-            with pytest.raises(SmplNotFoundError):
+            with pytest.raises(NotFoundError):
                 await mgmt.flags.delete("test-flag")
 
         asyncio.run(_run())
@@ -2028,7 +2028,7 @@ class TestAsyncFlagsClientCRUD:
 
         async def _run():
             mgmt = _new_async_mgmt()
-            with pytest.raises(SmplConnectionError):
+            with pytest.raises(ConnectionError):
                 await mgmt.flags.delete("test-flag")
 
         asyncio.run(_run())
@@ -2072,7 +2072,7 @@ class TestAsyncFlagsClientCreateUpdateFlag:
             client = _make_async_flags_client()
             mgmt = _new_async_mgmt()
             flag = AsyncFlag(client, id="new", name="New", type="BOOLEAN", default=False)
-            with pytest.raises(SmplConnectionError):
+            with pytest.raises(ConnectionError):
                 await mgmt.flags._create_flag(flag)
 
         asyncio.run(_run())
@@ -2111,7 +2111,7 @@ class TestAsyncFlagsClientCreateUpdateFlag:
             client = _make_async_flags_client()
             mgmt = _new_async_mgmt()
             flag = _make_mock_async_flag(client)
-            with pytest.raises(SmplConnectionError):
+            with pytest.raises(ConnectionError):
                 await mgmt.flags._update_flag(flag=flag)
 
         asyncio.run(_run())
@@ -2777,7 +2777,7 @@ class TestAsyncFlagsClientInternals:
 
         async def _run():
             client = _make_async_flags_client()
-            with pytest.raises(SmplConnectionError):
+            with pytest.raises(ConnectionError):
                 await client._fetch_flags_list()
 
         asyncio.run(_run())
@@ -2811,7 +2811,7 @@ class TestAsyncFlagsClientInternals:
     def test_fetch_all_flags_sync_network_error(self, mock_list):
         mock_list.side_effect = httpx.ConnectError("fail")
         client = _make_async_flags_client()
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             client._fetch_all_flags_sync()
 
     @patch("smplkit.flags.client.list_flags.sync_detailed")

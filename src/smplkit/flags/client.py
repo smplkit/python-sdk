@@ -18,10 +18,10 @@ from typing import TYPE_CHECKING, Any
 
 from smplkit._debug import debug
 from smplkit._errors import (
-    SmplConnectionError,
-    SmplNotFoundError,
-    SmplTimeoutError,
-    SmplValidationError,
+    ConnectionError,
+    NotFoundError,
+    TimeoutError,
+    ValidationError,
     _raise_for_status,
 )
 from smplkit._generated.flags.api.flags import (  # noqa: F401  (re-exported)
@@ -90,12 +90,12 @@ def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) ->
     if isinstance(exc, httpx.TimeoutException):
         url = _exc_url(exc) or base_url
         msg = f"Request timed out connecting to {url}" if url else f"Request timed out: {exc}"
-        raise SmplTimeoutError(msg) from exc
+        raise TimeoutError(msg) from exc
     if isinstance(exc, httpx.HTTPError):
         url = _exc_url(exc) or base_url
         msg = f"Cannot connect to {url}: {exc}" if url else f"Connection error: {exc}"
-        raise SmplConnectionError(msg) from exc
-    if isinstance(exc, (SmplNotFoundError, SmplValidationError)):
+        raise ConnectionError(msg) from exc
+    if isinstance(exc, (NotFoundError, ValidationError)):
         raise exc
 
 

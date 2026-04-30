@@ -18,7 +18,7 @@ from smplkit.flags.models import (
     NumberFlag,
     StringFlag,
 )
-from smplkit.flags.types import Context, FlagDeclaration, Rule
+from smplkit.flags.types import Context, FlagDeclaration, Op, Rule
 
 __all__ = [
     "AsyncBooleanFlag",
@@ -36,6 +36,7 @@ __all__ = [
     "FlagStats",
     "JsonFlag",
     "NumberFlag",
+    "Op",
     "Rule",
     "StringFlag",
 ]

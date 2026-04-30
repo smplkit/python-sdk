@@ -28,11 +28,11 @@ import httpx
 from smplkit._config import ResolvedManagementConfig, _service_url, resolve_management_config
 from smplkit._debug import enable_debug
 from smplkit._errors import (
-    SmplConflictError,
-    SmplConnectionError,
-    SmplNotFoundError,
-    SmplTimeoutError,
-    SmplValidationError,
+    ConflictError,
+    ConnectionError,
+    NotFoundError,
+    TimeoutError,
+    ValidationError,
     _raise_for_status,
 )
 from smplkit._helpers import key_to_display_name
@@ -261,7 +261,7 @@ def _ct_from_parsed(
     )
 
 
-def _ctx_entity_from_parsed(parsed: Any, sync: bool) -> Any:
+def _ctx_entity_from_parsed(parsed: Any, sync: bool, client: Any = None) -> Any:
     """Build a ContextEntity / AsyncContextEntity from a parsed ContextResponse.
 
     The on-the-wire id is the composite ``"type:key"``. We split it
@@ -286,6 +286,7 @@ def _ctx_entity_from_parsed(parsed: Any, sync: bool) -> Any:
 
     if sync:
         return ContextEntity(
+            client,
             type=ctx_type,
             key=ctx_key,
             name=getattr(attrs, "name", None) or None,
@@ -294,6 +295,7 @@ def _ctx_entity_from_parsed(parsed: Any, sync: bool) -> Any:
             updated_at=getattr(attrs, "updated_at", None) or None,
         )
     return AsyncContextEntity(
+        client,
         type=ctx_type,
         key=ctx_key,
         name=getattr(attrs, "name", None) or None,
@@ -323,12 +325,12 @@ def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) ->
     if isinstance(exc, httpx.TimeoutException):
         url = _exc_url(exc) or base_url
         msg = f"Request timed out connecting to {url}" if url else f"Request timed out: {exc}"
-        raise SmplTimeoutError(msg) from exc
+        raise TimeoutError(msg) from exc
     if isinstance(exc, httpx.HTTPError):
         url = _exc_url(exc) or base_url
         msg = f"Cannot connect to {url}: {exc}" if url else f"Connection error: {exc}"
-        raise SmplConnectionError(msg) from exc
-    if isinstance(exc, (SmplNotFoundError, SmplConflictError, SmplValidationError)):
+        raise ConnectionError(msg) from exc
+    if isinstance(exc, (NotFoundError, ConflictError, ValidationError)):
         raise exc
 
 
@@ -370,7 +372,7 @@ class EnvironmentsClient:
         resp = _gen_get_environment.sync_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplNotFoundError(f"Environment with id {id!r} not found", status_code=404)
+            raise NotFoundError(f"Environment with id {id!r} not found", status_code=404)
         return _env_from_parsed(resp.parsed, sync_client=self, async_client=None)
 
     def delete(self, id: str) -> None:
@@ -382,7 +384,7 @@ class EnvironmentsClient:
         resp = _gen_create_environment.sync_detailed(client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(resp.status_code)}: unexpected response",
                 status_code=int(resp.status_code),
             )
@@ -395,7 +397,7 @@ class EnvironmentsClient:
         resp = _gen_update_environment.sync_detailed(env.id, client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(resp.status_code)}: unexpected response",
                 status_code=int(resp.status_code),
             )
@@ -434,7 +436,7 @@ class AsyncEnvironmentsClient:
         resp = await _gen_get_environment.asyncio_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplNotFoundError(f"Environment with id {id!r} not found", status_code=404)
+            raise NotFoundError(f"Environment with id {id!r} not found", status_code=404)
         return _env_from_parsed(resp.parsed, sync_client=None, async_client=self)
 
     async def delete(self, id: str) -> None:
@@ -446,7 +448,7 @@ class AsyncEnvironmentsClient:
         resp = await _gen_create_environment.asyncio_detailed(client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(resp.status_code)}: unexpected response",
                 status_code=int(resp.status_code),
             )
@@ -459,7 +461,7 @@ class AsyncEnvironmentsClient:
         resp = await _gen_update_environment.asyncio_detailed(env.id, client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(resp.status_code)}: unexpected response",
                 status_code=int(resp.status_code),
             )
@@ -535,7 +537,7 @@ class ContextTypesClient:
         resp = _gen_get_context_type.sync_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplNotFoundError(f"ContextType with id {id!r} not found", status_code=404)
+            raise NotFoundError(f"ContextType with id {id!r} not found", status_code=404)
         return _ct_from_parsed(resp.parsed, sync_client=self, async_client=None)
 
     def delete(self, id: str) -> None:
@@ -547,7 +549,7 @@ class ContextTypesClient:
         resp = _gen_create_context_type.sync_detailed(client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(resp.status_code)}: unexpected response",
                 status_code=int(resp.status_code),
             )
@@ -560,7 +562,7 @@ class ContextTypesClient:
         resp = _gen_update_context_type.sync_detailed(ct.id, client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(resp.status_code)}: unexpected response",
                 status_code=int(resp.status_code),
             )
@@ -595,7 +597,7 @@ class AsyncContextTypesClient:
         resp = await _gen_get_context_type.asyncio_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplNotFoundError(f"ContextType with id {id!r} not found", status_code=404)
+            raise NotFoundError(f"ContextType with id {id!r} not found", status_code=404)
         return _ct_from_parsed(resp.parsed, sync_client=None, async_client=self)
 
     async def delete(self, id: str) -> None:
@@ -607,7 +609,7 @@ class AsyncContextTypesClient:
         resp = await _gen_create_context_type.asyncio_detailed(client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(resp.status_code)}: unexpected response",
                 status_code=int(resp.status_code),
             )
@@ -620,7 +622,7 @@ class AsyncContextTypesClient:
         resp = await _gen_update_context_type.asyncio_detailed(ct.id, client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(resp.status_code)}: unexpected response",
                 status_code=int(resp.status_code),
             )
@@ -765,7 +767,7 @@ class ContextsClient:
         )
         _check_status(int(resp.status_code), resp.content)
         body = json.loads(resp.content)
-        return [_ctx_entity_from_dict(item) for item in body.get("data", [])]
+        return [_ctx_entity_from_dict(item, client=self) for item in body.get("data", [])]
 
     @overload
     def get(self, id: str) -> ContextEntity: ...
@@ -777,11 +779,11 @@ class ContextsClient:
         resp = _gen_get_context.sync_detailed(composite, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplNotFoundError(
+            raise NotFoundError(
                 f"Context with id {composite!r} not found",
                 status_code=404,
             )
-        return _ctx_entity_from_parsed(resp.parsed, sync=True)
+        return _ctx_entity_from_parsed(resp.parsed, sync=True, client=self)
 
     @overload
     def delete(self, id: str) -> None: ...
@@ -837,7 +839,7 @@ class AsyncContextsClient:
         )
         _check_status(int(resp.status_code), resp.content)
         body = json.loads(resp.content)
-        return [_ctx_entity_from_dict(item, async_=True) for item in body.get("data", [])]
+        return [_ctx_entity_from_dict(item, async_=True, client=self) for item in body.get("data", [])]
 
     @overload
     async def get(self, id: str) -> AsyncContextEntity: ...
@@ -849,11 +851,11 @@ class AsyncContextsClient:
         resp = await _gen_get_context.asyncio_detailed(composite, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplNotFoundError(
+            raise NotFoundError(
                 f"Context with id {composite!r} not found",
                 status_code=404,
             )
-        return _ctx_entity_from_parsed(resp.parsed, sync=False)
+        return _ctx_entity_from_parsed(resp.parsed, sync=False, client=self)
 
     @overload
     async def delete(self, id: str) -> None: ...
@@ -866,7 +868,7 @@ class AsyncContextsClient:
         _check_status(int(resp.status_code), resp.content)
 
 
-def _ctx_entity_from_dict(item: dict[str, Any], *, async_: bool = False) -> Any:
+def _ctx_entity_from_dict(item: dict[str, Any], *, async_: bool = False, client: Any = None) -> Any:
     composite_id = item.get("id") or ""
     if ":" in composite_id:
         ctx_type, _, ctx_key = composite_id.partition(":")
@@ -876,6 +878,7 @@ def _ctx_entity_from_dict(item: dict[str, Any], *, async_: bool = False) -> Any:
     raw_attrs = attrs.get("attributes") or {}
     cls = AsyncContextEntity if async_ else ContextEntity
     return cls(
+        client,
         type=ctx_type,
         key=ctx_key,
         name=attrs.get("name") or None,
@@ -974,7 +977,7 @@ class ConfigsClient:
             raise
         _check_status(int(response.status_code), response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
-            raise SmplNotFoundError(f"Config with id '{id}' not found", status_code=404)
+            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
         return _resource_to_config(self, response.parsed.data)
 
     def list(self) -> list[Config]:
@@ -1012,7 +1015,7 @@ class ConfigsClient:
             raise
         _check_status(int(response.status_code), response.content)
         if response.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
             )
         return _resource_to_config(self, response.parsed.data)
@@ -1033,7 +1036,7 @@ class ConfigsClient:
             raise
         _check_status(int(response.status_code), response.content)
         if response.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
             )
         return _resource_to_config(self, response.parsed.data)
@@ -1069,7 +1072,7 @@ class AsyncConfigsClient:
             raise
         _check_status(int(response.status_code), response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
-            raise SmplNotFoundError(f"Config with id '{id}' not found", status_code=404)
+            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
         return _resource_to_async_config(self, response.parsed.data)
 
     async def list(self) -> list[AsyncConfig]:
@@ -1107,7 +1110,7 @@ class AsyncConfigsClient:
             raise
         _check_status(int(response.status_code), response.content)
         if response.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
             )
         return _resource_to_async_config(self, response.parsed.data)
@@ -1128,7 +1131,7 @@ class AsyncConfigsClient:
             raise
         _check_status(int(response.status_code), response.content)
         if response.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
             )
         return _resource_to_async_config(self, response.parsed.data)
@@ -1569,7 +1572,7 @@ class LoggersClient:
             raise
         _check_status(int(response.status_code), response.content)
         if response.parsed is None:
-            raise SmplNotFoundError(f"Logger with id {id!r} not found", status_code=404)
+            raise NotFoundError(f"Logger with id {id!r} not found", status_code=404)
         return _logger_resource_to_model(self, response.parsed.data)
 
     def delete(self, id: str) -> None:
@@ -1596,7 +1599,7 @@ class LoggersClient:
             raise
         _check_status(int(response.status_code), response.content)
         if response.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
             )
         return _logger_resource_to_model(self, response.parsed.data)
@@ -1683,7 +1686,7 @@ class AsyncLoggersClient:
             raise
         _check_status(int(response.status_code), response.content)
         if response.parsed is None:
-            raise SmplNotFoundError(f"Logger with id {id!r} not found", status_code=404)
+            raise NotFoundError(f"Logger with id {id!r} not found", status_code=404)
         return _logger_resource_to_async_model(self, response.parsed.data)
 
     async def delete(self, id: str) -> None:
@@ -1710,7 +1713,7 @@ class AsyncLoggersClient:
             raise
         _check_status(int(response.status_code), response.content)
         if response.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
             )
         return _logger_resource_to_async_model(self, response.parsed.data)
@@ -1755,7 +1758,7 @@ class LogGroupsClient:
             raise
         _check_status(int(response.status_code), response.content)
         if response.parsed is None:
-            raise SmplNotFoundError(f"Log group with id {id!r} not found", status_code=404)
+            raise NotFoundError(f"Log group with id {id!r} not found", status_code=404)
         return _log_group_resource_to_model(self, response.parsed.data)
 
     def delete(self, id: str) -> None:
@@ -1784,7 +1787,7 @@ class LogGroupsClient:
             raise
         _check_status(int(response.status_code), response.content)
         if response.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
             )
         return _log_group_resource_to_model(self, response.parsed.data)
@@ -1824,7 +1827,7 @@ class AsyncLogGroupsClient:
             raise
         _check_status(int(response.status_code), response.content)
         if response.parsed is None:
-            raise SmplNotFoundError(f"Log group with id {id!r} not found", status_code=404)
+            raise NotFoundError(f"Log group with id {id!r} not found", status_code=404)
         return _log_group_resource_to_async_model(self, response.parsed.data)
 
     async def delete(self, id: str) -> None:
@@ -1853,7 +1856,7 @@ class AsyncLogGroupsClient:
             raise
         _check_status(int(response.status_code), response.content)
         if response.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
             )
         return _log_group_resource_to_async_model(self, response.parsed.data)

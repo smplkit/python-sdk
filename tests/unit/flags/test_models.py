@@ -108,6 +108,21 @@ class TestFlag:
         assert flag.default is True
 
     # ------------------------------------------------------------------
+    # delete()
+    # ------------------------------------------------------------------
+
+    def test_delete_calls_client_delete(self):
+        client = MagicMock()
+        flag = Flag(client, id="to-delete", name="x", type="BOOLEAN", default=False)
+        flag.delete()
+        client.delete.assert_called_once_with("to-delete")
+
+    def test_delete_without_client_raises(self):
+        flag = Flag(None, id="x", name="x", type="BOOLEAN", default=False)
+        with pytest.raises(RuntimeError, match="cannot delete"):
+            flag.delete()
+
+    # ------------------------------------------------------------------
     # _apply
     # ------------------------------------------------------------------
 
@@ -377,6 +392,29 @@ class TestAsyncFlag:
             await flag.save()
             assert flag.name == "Updated"
             assert flag.default is True
+
+        asyncio.run(_run())
+
+    # ------------------------------------------------------------------
+    # delete()
+    # ------------------------------------------------------------------
+
+    def test_delete_calls_client_delete(self):
+        client = AsyncMock()
+        flag = AsyncFlag(client, id="to-delete", name="x", type="BOOLEAN", default=False)
+
+        async def _run():
+            await flag.delete()
+            client.delete.assert_called_once_with("to-delete")
+
+        asyncio.run(_run())
+
+    def test_delete_without_client_raises(self):
+        flag = AsyncFlag(None, id="x", name="x", type="BOOLEAN", default=False)
+
+        async def _run():
+            with pytest.raises(RuntimeError, match="cannot delete"):
+                await flag.delete()
 
         asyncio.run(_run())
 

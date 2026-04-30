@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from smplkit import SmplError
+from smplkit import Error
 from smplkit._config import _parse_bool, resolve_config
 
 
@@ -123,7 +123,7 @@ class TestResolveConfigFile:
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config = tmp_path / ".smplkit"
         config.write_text("[default]\napi_key = sk_api_default\n\n[staging]\napi_key = sk_api_staging\n")
-        with pytest.raises(SmplError, match="Profile \\[nonexistent\\] not found"):
+        with pytest.raises(Error, match="Profile \\[nonexistent\\] not found"):
             resolve_config(
                 profile="nonexistent",
                 environment="test",
@@ -190,7 +190,7 @@ class TestResolveConfigFile:
         config = tmp_path / ".smplkit"
         config.write_text("[default]\napi_key = \nenvironment = production\nservice = svc\n")
         # api_key is empty in file, should still be unset
-        with pytest.raises(SmplError, match="No API key provided"):
+        with pytest.raises(Error, match="No API key provided"):
             resolve_config(_home_dir=tmp_path)
 
     def test_semicolon_comments(self, monkeypatch, tmp_path):
@@ -355,7 +355,7 @@ class TestResolveConfigErrors:
     def test_missing_api_key(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
-        with pytest.raises(SmplError, match="No API key provided"):
+        with pytest.raises(Error, match="No API key provided"):
             resolve_config(
                 environment="test",
                 service="svc",
@@ -365,7 +365,7 @@ class TestResolveConfigErrors:
     def test_missing_environment(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_ENVIRONMENT", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
-        with pytest.raises(SmplError, match="No environment provided"):
+        with pytest.raises(Error, match="No environment provided"):
             resolve_config(
                 api_key="sk_api_test",
                 service="svc",
@@ -375,7 +375,7 @@ class TestResolveConfigErrors:
     def test_missing_service(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_SERVICE", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
-        with pytest.raises(SmplError, match="No service provided"):
+        with pytest.raises(Error, match="No service provided"):
             resolve_config(
                 api_key="sk_api_test",
                 environment="test",
@@ -387,7 +387,7 @@ class TestResolveConfigErrors:
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config = tmp_path / ".smplkit"
         config.write_text("[local]\nenvironment = dev\nservice = svc\n")
-        with pytest.raises(SmplError, match=r"\[local\]"):
+        with pytest.raises(Error, match=r"\[local\]"):
             resolve_config(
                 profile="local",
                 _home_dir=tmp_path,
@@ -397,13 +397,13 @@ class TestResolveConfigErrors:
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config = tmp_path / ".smplkit"
         config.write_text("[default]\napi_key = sk_api_test\nenvironment = test\nservice = svc\ndebug = maybe\n")
-        with pytest.raises(SmplError, match="Invalid boolean value"):
+        with pytest.raises(Error, match="Invalid boolean value"):
             resolve_config(_home_dir=tmp_path)
 
     def test_invalid_boolean_env_raises_error(self, monkeypatch, tmp_path):
         monkeypatch.setenv("SMPLKIT_DEBUG", "maybe")
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
-        with pytest.raises(SmplError, match="Invalid boolean value"):
+        with pytest.raises(Error, match="Invalid boolean value"):
             resolve_config(
                 api_key="sk_api_test",
                 environment="test",
@@ -424,7 +424,7 @@ class TestParseBool:
         assert _parse_bool(value, "test") is False
 
     def test_invalid(self):
-        with pytest.raises(SmplError, match="Invalid boolean"):
+        with pytest.raises(Error, match="Invalid boolean"):
             _parse_bool("maybe", "test")
 
     def test_whitespace_stripped(self):

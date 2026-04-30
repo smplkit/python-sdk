@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from smplkit import AsyncSmplManagementClient, SmplManagementClient
-from smplkit._errors import SmplError
+from smplkit._errors import Error
 from smplkit.management.client import (
     AccountSettingsClient,
     AsyncAccountSettingsClient,
@@ -106,7 +106,7 @@ class TestSmplManagementClientConstruction:
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         # Point HOME at an empty dir so ~/.smplkit doesn't exist
         monkeypatch.setenv("HOME", str(tmp_path))
-        with pytest.raises(SmplError, match="No API key provided"):
+        with pytest.raises(Error, match="No API key provided"):
             SmplManagementClient()
 
     def test_debug_flag_enables_debug_logging(self):
@@ -123,7 +123,7 @@ class TestSmplManagementClientConstruction:
         """Management clients are decoupled from runtime concerns."""
         monkeypatch.delenv("SMPLKIT_ENVIRONMENT", raising=False)
         monkeypatch.delenv("SMPLKIT_SERVICE", raising=False)
-        # No SmplError raised even though env/service are unset
+        # No Error raised even though env/service are unset
         mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
         mgmt.close()
 
@@ -377,11 +377,11 @@ class TestModelsRequireClientForSave:
 
 class TestMaybeReraiseNetworkError:
     def test_passes_through_sdk_exceptions(self):
-        from smplkit._errors import SmplNotFoundError
+        from smplkit._errors import NotFoundError
         from smplkit.management.client import _maybe_reraise_network_error
 
-        original = SmplNotFoundError("not found", status_code=404)
-        with pytest.raises(SmplNotFoundError, match="not found"):
+        original = NotFoundError("not found", status_code=404)
+        with pytest.raises(NotFoundError, match="not found"):
             _maybe_reraise_network_error(original)
 
 
@@ -400,11 +400,11 @@ class TestRuntimeConfigFetchPaths:
     def test_fetch_all_configs_network_error(self, mock_list):
         import httpx
 
-        from smplkit._errors import SmplConnectionError
+        from smplkit._errors import ConnectionError
 
         mock_list.side_effect = httpx.ConnectError("refused")
         client = self._client()
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             client.config._fetch_all_configs()
 
     @patch("smplkit.config.client.list_configs.sync_detailed")
@@ -421,11 +421,11 @@ class TestRuntimeConfigFetchPaths:
     def test_fetch_config_network_error(self, mock_get):
         import httpx
 
-        from smplkit._errors import SmplConnectionError
+        from smplkit._errors import ConnectionError
 
         mock_get.side_effect = httpx.ConnectError("refused")
         client = self._client()
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             client.config._fetch_config("anything")
 
     @patch("smplkit.config.client.get_config.sync_detailed")
@@ -455,13 +455,13 @@ class TestRuntimeConfigFetchPaths:
     @patch("smplkit.config.client.list_configs.asyncio_detailed")
     def test_async_fetch_all_configs_network_error(self, mock_list):
         from smplkit import AsyncSmplClient
-        from smplkit._errors import SmplConnectionError
+        from smplkit._errors import ConnectionError
         import httpx
 
         async def _run():
             mock_list.side_effect = httpx.ConnectError("refused")
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            with pytest.raises(SmplConnectionError):
+            with pytest.raises(ConnectionError):
                 await client.config._fetch_all_configs_async()
 
         asyncio.run(_run())

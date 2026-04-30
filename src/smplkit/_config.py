@@ -7,7 +7,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from smplkit._errors import SmplError
+from smplkit._errors import Error
 
 
 # Known config keys and their corresponding environment variables.
@@ -54,13 +54,13 @@ class ResolvedManagementConfig:
 
 
 def _parse_bool(value: str, key: str) -> bool:
-    """Parse a boolean string value. Raises SmplError for invalid values."""
+    """Parse a boolean string value. Raises Error for invalid values."""
     lower = value.strip().lower()
     if lower in _BOOL_TRUE:
         return True
     if lower in _BOOL_FALSE:
         return False
-    raise SmplError(f"Invalid boolean value for {key}: {value!r}. Expected one of: true, false, 1, 0, yes, no")
+    raise Error(f"Invalid boolean value for {key}: {value!r}. Expected one of: true, false, 1, 0, yes, no")
 
 
 def _read_config_file(
@@ -70,7 +70,7 @@ def _read_config_file(
     """Read ~/.smplkit and return merged [common] + profile values.
 
     Returns an empty dict if the file doesn't exist or has no relevant sections.
-    Raises SmplError if the named profile section doesn't exist but the file
+    Raises Error if the named profile section doesn't exist but the file
     has other sections.
     """
     config_path = (home_dir or Path.home()) / ".smplkit"
@@ -100,7 +100,7 @@ def _read_config_file(
         # unless the file only has [common] (or no sections at all)
         non_common_sections = [s for s in parser.sections() if s != "common"]
         if non_common_sections and profile != "default":
-            raise SmplError(
+            raise Error(
                 f"Profile [{profile}] not found in ~/.smplkit. Available profiles: {', '.join(non_common_sections)}"
             )
         if non_common_sections and profile == "default":
@@ -191,7 +191,7 @@ def resolve_config(
 
     # Validate required fields
     if not resolved["environment"]:
-        raise SmplError(
+        raise Error(
             "No environment provided. Set one of:\n"
             "  1. Pass environment to the constructor\n"
             "  2. Set the SMPLKIT_ENVIRONMENT environment variable\n"
@@ -199,7 +199,7 @@ def resolve_config(
         )
 
     if not resolved["service"]:
-        raise SmplError(
+        raise Error(
             "No service provided. Set one of:\n"
             "  1. Pass service to the constructor\n"
             "  2. Set the SMPLKIT_SERVICE environment variable\n"
@@ -207,7 +207,7 @@ def resolve_config(
         )
 
     if not resolved["api_key"]:
-        raise SmplError(
+        raise Error(
             "No API key provided. Set one of:\n"
             "  1. Pass api_key to the constructor\n"
             "  2. Set the SMPLKIT_API_KEY environment variable\n"
@@ -281,7 +281,7 @@ def resolve_management_config(
             resolved[key] = val
 
     if not resolved["api_key"]:
-        raise SmplError(
+        raise Error(
             "No API key provided. Set one of:\n"
             "  1. Pass api_key to the constructor\n"
             "  2. Set the SMPLKIT_API_KEY environment variable\n"

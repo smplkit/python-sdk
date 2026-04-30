@@ -19,7 +19,7 @@ Usage::
 
 import asyncio
 
-from smplkit import AsyncSmplClient, Context, Rule
+from smplkit import AsyncSmplClient, Context, Op, Rule
 
 # Demo scaffolding — creates flags so this showcase can run standalone.
 # In a real app, flags are created via the Console UI.
@@ -295,7 +295,7 @@ async def main() -> None:
         current_banner.addRule(
             Rule("Red for small companies")
             .environment("staging")
-            .when("account.employee_count", "<", 50)
+            .when("account.employee_count", Op.LT, 50)
             .serve("red")
             .build()
         )

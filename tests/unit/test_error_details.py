@@ -10,10 +10,10 @@ import pytest
 
 from smplkit._errors import (
     ApiErrorDetail,
-    SmplConflictError,
-    SmplError,
-    SmplNotFoundError,
-    SmplValidationError,
+    ConflictError,
+    Error,
+    NotFoundError,
+    ValidationError,
     _derive_message,
     _parse_error_body,
     _raise_for_status,
@@ -132,13 +132,13 @@ class TestDeriveMessage:
 
 
 # ---------------------------------------------------------------------------
-# SmplError enhanced constructor and __str__
+# Error enhanced constructor and __str__
 # ---------------------------------------------------------------------------
 
 
 class TestSmplErrorStr:
     def test_single_error_str(self):
-        err = SmplValidationError(
+        err = ValidationError(
             "The 'id' field is required.",
             errors=[
                 ApiErrorDetail(
@@ -156,7 +156,7 @@ class TestSmplErrorStr:
         assert '"/data/id"' in s
 
     def test_multi_error_str(self):
-        err = SmplValidationError(
+        err = ValidationError(
             "The 'name' field is required. (and 1 more error)",
             errors=[
                 ApiErrorDetail(
@@ -182,18 +182,18 @@ class TestSmplErrorStr:
         assert "The 'id' field is required." in s
 
     def test_no_errors_str(self):
-        err = SmplError("plain message")
+        err = Error("plain message")
         assert str(err) == "plain message"
         assert err.errors == []
         assert err.status_code is None
 
     def test_backwards_compat_positional_message(self):
-        err = SmplNotFoundError("Config abc not found")
+        err = NotFoundError("Config abc not found")
         assert str(err) == "Config abc not found"
         assert err.errors == []
 
     def test_message_derived_when_none(self):
-        err = SmplError(errors=[ApiErrorDetail(detail="auto-derived")])
+        err = Error(errors=[ApiErrorDetail(detail="auto-derived")])
         assert "auto-derived" in str(err)
 
 
@@ -221,7 +221,7 @@ class TestRaiseForStatus:
                 ]
             }
         ).encode()
-        with pytest.raises(SmplValidationError) as exc_info:
+        with pytest.raises(ValidationError) as exc_info:
             _raise_for_status(400, body)
         exc = exc_info.value
         assert exc.status_code == 400
@@ -250,7 +250,7 @@ class TestRaiseForStatus:
                 ]
             }
         ).encode()
-        with pytest.raises(SmplValidationError) as exc_info:
+        with pytest.raises(ValidationError) as exc_info:
             _raise_for_status(400, body)
         exc = exc_info.value
         assert "(and 1 more error)" in str(exc)
@@ -271,7 +271,7 @@ class TestRaiseForStatus:
                 ]
             }
         ).encode()
-        with pytest.raises(SmplNotFoundError) as exc_info:
+        with pytest.raises(NotFoundError) as exc_info:
             _raise_for_status(404, body)
         exc = exc_info.value
         assert exc.status_code == 404
@@ -289,7 +289,7 @@ class TestRaiseForStatus:
                 ]
             }
         ).encode()
-        with pytest.raises(SmplConflictError) as exc_info:
+        with pytest.raises(ConflictError) as exc_info:
             _raise_for_status(409, body)
         exc = exc_info.value
         assert exc.status_code == 409
@@ -307,7 +307,7 @@ class TestRaiseForStatus:
                 ]
             }
         ).encode()
-        with pytest.raises(SmplValidationError) as exc_info:
+        with pytest.raises(ValidationError) as exc_info:
             _raise_for_status(422, body)
         assert exc_info.value.status_code == 422
 
@@ -323,14 +323,14 @@ class TestRaiseForStatus:
                 ]
             }
         ).encode()
-        with pytest.raises(SmplError) as exc_info:
+        with pytest.raises(Error) as exc_info:
             _raise_for_status(500, body)
         exc = exc_info.value
         assert exc.status_code == 500
         assert "Something went wrong." in str(exc)
 
     def test_non_json_response(self):
-        with pytest.raises(SmplError) as exc_info:
+        with pytest.raises(Error) as exc_info:
             _raise_for_status(502, b"<html>Bad Gateway</html>")
         exc = exc_info.value
         assert exc.status_code == 502
@@ -338,7 +338,7 @@ class TestRaiseForStatus:
         assert exc.errors == []
 
     def test_empty_body(self):
-        with pytest.raises(SmplError) as exc_info:
+        with pytest.raises(Error) as exc_info:
             _raise_for_status(502, b"")
         assert exc_info.value.status_code == 502
         assert exc_info.value.errors == []
@@ -387,7 +387,7 @@ class TestConfigClientErrors:
             name="test",
             created_at=datetime.datetime(2025, 1, 1),
         )
-        with pytest.raises(SmplValidationError) as exc_info:
+        with pytest.raises(ValidationError) as exc_info:
             cfg.save()
         exc = exc_info.value
         assert exc.status_code == 400
@@ -421,7 +421,7 @@ class TestConfigClientErrors:
 
         mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
         cfg = mgmt.configs.new("test-key", name="test")
-        with pytest.raises(SmplValidationError) as exc_info:
+        with pytest.raises(ValidationError) as exc_info:
             cfg.save()
         exc = exc_info.value
         assert len(exc.errors) == 2
@@ -445,7 +445,7 @@ class TestConfigClientErrors:
         from smplkit import SmplManagementClient
 
         mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
-        with pytest.raises(SmplNotFoundError) as exc_info:
+        with pytest.raises(NotFoundError) as exc_info:
             mgmt.configs.get("abc")
         exc = exc_info.value
         assert exc.status_code == 404
@@ -469,7 +469,7 @@ class TestConfigClientErrors:
         from smplkit import SmplManagementClient
 
         mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
-        with pytest.raises(SmplConflictError) as exc_info:
+        with pytest.raises(ConflictError) as exc_info:
             mgmt.configs.delete("test-config")
         exc = exc_info.value
         assert exc.status_code == 409
@@ -487,7 +487,7 @@ class TestConfigClientErrors:
 
         mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
         cfg = mgmt.configs.new("test-key", name="test")
-        with pytest.raises(SmplError) as exc_info:
+        with pytest.raises(Error) as exc_info:
             cfg.save()
         exc = exc_info.value
         assert exc.status_code == 502
@@ -523,7 +523,7 @@ class TestFlagsClientErrors:
             type="boolean",
             default=True,
         )
-        with pytest.raises(SmplValidationError) as exc_info:
+        with pytest.raises(ValidationError) as exc_info:
             flag.save()
         exc = exc_info.value
         assert exc.status_code == 400
@@ -547,7 +547,7 @@ class TestFlagsClientErrors:
         from smplkit import SmplManagementClient
 
         mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
-        with pytest.raises(SmplNotFoundError) as exc_info:
+        with pytest.raises(NotFoundError) as exc_info:
             mgmt.flags.get("test-flag")
         exc = exc_info.value
         assert exc.status_code == 404
@@ -557,7 +557,7 @@ class TestFlagsClientErrors:
 class TestLoggingClientErrors:
     @patch("smplkit.logging.client.update_logger.sync_detailed")
     def test_save_new_logger_upserts_via_put(self, mock_update):
-        from smplkit._errors import SmplConnectionError
+        from smplkit._errors import ConnectionError
         import httpx
 
         # Simulate PUT failing with a network error to verify a single
@@ -567,7 +567,7 @@ class TestLoggingClientErrors:
 
         mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
         lg = mgmt.loggers.new("test-key", name="Test")
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             lg.save()
         mock_update.assert_called_once()
 
@@ -589,7 +589,7 @@ class TestLoggingClientErrors:
         from smplkit import SmplManagementClient
 
         mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
-        with pytest.raises(SmplNotFoundError) as exc_info:
+        with pytest.raises(NotFoundError) as exc_info:
             mgmt.loggers.get("test-key")
         exc = exc_info.value
         assert exc.status_code == 404

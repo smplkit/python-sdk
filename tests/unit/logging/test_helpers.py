@@ -10,11 +10,11 @@ import httpx
 import pytest
 
 from smplkit._errors import (
-    SmplConflictError,
-    SmplConnectionError,
-    SmplNotFoundError,
-    SmplTimeoutError,
-    SmplValidationError,
+    ConflictError,
+    ConnectionError,
+    NotFoundError,
+    TimeoutError,
+    ValidationError,
 )
 from smplkit._generated.logging.models.log_group_environments_type_0 import LogGroupEnvironmentsType0
 from smplkit._generated.logging.models.logger_environments_type_0 import LoggerEnvironmentsType0
@@ -127,15 +127,15 @@ class TestExtractSources:
 
 class TestCheckResponseStatus:
     def test_404(self):
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             _check_response_status(HTTPStatus.NOT_FOUND, b"not found")
 
     def test_409(self):
-        with pytest.raises(SmplConflictError):
+        with pytest.raises(ConflictError):
             _check_response_status(HTTPStatus.CONFLICT, b"conflict")
 
     def test_422(self):
-        with pytest.raises(SmplValidationError):
+        with pytest.raises(ValidationError):
             _check_response_status(HTTPStatus.UNPROCESSABLE_ENTITY, b"bad data")
 
     def test_200_ok(self):
@@ -147,57 +147,57 @@ class TestCheckResponseStatus:
 
 class TestMaybeReraiseNetworkError:
     def test_timeout(self):
-        with pytest.raises(SmplTimeoutError):
+        with pytest.raises(TimeoutError):
             _maybe_reraise_network_error(httpx.ReadTimeout("timed out"))
 
     def test_timeout_includes_url_when_available(self):
         exc = httpx.ReadTimeout("timed out")
         exc.request = httpx.Request("GET", "http://logging.localhost/api/v1/loggers")
-        with pytest.raises(SmplTimeoutError, match="http://logging.localhost/api/v1/loggers"):
+        with pytest.raises(TimeoutError, match="http://logging.localhost/api/v1/loggers"):
             _maybe_reraise_network_error(exc)
 
     def test_http_error(self):
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             _maybe_reraise_network_error(httpx.ConnectError("refused"))
 
     def test_http_error_includes_url_when_available(self):
         exc = httpx.ConnectError("nodename nor servname provided, or not known")
         exc.request = httpx.Request("GET", "http://logging.localhost/api/v1/loggers")
-        with pytest.raises(SmplConnectionError, match="http://logging.localhost/api/v1/loggers"):
+        with pytest.raises(ConnectionError, match="http://logging.localhost/api/v1/loggers"):
             _maybe_reraise_network_error(exc)
 
     def test_http_error_fallback_message_without_url(self):
         exc = httpx.ConnectError("nodename nor servname provided, or not known")
-        with pytest.raises(SmplConnectionError, match="Connection error"):
+        with pytest.raises(ConnectionError, match="Connection error"):
             _maybe_reraise_network_error(exc)
 
     def test_connection_error_uses_base_url_when_request_not_attached(self):
         exc = httpx.ConnectError("nodename nor servname provided, or not known")
-        with pytest.raises(SmplConnectionError, match="http://logging.localhost"):
+        with pytest.raises(ConnectionError, match="http://logging.localhost"):
             _maybe_reraise_network_error(exc, "http://logging.localhost")
 
     def test_timeout_uses_base_url_when_request_not_attached(self):
         exc = httpx.ReadTimeout("timed out")
-        with pytest.raises(SmplTimeoutError, match="http://logging.localhost"):
+        with pytest.raises(TimeoutError, match="http://logging.localhost"):
             _maybe_reraise_network_error(exc, "http://logging.localhost")
 
     def test_exc_url_takes_precedence_over_base_url(self):
         exc = httpx.ConnectError("refused")
         exc.request = httpx.Request("GET", "http://logging.localhost/api/v1/loggers")
-        with pytest.raises(SmplConnectionError, match="http://logging.localhost/api/v1/loggers"):
+        with pytest.raises(ConnectionError, match="http://logging.localhost/api/v1/loggers"):
             _maybe_reraise_network_error(exc, "http://other.host")
 
     def test_not_found_error(self):
-        with pytest.raises(SmplNotFoundError):
-            _maybe_reraise_network_error(SmplNotFoundError("nope"))
+        with pytest.raises(NotFoundError):
+            _maybe_reraise_network_error(NotFoundError("nope"))
 
     def test_conflict_error(self):
-        with pytest.raises(SmplConflictError):
-            _maybe_reraise_network_error(SmplConflictError("conflict"))
+        with pytest.raises(ConflictError):
+            _maybe_reraise_network_error(ConflictError("conflict"))
 
     def test_validation_error(self):
-        with pytest.raises(SmplValidationError):
-            _maybe_reraise_network_error(SmplValidationError("bad"))
+        with pytest.raises(ValidationError):
+            _maybe_reraise_network_error(ValidationError("bad"))
 
     def test_other_error_passes_through(self):
         # Should not raise; caller raises separately
@@ -266,3 +266,80 @@ class TestAsyncSmplLogGroupRepr:
     def test_repr(self):
         grp = AsyncSmplLogGroup(None, id="db", name="DB Loggers")
         assert "db" in repr(grp)
+
+
+# ===================================================================
+# delete() — active-record style for logger / log group
+# ===================================================================
+
+
+class TestSmplLoggerDelete:
+    def test_calls_client_delete(self):
+        client = MagicMock()
+        lg = SmplLogger(client, id="sql", name="SQL")
+        lg.delete()
+        client.delete.assert_called_once_with("sql")
+
+    def test_without_client_raises(self):
+        lg = SmplLogger(None, id="sql", name="SQL")
+        with pytest.raises(RuntimeError, match="cannot delete"):
+            lg.delete()
+
+
+class TestSmplLogGroupDelete:
+    def test_calls_client_delete(self):
+        client = MagicMock()
+        grp = SmplLogGroup(client, id="db", name="DB")
+        grp.delete()
+        client.delete.assert_called_once_with("db")
+
+    def test_without_client_raises(self):
+        grp = SmplLogGroup(None, id="db", name="DB")
+        with pytest.raises(RuntimeError, match="cannot delete"):
+            grp.delete()
+
+
+class TestAsyncSmplLoggerDelete:
+    def test_calls_client_delete(self):
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        client = MagicMock()
+        client.delete = AsyncMock()
+        lg = AsyncSmplLogger(client, id="sql", name="SQL")
+        asyncio.run(lg.delete())
+        client.delete.assert_called_once_with("sql")
+
+    def test_without_client_raises(self):
+        import asyncio
+
+        lg = AsyncSmplLogger(None, id="sql", name="SQL")
+
+        async def _run():
+            with pytest.raises(RuntimeError, match="cannot delete"):
+                await lg.delete()
+
+        asyncio.run(_run())
+
+
+class TestAsyncSmplLogGroupDelete:
+    def test_calls_client_delete(self):
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        client = MagicMock()
+        client.delete = AsyncMock()
+        grp = AsyncSmplLogGroup(client, id="db", name="DB")
+        asyncio.run(grp.delete())
+        client.delete.assert_called_once_with("db")
+
+    def test_without_client_raises(self):
+        import asyncio
+
+        grp = AsyncSmplLogGroup(None, id="db", name="DB")
+
+        async def _run():
+            with pytest.raises(RuntimeError, match="cannot delete"):
+                await grp.delete()
+
+        asyncio.run(_run())

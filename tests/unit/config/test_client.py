@@ -8,10 +8,10 @@ import httpx
 import pytest
 
 from smplkit._errors import (
-    SmplConnectionError,
-    SmplNotFoundError,
-    SmplTimeoutError,
-    SmplValidationError,
+    ConnectionError,
+    NotFoundError,
+    TimeoutError,
+    ValidationError,
 )
 from smplkit.client import AsyncSmplClient, SmplClient
 from smplkit.config.client import AsyncConfigClient, LiveConfigProxy
@@ -125,14 +125,14 @@ class TestConfigClientGet:
     def test_get_not_found_404(self, mock_get):
         mock_get.return_value = _mock_response(status_code=HTTPStatus.NOT_FOUND, content=b"Not Found")
         mgmt = _new_mgmt()
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             mgmt.configs.get("nonexistent")
 
     @patch("smplkit.config.client.get_config.sync_detailed")
     def test_get_not_found_parsed_none(self, mock_get):
         mock_get.return_value = _mock_response(parsed=None)
         mgmt = _new_mgmt()
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             mgmt.configs.get("missing")
 
     @patch("smplkit.config.client.get_config.sync_detailed")
@@ -140,21 +140,21 @@ class TestConfigClientGet:
         parsed = MagicMock(spec=[])  # no .data attribute
         mock_get.return_value = _mock_response(parsed=parsed)
         mgmt = _new_mgmt()
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             mgmt.configs.get("missing")
 
     @patch("smplkit.config.client.get_config.sync_detailed")
     def test_get_network_error(self, mock_get):
         mock_get.side_effect = httpx.ConnectError("connection refused")
         mgmt = _new_mgmt()
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             mgmt.configs.get("common")
 
     @patch("smplkit.config.client.get_config.sync_detailed")
     def test_get_timeout(self, mock_get):
         mock_get.side_effect = httpx.ReadTimeout("timed out")
         mgmt = _new_mgmt()
-        with pytest.raises(SmplTimeoutError):
+        with pytest.raises(TimeoutError):
             mgmt.configs.get("common")
 
     @patch("smplkit.config.client.get_config.sync_detailed")
@@ -185,7 +185,7 @@ class TestConfigClientList:
     def test_list_network_error(self, mock_list):
         mock_list.side_effect = httpx.ConnectError("refused")
         mgmt = _new_mgmt()
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             mgmt.configs.list()
 
     @patch("smplkit.config.client.list_configs.sync_detailed")
@@ -229,7 +229,7 @@ class TestConfigClientDelete:
         mock_delete.side_effect = httpx.ConnectError("refused")
 
         mgmt = _new_mgmt()
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             mgmt.configs.delete("my_config")
 
     @patch("smplkit.config.client.delete_config.sync_detailed")
@@ -263,7 +263,7 @@ class TestConfigClientCreateUpdate:
         mock_create.side_effect = httpx.ConnectError("refused")
         mgmt = _new_mgmt()
         cfg = mgmt.configs.new("test")
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             mgmt.configs._create_config(cfg)
 
     @patch("smplkit.config.client.create_config.sync_detailed")
@@ -271,7 +271,7 @@ class TestConfigClientCreateUpdate:
         mock_create.return_value = _mock_response(parsed=None)
         mgmt = _new_mgmt()
         cfg = mgmt.configs.new("test")
-        with pytest.raises(SmplValidationError):
+        with pytest.raises(ValidationError):
             mgmt.configs._create_config(cfg)
 
     @patch("smplkit.config.client.create_config.sync_detailed")
@@ -301,7 +301,7 @@ class TestConfigClientCreateUpdate:
         from smplkit.config.models import Config
 
         cfg = Config(mgmt.configs, id="test", name="T")
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             mgmt.configs._update_config_from_model(cfg)
 
     @patch("smplkit.config.client.update_config.sync_detailed")
@@ -311,7 +311,7 @@ class TestConfigClientCreateUpdate:
         from smplkit.config.models import Config
 
         cfg = Config(mgmt.configs, id="test", name="T")
-        with pytest.raises(SmplValidationError):
+        with pytest.raises(ValidationError):
             mgmt.configs._update_config_from_model(cfg)
 
     @patch("smplkit.config.client.update_config.sync_detailed")
@@ -742,7 +742,7 @@ class TestAsyncConfigClientGet:
 
         async def _run():
             mgmt = _new_async_mgmt()
-            with pytest.raises(SmplNotFoundError):
+            with pytest.raises(NotFoundError):
                 await mgmt.configs.get("nonexistent")
 
         asyncio.run(_run())
@@ -753,7 +753,7 @@ class TestAsyncConfigClientGet:
 
         async def _run():
             mgmt = _new_async_mgmt()
-            with pytest.raises(SmplNotFoundError):
+            with pytest.raises(NotFoundError):
                 await mgmt.configs.get("missing")
 
         asyncio.run(_run())
@@ -765,7 +765,7 @@ class TestAsyncConfigClientGet:
 
         async def _run():
             mgmt = _new_async_mgmt()
-            with pytest.raises(SmplNotFoundError):
+            with pytest.raises(NotFoundError):
                 await mgmt.configs.get("missing")
 
         asyncio.run(_run())
@@ -776,7 +776,7 @@ class TestAsyncConfigClientGet:
 
         async def _run():
             mgmt = _new_async_mgmt()
-            with pytest.raises(SmplConnectionError):
+            with pytest.raises(ConnectionError):
                 await mgmt.configs.get("common")
 
         asyncio.run(_run())
@@ -787,7 +787,7 @@ class TestAsyncConfigClientGet:
 
         async def _run():
             mgmt = _new_async_mgmt()
-            with pytest.raises(SmplTimeoutError):
+            with pytest.raises(TimeoutError):
                 await mgmt.configs.get("common")
 
         asyncio.run(_run())
@@ -828,7 +828,7 @@ class TestAsyncConfigClientList:
 
         async def _run():
             mgmt = _new_async_mgmt()
-            with pytest.raises(SmplConnectionError):
+            with pytest.raises(ConnectionError):
                 await mgmt.configs.list()
 
         asyncio.run(_run())
@@ -891,7 +891,7 @@ class TestAsyncConfigClientDelete:
 
         async def _run():
             mgmt = _new_async_mgmt()
-            with pytest.raises(SmplConnectionError):
+            with pytest.raises(ConnectionError):
                 await mgmt.configs.delete("my_config")
 
         asyncio.run(_run())
@@ -934,7 +934,7 @@ class TestAsyncConfigClientCreateUpdate:
         async def _run():
             mgmt = _new_async_mgmt()
             cfg = mgmt.configs.new("test")
-            with pytest.raises(SmplConnectionError):
+            with pytest.raises(ConnectionError):
                 await mgmt.configs._create_config(cfg)
 
         asyncio.run(_run())
@@ -946,7 +946,7 @@ class TestAsyncConfigClientCreateUpdate:
         async def _run():
             mgmt = _new_async_mgmt()
             cfg = mgmt.configs.new("test")
-            with pytest.raises(SmplValidationError):
+            with pytest.raises(ValidationError):
                 await mgmt.configs._create_config(cfg)
 
         asyncio.run(_run())
@@ -987,7 +987,7 @@ class TestAsyncConfigClientCreateUpdate:
             from smplkit.config.models import AsyncConfig
 
             cfg = AsyncConfig(mgmt.configs, id="test", name="T")
-            with pytest.raises(SmplConnectionError):
+            with pytest.raises(ConnectionError):
                 await mgmt.configs._update_config_from_model(cfg)
 
         asyncio.run(_run())
@@ -1001,7 +1001,7 @@ class TestAsyncConfigClientCreateUpdate:
             from smplkit.config.models import AsyncConfig
 
             cfg = AsyncConfig(mgmt.configs, id="test", name="T")
-            with pytest.raises(SmplValidationError):
+            with pytest.raises(ValidationError):
                 await mgmt.configs._update_config_from_model(cfg)
 
         asyncio.run(_run())

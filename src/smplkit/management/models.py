@@ -96,6 +96,12 @@ class Environment(_EnvironmentBase):
             other = self._client._update(self)
         self._apply(other)
 
+    def delete(self) -> None:
+        """Delete this environment from the server."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("Environment was constructed without a client or id; cannot delete")
+        self._client.delete(self.id)
+
 
 class AsyncEnvironment(_EnvironmentBase):
     """Environment resource (async). Mutate fields, then ``await save()``."""
@@ -129,6 +135,12 @@ class AsyncEnvironment(_EnvironmentBase):
         else:
             other = await self._client._update(self)
         self._apply(other)
+
+    async def delete(self) -> None:
+        """Delete this environment from the server."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("AsyncEnvironment was constructed without a client or id; cannot delete")
+        await self._client.delete(self.id)
 
 
 # ---------------------------------------------------------------------------
@@ -212,6 +224,12 @@ class ContextType(_ContextTypeBase):
             other = self._client._update(self)
         self._apply(other)
 
+    def delete(self) -> None:
+        """Delete this context type from the server."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("ContextType was constructed without a client or id; cannot delete")
+        self._client.delete(self.id)
+
 
 class AsyncContextType(_ContextTypeBase):
     def __init__(
@@ -242,6 +260,12 @@ class AsyncContextType(_ContextTypeBase):
             other = await self._client._update(self)
         self._apply(other)
 
+    async def delete(self) -> None:
+        """Delete this context type from the server."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("AsyncContextType was constructed without a client or id; cannot delete")
+        await self._client.delete(self.id)
+
 
 # ---------------------------------------------------------------------------
 # ContextEntity (read/delete model — write side is via register())
@@ -265,6 +289,7 @@ class _ContextEntityBase:
 
     def __init__(
         self,
+        client: Any = None,
         *,
         type: str,
         key: str,
@@ -273,6 +298,7 @@ class _ContextEntityBase:
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
     ) -> None:
+        self._client = client
         self.type = type
         self.key = key
         self.name = name
@@ -290,11 +316,19 @@ class _ContextEntityBase:
 
 
 class ContextEntity(_ContextEntityBase):
-    pass
+    def delete(self) -> None:
+        """Delete this context entity from the server."""
+        if self._client is None:
+            raise RuntimeError("ContextEntity was constructed without a client; cannot delete")
+        self._client.delete(self.id)
 
 
 class AsyncContextEntity(_ContextEntityBase):
-    pass
+    async def delete(self) -> None:
+        """Delete this context entity from the server."""
+        if self._client is None:
+            raise RuntimeError("AsyncContextEntity was constructed without a client; cannot delete")
+        await self._client.delete(self.id)
 
 
 # ---------------------------------------------------------------------------

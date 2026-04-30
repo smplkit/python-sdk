@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from smplkit._errors import SmplNotFoundError, SmplValidationError
+from smplkit._errors import NotFoundError, ValidationError
 from smplkit.flags.types import Context
 from smplkit.management._buffer import _ContextRegistrationBuffer
 from smplkit.management.client import (
@@ -194,15 +194,15 @@ class TestCheckStatus:
         _check_status(200, b"")
 
     def test_404_raises_not_found(self):
-        from smplkit._errors import SmplNotFoundError
+        from smplkit._errors import NotFoundError
 
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             _check_status(404, b'{"errors":[{"status":"404","title":"Not Found"}]}')
 
     def test_500_raises(self):
-        from smplkit._errors import SmplError
+        from smplkit._errors import Error
 
-        with pytest.raises(SmplError):
+        with pytest.raises(Error):
             _check_status(500, b'{"errors":[{"status":"500","title":"Server Error"}]}')
 
 
@@ -464,7 +464,7 @@ class TestEnvironmentsClient:
         mock_get.return_value = _ok_resp()
         mock_get.return_value.parsed = None
         client = _make_env_client()
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             client.get("nonexistent")
 
     @patch("smplkit.management.client._gen_delete_environment.sync_detailed")
@@ -490,7 +490,7 @@ class TestEnvironmentsClient:
         mock_create.return_value.parsed = None
         client = _make_env_client()
         env = Environment(name="production")
-        with pytest.raises(SmplValidationError):
+        with pytest.raises(ValidationError):
             client._create(env)
 
     @patch("smplkit.management.client._gen_update_environment.sync_detailed")
@@ -516,7 +516,7 @@ class TestEnvironmentsClient:
         mock_update.return_value.parsed = None
         client = _make_env_client()
         env = Environment(client, id="env-1", name="production", created_at="2026-01-01")
-        with pytest.raises(SmplValidationError):
+        with pytest.raises(ValidationError):
             client._update(env)
 
 
@@ -569,7 +569,7 @@ class TestAsyncEnvironmentsClient:
             mock_coro = AsyncMock(return_value=resp)
             with patch("smplkit.management.client._gen_get_environment.asyncio_detailed", mock_coro):
                 client = _make_async_env_client()
-                with pytest.raises(SmplNotFoundError):
+                with pytest.raises(NotFoundError):
                     await client.get("nope")
 
         asyncio.run(_run())
@@ -605,7 +605,7 @@ class TestAsyncEnvironmentsClient:
             with patch("smplkit.management.client._gen_create_environment.asyncio_detailed", mock_coro):
                 client = _make_async_env_client()
                 env = AsyncEnvironment(name="production")
-                with pytest.raises(SmplValidationError):
+                with pytest.raises(ValidationError):
                     await client._create(env)
 
         asyncio.run(_run())
@@ -642,7 +642,7 @@ class TestAsyncEnvironmentsClient:
             with patch("smplkit.management.client._gen_update_environment.asyncio_detailed", mock_coro):
                 client = _make_async_env_client()
                 env = AsyncEnvironment(client, id="env-1", name="production", created_at="2026-01-01")
-                with pytest.raises(SmplValidationError):
+                with pytest.raises(ValidationError):
                     await client._update(env)
 
         asyncio.run(_run())
@@ -692,7 +692,7 @@ class TestContextTypesClient:
         resp.parsed = None
         mock_get.return_value = resp
         client = _make_ct_client()
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             client.get("nope")
 
     @patch("smplkit.management.client._gen_delete_context_type.sync_detailed")
@@ -720,7 +720,7 @@ class TestContextTypesClient:
         mock_create.return_value = resp
         client = _make_ct_client()
         ct = ContextType(name="user")
-        with pytest.raises(SmplValidationError):
+        with pytest.raises(ValidationError):
             client._create(ct)
 
     @patch("smplkit.management.client._gen_update_context_type.sync_detailed")
@@ -748,7 +748,7 @@ class TestContextTypesClient:
         mock_update.return_value = resp
         client = _make_ct_client()
         ct = ContextType(client, id="ct-1", name="user", created_at="2026-01-01")
-        with pytest.raises(SmplValidationError):
+        with pytest.raises(ValidationError):
             client._update(ct)
 
 
@@ -794,7 +794,7 @@ class TestAsyncContextTypesClient:
             mock_coro = AsyncMock(return_value=resp)
             with patch("smplkit.management.client._gen_get_context_type.asyncio_detailed", mock_coro):
                 client = _make_async_ct_client()
-                with pytest.raises(SmplNotFoundError):
+                with pytest.raises(NotFoundError):
                     await client.get("nope")
 
         asyncio.run(_run())
@@ -830,7 +830,7 @@ class TestAsyncContextTypesClient:
             with patch("smplkit.management.client._gen_create_context_type.asyncio_detailed", mock_coro):
                 client = _make_async_ct_client()
                 ct = AsyncContextType(name="user")
-                with pytest.raises(SmplValidationError):
+                with pytest.raises(ValidationError):
                     await client._create(ct)
 
         asyncio.run(_run())
@@ -867,7 +867,7 @@ class TestAsyncContextTypesClient:
             with patch("smplkit.management.client._gen_update_context_type.asyncio_detailed", mock_coro):
                 client = _make_async_ct_client()
                 ct = AsyncContextType(client, id="ct-1", name="user", created_at="2026-01-01")
-                with pytest.raises(SmplValidationError):
+                with pytest.raises(ValidationError):
                     await client._update(ct)
 
         asyncio.run(_run())
@@ -950,7 +950,7 @@ class TestContextsClient:
         resp.parsed = None
         mock_get.return_value = resp
         client = _make_contexts_client()
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             client.get("user:u-999")
 
     @patch("smplkit.management.client._gen_delete_context.sync_detailed")
@@ -1062,7 +1062,7 @@ class TestAsyncContextsClient:
             mock_coro = AsyncMock(return_value=resp)
             with patch("smplkit.management.client._gen_get_context.asyncio_detailed", mock_coro):
                 client = _make_async_contexts_client()
-                with pytest.raises(SmplNotFoundError):
+                with pytest.raises(NotFoundError):
                     await client.get("user:nope")
 
         asyncio.run(_run())
@@ -1347,3 +1347,125 @@ class TestAsyncMgmtFlagsRegisterAndFlush:
             client.register(FlagDeclaration(id="x", type="BOOLEAN", default=False))
             with pytest.raises(RuntimeError):
                 client.flush_sync()
+
+
+# ---------------------------------------------------------------------------
+# Active-record delete() — Environment, ContextType, ContextEntity
+# ---------------------------------------------------------------------------
+
+
+class TestEnvironmentDelete:
+    def test_calls_client_delete(self):
+        from smplkit.management.models import Environment
+
+        client = MagicMock()
+        env = Environment(client, id="staging", name="Staging")
+        env.delete()
+        client.delete.assert_called_once_with("staging")
+
+    def test_without_client_raises(self):
+        from smplkit.management.models import Environment
+
+        env = Environment(None, id="x", name="X")
+        with pytest.raises(RuntimeError, match="cannot delete"):
+            env.delete()
+
+
+class TestAsyncEnvironmentDelete:
+    def test_calls_client_delete(self):
+        from smplkit.management.models import AsyncEnvironment
+
+        client = MagicMock()
+        client.delete = AsyncMock()
+        env = AsyncEnvironment(client, id="staging", name="Staging")
+        asyncio.run(env.delete())
+        client.delete.assert_called_once_with("staging")
+
+    def test_without_client_raises(self):
+        from smplkit.management.models import AsyncEnvironment
+
+        env = AsyncEnvironment(None, id="x", name="X")
+
+        async def _run():
+            with pytest.raises(RuntimeError, match="cannot delete"):
+                await env.delete()
+
+        asyncio.run(_run())
+
+
+class TestContextTypeDelete:
+    def test_calls_client_delete(self):
+        from smplkit.management.models import ContextType
+
+        client = MagicMock()
+        ct = ContextType(client, id="user", name="User")
+        ct.delete()
+        client.delete.assert_called_once_with("user")
+
+    def test_without_client_raises(self):
+        from smplkit.management.models import ContextType
+
+        ct = ContextType(None, id="x", name="X")
+        with pytest.raises(RuntimeError, match="cannot delete"):
+            ct.delete()
+
+
+class TestAsyncContextTypeDelete:
+    def test_calls_client_delete(self):
+        from smplkit.management.models import AsyncContextType
+
+        client = MagicMock()
+        client.delete = AsyncMock()
+        ct = AsyncContextType(client, id="user", name="User")
+        asyncio.run(ct.delete())
+        client.delete.assert_called_once_with("user")
+
+    def test_without_client_raises(self):
+        from smplkit.management.models import AsyncContextType
+
+        ct = AsyncContextType(None, id="x", name="X")
+
+        async def _run():
+            with pytest.raises(RuntimeError, match="cannot delete"):
+                await ct.delete()
+
+        asyncio.run(_run())
+
+
+class TestContextEntityDelete:
+    def test_calls_client_delete(self):
+        from smplkit.management.models import ContextEntity
+
+        client = MagicMock()
+        ent = ContextEntity(client, type="user", key="u-1")
+        ent.delete()
+        client.delete.assert_called_once_with("user:u-1")
+
+    def test_without_client_raises(self):
+        from smplkit.management.models import ContextEntity
+
+        ent = ContextEntity(None, type="user", key="u-1")
+        with pytest.raises(RuntimeError, match="cannot delete"):
+            ent.delete()
+
+
+class TestAsyncContextEntityDelete:
+    def test_calls_client_delete(self):
+        from smplkit.management.models import AsyncContextEntity
+
+        client = MagicMock()
+        client.delete = AsyncMock()
+        ent = AsyncContextEntity(client, type="user", key="u-1")
+        asyncio.run(ent.delete())
+        client.delete.assert_called_once_with("user:u-1")
+
+    def test_without_client_raises(self):
+        from smplkit.management.models import AsyncContextEntity
+
+        ent = AsyncContextEntity(None, type="user", key="u-1")
+
+        async def _run():
+            with pytest.raises(RuntimeError, match="cannot delete"):
+                await ent.delete()
+
+        asyncio.run(_run())

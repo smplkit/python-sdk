@@ -63,6 +63,12 @@ class SmplLogger:
         updated = self._client._save_logger(self)
         self._apply(updated)
 
+    def delete(self) -> None:
+        """Delete this logger from the server."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("SmplLogger was constructed without a client or id; cannot delete")
+        self._client.delete(self.id)
+
     def setLevel(self, level: LogLevel) -> None:  # noqa: N802
         """Set the base log level."""
         self.level = level
@@ -144,6 +150,12 @@ class AsyncSmplLogger:
         updated = await self._client._save_logger(self)
         self._apply(updated)
 
+    async def delete(self) -> None:
+        """Delete this logger from the server."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("AsyncSmplLogger was constructed without a client or id; cannot delete")
+        await self._client.delete(self.id)
+
     def setLevel(self, level: LogLevel) -> None:  # noqa: N802
         """Set the base log level."""
         self.level = level
@@ -219,6 +231,12 @@ class SmplLogGroup:
         updated = self._client._save_group(self)
         self._apply(updated)
 
+    def delete(self) -> None:
+        """Delete this group from the server."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("SmplLogGroup was constructed without a client or id; cannot delete")
+        self._client.delete(self.id)
+
     def setLevel(self, level: LogLevel) -> None:  # noqa: N802
         """Set the base log level."""
         self.level = level
@@ -291,6 +309,12 @@ class AsyncSmplLogGroup:
             raise RuntimeError("AsyncSmplLogGroup was constructed without a client; cannot save")
         updated = await self._client._save_group(self)
         self._apply(updated)
+
+    async def delete(self) -> None:
+        """Delete this group from the server."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("AsyncSmplLogGroup was constructed without a client or id; cannot delete")
+        await self._client.delete(self.id)
 
     def setLevel(self, level: LogLevel) -> None:  # noqa: N802
         """Set the base log level."""

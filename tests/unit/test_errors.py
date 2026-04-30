@@ -1,27 +1,27 @@
 """Tests for SDK error types."""
 
 from smplkit._errors import (
-    SmplConflictError,
-    SmplConnectionError,
-    SmplError,
-    SmplNotFoundError,
-    SmplTimeoutError,
-    SmplValidationError,
+    ConflictError,
+    ConnectionError,
+    Error,
+    NotFoundError,
+    TimeoutError,
+    ValidationError,
 )
 
 
 def test_smpl_error_is_base():
-    assert issubclass(SmplConnectionError, SmplError)
-    assert issubclass(SmplTimeoutError, SmplError)
-    assert issubclass(SmplNotFoundError, SmplError)
-    assert issubclass(SmplConflictError, SmplError)
-    assert issubclass(SmplValidationError, SmplError)
+    assert issubclass(ConnectionError, Error)
+    assert issubclass(TimeoutError, Error)
+    assert issubclass(NotFoundError, Error)
+    assert issubclass(ConflictError, Error)
+    assert issubclass(ValidationError, Error)
 
 
 def test_smpl_error_is_exception():
-    assert issubclass(SmplError, Exception)
+    assert issubclass(Error, Exception)
 
 
 def test_error_message():
-    err = SmplError("something went wrong")
+    err = Error("something went wrong")
     assert str(err) == "something went wrong"

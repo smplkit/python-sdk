@@ -86,8 +86,8 @@ class Config:
         Creates a new config if unsaved, or updates the existing one.
 
         Raises:
-            SmplNotFoundError: If the config no longer exists (update).
-            SmplValidationError: If the server rejects the request.
+            NotFoundError: If the config no longer exists (update).
+            ValidationError: If the server rejects the request.
             RuntimeError: If the model was constructed without a management client.
         """
         if self._client is None:
@@ -97,6 +97,12 @@ class Config:
         else:
             other = self._client._update_config_from_model(self)
         self._apply(other)
+
+    def delete(self) -> None:
+        """Delete this config from the server."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("Config was constructed without a client or id; cannot delete")
+        self._client.delete(self.id)
 
     def _apply(self, other: Config) -> None:
         """Copy all properties from *other* into this instance."""
@@ -214,8 +220,8 @@ class AsyncConfig:
         Creates a new config if unsaved, or updates the existing one.
 
         Raises:
-            SmplNotFoundError: If the config no longer exists (update).
-            SmplValidationError: If the server rejects the request.
+            NotFoundError: If the config no longer exists (update).
+            ValidationError: If the server rejects the request.
             RuntimeError: If the model was constructed without a management client.
         """
         if self._client is None:
@@ -225,6 +231,12 @@ class AsyncConfig:
         else:
             other = await self._client._update_config_from_model(self)
         self._apply(other)
+
+    async def delete(self) -> None:
+        """Delete this config from the server."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("AsyncConfig was constructed without a client or id; cannot delete")
+        await self._client.delete(self.id)
 
     def _apply(self, other: AsyncConfig) -> None:
         """Copy all properties from *other* into this instance."""

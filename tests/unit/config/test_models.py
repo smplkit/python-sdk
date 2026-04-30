@@ -3,6 +3,8 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
 from smplkit.config.models import AsyncConfig, Config
 
 
@@ -133,6 +135,17 @@ class TestConfigSave:
 
         mock_client._update_config_from_model.assert_called_once_with(cfg)
         assert cfg.name == "Updated Config"
+
+    def test_delete_calls_client_delete(self):
+        mock_client = MagicMock()
+        cfg = Config(mock_client, id="test_config", name="X")
+        cfg.delete()
+        mock_client.delete.assert_called_once_with("test_config")
+
+    def test_delete_without_client_raises(self):
+        cfg = Config(None, id="x", name="X")
+        with pytest.raises(RuntimeError, match="cannot delete"):
+            cfg.delete()
 
 
 # ===================================================================
@@ -324,6 +337,22 @@ class TestAsyncConfigSave:
 
         mock_client._update_config_from_model.assert_called_once_with(cfg)
         assert cfg.name == "Updated Config"
+
+    def test_delete_calls_client_delete(self):
+        mock_client = MagicMock()
+        mock_client.delete = AsyncMock()
+        cfg = AsyncConfig(mock_client, id="test_config", name="X")
+        asyncio.run(cfg.delete())
+        mock_client.delete.assert_called_once_with("test_config")
+
+    def test_delete_without_client_raises(self):
+        cfg = AsyncConfig(None, id="x", name="X")
+
+        async def _run():
+            with pytest.raises(RuntimeError, match="cannot delete"):
+                await cfg.delete()
+
+        asyncio.run(_run())
 
 
 # ===================================================================

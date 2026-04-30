@@ -10,7 +10,7 @@ See flags_management_showcase.py for the full management API walkthrough.
 
 from __future__ import annotations
 
-from smplkit import AsyncSmplManagementClient, Rule
+from smplkit import AsyncSmplManagementClient, Op, Rule
 
 
 async def setup_demo_flags(mgmt: AsyncSmplManagementClient) -> list[str]:
@@ -37,13 +37,13 @@ async def setup_demo_flags(mgmt: AsyncSmplManagementClient) -> list[str]:
     checkout.addRule(
         Rule("Enable for enterprise users in US region")
         .environment("staging")
-        .when("user.plan", "==", "enterprise")
-        .when("account.region", "==", "us")
+        .when("user.plan", Op.EQ, "enterprise")
+        .when("account.region", Op.EQ, "us")
         .serve(True)
         .build()
     )
     checkout.addRule(
-        Rule("Enable for beta testers").environment("staging").when("user.beta_tester", "==", True).serve(True).build()
+        Rule("Enable for beta testers").environment("staging").when("user.beta_tester", Op.EQ, True).serve(True).build()
     )
     checkout.setEnvironmentEnabled("production", False)
     checkout.setEnvironmentDefault("production", False)
@@ -65,14 +65,14 @@ async def setup_demo_flags(mgmt: AsyncSmplManagementClient) -> list[str]:
     banner.addRule(
         Rule("Blue for enterprise users")
         .environment("staging")
-        .when("user.plan", "==", "enterprise")
+        .when("user.plan", Op.EQ, "enterprise")
         .serve("blue")
         .build()
     )
     banner.addRule(
         Rule("Green for technology companies")
         .environment("staging")
-        .when("account.industry", "==", "technology")
+        .when("account.industry", Op.EQ, "technology")
         .serve("green")
         .build()
     )
@@ -88,7 +88,7 @@ async def setup_demo_flags(mgmt: AsyncSmplManagementClient) -> list[str]:
     retries.addRule(
         Rule("High retries for large accounts")
         .environment("staging")
-        .when("account.employee_count", ">", 100)
+        .when("account.employee_count", Op.GT, 100)
         .serve(5)
         .build()
     )

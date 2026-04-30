@@ -1,9 +1,28 @@
-"""Public types for the Flags SDK: Context, FlagDeclaration, Rule."""
+"""Public types for the Flags SDK: Context, FlagDeclaration, Op, Rule."""
 
 from __future__ import annotations
 
 import dataclasses
+import enum
 from typing import Any
+
+
+class Op(str, enum.Enum):
+    """Operators supported by :meth:`Rule.when`.
+
+    Customers should prefer ``Op.EQ`` etc. over raw strings so the IDE
+    can validate calls.  Raw strings are still accepted for backward
+    compatibility.
+    """
+
+    EQ = "=="
+    NEQ = "!="
+    LT = "<"
+    LTE = "<="
+    GT = ">"
+    GTE = ">="
+    IN = "in"
+    CONTAINS = "contains"
 
 
 class Context:
@@ -66,7 +85,7 @@ class Rule:
     Usage::
 
         Rule("Enable for enterprise users")
-            .when("user.plan", "==", "enterprise")
+            .when("user.plan", Op.EQ, "enterprise")
             .serve(True)
             .build()
 
@@ -85,13 +104,18 @@ class Rule:
         self._environment = env_key
         return self
 
-    def when(self, var: str, op: str, value: Any) -> Rule:
-        """Add a condition.  Multiple calls are AND'd."""
-        if op == "contains":
+    def when(self, var: str, op: Op | str, value: Any) -> Rule:
+        """Add a condition.  Multiple calls are AND'd.
+
+        ``op`` accepts an :class:`Op` enum value (preferred) or a raw
+        string (e.g. ``"=="``, ``"contains"``).
+        """
+        op_str = op.value if isinstance(op, Op) else op
+        if op_str == "contains":
             # JSON Logic "in" with reversed operands: value in var
             self._conditions.append({"in": [value, {"var": var}]})
         else:
-            self._conditions.append({op: [{"var": var}, value]})
+            self._conditions.append({op_str: [{"var": var}, value]})
         return self
 
     def serve(self, value: Any) -> Rule:

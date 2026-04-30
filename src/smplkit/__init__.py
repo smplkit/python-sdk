@@ -5,14 +5,14 @@ import enum
 from smplkit.client import AsyncSmplClient, SmplClient
 from smplkit._errors import (
     ApiErrorDetail,
-    SmplError,
-    SmplConnectionError,
-    SmplConflictError,
-    SmplNotFoundError,
-    SmplTimeoutError,
-    SmplValidationError,
+    Error,
+    ConnectionError,
+    ConflictError,
+    NotFoundError,
+    TimeoutError,
+    ValidationError,
 )
-from smplkit.flags.types import Context, FlagDeclaration, Rule
+from smplkit.flags.types import Context, FlagDeclaration, Op, Rule
 from smplkit.logging._sources import LoggerSource
 from smplkit.management.client import AsyncSmplManagementClient, SmplManagementClient
 from smplkit.management.types import EnvironmentClassification
@@ -39,15 +39,16 @@ __all__ = [
     "FlagDeclaration",
     "LoggerSource",
     "LogLevel",
+    "Op",
     "Rule",
     "SmplClient",
-    "SmplError",
-    "SmplConnectionError",
-    "SmplConflictError",
+    "Error",
+    "ConnectionError",
+    "ConflictError",
     "SmplManagementClient",
-    "SmplNotFoundError",
-    "SmplTimeoutError",
-    "SmplValidationError",
+    "NotFoundError",
+    "TimeoutError",
+    "ValidationError",
 ]
 
 try:
