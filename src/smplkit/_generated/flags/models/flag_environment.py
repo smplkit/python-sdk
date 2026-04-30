@@ -21,12 +21,12 @@ T = TypeVar("T", bound="FlagEnvironment")
 class FlagEnvironment:
     """
     Attributes:
-        enabled (bool | Unset):  Default: False.
+        enabled (bool | Unset):  Default: True.
         default (Any | None | Unset):
         rules (list[FlagRule] | Unset):
     """
 
-    enabled: bool | Unset = False
+    enabled: bool | Unset = True
     default: Any | None | Unset = UNSET
     rules: list[FlagRule] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
