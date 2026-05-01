@@ -28,6 +28,8 @@ class User:
         email (str): User's email address
         display_name (str):
         profile_pic (None | str | Unset):
+        avatar_url (None | str | Unset): Server-computed ``data:`` URL when an OIDC provider supplied a profile picture.
+            Null otherwise — callers should fall back to Gravatar or initials.
         auth_provider (None | str | Unset):
         email_verified (bool | Unset):  Default: False.
         role (None | str | Unset): Role in current account context
@@ -38,6 +40,7 @@ class User:
     email: str
     display_name: str
     profile_pic: None | str | Unset = UNSET
+    avatar_url: None | str | Unset = UNSET
     auth_provider: None | str | Unset = UNSET
     email_verified: bool | Unset = False
     role: None | str | Unset = UNSET
@@ -55,6 +58,12 @@ class User:
             profile_pic = UNSET
         else:
             profile_pic = self.profile_pic
+
+        avatar_url: None | str | Unset
+        if isinstance(self.avatar_url, Unset):
+            avatar_url = UNSET
+        else:
+            avatar_url = self.avatar_url
 
         auth_provider: None | str | Unset
         if isinstance(self.auth_provider, Unset):
@@ -94,6 +103,8 @@ class User:
         )
         if profile_pic is not UNSET:
             field_dict["profile_pic"] = profile_pic
+        if avatar_url is not UNSET:
+            field_dict["avatar_url"] = avatar_url
         if auth_provider is not UNSET:
             field_dict["auth_provider"] = auth_provider
         if email_verified is not UNSET:
@@ -122,6 +133,15 @@ class User:
             return cast(None | str | Unset, data)
 
         profile_pic = _parse_profile_pic(d.pop("profile_pic", UNSET))
+
+        def _parse_avatar_url(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        avatar_url = _parse_avatar_url(d.pop("avatar_url", UNSET))
 
         def _parse_auth_provider(data: object) -> None | str | Unset:
             if data is None:
@@ -173,6 +193,7 @@ class User:
             email=email,
             display_name=display_name,
             profile_pic=profile_pic,
+            avatar_url=avatar_url,
             auth_provider=auth_provider,
             email_verified=email_verified,
             role=role,
