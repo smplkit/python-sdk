@@ -6,6 +6,8 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..types import UNSET, Unset
+
 
 T = TypeVar("T", bound="AccountWipeRequest")
 
@@ -15,18 +17,24 @@ class AccountWipeRequest:
     """Confirmation envelope for ``POST /accounts/current/actions/wipe``.
 
     Example:
-        {'confirm': True}
+        {'confirm': True, 'generate_sample_data': False}
 
     Attributes:
         confirm (bool): Must be ``true`` to proceed. Anything else returns 400. The frontend gates the call behind a
             confirmation dialog; this field is the server-side seatbelt.
+        generate_sample_data (bool | Unset): When ``true``, the wipe re-seeds the account with the same Acme Commerce
+            sample dataset that new accounts are bootstrapped with. Best-effort: any seeding failures are logged but do not
+            fail the wipe. Default: False.
     """
 
     confirm: bool
+    generate_sample_data: bool | Unset = False
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         confirm = self.confirm
+
+        generate_sample_data = self.generate_sample_data
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -35,6 +43,8 @@ class AccountWipeRequest:
                 "confirm": confirm,
             }
         )
+        if generate_sample_data is not UNSET:
+            field_dict["generate_sample_data"] = generate_sample_data
 
         return field_dict
 
@@ -43,8 +53,11 @@ class AccountWipeRequest:
         d = dict(src_dict)
         confirm = d.pop("confirm")
 
+        generate_sample_data = d.pop("generate_sample_data", UNSET)
+
         account_wipe_request = cls(
             confirm=confirm,
+            generate_sample_data=generate_sample_data,
         )
 
         account_wipe_request.additional_properties = d
