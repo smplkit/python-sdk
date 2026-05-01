@@ -80,12 +80,14 @@ def sync_detailed(
      Delete every config, flag, logger, log group, context, context type, environment, and customer API
     key (except the caller's current key) on the account. The ``common`` config is preserved as a
     structural anchor but its items are reset. Requires ``OWNER`` role and a ``{\"confirm\": true}``
-    body — anything else returns 400. Returns 204 on success; if any sub-delete fails the response is
-    500.
+    body — anything else returns 400. Pass ``\"generate_sample_data\": true`` to re-seed the account
+    with the standard sample dataset after the wipe completes (best-effort; seed failures are logged but
+    do not fail the wipe). Returns 204 on success; if any sub-delete fails the response is 500.
 
     Args:
         body (AccountWipeRequest): Confirmation envelope for ``POST
-            /accounts/current/actions/wipe``. Example: {'confirm': True}.
+            /accounts/current/actions/wipe``. Example: {'confirm': True, 'generate_sample_data':
+            False}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -116,12 +118,14 @@ def sync(
      Delete every config, flag, logger, log group, context, context type, environment, and customer API
     key (except the caller's current key) on the account. The ``common`` config is preserved as a
     structural anchor but its items are reset. Requires ``OWNER`` role and a ``{\"confirm\": true}``
-    body — anything else returns 400. Returns 204 on success; if any sub-delete fails the response is
-    500.
+    body — anything else returns 400. Pass ``\"generate_sample_data\": true`` to re-seed the account
+    with the standard sample dataset after the wipe completes (best-effort; seed failures are logged but
+    do not fail the wipe). Returns 204 on success; if any sub-delete fails the response is 500.
 
     Args:
         body (AccountWipeRequest): Confirmation envelope for ``POST
-            /accounts/current/actions/wipe``. Example: {'confirm': True}.
+            /accounts/current/actions/wipe``. Example: {'confirm': True, 'generate_sample_data':
+            False}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -147,12 +151,14 @@ async def asyncio_detailed(
      Delete every config, flag, logger, log group, context, context type, environment, and customer API
     key (except the caller's current key) on the account. The ``common`` config is preserved as a
     structural anchor but its items are reset. Requires ``OWNER`` role and a ``{\"confirm\": true}``
-    body — anything else returns 400. Returns 204 on success; if any sub-delete fails the response is
-    500.
+    body — anything else returns 400. Pass ``\"generate_sample_data\": true`` to re-seed the account
+    with the standard sample dataset after the wipe completes (best-effort; seed failures are logged but
+    do not fail the wipe). Returns 204 on success; if any sub-delete fails the response is 500.
 
     Args:
         body (AccountWipeRequest): Confirmation envelope for ``POST
-            /accounts/current/actions/wipe``. Example: {'confirm': True}.
+            /accounts/current/actions/wipe``. Example: {'confirm': True, 'generate_sample_data':
+            False}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -181,12 +187,14 @@ async def asyncio(
      Delete every config, flag, logger, log group, context, context type, environment, and customer API
     key (except the caller's current key) on the account. The ``common`` config is preserved as a
     structural anchor but its items are reset. Requires ``OWNER`` role and a ``{\"confirm\": true}``
-    body — anything else returns 400. Returns 204 on success; if any sub-delete fails the response is
-    500.
+    body — anything else returns 400. Pass ``\"generate_sample_data\": true`` to re-seed the account
+    with the standard sample dataset after the wipe completes (best-effort; seed failures are logged but
+    do not fail the wipe). Returns 204 on success; if any sub-delete fails the response is 500.
 
     Args:
         body (AccountWipeRequest): Confirmation envelope for ``POST
-            /accounts/current/actions/wipe``. Example: {'confirm': True}.
+            /accounts/current/actions/wipe``. Example: {'confirm': True, 'generate_sample_data':
+            False}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
