@@ -16,7 +16,10 @@ import asyncio
 
 from smplkit import AsyncSmplClient, Context, Op, Rule
 
-from setup.flags_runtime_setup import setup_runtime_showcase, cleanup_runtime_showcase
+from setup.flags_runtime_setup import (
+    setup_runtime_showcase,
+    cleanup_runtime_showcase,
+)
 
 # ---------------------------------------------------------------------------
 # Note: this showcase calls client.set_context(...) inline to demonstrate
@@ -80,7 +83,9 @@ def _create_context(user: dict, account: dict) -> list[Context]:
 async def main() -> None:
 
     # create the client (use SmplClient for synchronous use)
-    async with AsyncSmplClient(environment="staging", service="showcase-service") as client:
+    async with AsyncSmplClient(
+        environment="staging", service="showcase-service"
+    ) as client:
         await setup_runtime_showcase(client.manage)
         await client.wait_until_ready()
 
@@ -97,7 +102,10 @@ async def main() -> None:
         @client.flags.on_change
         def on_any_change(event):
             all_changes.append({"id": event.id, "source": event.source})
-            print(f"    Global flag listener: '{event.id}' updated via {event.source}")
+            print(
+                f"    Global flag listener: '{event.id}' "
+                f"updated via {event.source}"
+            )
 
         # flag listener — fires only when a specific flag changes
         @client.flags.on_change("banner-color")
@@ -106,15 +114,23 @@ async def main() -> None:
             print("    banner-color flag changed!")
 
         # request 1 — Alice from a large tech account
-        with client.set_context(_create_context(_alice, _large_technology_account)):
+        with client.set_context(
+            _create_context(_alice, _large_technology_account)
+        ):
             checkout_result = checkout_v2.get()
             print(f"checkout-v2 = {checkout_result}")
-            assert checkout_result is True, f"Expected True, got {checkout_result}"
-            assert isinstance(checkout_result, bool), "Expected bool return type"
+            assert checkout_result is True, (
+                f"Expected True, got {checkout_result}"
+            )
+            assert isinstance(checkout_result, bool), (
+                "Expected bool return type"
+            )
 
             banner_result = banner_color.get()
             print(f"banner-color = {banner_result}")
-            assert banner_result == "blue", f"Expected 'blue', got {banner_result}"
+            assert banner_result == "blue", (
+                f"Expected 'blue', got {banner_result}"
+            )
             assert isinstance(banner_result, str), "Expected str return type"
 
             retries_result = max_retries.get()
@@ -137,7 +153,9 @@ async def main() -> None:
 
             # nested scoped override — temporarily impersonate Alice without
             # disturbing the surrounding request's context.
-            with client.set_context(_create_context(_alice, _large_technology_account)):
+            with client.set_context(
+                _create_context(_alice, _large_technology_account)
+            ):
                 scoped_result = checkout_v2.get()
                 print(f"checkout-v2 (scoped: Alice) = {scoped_result}")
                 assert scoped_result is True
@@ -148,7 +166,12 @@ async def main() -> None:
         # get a flag's value (explicitly pass context)
         explicit_result = checkout_v2.get(
             context=[
-                Context("user", "john.smith@acme.com", plan="free", beta_tester=False),
+                Context(
+                    "user",
+                    "john.smith@acme.com",
+                    plan="free",
+                    beta_tester=False,
+                ),
                 Context("account", "1111", region="jp"),
             ]
         )
@@ -164,12 +187,16 @@ async def main() -> None:
         )
         await current_banner.save()
 
-        # give the websocket a moment to deliver the change event
+        # wait a moment for the event to be delivered
         await asyncio.sleep(0.2)
 
         # verify both listeners fired
-        assert len(all_changes) >= 1, f"Expected at least one global change, got {len(all_changes)}"
-        assert len(banner_changes) >= 1, f"Expected at least one banner change, got {len(banner_changes)}"
+        assert len(all_changes) >= 1, (
+            f"Expected at least one global change, got {len(all_changes)}"
+        )
+        assert len(banner_changes) >= 1, (
+            f"Expected at least one banner change, got {len(banner_changes)}"
+        )
 
         await cleanup_runtime_showcase(client.manage)
         print("Done!")

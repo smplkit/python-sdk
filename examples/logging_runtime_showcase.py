@@ -21,7 +21,10 @@ import logging as stdlib_logging
 
 from smplkit import AsyncSmplClient, LogLevel
 
-from setup.logging_runtime_setup import setup_runtime_showcase, cleanup_runtime_showcase
+from setup.logging_runtime_setup import (
+    setup_runtime_showcase,
+    cleanup_runtime_showcase,
+)
 
 
 def python_level_name(logger_name: str) -> str:
@@ -35,12 +38,16 @@ async def main() -> None:
     # application loggers — what your code uses
     stdlib_logging.getLogger("app").setLevel(stdlib_logging.INFO)
     stdlib_logging.getLogger("app.payments").setLevel(stdlib_logging.WARNING)
-    stdlib_logging.getLogger("sqlalchemy.engine").setLevel(stdlib_logging.WARNING)
+    stdlib_logging.getLogger("sqlalchemy.engine").setLevel(
+        stdlib_logging.WARNING
+    )
 
     ENVIRONMENT = "production"
 
     # create the client (use SmplClient for synchronous use)
-    async with AsyncSmplClient(environment=ENVIRONMENT, service="showcase-service") as client:
+    async with AsyncSmplClient(
+        environment=ENVIRONMENT, service="showcase-service"
+    ) as client:
         await setup_runtime_showcase(client.manage, environment=ENVIRONMENT)
 
         all_changes: list = []
@@ -79,19 +86,23 @@ async def main() -> None:
         #   5. System fallback: INFO
         print(f"  app → {python_level_name('app')}")
         print(f"  app.payments → {python_level_name('app.payments')}")
-        print(f"  sqlalchemy.engine → {python_level_name('sqlalchemy.engine')}")
+        print(
+            f"  sqlalchemy.engine → {python_level_name('sqlalchemy.engine')}"
+        )
 
         # change a group level — all members shift
         db_group = await client.manage.log_groups.get("databases")
-        print(f"sqlalchemy.engine before: {python_level_name('sqlalchemy.engine')}")
+        before = python_level_name("sqlalchemy.engine")
+        print(f"sqlalchemy.engine before: {before}")
 
         db_group.set_level(LogLevel.DEBUG, environment=ENVIRONMENT)
         await db_group.save()
-        print(f"Changed databases group {ENVIRONMENT} override: WARN → DEBUG")
+        print(f"Changed databases group {ENVIRONMENT} override: WARN -> DEBUG")
 
         await asyncio.sleep(2)
 
-        print(f"sqlalchemy.engine after: {python_level_name('sqlalchemy.engine')}")
+        after = python_level_name("sqlalchemy.engine")
+        print(f"sqlalchemy.engine after: {after}")
 
         # change an ancestor level — dot-notation children shift
         app_lg = await client.manage.loggers.get("app")
@@ -117,7 +128,7 @@ async def main() -> None:
         print(f"app after: {python_level_name('app')}")
         print(f"app.payments after: {python_level_name('app.payments')}")
 
-        # continuous discovery — new Python loggers created after start() are picked up
+        # continuous discovery — new loggers after start() are picked up
         new_logger = stdlib_logging.getLogger("app.notifications")
         new_logger.setLevel(stdlib_logging.INFO)
         print("Created: app.notifications (INFO)")

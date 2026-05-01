@@ -61,7 +61,8 @@ class TestResolveSyncPrescriptive:
     def test_resolve_returns_flat_dict(self):
         client = _make_connected_client()
         result = client.config.get("db")
-        assert result == {
+        assert isinstance(result, LiveConfigProxy)
+        assert dict(result) == {
             "host": "localhost",
             "port": 5432,
             "retries": 3,
@@ -72,7 +73,7 @@ class TestResolveSyncPrescriptive:
 
     def test_resolve_returns_empty_for_missing_config(self):
         client = _make_connected_client()
-        assert client.config.get("nonexistent") == {}
+        assert dict(client.config.get("nonexistent")) == {}
 
     def test_resolve_with_dataclass_model(self):
         client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
@@ -83,7 +84,6 @@ class TestResolveSyncPrescriptive:
                 self.port = port
 
         result = client.config.get("db", model=DbConfig)
-        assert isinstance(result, DbConfig)
         assert result.host == "localhost"
         assert result.port == 5432
 
@@ -99,7 +99,6 @@ class TestResolveSyncPrescriptive:
                 return obj
 
         result = client.config.get("db", model=FakePydantic)
-        assert isinstance(result, FakePydantic)
         assert result.host == "localhost"
 
     def test_resolve_unflattens_dot_keys_for_model(self):
@@ -133,6 +132,7 @@ class TestResolveAsyncPrescriptive:
 
         async def _run():
             result = await client.config.get("db")
+            assert isinstance(result, LiveConfigProxy)
             assert result["host"] == "localhost"
             assert result["port"] == 5432
 
@@ -142,7 +142,7 @@ class TestResolveAsyncPrescriptive:
         client = _make_connected_async_client()
 
         async def _run():
-            assert await client.config.get("nonexistent") == {}
+            assert dict(await client.config.get("nonexistent")) == {}
 
         asyncio.run(_run())
 
@@ -156,7 +156,6 @@ class TestResolveAsyncPrescriptive:
 
         async def _run():
             result = await client.config.get("db", model=DbConfig)
-            assert isinstance(result, DbConfig)
             assert result.host == "localhost"
 
         asyncio.run(_run())
@@ -173,37 +172,32 @@ class TestResolveAsyncPrescriptive:
 
         async def _run():
             result = await client.config.get("db", model=FakePydantic)
-            assert isinstance(result, FakePydantic)
+            assert result.host == "localhost"
 
         asyncio.run(_run())
 
 
 # ===================================================================
-# 3. subscribe() + LiveConfigProxy — sync
+# 3. LiveConfigProxy returned by get() — sync
 # ===================================================================
 
 
-class TestSubscribeSyncPrescriptive:
-    def test_subscribe_returns_proxy(self):
-        client = _make_connected_client()
-        proxy = client.config.subscribe("db")
-        assert isinstance(proxy, LiveConfigProxy)
-
+class TestGetProxyBehaviorSync:
     def test_proxy_attribute_access(self):
         client = _make_connected_client()
-        proxy = client.config.subscribe("db")
+        proxy = client.config.get("db")
         assert proxy.host == "localhost"
         assert proxy.port == 5432
 
     def test_proxy_getitem_access(self):
         client = _make_connected_client()
-        proxy = client.config.subscribe("db")
+        proxy = client.config.get("db")
         assert proxy["host"] == "localhost"
         assert proxy["port"] == 5432
 
     def test_proxy_reflects_cache_updates(self):
         client = _make_connected_client()
-        proxy = client.config.subscribe("db")
+        proxy = client.config.get("db")
         assert proxy.host == "localhost"
 
         # Simulate cache update (as refresh() would do)
@@ -212,45 +206,19 @@ class TestSubscribeSyncPrescriptive:
 
     def test_proxy_missing_attribute_raises(self):
         client = _make_connected_client()
-        proxy = client.config.subscribe("db")
+        proxy = client.config.get("db")
         with pytest.raises(AttributeError, match="No config item"):
             _ = proxy.nonexistent
 
     def test_proxy_missing_getitem_raises(self):
         client = _make_connected_client()
-        proxy = client.config.subscribe("db")
+        proxy = client.config.get("db")
         with pytest.raises(KeyError):
             _ = proxy["nonexistent"]
 
-    def test_proxy_with_model(self):
-        client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
-
-        class DbConfig:
-            def __init__(self, host, port):
-                self.host = host
-                self.port = port
-
-        proxy = client.config.subscribe("db", model=DbConfig)
-        assert proxy.host == "localhost"
-        assert proxy.port == 5432
-
-    def test_proxy_with_pydantic_model(self):
-        client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
-
-        class FakePydantic:
-            @classmethod
-            def model_validate(cls, data):
-                obj = cls()
-                obj.host = data["host"]
-                obj.port = data["port"]
-                return obj
-
-        proxy = client.config.subscribe("db", model=FakePydantic)
-        assert proxy.host == "localhost"
-
     def test_proxy_repr_without_model(self):
         client = _make_connected_client()
-        proxy = client.config.subscribe("db")
+        proxy = client.config.get("db")
         r = repr(proxy)
         assert "LiveConfigProxy" in r
         assert "db" in r
@@ -262,39 +230,60 @@ class TestSubscribeSyncPrescriptive:
             def __init__(self, host):
                 self.host = host
 
-        proxy = client.config.subscribe("db", model=DbConfig)
+        proxy = client.config.get("db", model=DbConfig)
         r = repr(proxy)
         assert "LiveConfigProxy" in r
         assert "DbConfig" in r
 
     def test_proxy_for_missing_config_returns_empty(self):
         client = _make_connected_client()
-        proxy = client.config.subscribe("nonexistent")
+        proxy = client.config.get("nonexistent")
         # getitem on empty cache
         with pytest.raises(KeyError):
             _ = proxy["anything"]
 
+    def test_proxy_contains(self):
+        client = _make_connected_client()
+        proxy = client.config.get("db")
+        assert "host" in proxy
+        assert "nope" not in proxy
+
+    def test_proxy_len(self):
+        client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
+        proxy = client.config.get("db")
+        assert len(proxy) == 2
+
+    def test_proxy_iter(self):
+        client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
+        proxy = client.config.get("db")
+        assert sorted(iter(proxy)) == ["host", "port"]
+
+    def test_proxy_keys_values_items(self):
+        client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
+        proxy = client.config.get("db")
+        assert sorted(proxy.keys()) == ["host", "port"]
+        assert set(proxy.values()) == {"localhost", 5432}
+        assert dict(proxy.items()) == {"host": "localhost", "port": 5432}
+
+    def test_proxy_get_method(self):
+        client = _make_connected_client({"db": {"host": "localhost"}})
+        proxy = client.config.get("db")
+        assert proxy.get("host") == "localhost"
+        assert proxy.get("missing") is None
+        assert proxy.get("missing", "fallback") == "fallback"
+
 
 # ===================================================================
-# 4. subscribe() + LiveConfigProxy — async
+# 4. LiveConfigProxy returned by get() — async
 # ===================================================================
 
 
-class TestSubscribeAsyncPrescriptive:
-    def test_subscribe_returns_proxy(self):
-        client = _make_connected_async_client()
-
-        async def _run():
-            proxy = await client.config.subscribe("db")
-            assert isinstance(proxy, LiveConfigProxy)
-
-        asyncio.run(_run())
-
+class TestGetProxyBehaviorAsync:
     def test_proxy_attribute_access(self):
         client = _make_connected_async_client()
 
         async def _run():
-            proxy = await client.config.subscribe("db")
+            proxy = await client.config.get("db")
             assert proxy.host == "localhost"
 
         asyncio.run(_run())
@@ -303,7 +292,7 @@ class TestSubscribeAsyncPrescriptive:
         client = _make_connected_async_client()
 
         async def _run():
-            proxy = await client.config.subscribe("db")
+            proxy = await client.config.get("db")
             assert proxy["host"] == "localhost"
 
         asyncio.run(_run())
@@ -312,7 +301,7 @@ class TestSubscribeAsyncPrescriptive:
         client = _make_connected_async_client()
 
         async def _run():
-            proxy = await client.config.subscribe("db")
+            proxy = await client.config.get("db")
             assert proxy.host == "localhost"
             client.config._config_cache["db"]["host"] = "updated"
             assert proxy.host == "updated"

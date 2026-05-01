@@ -864,7 +864,7 @@ class TestConfigInstrumentation:
 
         result = client.get("my-config")
 
-        assert result == {"host": "localhost"}
+        assert dict(result) == {"host": "localhost"}
         metrics = parent._metrics
         counters = dict(metrics._counters)
         names = {k[0] for k in counters}
@@ -882,7 +882,7 @@ class TestConfigInstrumentation:
         client._config_cache["my-config"] = {"host": "localhost"}
 
         result = client.get("my-config")
-        assert result == {"host": "localhost"}
+        assert dict(result) == {"host": "localhost"}
 
     def test_change_listeners_record_metric(self):
         client, parent = self._make_config_client()

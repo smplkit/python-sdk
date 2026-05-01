@@ -4,11 +4,18 @@ from __future__ import annotations
 
 from smplkit import AsyncSmplManagementClient, LogLevel, NotFoundError
 
-_DEMO_LOGGER_IDS = ["app", "app.payments", "sqlalchemy.engine", "app.notifications"]
+_DEMO_LOGGER_IDS = [
+    "app",
+    "app.payments",
+    "sqlalchemy.engine",
+    "app.notifications",
+]
 _DEMO_GROUP_IDS = ["databases"]
 
 
-async def setup_runtime_showcase(manage: AsyncSmplManagementClient, environment: str) -> None:
+async def setup_runtime_showcase(
+    manage: AsyncSmplManagementClient, environment: str
+) -> None:
     await cleanup_runtime_showcase(manage)
 
     db_group = manage.log_groups.new("databases", name="Databases")
@@ -21,10 +28,14 @@ async def setup_runtime_showcase(manage: AsyncSmplManagementClient, environment:
     app_lg.set_level(LogLevel.ERROR, environment=environment)
     await app_lg.save()
 
-    payments_lg = manage.loggers.new("app.payments", name="app.payments", managed=True)
+    payments_lg = manage.loggers.new(
+        "app.payments", name="app.payments", managed=True
+    )
     await payments_lg.save()
 
-    sqla_lg = manage.loggers.new("sqlalchemy.engine", name="sqlalchemy.engine", managed=True)
+    sqla_lg = manage.loggers.new(
+        "sqlalchemy.engine", name="sqlalchemy.engine", managed=True
+    )
     sqla_lg.group = db_group.id
     await sqla_lg.save()
 

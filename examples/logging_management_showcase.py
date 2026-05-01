@@ -20,7 +20,10 @@ import asyncio
 
 from smplkit import AsyncSmplManagementClient, LogLevel
 
-from setup.logging_management_setup import cleanup_management_showcase, setup_management_showcase
+from setup.logging_management_setup import (
+    cleanup_management_showcase,
+    setup_management_showcase,
+)
 
 
 async def main() -> None:
@@ -33,20 +36,34 @@ async def main() -> None:
         app_lg = mgmt.loggers.new("app", name="app", managed=True)
         app_lg.set_level(LogLevel.WARN)
         await app_lg.save()
-        print(f"Created: id={app_lg.id}, managed={app_lg.managed}, level={app_lg.level}")
+        print(
+            f"Created: id={app_lg.id}, managed={app_lg.managed}, "
+            f"level={app_lg.level}"
+        )
 
-        # unmanaged — inherits effective level from dot-notation ancestor "app"
+        # unmanaged — inherits effective level from dot-notation ancestor
         payments_lg = mgmt.loggers.new("app.payments", name="app.payments")
         await payments_lg.save()
-        print(f"Created: id={payments_lg.id}, managed={payments_lg.managed}, level={payments_lg.level or '(null)'}")
+        print(
+            f"Created: id={payments_lg.id}, "
+            f"managed={payments_lg.managed}, "
+            f"level={payments_lg.level or '(null)'}"
+        )
 
-        sqla_lg = mgmt.loggers.new("sqlalchemy.engine", name="sqlalchemy.engine", managed=True)
+        sqla_lg = mgmt.loggers.new(
+            "sqlalchemy.engine", name="sqlalchemy.engine", managed=True
+        )
         sqla_lg.set_level(LogLevel.WARN)
         await sqla_lg.save()
-        print(f"Created: id={sqla_lg.id}, managed={sqla_lg.managed}, level={sqla_lg.level}")
+        print(
+            f"Created: id={sqla_lg.id}, managed={sqla_lg.managed}, "
+            f"level={sqla_lg.level}"
+        )
 
         # unmanaged loggers do not consume managed-logger slots
-        unmanaged_lg = mgmt.loggers.new("app.internal.debug", name="app.internal.debug", managed=False)
+        unmanaged_lg = mgmt.loggers.new(
+            "app.internal.debug", name="app.internal.debug", managed=False
+        )
         await unmanaged_lg.save()
         print(f"Created: id={unmanaged_lg.id}, managed={unmanaged_lg.managed}")
 
@@ -54,7 +71,8 @@ async def main() -> None:
         loggers = await mgmt.loggers.list()
         print(f"Total loggers: {len(loggers)}")
         for lg in loggers:
-            print(f"  {lg.id} (managed={lg.managed}, level={lg.level or '(null)'})")
+            lvl = lg.level or "(null)"
+            print(f"  {lg.id} (managed={lg.managed}, level={lvl})")
 
         # get a logger by id
         fetched = await mgmt.loggers.get("app")
@@ -74,10 +92,14 @@ async def main() -> None:
         await app_lg.save()
         print(f"Set app environment overrides: {app_lg.environments}")
 
-        # clear level — restore inheritance (auto-demoted when all configuration is cleared)
+        # clear level — restore inheritance (auto-demoted when fully cleared)
         sqla_lg.clear_level()
         await sqla_lg.save()
-        print(f"Cleared sqlalchemy.engine level → {sqla_lg.level or '(null)'}, managed={sqla_lg.managed}")
+        lvl = sqla_lg.level or "(null)"
+        print(
+            f"Cleared sqlalchemy.engine level → {lvl}, "
+            f"managed={sqla_lg.managed}"
+        )
 
         app_lg.clear_all_environment_levels()
         await app_lg.save()
@@ -112,10 +134,15 @@ async def main() -> None:
         http_group.set_level(LogLevel.DEBUG)
         http_group.set_level(LogLevel.WARN, environment="production")
         await http_group.save()
-        print(f"Updated {http_group.id}: level={http_group.level}, envs={http_group.environments}")
+        print(
+            f"Updated {http_group.id}: level={http_group.level}, "
+            f"envs={http_group.environments}"
+        )
 
         # group assignment
-        sqla_lg.managed = True  # re-promote before group assignment (auto-demoted above)
+        sqla_lg.managed = (
+            True  # re-promote before group assignment (auto-demoted above)
+        )
         sqla_lg.group = db_group.id
         await sqla_lg.save()
         print(f"Assigned sqlalchemy.engine → group '{db_group.id}'")
@@ -135,9 +162,11 @@ async def main() -> None:
         )
         sqla_lg.managed = False
         await sqla_lg.save()
+        lvl = sqla_lg.level or "(null)"
+        grp = sqla_lg.group or "(null)"
         print(
-            f"After release: managed={sqla_lg.managed}, level={sqla_lg.level or '(null)'}, "
-            f"group={sqla_lg.group or '(null)'}, environments={sqla_lg.environments}"
+            f"After release: managed={sqla_lg.managed}, level={lvl}, "
+            f"group={grp}, environments={sqla_lg.environments}"
         )
 
         # re-promote — starts fresh with level=NULL

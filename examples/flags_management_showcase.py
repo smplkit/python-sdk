@@ -16,7 +16,10 @@ import asyncio
 
 from smplkit import AsyncSmplManagementClient, FlagValue, Op, Rule
 
-from setup.flags_management_setup import cleanup_management_showcase, setup_management_showcase
+from setup.flags_management_setup import (
+    cleanup_management_showcase,
+    setup_management_showcase,
+)
 
 
 async def main() -> None:
@@ -64,18 +67,28 @@ async def main() -> None:
             default={"mode": "light", "accent": "#0066cc"},
             description="Controls the UI theme configuration.",
             values=[
-                FlagValue(name="Light", value={"mode": "light", "accent": "#0066cc"}),
-                FlagValue(name="Dark", value={"mode": "dark", "accent": "#66ccff"}),
-                FlagValue(name="High Contrast", value={"mode": "dark", "accent": "#ffffff"}),
+                FlagValue(
+                    name="Light", value={"mode": "light", "accent": "#0066cc"}
+                ),
+                FlagValue(
+                    name="Dark", value={"mode": "dark", "accent": "#66ccff"}
+                ),
+                FlagValue(
+                    name="High Contrast",
+                    value={"mode": "dark", "accent": "#ffffff"},
+                ),
             ],
         )
         await theme_flag.save()
         print(f"Created flag: {theme_flag.id}")
 
-        # checkout_flag (serve true in staging to enterprise users in the US region)
+        # checkout_flag (serve true in staging to enterprise US users)
         checkout_flag.enable_rules(environment="staging")
         checkout_flag.add_rule(
-            Rule("Enable for enterprise users in US region", environment="staging")
+            Rule(
+                "Enable for enterprise users in US region",
+                environment="staging",
+            )
             .when("user.plan", Op.EQ, "enterprise")
             .when("account.region", Op.EQ, "us")
             .serve(True)
@@ -83,7 +96,9 @@ async def main() -> None:
 
         # checkout_flag (serve true in staging for beta testers)
         checkout_flag.add_rule(
-            Rule("Enable for beta testers", environment="staging").when("user.beta_tester", Op.EQ, True).serve(True)
+            Rule("Enable for beta testers", environment="staging")
+            .when("user.beta_tester", Op.EQ, True)
+            .serve(True)
         )
 
         # checkout_flag (disabled rules; serve false in production)
@@ -96,14 +111,19 @@ async def main() -> None:
         flags = await manage.flags.list()
         print(f"Total flags: {len(flags)}")
         for f in flags:
-            env_keys = list(f.environments.keys()) if f.environments else []
-            print(f"  {f.id} ({f.type}) — default={f.default}, environments={env_keys}")
+            envs = list(f.environments.keys()) if f.environments else []
+            print(
+                f"  {f.id} ({f.type}) — default={f.default}, "
+                f"environments={envs}"
+            )
 
         # get a flag
         fetched = await manage.flags.get("checkout-v2")
         print(f"\nFetched by id: {fetched.id}")
-        print(f"  staging rules: {len(fetched.environments['staging'].rules)}")
-        print(f"  production enabled: {fetched.environments['production'].enabled}")
+        staging_rules = len(fetched.environments["staging"].rules)
+        prod_enabled = fetched.environments["production"].enabled
+        print(f"  staging rules: {staging_rules}")
+        print(f"  production enabled: {prod_enabled}")
 
         # update a flag
         banner_flag.add_value("Purple", "purple")

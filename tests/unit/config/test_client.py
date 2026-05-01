@@ -382,14 +382,15 @@ class TestConfigClientResolve:
         client.config._config_cache = {"db": {"host": "localhost", "port": 5432}}
 
         result = client.config.get("db")
-        assert result == {"host": "localhost", "port": 5432}
+        assert isinstance(result, LiveConfigProxy)
+        assert dict(result) == {"host": "localhost", "port": 5432}
 
     def test_resolve_returns_empty_for_missing_id(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         client.config._connected = True
         client.config._config_cache = {}
 
-        assert client.config.get("missing") == {}
+        assert dict(client.config.get("missing")) == {}
 
     def test_resolve_triggers_connect(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
@@ -409,7 +410,6 @@ class TestConfigClientResolve:
                 self.port = port
 
         result = client.config.get("db", model=DbConfig)
-        assert isinstance(result, DbConfig)
         assert result.host == "localhost"
         assert result.port == 5432
 
@@ -427,7 +427,6 @@ class TestConfigClientResolve:
                 return obj
 
         result = client.config.get("db", model=FakePydanticModel)
-        assert isinstance(result, FakePydanticModel)
         assert result.host == "localhost"
 
     def test_resolve_unflattens_dot_notation(self):
@@ -444,25 +443,53 @@ class TestConfigClientResolve:
 
 
 # ===================================================================
-# ConfigClient — subscribe()
+# LiveConfigProxy — proxy.on_change(...) sugar
 # ===================================================================
 
 
-class TestConfigClientSubscribe:
-    def test_subscribe_returns_live_proxy(self):
+class TestLiveConfigProxyOnChange:
+    def _proxy(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         client.config._connected = True
         client.config._config_cache = {"db": {"host": "localhost"}}
+        return client, client.config.get("db")
 
-        proxy = client.config.subscribe("db")
-        assert isinstance(proxy, LiveConfigProxy)
+    def test_bare_decorator_registers_config_scoped(self):
+        client, proxy = self._proxy()
 
-    def test_subscribe_triggers_connect(self):
-        client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        with patch.object(client.config, "start") as mock_connect:
-            with patch.object(client.config, "_config_cache", {"db": {"host": "h"}}):
-                client.config.subscribe("db")
-        mock_connect.assert_called_once()
+        @proxy.on_change
+        def listener(event):
+            pass
+
+        # last listener was added with config_id="db", item_key=None
+        fn, config_id, item_key = client.config._listeners[-1]
+        assert fn is listener
+        assert config_id == "db"
+        assert item_key is None
+
+    def test_string_arg_registers_item_scoped(self):
+        client, proxy = self._proxy()
+
+        @proxy.on_change("host")
+        def listener(event):
+            pass
+
+        fn, config_id, item_key = client.config._listeners[-1]
+        assert fn is listener
+        assert config_id == "db"
+        assert item_key == "host"
+
+    def test_no_args_registers_config_scoped(self):
+        client, proxy = self._proxy()
+
+        @proxy.on_change()
+        def listener(event):
+            pass
+
+        fn, config_id, item_key = client.config._listeners[-1]
+        assert fn is listener
+        assert config_id == "db"
+        assert item_key is None
 
 
 # ===================================================================
@@ -1102,7 +1129,8 @@ class TestAsyncConfigClientResolve:
             client.config._connected = True
             client.config._config_cache = {"db": {"host": "localhost", "port": 5432}}
             result = await client.config.get("db")
-            assert result == {"host": "localhost", "port": 5432}
+            assert isinstance(result, LiveConfigProxy)
+            assert dict(result) == {"host": "localhost", "port": 5432}
 
         asyncio.run(_run())
 
@@ -1111,7 +1139,7 @@ class TestAsyncConfigClientResolve:
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             client.config._connected = True
             client.config._config_cache = {}
-            assert await client.config.get("missing") == {}
+            assert dict(await client.config.get("missing")) == {}
 
         asyncio.run(_run())
 
@@ -1127,7 +1155,6 @@ class TestAsyncConfigClientResolve:
                     self.port = port
 
             result = await client.config.get("db", model=DbConfig)
-            assert isinstance(result, DbConfig)
             assert result.host == "localhost"
 
         asyncio.run(_run())
@@ -1146,25 +1173,7 @@ class TestAsyncConfigClientResolve:
                     return obj
 
             result = await client.config.get("db", model=FakePydanticModel)
-            assert isinstance(result, FakePydanticModel)
             assert result.host == "localhost"
-
-        asyncio.run(_run())
-
-
-# ===================================================================
-# AsyncConfigClient — subscribe()
-# ===================================================================
-
-
-class TestAsyncConfigClientSubscribe:
-    def test_subscribe_returns_live_proxy(self):
-        async def _run():
-            client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            client.config._connected = True
-            client.config._config_cache = {"db": {"host": "localhost"}}
-            proxy = await client.config.subscribe("db")
-            assert isinstance(proxy, LiveConfigProxy)
 
         asyncio.run(_run())
 

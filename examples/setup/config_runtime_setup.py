@@ -5,7 +5,11 @@ from __future__ import annotations
 from smplkit import AsyncSmplManagementClient, NotFoundError
 
 _DEMO_ENVIRONMENTS = ["staging", "production"]
-_DEMO_CONFIG_IDS = ["showcase-user-service", "showcase-auth-module", "showcase-common"]
+_DEMO_CONFIG_IDS = [
+    "showcase-user-service",
+    "showcase-auth-module",
+    "showcase-common",
+]
 
 
 async def setup_runtime_showcase(manage: AsyncSmplManagementClient) -> None:
@@ -43,8 +47,14 @@ async def setup_runtime_showcase(manage: AsyncSmplManagementClient) -> None:
     user_service.set_number("cache_ttl_seconds", 300)
     user_service.set_boolean("enable_signup", True)
     user_service.set_number("pagination_default_page_size", 50)
-    user_service.set_string("database.host", "prod-users-rds.internal.acme.dev", environment="production")
-    user_service.set_string("database.name", "users_prod", environment="production")
+    user_service.set_string(
+        "database.host",
+        "prod-users-rds.internal.acme.dev",
+        environment="production",
+    )
+    user_service.set_string(
+        "database.name", "users_prod", environment="production"
+    )
     user_service.set_number("database.pool_size", 20, environment="production")
     user_service.set_number("cache_ttl_seconds", 600, environment="production")
     user_service.set_boolean("enable_signup", False, environment="production")

@@ -16,7 +16,11 @@ Usage::
 
 import asyncio
 
-from smplkit import AsyncSmplManagementClient, Context, EnvironmentClassification
+from smplkit import (
+    AsyncSmplManagementClient,
+    Context,
+    EnvironmentClassification,
+)
 
 
 def section(title: str) -> None:
@@ -64,7 +68,10 @@ async def main() -> None:
         section("2a. List built-in environments")
 
         for e in await mgmt.environments.list():
-            step(f"id={e.id!r} name={e.name!r} classification={e.classification.value!r}")
+            step(
+                f"id={e.id!r} name={e.name!r} "
+                f"classification={e.classification.value!r}"
+            )
 
         section("2b. Create an AD_HOC environment")
 
@@ -105,7 +112,13 @@ async def main() -> None:
         step(f"user: attributes={list(user_ct.attributes)}")
 
         account_ct = mgmt.context_types.new("account", name="Account")
-        for attr in ("tier", "industry", "region", "employee_count", "annual_revenue"):
+        for attr in (
+            "tier",
+            "industry",
+            "region",
+            "employee_count",
+            "annual_revenue",
+        ):
             account_ct.add_attribute(attr)
         await account_ct.save()
 
@@ -140,9 +153,19 @@ async def main() -> None:
 
         mgmt.contexts.register(
             [
-                Context("user", "usr_a1b2c3", {"plan": "free", "region": "us"}),
-                Context("user", "usr_d4e5f6", {"plan": "enterprise", "region": "eu"}),
-                Context("account", "acct_acme_inc", {"tier": "enterprise", "industry": "retail"}),
+                Context(
+                    "user", "usr_a1b2c3", {"plan": "free", "region": "us"}
+                ),
+                Context(
+                    "user",
+                    "usr_d4e5f6",
+                    {"plan": "enterprise", "region": "eu"},
+                ),
+                Context(
+                    "account",
+                    "acct_acme_inc",
+                    {"tier": "enterprise", "industry": "retail"},
+                ),
             ]
         )
         await mgmt.contexts.flush()

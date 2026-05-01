@@ -17,7 +17,10 @@ import asyncio
 
 from smplkit import AsyncSmplManagementClient
 
-from setup.config_management_setup import cleanup_management_showcase, setup_management_showcase
+from setup.config_management_setup import (
+    cleanup_management_showcase,
+    setup_management_showcase,
+)
 
 
 async def main() -> None:
@@ -38,7 +41,9 @@ async def main() -> None:
         shared.set_number("request_timeout_ms", 5000)
         shared.set_number("pagination_default_page_size", 25)
         shared.set_number("max_retries", 5, environment="production")
-        shared.set_number("request_timeout_ms", 10000, environment="production")
+        shared.set_number(
+            "request_timeout_ms", 10000, environment="production"
+        )
         shared.set_number("max_retries", 2, environment="staging")
         await shared.save()
         print(f"Created config: {shared.id}")
@@ -60,18 +65,32 @@ async def main() -> None:
         await user_service.save()
 
         # update a config
-        user_service.set_string("database.host", "prod-users-rds.internal.acme.dev", environment="production")
-        user_service.set_string("database.name", "users_prod", environment="production")
-        user_service.set_number("database.pool_size", 20, environment="production")
-        user_service.set_number("cache_ttl_seconds", 600, environment="production")
-        user_service.set_boolean("enable_signup", False, environment="production")
+        user_service.set_string(
+            "database.host",
+            "prod-users-rds.internal.acme.dev",
+            environment="production",
+        )
+        user_service.set_string(
+            "database.name", "users_prod", environment="production"
+        )
+        user_service.set_number(
+            "database.pool_size", 20, environment="production"
+        )
+        user_service.set_number(
+            "cache_ttl_seconds", 600, environment="production"
+        )
+        user_service.set_boolean(
+            "enable_signup", False, environment="production"
+        )
         await user_service.save()
         print(f"Updated config: {user_service.id}")
 
         # list configs
         configs = await manage.config.list()
         for cfg in configs:
-            parent_info = f" (parent: {cfg.parent})" if cfg.parent else " (root)"
+            parent_info = (
+                f" (parent: {cfg.parent})" if cfg.parent else " (root)"
+            )
             print(f"  {cfg.id}{parent_info}")
 
         # get a config

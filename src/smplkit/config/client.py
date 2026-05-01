@@ -13,7 +13,7 @@ import logging
 import threading
 from collections.abc import Callable
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar, overload
 
 from smplkit._errors import (
     ConflictError,
@@ -42,6 +42,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("smplkit")
 ws_logger = logging.getLogger("smplkit.config.ws")
+
+# Type var for the optional ``model`` arg on get() — lets customers see
+# ``cfg: UserServiceConfig`` in their IDE rather than ``LiveConfigProxy``
+# when they pass a model class.
+_M = TypeVar("_M")
 
 
 def _check_response_status(status_code: HTTPStatus, content: bytes) -> None:
@@ -132,16 +137,24 @@ class ConfigChangeEvent:
 
 
 class LiveConfigProxy:
-    """A live proxy that always reflects the latest resolved config values.
+    """A live, dict-like view of resolved config values.
 
-    Returned by :meth:`ConfigClient.subscribe` and
-    :meth:`AsyncConfigClient.subscribe`.
+    Returned by :meth:`ConfigClient.get` and :meth:`AsyncConfigClient.get`.
+    Always reflects the latest server-pushed state — every read sees
+    current values.
 
     Attribute access returns the current resolved value for the given
     item key. If a *model* was provided, the model is reconstructed
-    from the latest values on each access.
+    from the latest values on each access (so attribute access type-checks
+    against the model).
 
-    Supports both ``proxy.attr`` and ``proxy["key"]`` access styles.
+    Also implements the standard ``Mapping`` API: ``proxy["key"]``,
+    ``key in proxy``, ``len(proxy)``, ``for k in proxy``, ``proxy.keys()``,
+    ``proxy.values()``, ``proxy.items()``, ``proxy.get(key, default)``.
+
+    Note: customer config items whose names collide with dict-method names
+    (``keys``, ``values``, ``items``, ``get``) are shadowed for attribute
+    access — use subscript (``proxy["values"]``) for those.
     """
 
     def __init__(
@@ -171,6 +184,27 @@ class LiveConfigProxy:
             return model.model_validate(nested)
         return model(**nested)
 
+    def on_change(self, fn_or_key: Callable[[ConfigChangeEvent], None] | str | None = None) -> Any:
+        """Register a change listener scoped to this config.
+
+        Supports three forms:
+
+        - ``@proxy.on_change`` — fires on any change to this config.
+        - ``@proxy.on_change("item_key")`` — fires only when ``item_key`` changes.
+        - ``@proxy.on_change()`` — same as the bare-decorator form.
+
+        Equivalent to ``client.config.on_change(self._config_id, ...)``;
+        offered as sugar so customers who already have a live proxy can
+        register listeners without re-stating the config id.
+        """
+        client = object.__getattribute__(self, "_client")
+        config_id = object.__getattribute__(self, "_config_id")
+        if callable(fn_or_key):
+            return client.on_change(config_id)(fn_or_key)
+        if isinstance(fn_or_key, str):
+            return client.on_change(config_id, item_key=fn_or_key)
+        return client.on_change(config_id)
+
     def __getattr__(self, name: str) -> Any:
         model = object.__getattribute__(self, "_model")
         if model is not None:
@@ -186,6 +220,27 @@ class LiveConfigProxy:
         values = self._current_values()
         return values[key]
 
+    def __iter__(self):
+        return iter(self._current_values())
+
+    def __contains__(self, key: object) -> bool:
+        return key in self._current_values()
+
+    def __len__(self) -> int:
+        return len(self._current_values())
+
+    def keys(self):
+        return self._current_values().keys()
+
+    def values(self):
+        return self._current_values().values()
+
+    def items(self):
+        return self._current_values().items()
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._current_values().get(key, default)
+
     def __repr__(self) -> str:
         config_id = object.__getattribute__(self, "_config_id")
         model = object.__getattribute__(self, "_model")
@@ -198,7 +253,7 @@ class ConfigClient:
     """Synchronous runtime client for Smpl Config.
 
     Obtained via ``SmplClient(...).config``. Exposes value resolution
-    (``get``/``subscribe``) and refresh/change-listener APIs. CRUD has
+    (``get``) and refresh/change-listener APIs. CRUD has
     moved to :class:`smplkit.SmplManagementClient` (``mgmt.config.*``).
     """
 
@@ -269,53 +324,36 @@ class ConfigClient:
         return _resource_to_config(None, response.parsed.data)
 
     # ------------------------------------------------------------------
-    # Runtime: get / subscribe
+    # Runtime: get
     # ------------------------------------------------------------------
 
-    def get(self, id: str, model: type | None = None) -> Any:
-        """Return resolved config values for *id*.
+    @overload
+    def get(self, id: str) -> LiveConfigProxy: ...
+    @overload
+    def get(self, id: str, model: type[_M]) -> _M: ...
+    def get(self, id: str, model: type[_M] | None = None) -> Any:
+        """Return a live, dict-like view of the resolved values for *id*.
 
-        If *model* is ``None``, returns a flat ``dict[str, Any]`` of
-        resolved values.
+        Without ``model``, returns a :class:`LiveConfigProxy` that behaves
+        like a ``dict[str, Any]`` (``proxy["key"]``, iteration, ``items()``,
+        ``len()``) and updates automatically as the server pushes changes.
 
-        If *model* is provided, dot-notation keys (e.g. ``"database.host"``)
-        are expanded into nested structures and the model is constructed.
-        Supports Pydantic models, dataclasses, or any class accepting
-        keyword arguments.
+        With ``model``, the return value type-checks as *model* — attribute
+        access (``cfg.database.host``) walks a model rebuilt from the
+        current values on each read, so the customer sees the model's
+        type signature in their IDE while still tracking live data.
 
         Args:
             id: The config id to resolve.
-            model: Optional model class to construct from resolved values.
+            model: Optional model class to project attribute access through.
 
         Returns:
-            A flat dict, or an instance of *model*.
+            A :class:`LiveConfigProxy` (typed as *model* when supplied).
         """
         self.start()
-        values = dict(self._config_cache.get(id, {}))
         metrics = self._metrics
         if metrics is not None:
             metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
-        if model is None:
-            return values
-        nested = _unflatten(values)
-        if hasattr(model, "model_validate"):
-            return model.model_validate(nested)
-        return model(**nested)
-
-    def subscribe(self, id: str, model: type | None = None) -> LiveConfigProxy:
-        """Return a :class:`LiveConfigProxy` for *id*.
-
-        Values update automatically after :meth:`refresh`.
-
-        Args:
-            id: The config id to subscribe to.
-            model: Optional model class — if provided, attribute access
-                returns a model instance built from the latest values.
-
-        Returns:
-            A :class:`LiveConfigProxy`.
-        """
-        self.start()
         return LiveConfigProxy(self, id, model)
 
     # ------------------------------------------------------------------
@@ -540,52 +578,34 @@ class AsyncConfigClient:
         return [_resource_to_async_config(None, r) for r in response.parsed.data]
 
     # ------------------------------------------------------------------
-    # Runtime: get / subscribe
+    # Runtime: get
     # ------------------------------------------------------------------
 
-    async def get(self, id: str, model: type | None = None) -> Any:
-        """Return resolved config values for *id*.
+    @overload
+    async def get(self, id: str) -> LiveConfigProxy: ...
+    @overload
+    async def get(self, id: str, model: type[_M]) -> _M: ...
+    async def get(self, id: str, model: type[_M] | None = None) -> Any:
+        """Return a live, dict-like view of the resolved values for *id*.
 
-        If *model* is ``None``, returns a flat ``dict[str, Any]`` of
-        resolved values.
+        Without ``model``, returns a :class:`LiveConfigProxy` that behaves
+        like a ``dict[str, Any]`` and updates automatically as the server
+        pushes changes.
 
-        If *model* is provided, dot-notation keys (e.g. ``"database.host"``)
-        are expanded into nested structures and the model is constructed.
-        Supports Pydantic models, dataclasses, or any class accepting
-        keyword arguments.
+        With ``model``, the return value type-checks as *model* — attribute
+        access walks a model rebuilt from the current values on each read.
 
         Args:
             id: The config id to resolve.
-            model: Optional model class to construct from resolved values.
+            model: Optional model class to project attribute access through.
 
         Returns:
-            A flat dict, or an instance of *model*.
+            A :class:`LiveConfigProxy` (typed as *model* when supplied).
         """
         await self.start()
-        values = dict(self._config_cache.get(id, {}))
         metrics = self._metrics
         if metrics is not None:
             metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
-        if model is None:
-            return values
-        nested = _unflatten(values)
-        if hasattr(model, "model_validate"):
-            return model.model_validate(nested)
-        return model(**nested)
-
-    async def subscribe(self, id: str, model: type | None = None) -> LiveConfigProxy:
-        """Return a :class:`LiveConfigProxy` for *id*.
-
-        Values update automatically after :meth:`refresh`.
-
-        Args:
-            id: The config id to subscribe to.
-            model: Optional model class.
-
-        Returns:
-            A :class:`LiveConfigProxy`.
-        """
-        await self.start()
         return LiveConfigProxy(self, id, model)
 
     # ------------------------------------------------------------------

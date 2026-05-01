@@ -16,7 +16,9 @@ async def setup_management_showcase(manage: AsyncSmplManagementClient) -> None:
     await cleanup_management_showcase(manage)
 
 
-async def cleanup_management_showcase(manage: AsyncSmplManagementClient) -> None:
+async def cleanup_management_showcase(
+    manage: AsyncSmplManagementClient,
+) -> None:
     for config_id in _DEMO_CONFIG_IDS:
         try:
             await manage.config.delete(config_id)

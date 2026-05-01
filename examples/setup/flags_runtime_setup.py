@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from smplkit import AsyncSmplManagementClient, FlagValue, Op, Rule, NotFoundError
+from smplkit import (
+    AsyncSmplManagementClient,
+    FlagValue,
+    Op,
+    Rule,
+    NotFoundError,
+)
 
 _DEMO_ENVIRONMENTS = ["staging", "production"]
 _DEMO_FLAG_IDS = ["checkout-v2", "banner-color", "max-retries"]
@@ -16,7 +22,9 @@ async def setup_runtime_showcase(manage: AsyncSmplManagementClient) -> None:
     await cleanup_runtime_showcase(manage)
 
     checkout = manage.flags.new_boolean_flag(
-        "checkout-v2", default=False, description="Controls rollout of the new checkout experience."
+        "checkout-v2",
+        default=False,
+        description="Controls rollout of the new checkout experience.",
     )
     checkout.enable_rules(environment="staging")
     checkout.add_rule(
@@ -26,7 +34,9 @@ async def setup_runtime_showcase(manage: AsyncSmplManagementClient) -> None:
         .serve(True)
     )
     checkout.add_rule(
-        Rule("Enable for beta testers", environment="staging").when("user.beta_tester", Op.EQ, True).serve(True)
+        Rule("Enable for beta testers", environment="staging")
+        .when("user.beta_tester", Op.EQ, True)
+        .serve(True)
     )
     checkout.disable_rules(environment="production")
     checkout.set_default(False, environment="production")
@@ -45,7 +55,9 @@ async def setup_runtime_showcase(manage: AsyncSmplManagementClient) -> None:
     )
     banner.enable_rules(environment="staging")
     banner.add_rule(
-        Rule("Blue for enterprise users", environment="staging").when("user.plan", Op.EQ, "enterprise").serve("blue")
+        Rule("Blue for enterprise users", environment="staging")
+        .when("user.plan", Op.EQ, "enterprise")
+        .serve("blue")
     )
     banner.add_rule(
         Rule("Green for technology companies", environment="staging")
@@ -57,7 +69,9 @@ async def setup_runtime_showcase(manage: AsyncSmplManagementClient) -> None:
     await banner.save()
 
     retries = manage.flags.new_number_flag(
-        "max-retries", default=3, description="Maximum number of API retries before failing."
+        "max-retries",
+        default=3,
+        description="Maximum number of API retries before failing.",
     )
     retries.enable_rules(environment="staging")
     retries.add_rule(
