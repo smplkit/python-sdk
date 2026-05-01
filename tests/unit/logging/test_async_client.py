@@ -478,66 +478,66 @@ class TestAsyncDeleteGroup:
 
 
 class TestAsyncLoggerConvenienceMethods:
-    def test_setLevel(self):
+    def test_set_level(self):
         lg = AsyncSmplLogger(None, id="sql", name="SQL Logger")
-        lg.setLevel(LogLevel.ERROR)
+        lg.set_level(LogLevel.ERROR)
         assert lg.level == "ERROR"
 
-    def test_clearLevel(self):
+    def test_clear_level(self):
         lg = AsyncSmplLogger(None, id="sql", name="SQL Logger", level="DEBUG")
-        lg.clearLevel()
+        lg.clear_level()
         assert lg.level is None
 
     def test_setEnvironmentLevel(self):
         lg = AsyncSmplLogger(None, id="sql", name="SQL Logger")
-        lg.setEnvironmentLevel("prod", LogLevel.WARN)
+        lg.set_level(LogLevel.WARN, environment="prod")
         assert lg.environments["prod"] == {"level": "WARN"}
 
     def test_clearEnvironmentLevel(self):
         lg = AsyncSmplLogger(None, id="sql", name="SQL Logger", environments={"prod": {"level": "WARN"}})
-        lg.clearEnvironmentLevel("prod")
+        lg.clear_level(environment="prod")
         assert "prod" not in lg.environments
 
     def test_clearEnvironmentLevel_missing_key(self):
         lg = AsyncSmplLogger(None, id="sql", name="SQL Logger")
-        lg.clearEnvironmentLevel("nonexistent")
+        lg.clear_level(environment="nonexistent")
 
     def test_clearAllEnvironmentLevels(self):
         lg = AsyncSmplLogger(
             None, id="sql", name="SQL Logger", environments={"prod": {"level": "WARN"}, "dev": {"level": "DEBUG"}}
         )
-        lg.clearAllEnvironmentLevels()
+        lg.clear_all_environment_levels()
         assert lg.environments == {}
 
 
 class TestAsyncLogGroupConvenienceMethods:
-    def test_setLevel(self):
+    def test_set_level(self):
         grp = AsyncSmplLogGroup(None, id="db", name="DB")
-        grp.setLevel(LogLevel.ERROR)
+        grp.set_level(LogLevel.ERROR)
         assert grp.level == "ERROR"
 
-    def test_clearLevel(self):
+    def test_clear_level(self):
         grp = AsyncSmplLogGroup(None, id="db", name="DB", level="WARN")
-        grp.clearLevel()
+        grp.clear_level()
         assert grp.level is None
 
     def test_setEnvironmentLevel(self):
         grp = AsyncSmplLogGroup(None, id="db", name="DB")
-        grp.setEnvironmentLevel("staging", LogLevel.DEBUG)
+        grp.set_level(LogLevel.DEBUG, environment="staging")
         assert grp.environments["staging"] == {"level": "DEBUG"}
 
     def test_clearEnvironmentLevel(self):
         grp = AsyncSmplLogGroup(None, id="db", name="DB", environments={"staging": {"level": "DEBUG"}})
-        grp.clearEnvironmentLevel("staging")
+        grp.clear_level(environment="staging")
         assert "staging" not in grp.environments
 
     def test_clearEnvironmentLevel_missing_key(self):
         grp = AsyncSmplLogGroup(None, id="db", name="DB")
-        grp.clearEnvironmentLevel("nonexistent")
+        grp.clear_level(environment="nonexistent")
 
     def test_clearAllEnvironmentLevels(self):
         grp = AsyncSmplLogGroup(None, id="db", name="DB", environments={"a": {}, "b": {}})
-        grp.clearAllEnvironmentLevels()
+        grp.clear_all_environment_levels()
         assert grp.environments == {}
 
 
@@ -765,25 +765,19 @@ class TestAsyncBulkFlush:
         asyncio.run(client._flush_bulk_async())
 
     @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
-    def test_sync_flush_on_timer(self, mock_bulk):
+    def test_mgmt_flush_sync_drains_buffer(self, mock_bulk):
+        """``mgmt.loggers.flush_sync()`` drains the buffer the runtime populated."""
         mock_bulk.return_value = _ok_response()
         client = _make_async_logging_client()
         client._parent.manage.loggers._buffer.add("com.test", "INFO", "INFO", None, None)
-        client._flush_bulk_sync()
+        client._parent.manage.loggers.flush_sync()
         mock_bulk.assert_called_once()
 
     @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
-    def test_sync_flush_empty(self, mock_bulk):
+    def test_mgmt_flush_sync_empty(self, mock_bulk):
         client = _make_async_logging_client()
-        client._flush_bulk_sync()
+        client._parent.manage.loggers.flush_sync()
         mock_bulk.assert_not_called()
-
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
-    def test_sync_flush_error_swallowed(self, mock_bulk):
-        mock_bulk.side_effect = Exception("fail")
-        client = _make_async_logging_client()
-        client._parent.manage.loggers._buffer.add("com.test", "INFO", "INFO", None, None)
-        client._flush_bulk_sync()
 
     @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
     def test_async_flush_logs_warning_on_http_error(self, mock_bulk, caplog):
@@ -795,20 +789,6 @@ class TestAsyncBulkFlush:
         client._parent.manage.loggers._buffer.add("com.test", "INFO", "INFO", None, None)
         with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
             asyncio.run(client._flush_bulk_async())
-        assert len(caplog.records) == 1
-        assert "400" in caplog.records[0].message
-        assert caplog.records[0].levelno == stdlib_logging.WARNING
-
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
-    def test_sync_flush_logs_warning_on_http_error(self, mock_bulk, caplog):
-        import logging as stdlib_logging
-
-        mock_bulk.return_value = _ok_response(status=HTTPStatus.BAD_REQUEST)
-        mock_bulk.return_value.content = b'{"errors":[{"detail":"bad"}]}'
-        client = _make_async_logging_client()
-        client._parent.manage.loggers._buffer.add("com.test", "INFO", "INFO", None, None)
-        with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
-            client._flush_bulk_sync()
         assert len(caplog.records) == 1
         assert "400" in caplog.records[0].message
         assert caplog.records[0].levelno == stdlib_logging.WARNING
@@ -913,27 +893,6 @@ class TestAsyncClose:
         client._adapters = [adapter]
         client._close()
         adapter.uninstall_hook.assert_called_once()
-
-    def test_close_cancels_timer(self):
-        client = _make_async_logging_client()
-        timer = MagicMock()
-        client._flush_timer = timer
-        client._close()
-        timer.cancel.assert_called_once()
-        assert client._flush_timer is None
-
-
-# ---------------------------------------------------------------------------
-# Schedule flush
-# ---------------------------------------------------------------------------
-
-
-class TestAsyncScheduleFlush:
-    def test_schedule_creates_timer(self):
-        client = _make_async_logging_client()
-        client._schedule_flush()
-        assert client._flush_timer is not None
-        client._flush_timer.cancel()
 
 
 # ---------------------------------------------------------------------------

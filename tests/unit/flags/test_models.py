@@ -13,6 +13,9 @@ from smplkit.flags.models import (
     AsyncStringFlag,
     BooleanFlag,
     Flag,
+    FlagEnvironment,
+    FlagRule,
+    FlagValue,
     JsonFlag,
     NumberFlag,
     StringFlag,
@@ -24,15 +27,30 @@ from smplkit.flags.models import (
 # ---------------------------------------------------------------------------
 
 
+def _env(enabled=True, default=None, rules=None):
+    """Shorthand for FlagEnvironment in test fixtures."""
+    return FlagEnvironment(enabled=enabled, default=default, rules=list(rules or []))
+
+
+def _rule(logic=None, value=None, description=None):
+    """Shorthand for FlagRule in test fixtures."""
+    return FlagRule(logic=dict(logic or {}), value=value, description=description)
+
+
+def _val(name, value):
+    """Shorthand for FlagValue."""
+    return FlagValue(name=name, value=value)
+
+
 def _make_flag(cls=Flag, client=None, **overrides):
     defaults = {
         "id": "test-flag",
         "name": "Test Flag",
         "type": "BOOLEAN",
         "default": False,
-        "values": [{"name": "True", "value": True}],
+        "values": [_val("True", True)],
         "description": "A test flag",
-        "environments": {"staging": {"enabled": True, "rules": []}},
+        "environments": {"staging": _env()},
     }
     defaults.update(overrides)
     client = client or MagicMock()
@@ -52,8 +70,8 @@ class TestFlag:
         assert flag.type == "BOOLEAN"
         assert flag.default is False
         assert flag.description == "A test flag"
-        assert flag.values == [{"name": "True", "value": True}]
-        assert flag.environments == {"staging": {"enabled": True, "rules": []}}
+        assert flag.values == [_val("True", True)]
+        assert flag.environments == {"staging": FlagEnvironment(enabled=True, default=None, rules=[])}
 
     def test_defaults(self):
         client = MagicMock()
@@ -135,9 +153,9 @@ class TestFlag:
             name="new-name",
             type="STRING",
             default="hello",
-            values=[{"name": "v", "value": "v"}],
+            values=[_val("v", "v")],
             description="desc",
-            environments={"prod": {"enabled": True}},
+            environments={"prod": _env()},
             created_at="2024-01-01",
             updated_at="2024-06-01",
         )
@@ -146,90 +164,165 @@ class TestFlag:
         assert flag.name == "new-name"
         assert flag.type == "STRING"
         assert flag.default == "hello"
-        assert flag.values == [{"name": "v", "value": "v"}]
+        assert flag.values == [_val("v", "v")]
         assert flag.description == "desc"
-        assert flag.environments == {"prod": {"enabled": True}}
+        assert flag.environments == {"prod": FlagEnvironment(enabled=True)}
         assert flag.created_at == "2024-01-01"
         assert flag.updated_at == "2024-06-01"
 
     # ------------------------------------------------------------------
-    # addRule — local mutation
+    # add_rule — local mutation
     # ------------------------------------------------------------------
 
     def test_addRule_appends_to_environment(self):
-        flag = _make_flag(environments={"staging": {"enabled": True, "rules": []}})
+        flag = _make_flag(environments={"staging": _env()})
         rule = {"environment": "staging", "logic": {"==": [1, 1]}, "value": True, "description": "always on"}
-        result = flag.addRule(rule)
+        result = flag.add_rule(rule)
 
         # Returns self for chaining
         assert result is flag
-        # Rule added without environment key
-        assert len(flag.environments["staging"]["rules"]) == 1
-        added = flag.environments["staging"]["rules"][0]
-        assert "environment" not in added
-        assert added["logic"] == {"==": [1, 1]}
-        assert added["value"] is True
-        assert added["description"] == "always on"
+        # Rule added as a typed FlagRule (no leftover "environment" field)
+        assert len(flag.environments["staging"].rules) == 1
+        added = flag.environments["staging"].rules[0]
+        assert added.logic == {"==": [1, 1]}
+        assert added.value is True
+        assert added.description == "always on"
 
     def test_addRule_creates_environment_if_missing(self):
         flag = _make_flag(environments={})
-        flag.addRule({"environment": "production", "logic": {}, "value": "v"})
+        flag.add_rule({"environment": "production", "logic": {}, "value": "v"})
         assert "production" in flag.environments
-        assert len(flag.environments["production"]["rules"]) == 1
+        assert len(flag.environments["production"].rules) == 1
 
     def test_addRule_requires_environment_key(self):
         flag = _make_flag()
         with pytest.raises(ValueError, match="environment"):
-            flag.addRule({"logic": {}, "value": True})
+            flag.add_rule({"logic": {}, "value": True})
 
     def test_addRule_chaining(self):
         flag = _make_flag(environments={})
-        flag.addRule({"environment": "staging", "logic": {}, "value": 1}).addRule(
+        flag.add_rule({"environment": "staging", "logic": {}, "value": 1}).add_rule(
             {"environment": "staging", "logic": {}, "value": 2}
         )
-        assert len(flag.environments["staging"]["rules"]) == 2
+        assert len(flag.environments["staging"].rules) == 2
 
     # ------------------------------------------------------------------
-    # setEnvironmentEnabled
+    # enable_rules / disable_rules
     # ------------------------------------------------------------------
 
-    def test_setEnvironmentEnabled_existing(self):
-        flag = _make_flag(environments={"staging": {"enabled": True, "rules": []}})
-        flag.setEnvironmentEnabled("staging", False)
-        assert flag.environments["staging"]["enabled"] is False
+    def test_disable_rules_existing(self):
+        flag = _make_flag(environments={"staging": _env()})
+        flag.disable_rules(environment="staging")
+        assert flag.environments["staging"].enabled is False
 
-    def test_setEnvironmentEnabled_new_environment(self):
+    def test_enable_rules_new_environment(self):
         flag = _make_flag(environments={})
-        flag.setEnvironmentEnabled("production", True)
-        assert flag.environments["production"]["enabled"] is True
+        flag.enable_rules(environment="production")
+        assert flag.environments["production"].enabled is True
 
-    # ------------------------------------------------------------------
-    # setEnvironmentDefault
-    # ------------------------------------------------------------------
-
-    def test_setEnvironmentDefault_existing(self):
-        flag = _make_flag(environments={"staging": {"enabled": True}})
-        flag.setEnvironmentDefault("staging", "new-default")
-        assert flag.environments["staging"]["default"] == "new-default"
-
-    def test_setEnvironmentDefault_new_environment(self):
+    def test_disable_rules_new_environment(self):
         flag = _make_flag(environments={})
-        flag.setEnvironmentDefault("production", 42)
-        assert flag.environments["production"]["default"] == 42
+        flag.disable_rules(environment="production")
+        assert flag.environments["production"].enabled is False
+
+    def test_enable_rules_no_env_applies_to_all(self):
+        flag = _make_flag(environments={"staging": _env(enabled=False), "production": _env(enabled=False)})
+        flag.enable_rules()
+        assert flag.environments["staging"].enabled is True
+        assert flag.environments["production"].enabled is True
+
+    def test_disable_rules_no_env_applies_to_all(self):
+        flag = _make_flag(environments={"staging": _env(enabled=True), "production": _env(enabled=True)})
+        flag.disable_rules()
+        assert flag.environments["staging"].enabled is False
+        assert flag.environments["production"].enabled is False
 
     # ------------------------------------------------------------------
-    # clearRules
+    # set_default / clear_default
+    # ------------------------------------------------------------------
+
+    def test_set_default_base(self):
+        flag = _make_flag(default=False)
+        flag.set_default(True)
+        assert flag.default is True
+
+    def test_set_default_environment_existing(self):
+        flag = _make_flag(environments={"staging": _env()})
+        flag.set_default("new-default", environment="staging")
+        assert flag.environments["staging"].default == "new-default"
+
+    def test_set_default_environment_new(self):
+        flag = _make_flag(environments={})
+        flag.set_default(42, environment="production")
+        assert flag.environments["production"].default == 42
+
+    def test_clear_default_existing(self):
+        flag = _make_flag(environments={"staging": _env(default="overridden")})
+        flag.clear_default(environment="staging")
+        assert flag.environments["staging"].default is None
+
+    def test_clear_default_missing_env_is_noop(self):
+        flag = _make_flag(environments={})
+        flag.clear_default(environment="production")  # should not raise
+        assert "production" not in flag.environments
+
+    # ------------------------------------------------------------------
+    # clear_rules
     # ------------------------------------------------------------------
 
     def test_clearRules_existing(self):
-        flag = _make_flag(environments={"staging": {"enabled": True, "rules": [{"logic": {}, "value": True}]}})
-        flag.clearRules("staging")
-        assert flag.environments["staging"]["rules"] == []
+        flag = _make_flag(environments={"staging": _env(rules=[_rule(value=True)])})
+        flag.clear_rules(environment="staging")
+        assert flag.environments["staging"].rules == []
 
     def test_clearRules_new_environment(self):
         flag = _make_flag(environments={})
-        flag.clearRules("production")
-        assert flag.environments["production"]["rules"] == []
+        flag.clear_rules(environment="production")
+        assert flag.environments["production"].rules == []
+
+    def test_clearRules_no_env_applies_to_all(self):
+        flag = _make_flag(
+            environments={
+                "staging": _env(rules=[_rule(value=True)]),
+                "production": _env(rules=[_rule(value=False)]),
+            }
+        )
+        flag.clear_rules()
+        assert flag.environments["staging"].rules == []
+        assert flag.environments["production"].rules == []
+
+    # ------------------------------------------------------------------
+    # add_value / remove_value / clear_values
+    # ------------------------------------------------------------------
+
+    def test_addValue_appends_dict(self):
+        flag = _make_flag(values=[_val("Red", "red")])
+        result = flag.add_value("Blue", "blue")
+        assert flag.values == [_val("Red", "red"), _val("Blue", "blue")]
+        assert result is flag  # chainable
+
+    def test_addValue_initializes_when_none(self):
+        flag = _make_flag(values=None)
+        flag.add_value("Red", "red")
+        assert flag.values == [_val("Red", "red")]
+
+    def test_removeValue_drops_matching_entry(self):
+        flag = _make_flag(
+            values=[_val("Red", "red"), _val("Blue", "blue")],
+        )
+        result = flag.remove_value("red")
+        assert flag.values == [_val("Blue", "blue")]
+        assert result is flag
+
+    def test_removeValue_no_op_when_values_none(self):
+        flag = _make_flag(values=None)
+        flag.remove_value("red")
+        assert flag.values is None
+
+    def test_clearValues_sets_to_none(self):
+        flag = _make_flag(values=[_val("Red", "red")])
+        flag.clear_values()
+        assert flag.values is None
 
     # ------------------------------------------------------------------
     # get (runtime evaluation)
@@ -342,7 +435,7 @@ class TestAsyncFlag:
             default=True,
             values=[],
             description="async desc",
-            environments={"prod": {"enabled": True}},
+            environments={"prod": _env()},
         )
         assert flag.id == "async-flag"
         assert flag.name == "Async Flag"
@@ -431,9 +524,9 @@ class TestAsyncFlag:
             name="new-name",
             type="STRING",
             default="hello",
-            values=[{"name": "v", "value": "v"}],
+            values=[_val("v", "v")],
             description="desc",
-            environments={"prod": {"enabled": True}},
+            environments={"prod": _env()},
             created_at="2024-01-01",
             updated_at="2024-06-01",
         )
@@ -443,47 +536,131 @@ class TestAsyncFlag:
         assert flag.default == "hello"
 
     # ------------------------------------------------------------------
-    # addRule — local mutation (sync)
+    # add_rule — local mutation (sync)
     # ------------------------------------------------------------------
 
     def test_addRule_appends_to_environment(self):
-        flag = _make_flag(cls=AsyncFlag, environments={"staging": {"enabled": True, "rules": []}})
-        result = flag.addRule({"environment": "staging", "logic": {"==": [1, 1]}, "value": True})
+        flag = _make_flag(cls=AsyncFlag, environments={"staging": _env()})
+        result = flag.add_rule({"environment": "staging", "logic": {"==": [1, 1]}, "value": True})
         assert result is flag
-        assert len(flag.environments["staging"]["rules"]) == 1
-        assert "environment" not in flag.environments["staging"]["rules"][0]
+        assert len(flag.environments["staging"].rules) == 1
+        assert flag.environments["staging"].rules[0].logic == {"==": [1, 1]}
 
     def test_addRule_creates_environment_if_missing(self):
         flag = _make_flag(cls=AsyncFlag, environments={})
-        flag.addRule({"environment": "production", "logic": {}, "value": "v"})
+        flag.add_rule({"environment": "production", "logic": {}, "value": "v"})
         assert "production" in flag.environments
 
     def test_addRule_requires_environment_key(self):
         flag = _make_flag(cls=AsyncFlag)
         with pytest.raises(ValueError, match="environment"):
-            flag.addRule({"logic": {}, "value": True})
+            flag.add_rule({"logic": {}, "value": True})
 
     # ------------------------------------------------------------------
-    # setEnvironmentEnabled / setEnvironmentDefault / clearRules
+    # enable_rules / disable_rules / set_default / clear_rules
     # ------------------------------------------------------------------
 
-    def test_setEnvironmentEnabled(self):
+    def test_enable_rules(self):
         flag = _make_flag(cls=AsyncFlag, environments={})
-        flag.setEnvironmentEnabled("staging", True)
-        assert flag.environments["staging"]["enabled"] is True
+        flag.enable_rules(environment="staging")
+        assert flag.environments["staging"].enabled is True
 
-    def test_setEnvironmentDefault(self):
+    def test_disable_rules(self):
         flag = _make_flag(cls=AsyncFlag, environments={})
-        flag.setEnvironmentDefault("staging", "default-val")
-        assert flag.environments["staging"]["default"] == "default-val"
+        flag.disable_rules(environment="staging")
+        assert flag.environments["staging"].enabled is False
+
+    def test_set_default_base(self):
+        flag = _make_flag(cls=AsyncFlag, default="old")
+        flag.set_default("new")
+        assert flag.default == "new"
+
+    def test_set_default_environment(self):
+        flag = _make_flag(cls=AsyncFlag, environments={})
+        flag.set_default("default-val", environment="staging")
+        assert flag.environments["staging"].default == "default-val"
 
     def test_clearRules(self):
         flag = _make_flag(
             cls=AsyncFlag,
-            environments={"staging": {"rules": [{"logic": {}, "value": True}]}},
+            environments={"staging": _env(rules=[_rule(value=True)])},
         )
-        flag.clearRules("staging")
-        assert flag.environments["staging"]["rules"] == []
+        flag.clear_rules(environment="staging")
+        assert flag.environments["staging"].rules == []
+
+    def test_enable_rules_no_env_applies_to_all(self):
+        flag = _make_flag(
+            cls=AsyncFlag,
+            environments={"staging": _env(enabled=False), "production": _env(enabled=False)},
+        )
+        flag.enable_rules()
+        assert flag.environments["staging"].enabled is True
+        assert flag.environments["production"].enabled is True
+
+    def test_disable_rules_no_env_applies_to_all(self):
+        flag = _make_flag(
+            cls=AsyncFlag,
+            environments={"staging": _env(enabled=True), "production": _env(enabled=True)},
+        )
+        flag.disable_rules()
+        assert flag.environments["staging"].enabled is False
+        assert flag.environments["production"].enabled is False
+
+    def test_clearRules_no_env_applies_to_all(self):
+        flag = _make_flag(
+            cls=AsyncFlag,
+            environments={
+                "staging": _env(rules=[_rule(value=True)]),
+                "production": _env(rules=[_rule(value=False)]),
+            },
+        )
+        flag.clear_rules()
+        assert flag.environments["staging"].rules == []
+        assert flag.environments["production"].rules == []
+
+    def test_clear_default_existing(self):
+        flag = _make_flag(cls=AsyncFlag, environments={"staging": _env(default="overridden")})
+        flag.clear_default(environment="staging")
+        assert flag.environments["staging"].default is None
+
+    def test_clear_default_missing_env_is_noop(self):
+        flag = _make_flag(cls=AsyncFlag, environments={})
+        flag.clear_default(environment="production")
+        assert "production" not in flag.environments
+
+    # ------------------------------------------------------------------
+    # add_value / remove_value / clear_values (async)
+    # ------------------------------------------------------------------
+
+    def test_addValue_appends_dict(self):
+        flag = _make_flag(cls=AsyncFlag, values=[_val("Red", "red")])
+        result = flag.add_value("Blue", "blue")
+        assert flag.values == [_val("Red", "red"), _val("Blue", "blue")]
+        assert result is flag
+
+    def test_addValue_initializes_when_none(self):
+        flag = _make_flag(cls=AsyncFlag, values=None)
+        flag.add_value("Red", "red")
+        assert flag.values == [_val("Red", "red")]
+
+    def test_removeValue_drops_matching_entry(self):
+        flag = _make_flag(
+            cls=AsyncFlag,
+            values=[_val("Red", "red"), _val("Blue", "blue")],
+        )
+        result = flag.remove_value("red")
+        assert flag.values == [_val("Blue", "blue")]
+        assert result is flag
+
+    def test_removeValue_no_op_when_values_none(self):
+        flag = _make_flag(cls=AsyncFlag, values=None)
+        flag.remove_value("red")
+        assert flag.values is None
+
+    def test_clearValues_sets_to_none(self):
+        flag = _make_flag(cls=AsyncFlag, values=[_val("Red", "red")])
+        flag.clear_values()
+        assert flag.values is None
 
     # ------------------------------------------------------------------
     # get (runtime evaluation — sync)

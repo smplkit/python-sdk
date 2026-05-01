@@ -8,7 +8,7 @@ expose them as flat namespaces:
 - ``mgmt.context_types.*``    (was ``client.management.context_types.*``)
 - ``mgmt.environments.*``     (was ``client.management.environments.*``)
 - ``mgmt.account_settings.*`` (was ``client.management.account_settings.*``)
-- ``mgmt.configs.*``          (was ``client.config.management.*``)
+- ``mgmt.config.*``           (was ``client.config.management.*``)
 - ``mgmt.flags.*``            (was ``client.flags.management.*``)
 - ``mgmt.loggers.*``          (was ``client.logging.management.*`` — logger surface)
 - ``mgmt.log_groups.*``       (was ``client.logging.management.*`` — group surface)
@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from typing import TYPE_CHECKING, Any, overload
 
 import httpx
@@ -121,6 +122,7 @@ from smplkit.flags.models import (
     AsyncStringFlag,
     BooleanFlag,
     Flag,
+    FlagValue,
     JsonFlag,
     NumberFlag,
     StringFlag,
@@ -146,6 +148,11 @@ from smplkit.management.models import (
     ContextEntity,
     ContextType,
     Environment,
+)
+from smplkit.management._buffer import (
+    _CONTEXT_BATCH_FLUSH_SIZE,
+    _FLAG_BATCH_FLUSH_SIZE,
+    _LOGGER_BATCH_FLUSH_SIZE,
 )
 from smplkit.management.types import EnvironmentClassification
 
@@ -744,6 +751,15 @@ class ContextsClient:
         self._buffer.observe(batch)
         if flush:
             self.flush()
+            return
+        if self._buffer.pending_count >= _CONTEXT_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def _threshold_flush(self) -> None:
+        try:
+            self.flush()
+        except Exception as exc:
+            logger.warning("Context registration flush failed: %s", exc)
 
     def flush(self) -> None:
         """Send any pending observations to the server."""
@@ -809,6 +825,14 @@ class AsyncContextsClient:
         """Buffer contexts for registration.  Call ``await flush()`` to send them."""
         batch = items if isinstance(items, list) else [items]
         self._buffer.observe(batch)
+        if self._buffer.pending_count >= _CONTEXT_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def _threshold_flush(self) -> None:
+        try:
+            self.flush_sync()
+        except Exception as exc:
+            logger.warning("Context registration flush failed: %s", exc)
 
     async def flush(self) -> None:
         batch = self._buffer.drain()
@@ -946,8 +970,19 @@ class AsyncAccountSettingsClient:
 # ---------------------------------------------------------------------------
 
 
-class ConfigsClient:
-    """Sync config CRUD (``mgmt.configs``)."""
+def _resolve_parent(parent: str | Config | AsyncConfig | None) -> str | None:
+    """Normalize a ``parent`` argument to a config id string."""
+    if parent is None or isinstance(parent, str):
+        return parent
+    if not parent.id:
+        raise ValueError(
+            "parent config must be saved (have an id) before being used as a parent",
+        )
+    return parent.id
+
+
+class ConfigClient:
+    """Sync config CRUD (``mgmt.config``)."""
 
     def __init__(self, http_client: _ConfigAuthClient) -> None:
         self._http_client = http_client
@@ -958,15 +993,20 @@ class ConfigsClient:
         *,
         name: str | None = None,
         description: str | None = None,
-        parent: str | None = None,
+        parent: str | Config | None = None,
     ) -> Config:
-        """Return a new unsaved :class:`Config`. Call :meth:`Config.save` to persist."""
+        """Return a new unsaved :class:`Config`. Call :meth:`Config.save` to persist.
+
+        ``parent`` accepts either a config id (string) or an existing
+        :class:`Config` instance — passing the instance lets you skip naming
+        the id explicitly when you already have the parent in scope.
+        """
         return Config(
             self,
             id=id,
             name=name or key_to_display_name(id),
             description=description,
-            parent=parent,
+            parent=_resolve_parent(parent),
         )
 
     def get(self, id: str) -> Config:
@@ -1042,8 +1082,8 @@ class ConfigsClient:
         return _resource_to_config(self, response.parsed.data)
 
 
-class AsyncConfigsClient:
-    """Async config CRUD (``mgmt.configs``)."""
+class AsyncConfigClient:
+    """Async config CRUD (``mgmt.config``)."""
 
     def __init__(self, http_client: _ConfigAuthClient) -> None:
         self._http_client = http_client
@@ -1054,14 +1094,20 @@ class AsyncConfigsClient:
         *,
         name: str | None = None,
         description: str | None = None,
-        parent: str | None = None,
+        parent: str | AsyncConfig | None = None,
     ) -> AsyncConfig:
+        """Return a new unsaved :class:`AsyncConfig`. Call ``await save()`` to persist.
+
+        ``parent`` accepts either a config id (string) or an existing
+        :class:`AsyncConfig` instance — passing the instance lets you skip
+        naming the id explicitly when you already have the parent in scope.
+        """
         return AsyncConfig(
             self,
             id=id,
             name=name or key_to_display_name(id),
             description=description,
-            parent=parent,
+            parent=_resolve_parent(parent),
         )
 
     async def get(self, id: str) -> AsyncConfig:
@@ -1169,6 +1215,15 @@ class FlagsClient:
             self._buffer.add(d.id, d.type, d.default, d.service, d.environment)
         if flush:
             self.flush()
+            return
+        if self._buffer.pending_count >= _FLAG_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def _threshold_flush(self) -> None:
+        try:
+            self.flush()
+        except Exception as exc:
+            logger.warning("Flag registration flush failed: %s", exc)
 
     def flush(self) -> None:
         """Drain the buffer and POST pending declarations to the bulk endpoint."""
@@ -1187,7 +1242,7 @@ class FlagsClient:
         """Number of declarations queued and awaiting flush."""
         return self._buffer.pending_count
 
-    def newBooleanFlag(
+    def new_boolean_flag(
         self,
         id: str,
         *,
@@ -1201,18 +1256,18 @@ class FlagsClient:
             name=name or key_to_display_name(id),
             type="BOOLEAN",
             default=default,
-            values=[{"name": "True", "value": True}, {"name": "False", "value": False}],
+            values=[FlagValue(name="True", value=True), FlagValue(name="False", value=False)],
             description=description,
         )
 
-    def newStringFlag(
+    def new_string_flag(
         self,
         id: str,
         *,
         default: str,
         name: str | None = None,
         description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
+        values: list[FlagValue] | None = None,
     ) -> StringFlag:
         return StringFlag(
             self,
@@ -1224,14 +1279,14 @@ class FlagsClient:
             description=description,
         )
 
-    def newNumberFlag(
+    def new_number_flag(
         self,
         id: str,
         *,
         default: int | float,
         name: str | None = None,
         description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
+        values: list[FlagValue] | None = None,
     ) -> NumberFlag:
         return NumberFlag(
             self,
@@ -1243,14 +1298,14 @@ class FlagsClient:
             description=description,
         )
 
-    def newJsonFlag(
+    def new_json_flag(
         self,
         id: str,
         *,
         default: dict[str, Any],
         name: str | None = None,
         description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
+        values: list[FlagValue] | None = None,
     ) -> JsonFlag:
         return JsonFlag(
             self,
@@ -1334,6 +1389,14 @@ class AsyncFlagsClient:
         batch = items if isinstance(items, list) else [items]
         for d in batch:
             self._buffer.add(d.id, d.type, d.default, d.service, d.environment)
+        if self._buffer.pending_count >= _FLAG_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def _threshold_flush(self) -> None:
+        try:
+            self.flush_sync()
+        except Exception as exc:
+            logger.warning("Flag registration flush failed: %s", exc)
 
     async def flush(self) -> None:
         """Drain the buffer and POST pending declarations to the bulk endpoint."""
@@ -1364,7 +1427,7 @@ class AsyncFlagsClient:
         """Number of declarations queued and awaiting flush."""
         return self._buffer.pending_count
 
-    def newBooleanFlag(
+    def new_boolean_flag(
         self,
         id: str,
         *,
@@ -1378,18 +1441,18 @@ class AsyncFlagsClient:
             name=name or key_to_display_name(id),
             type="BOOLEAN",
             default=default,
-            values=[{"name": "True", "value": True}, {"name": "False", "value": False}],
+            values=[FlagValue(name="True", value=True), FlagValue(name="False", value=False)],
             description=description,
         )
 
-    def newStringFlag(
+    def new_string_flag(
         self,
         id: str,
         *,
         default: str,
         name: str | None = None,
         description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
+        values: list[FlagValue] | None = None,
     ) -> AsyncStringFlag:
         return AsyncStringFlag(
             self,
@@ -1401,14 +1464,14 @@ class AsyncFlagsClient:
             description=description,
         )
 
-    def newNumberFlag(
+    def new_number_flag(
         self,
         id: str,
         *,
         default: int | float,
         name: str | None = None,
         description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
+        values: list[FlagValue] | None = None,
     ) -> AsyncNumberFlag:
         return AsyncNumberFlag(
             self,
@@ -1420,14 +1483,14 @@ class AsyncFlagsClient:
             description=description,
         )
 
-    def newJsonFlag(
+    def new_json_flag(
         self,
         id: str,
         *,
         default: dict[str, Any],
         name: str | None = None,
         description: str | None = None,
-        values: list[dict[str, Any]] | None = None,
+        values: list[FlagValue] | None = None,
     ) -> AsyncJsonFlag:
         return AsyncJsonFlag(
             self,
@@ -1527,6 +1590,15 @@ class LoggersClient:
             )
         if flush:
             self.flush()
+            return
+        if self._buffer.pending_count >= _LOGGER_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def _threshold_flush(self) -> None:
+        try:
+            self.flush()
+        except Exception as exc:
+            logger.warning("Logger registration flush failed: %s", exc)
 
     def flush(self) -> None:
         """Drain the buffer and POST pending logger sources to the bulk endpoint."""
@@ -1629,6 +1701,14 @@ class AsyncLoggersClient:
                 src.service,
                 src.environment,
             )
+        if self._buffer.pending_count >= _LOGGER_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def _threshold_flush(self) -> None:
+        try:
+            self.flush_sync()
+        except Exception as exc:
+            logger.warning("Logger registration flush failed: %s", exc)
 
     async def flush(self) -> None:
         """Drain the buffer and POST pending logger sources to the bulk endpoint."""
@@ -1896,7 +1976,7 @@ class SmplManagementClient:
     context_types: ContextTypesClient
     environments: EnvironmentsClient
     account_settings: AccountSettingsClient
-    configs: ConfigsClient
+    config: ConfigClient
     flags: FlagsClient
     loggers: LoggersClient
     log_groups: LogGroupsClient
@@ -1953,7 +2033,7 @@ class SmplManagementClient:
         self.context_types = ContextTypesClient(self._app_http)
         self.environments = EnvironmentsClient(self._app_http)
         self.account_settings = AccountSettingsClient(app_url, cfg.api_key)
-        self.configs = ConfigsClient(self._config_http)
+        self.config = ConfigClient(self._config_http)
         self.flags = FlagsClient(self._flags_http)
         self.loggers = LoggersClient(self._logging_http, base_url=logging_url)
         self.log_groups = LogGroupsClient(self._logging_http, base_url=logging_url)
@@ -1984,7 +2064,7 @@ class AsyncSmplManagementClient:
     context_types: AsyncContextTypesClient
     environments: AsyncEnvironmentsClient
     account_settings: AsyncAccountSettingsClient
-    configs: AsyncConfigsClient
+    config: AsyncConfigClient
     flags: AsyncFlagsClient
     loggers: AsyncLoggersClient
     log_groups: AsyncLogGroupsClient
@@ -2041,7 +2121,7 @@ class AsyncSmplManagementClient:
         self.context_types = AsyncContextTypesClient(self._app_http)
         self.environments = AsyncEnvironmentsClient(self._app_http)
         self.account_settings = AsyncAccountSettingsClient(app_url, cfg.api_key)
-        self.configs = AsyncConfigsClient(self._config_http)
+        self.config = AsyncConfigClient(self._config_http)
         self.flags = AsyncFlagsClient(self._flags_http)
         self.loggers = AsyncLoggersClient(self._logging_http, base_url=logging_url)
         self.log_groups = AsyncLogGroupsClient(self._logging_http, base_url=logging_url)

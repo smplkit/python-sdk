@@ -67,13 +67,27 @@ def _unflatten(flat: dict[str, Any]) -> dict[str, Any]:
 
 def _build_chain_sync(model: Any, models_by_id: dict[str, Any]) -> list[dict[str, Any]]:
     """Build a parent chain from pre-fetched models without async calls."""
-    chain = [{"id": model.id, "items": model._items_raw, "environments": model.environments}]
+    from smplkit.config.models import _environments_to_wire
+
+    chain = [
+        {
+            "id": model.id,
+            "items": model._items_raw,
+            "environments": _environments_to_wire(model._environments),
+        }
+    ]
     current = model
     while current.parent is not None:
         parent = models_by_id.get(current.parent)
         if parent is None:
             break
-        chain.append({"id": parent.id, "items": parent._items_raw, "environments": parent.environments})
+        chain.append(
+            {
+                "id": parent.id,
+                "items": parent._items_raw,
+                "environments": _environments_to_wire(parent._environments),
+            }
+        )
         current = parent
     return chain
 
@@ -185,7 +199,7 @@ class ConfigClient:
 
     Obtained via ``SmplClient(...).config``. Exposes value resolution
     (``get``/``subscribe``) and refresh/change-listener APIs. CRUD has
-    moved to :class:`smplkit.SmplManagementClient` (``mgmt.configs.*``).
+    moved to :class:`smplkit.SmplManagementClient` (``mgmt.config.*``).
     """
 
     def __init__(
@@ -207,22 +221,22 @@ class ConfigClient:
         self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
         self._ws_manager: SharedWebSocket | None = None
 
-    def _connect_internal(self) -> None:
-        """Fetch all configs, resolve values for the environment, and cache.
+    def start(self) -> None:
+        """Eagerly initialize the config subclient.
 
-        Idempotent — returns immediately if already connected.
+        Fetches all configs, resolves environment-scoped values into the local
+        cache, opens the shared WebSocket and subscribes to ``config_changed``
+        / ``config_deleted`` / ``configs_changed`` events.
+
+        Idempotent — safe to call multiple times.  Called automatically on
+        first ``config.get()`` if not invoked manually.
         """
         if self._connected:
             return
-        configs = self._fetch_all_configs()
-        environment = self._parent._environment
-        cache: dict[str, dict[str, Any]] = {}
-        for cfg in configs:
-            chain = cfg._build_chain(configs)
-            cache[cfg.id] = resolve(chain, environment)
-        with self._cache_lock:
-            self._config_cache = cache
-            self._raw_config_cache = {cfg.id: cfg for cfg in configs}
+
+        # Fetch + resolve + cache + fire change listeners (against empty old_cache,
+        # so any registered listeners see "initial" events).
+        self._do_refresh("initial")
         self._connected = True
 
         self._ws_manager = self._parent._ensure_ws()
@@ -276,7 +290,7 @@ class ConfigClient:
         Returns:
             A flat dict, or an instance of *model*.
         """
-        self._connect_internal()
+        self.start()
         values = dict(self._config_cache.get(id, {}))
         metrics = self._metrics
         if metrics is not None:
@@ -301,7 +315,7 @@ class ConfigClient:
         Returns:
             A :class:`LiveConfigProxy`.
         """
-        self._connect_internal()
+        self.start()
         return LiveConfigProxy(self, id, model)
 
     # ------------------------------------------------------------------
@@ -411,14 +425,31 @@ class ConfigClient:
     # Internal: event handlers (called by SharedWebSocket)
     # ------------------------------------------------------------------
 
+    def _rebuild_resolved_cache(self, raw_cache: dict[str, Config], source: str) -> None:
+        """Re-resolve every config in ``raw_cache`` and fire change listeners.
+
+        Inheritance means a single config change can shift descendants' resolved
+        values too — so whenever ``raw_cache`` is mutated (config added, updated,
+        or deleted), every config gets re-resolved against the new snapshot.
+        """
+        environment = self._parent._environment
+        raw_list = list(raw_cache.values())
+        new_cache: dict[str, dict[str, Any]] = {}
+        for cfg_id, cfg in raw_cache.items():
+            chain = cfg._build_chain(raw_list)
+            new_cache[cfg_id] = resolve(chain, environment)
+        with self._cache_lock:
+            old_cache = self._config_cache
+            self._config_cache = new_cache
+            self._raw_config_cache = raw_cache
+        self._fire_change_listeners(old_cache, new_cache, source=source)
+
     def _handle_config_changed(self, data: dict[str, Any]) -> None:
         key = data.get("id")
         if not key:
             self._handle_configs_changed(data)
             return
-        environment = self._parent._environment
         with self._cache_lock:
-            old_values = dict(self._config_cache.get(key, {}))
             raw_cache = dict(self._raw_config_cache)
         try:
             cfg = self._fetch_config(key)
@@ -428,14 +459,7 @@ class ConfigClient:
         if cfg is None:
             return
         raw_cache[key] = cfg
-        chain = cfg._build_chain(list(raw_cache.values()))
-        new_values = resolve(chain, environment)
-        with self._cache_lock:
-            self._raw_config_cache[key] = cfg
-            self._config_cache[key] = new_values
-        old_partial = {key: old_values}
-        new_partial = {key: new_values}
-        self._fire_change_listeners(old_partial, new_partial, source="websocket")
+        self._rebuild_resolved_cache(raw_cache, source="websocket")
 
     def _handle_config_deleted(self, data: dict[str, Any]) -> None:
         key = data.get("id")
@@ -443,12 +467,10 @@ class ConfigClient:
             self._handle_configs_changed(data)
             return
         with self._cache_lock:
-            old_values = dict(self._config_cache.pop(key, {}))
-            self._raw_config_cache.pop(key, None)
-        if old_values:
-            old_partial = {key: old_values}
-            new_partial: dict[str, dict[str, Any]] = {}
-            self._fire_change_listeners(old_partial, new_partial, source="websocket")
+            raw_cache = dict(self._raw_config_cache)
+        if raw_cache.pop(key, None) is None:
+            return
+        self._rebuild_resolved_cache(raw_cache, source="websocket")
 
     def _handle_configs_changed(self, data: dict[str, Any]) -> None:
         try:
@@ -461,7 +483,7 @@ class AsyncConfigClient:
     """Asynchronous runtime client for Smpl Config.
 
     Obtained via ``AsyncSmplClient(...).config``. CRUD has moved to
-    :class:`smplkit.AsyncSmplManagementClient` (``mgmt.configs.*``).
+    :class:`smplkit.AsyncSmplManagementClient` (``mgmt.config.*``).
     """
 
     def __init__(
@@ -483,22 +505,22 @@ class AsyncConfigClient:
         self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
         self._ws_manager: SharedWebSocket | None = None
 
-    async def _connect_internal(self) -> None:
-        """Fetch all configs, resolve values for the environment, and cache.
+    async def start(self) -> None:
+        """Eagerly initialize the config subclient.
 
-        Idempotent — returns immediately if already connected.
+        Fetches all configs, resolves environment-scoped values into the local
+        cache, opens the shared WebSocket and subscribes to ``config_changed``
+        / ``config_deleted`` / ``configs_changed`` events.
+
+        Idempotent — safe to call multiple times.  Called automatically on
+        first ``config.get()`` if not invoked manually.
         """
         if self._connected:
             return
-        configs = await self._fetch_all_configs_async()
-        environment = self._parent._environment
-        cache: dict[str, dict[str, Any]] = {}
-        for cfg in configs:
-            chain = await cfg._build_chain(configs)
-            cache[cfg.id] = resolve(chain, environment)
-        with self._cache_lock:
-            self._config_cache = cache
-            self._raw_config_cache = {cfg.id: cfg for cfg in configs}
+
+        # Fetch + resolve + cache + fire change listeners (against empty old_cache,
+        # so any registered listeners see "initial" events).
+        await self._do_refresh("initial")
         self._connected = True
 
         self._ws_manager = self._parent._ensure_ws()
@@ -539,7 +561,7 @@ class AsyncConfigClient:
         Returns:
             A flat dict, or an instance of *model*.
         """
-        await self._connect_internal()
+        await self.start()
         values = dict(self._config_cache.get(id, {}))
         metrics = self._metrics
         if metrics is not None:
@@ -563,7 +585,7 @@ class AsyncConfigClient:
         Returns:
             A :class:`LiveConfigProxy`.
         """
-        await self._connect_internal()
+        await self.start()
         return LiveConfigProxy(self, id, model)
 
     # ------------------------------------------------------------------
@@ -673,14 +695,33 @@ class AsyncConfigClient:
     # Internal: event handlers (called by SharedWebSocket)
     # ------------------------------------------------------------------
 
+    def _rebuild_resolved_cache(self, raw_cache: dict[str, AsyncConfig], source: str) -> None:
+        """Re-resolve every config in ``raw_cache`` and fire change listeners.
+
+        Inheritance means a single config change can shift descendants' resolved
+        values too — so whenever ``raw_cache`` is mutated (config added, updated,
+        or deleted), every config gets re-resolved against the new snapshot.
+
+        Sync-shaped because the WS dispatch thread is sync; ``_build_chain_sync``
+        avoids any awaits and works against the already-loaded models.
+        """
+        environment = self._parent._environment
+        new_cache: dict[str, dict[str, Any]] = {}
+        for cfg_id, cfg in raw_cache.items():
+            chain = _build_chain_sync(cfg, raw_cache)
+            new_cache[cfg_id] = resolve(chain, environment)
+        with self._cache_lock:
+            old_cache = self._config_cache
+            self._config_cache = new_cache
+            self._raw_config_cache = raw_cache
+        self._fire_change_listeners(old_cache, new_cache, source=source)
+
     def _handle_config_changed(self, data: dict[str, Any]) -> None:
         key = data.get("id")
         if not key:
             self._handle_configs_changed(data)
             return
-        environment = self._parent._environment
         with self._cache_lock:
-            old_values = dict(self._config_cache.get(key, {}))
             raw_cache = dict(self._raw_config_cache)
         try:
             response = get_config.sync_detailed(key, client=self._parent._http_client)
@@ -692,14 +733,7 @@ class AsyncConfigClient:
             ws_logger.error("Failed to fetch config %r after WS event", key, exc_info=True)
             return
         raw_cache[key] = cfg
-        chain = _build_chain_sync(cfg, raw_cache)
-        new_values = resolve(chain, environment)
-        with self._cache_lock:
-            self._raw_config_cache[key] = cfg
-            self._config_cache[key] = new_values
-        old_partial = {key: old_values}
-        new_partial = {key: new_values}
-        self._fire_change_listeners(old_partial, new_partial, source="websocket")
+        self._rebuild_resolved_cache(raw_cache, source="websocket")
 
     def _handle_config_deleted(self, data: dict[str, Any]) -> None:
         key = data.get("id")
@@ -707,12 +741,10 @@ class AsyncConfigClient:
             self._handle_configs_changed(data)
             return
         with self._cache_lock:
-            old_values = dict(self._config_cache.pop(key, {}))
-            self._raw_config_cache.pop(key, None)
-        if old_values:
-            old_partial = {key: old_values}
-            new_partial: dict[str, dict[str, Any]] = {}
-            self._fire_change_listeners(old_partial, new_partial, source="websocket")
+            raw_cache = dict(self._raw_config_cache)
+        if raw_cache.pop(key, None) is None:
+            return
+        self._rebuild_resolved_cache(raw_cache, source="websocket")
 
     def _handle_configs_changed(self, data: dict[str, Any]) -> None:
         try:
@@ -721,17 +753,8 @@ class AsyncConfigClient:
             if response.parsed is None or not hasattr(response.parsed, "data"):
                 return
             models = [_resource_to_async_config(None, r) for r in response.parsed.data]
-            environment = self._parent._environment
-            models_by_id = {m.id: m for m in models}
-            new_cache: dict[str, dict[str, Any]] = {}
-            for m in models:
-                chain = _build_chain_sync(m, models_by_id)
-                new_cache[m.id] = resolve(chain, environment)
-            with self._cache_lock:
-                old_cache = self._config_cache
-                self._config_cache = new_cache
-                self._raw_config_cache = models_by_id
-            self._fire_change_listeners(old_cache, new_cache, source="websocket")
+            raw_cache = {m.id: m for m in models}
+            self._rebuild_resolved_cache(raw_cache, source="websocket")
         except Exception:
             ws_logger.error("Failed to refresh configs after WS event", exc_info=True)
 

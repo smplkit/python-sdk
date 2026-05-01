@@ -75,8 +75,6 @@ if TYPE_CHECKING:
 logger = stdlib_logging.getLogger("smplkit")
 
 _DEFAULT_LOGGING_BASE_URL = "https://logging.smplkit.com"
-_BULK_FLUSH_THRESHOLD = 50
-_BULK_FLUSH_INTERVAL = 5.0  # seconds
 
 
 def _check_response_status(status_code: Any, content: bytes) -> None:
@@ -190,7 +188,6 @@ class LoggingClient:
         )
         self._connected = False
         self._name_map: dict[str, str] = {}  # original_name → normalized_id
-        self._flush_timer: threading.Timer | None = None
         self._loggers_cache: dict[str, dict[str, Any]] = {}  # id → logger data
         self._groups_cache: dict[str, dict[str, Any]] = {}  # id → group data
         self._global_listeners: list[Callable[..., Any]] = []
@@ -283,7 +280,11 @@ class LoggingClient:
                 logger.warning("Adapter %s install_hook() failed", adapter.name, exc_info=True)
 
         # 3. Flush initial batch
-        self._flush_bulk_sync()
+        try:
+            self._manage.loggers.flush()
+        except Exception as exc:
+            logger.warning("Bulk logger registration failed: %s", exc)
+            debug("registration", traceback.format_exc().strip())
 
         # 4-6. Fetch, resolve, apply
         try:
@@ -296,10 +297,7 @@ class LoggingClient:
             )
             debug("resolution", traceback.format_exc().strip())
 
-        # 7. Start periodic flush timer
-        self._schedule_flush()
-
-        # 8. Register WebSocket event handlers for real-time level updates
+        # 7. Register WebSocket event handlers for real-time level updates
         self._ws_manager = self._parent._ensure_ws()
         self._ws_manager.on("logger_changed", self._handle_logger_changed)
         self._ws_manager.on("logger_deleted", self._handle_logger_deleted)
@@ -433,9 +431,6 @@ class LoggingClient:
             self._ws_manager.off("group_deleted", self._handle_group_deleted)
             self._ws_manager.off("loggers_changed", self._handle_loggers_changed)
             self._ws_manager = None
-        if self._flush_timer is not None:
-            self._flush_timer.cancel()
-            self._flush_timer = None
 
     # --- Internal ---
 
@@ -463,10 +458,6 @@ class LoggingClient:
             f"queued {name!r} for bulk registration (buffer size: {mgmt_loggers.pending_count})",
         )
 
-        if mgmt_loggers.pending_count >= _BULK_FLUSH_THRESHOLD:
-            debug("registration", f"buffer threshold reached ({_BULK_FLUSH_THRESHOLD}), flushing")
-            threading.Thread(target=self._flush_bulk_sync, daemon=True).start()
-
         # If connected, try to apply level from cache
         if self._connected and normalized in self._loggers_cache:
             entry = self._loggers_cache[normalized]
@@ -479,30 +470,6 @@ class LoggingClient:
                         adapter.apply_level(name, python_level)
                     except Exception:
                         logger.warning("Adapter %s apply_level() failed for %s", adapter.name, name, exc_info=True)
-
-    def _flush_bulk_sync(self) -> None:
-        """Flush the registration buffer (delegates to mgmt.loggers)."""
-        try:
-            self._manage.loggers.flush()
-        except Exception as exc:
-            status = getattr(exc, "status_code", None)
-            if status is not None:
-                logger.warning("Bulk logger registration failed: HTTP %s: %s", status, exc)
-            else:
-                logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
-            debug("registration", traceback.format_exc().strip())
-
-    def _schedule_flush(self) -> None:
-        """Schedule the next periodic flush."""
-
-        def _tick() -> None:
-            self._flush_bulk_sync()
-            if self._connected:
-                self._schedule_flush()
-
-        self._flush_timer = threading.Timer(_BULK_FLUSH_INTERVAL, _tick)
-        self._flush_timer.daemon = True
-        self._flush_timer.start()
 
     def _fetch_and_apply(self, trigger: str = "unknown") -> None:
         """Fetch all loggers/groups, resolve levels, apply to runtime."""
@@ -609,7 +576,6 @@ class AsyncLoggingClient:
         )
         self._connected = False
         self._name_map: dict[str, str] = {}
-        self._flush_timer: threading.Timer | None = None
         self._loggers_cache: dict[str, dict[str, Any]] = {}
         self._groups_cache: dict[str, dict[str, Any]] = {}
         self._global_listeners: list[Callable[..., Any]] = []
@@ -712,8 +678,6 @@ class AsyncLoggingClient:
                 exc,
             )
             debug("resolution", traceback.format_exc().strip())
-
-        self._schedule_flush()
 
         # Register WebSocket event handlers for real-time level updates
         self._ws_manager = self._parent._ensure_ws()
@@ -911,9 +875,6 @@ class AsyncLoggingClient:
             self._ws_manager.off("group_deleted", self._handle_group_deleted)
             self._ws_manager.off("loggers_changed", self._handle_loggers_changed)
             self._ws_manager = None
-        if self._flush_timer is not None:
-            self._flush_timer.cancel()
-            self._flush_timer = None
 
     # --- Internal ---
 
@@ -964,30 +925,6 @@ class AsyncLoggingClient:
             else:
                 logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
             debug("registration", traceback.format_exc().strip())
-
-    def _flush_bulk_sync(self) -> None:
-        """Sync flush for the timer thread (delegates to mgmt.loggers)."""
-        try:
-            self._manage.loggers.flush_sync()
-        except Exception as exc:
-            status = getattr(exc, "status_code", None)
-            if status is not None:
-                logger.warning("Bulk logger registration failed: HTTP %s: %s", status, exc)
-            else:
-                logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
-            debug("registration", traceback.format_exc().strip())
-
-    def _schedule_flush(self) -> None:
-        """Schedule the next periodic flush."""
-
-        def _tick() -> None:
-            self._flush_bulk_sync()
-            if self._connected:
-                self._schedule_flush()
-
-        self._flush_timer = threading.Timer(_BULK_FLUSH_INTERVAL, _tick)
-        self._flush_timer.daemon = True
-        self._flush_timer.start()
 
     async def _fetch_and_apply(self, trigger: str = "unknown", http_client: AuthenticatedClient | None = None) -> None:
         """Fetch all loggers/groups, resolve levels, apply to runtime.

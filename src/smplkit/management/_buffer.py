@@ -23,6 +23,13 @@ from smplkit.flags.types import Context
 # evicted. The next observation of an evicted entry will re-flush.
 _CONTEXT_REGISTRATION_LRU_SIZE = 10_000
 
+# Pending-queue size that triggers an immediate background flush from
+# inside ``register()``.  The periodic timer on ``SmplClient`` covers
+# the tail case for low-traffic services.
+_CONTEXT_BATCH_FLUSH_SIZE = 100
+_FLAG_BATCH_FLUSH_SIZE = 50
+_LOGGER_BATCH_FLUSH_SIZE = 50
+
 
 class _ContextRegistrationBuffer:
     """Thread-safe batch buffer for context registration."""

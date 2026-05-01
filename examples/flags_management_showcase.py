@@ -1,8 +1,5 @@
 """
-Smpl Flags SDK Showcase — Management API
-==========================================
-
-Demonstrates the smplkit Python SDK's management plane for Smpl Flags.
+Demonstrates the smplkit management SDK for Smpl Flags.
 
 Prerequisites:
     - ``pip install smplkit-sdk``
@@ -17,9 +14,9 @@ Usage::
 
 import asyncio
 
-from smplkit import AsyncSmplManagementClient, Op, Rule
+from smplkit import AsyncSmplManagementClient, FlagValue, Op, Rule
 
-from flags_management_setup import cleanup_management_showcase, setup_management_showcase
+from setup.flags_management_setup import cleanup_management_showcase, setup_management_showcase
 
 
 async def main() -> None:
@@ -29,7 +26,7 @@ async def main() -> None:
         await setup_management_showcase(manage)
 
         # create a boolean flag
-        checkout_flag = manage.flags.newBooleanFlag(
+        checkout_flag = manage.flags.new_boolean_flag(
             "checkout-v2",
             default=False,
             description="Controls rollout of the new checkout experience.",
@@ -38,22 +35,22 @@ async def main() -> None:
         print(f"Created flag: {checkout_flag.id}")
 
         # create a string flag (constrained)
-        banner_flag = manage.flags.newStringFlag(
+        banner_flag = manage.flags.new_string_flag(
             "banner-color",
             default="red",
             name="Banner Color",
             description="Controls the banner color shown to users.",
             values=[
-                {"name": "Red", "value": "red"},
-                {"name": "Green", "value": "green"},
-                {"name": "Blue", "value": "blue"},
+                FlagValue(name="Red", value="red"),
+                FlagValue(name="Green", value="green"),
+                FlagValue(name="Blue", value="blue"),
             ],
         )
         await banner_flag.save()
         print(f"Created flag: {banner_flag.id}")
 
         # create a numeric flag (unconstrained)
-        retry_flag = manage.flags.newNumberFlag(
+        retry_flag = manage.flags.new_number_flag(
             "max-retries",
             default=3,
             description="Maximum number of API retries before failing.",
@@ -62,42 +59,36 @@ async def main() -> None:
         print(f"Created flag: {retry_flag.id}")
 
         # create a JSON flag (constrained)
-        theme_flag = manage.flags.newJsonFlag(
+        theme_flag = manage.flags.new_json_flag(
             "ui-theme",
             default={"mode": "light", "accent": "#0066cc"},
             description="Controls the UI theme configuration.",
             values=[
-                {"name": "Light", "value": {"mode": "light", "accent": "#0066cc"}},
-                {"name": "Dark", "value": {"mode": "dark", "accent": "#66ccff"}},
-                {"name": "High Contrast", "value": {"mode": "dark", "accent": "#ffffff"}},
+                FlagValue(name="Light", value={"mode": "light", "accent": "#0066cc"}),
+                FlagValue(name="Dark", value={"mode": "dark", "accent": "#66ccff"}),
+                FlagValue(name="High Contrast", value={"mode": "dark", "accent": "#ffffff"}),
             ],
         )
         await theme_flag.save()
         print(f"Created flag: {theme_flag.id}")
 
-        # checkout_flag: serve true in staging to enterprise users in the US region
-        checkout_flag.setEnvironmentEnabled("staging", True)
-        checkout_flag.addRule(
-            Rule("Enable for enterprise users in US region")
-            .environment("staging")
+        # checkout_flag (serve true in staging to enterprise users in the US region)
+        checkout_flag.enable_rules(environment="staging")
+        checkout_flag.add_rule(
+            Rule("Enable for enterprise users in US region", environment="staging")
             .when("user.plan", Op.EQ, "enterprise")
             .when("account.region", Op.EQ, "us")
             .serve(True)
-            .build()
         )
 
-        # checkout_flag: serve true in staging for beta testers
-        checkout_flag.addRule(
-            Rule("Enable for beta testers")
-            .environment("staging")
-            .when("user.beta_tester", Op.EQ, True)
-            .serve(True)
-            .build()
+        # checkout_flag (serve true in staging for beta testers)
+        checkout_flag.add_rule(
+            Rule("Enable for beta testers", environment="staging").when("user.beta_tester", Op.EQ, True).serve(True)
         )
 
-        # checkout_flag: serve false in production
-        checkout_flag.setEnvironmentEnabled("production", False)
-        checkout_flag.setEnvironmentDefault("production", False)
+        # checkout_flag (disabled rules; serve false in production)
+        checkout_flag.disable_rules(environment="production")
+        checkout_flag.set_default(False, environment="production")
         await checkout_flag.save()
         print(f"Updated flag: {checkout_flag.id}")
 
@@ -111,30 +102,39 @@ async def main() -> None:
         # get a flag
         fetched = await manage.flags.get("checkout-v2")
         print(f"\nFetched by id: {fetched.id}")
-        print(f"  staging rules: {len(fetched.environments.get('staging', {}).get('rules', []))}")
-        print(f"  production enabled: {fetched.environments.get('production', {}).get('enabled')}")
+        print(f"  staging rules: {len(fetched.environments['staging'].rules)}")
+        print(f"  production enabled: {fetched.environments['production'].enabled}")
 
         # update a flag
-        banner_flag.values.append({"name": "Purple", "value": "purple"})
+        banner_flag.add_value("Purple", "purple")
         banner_flag.default = "blue"
         banner_flag.description = "Controls the banner color — updated"
-        banner_flag.addRule(
-            Rule("Purple for enterprise users")
-            .environment("production")
+        banner_flag.add_rule(
+            Rule("Purple for enterprise users", environment="production")
             .when("user.plan", Op.EQ, "enterprise")
             .serve("purple")
-            .build()
         )
         await banner_flag.save()
         print(f"Updated flag: {banner_flag.id}'")
 
-        # update a flag - delete all rules
-        checkout_flag.clearRules("staging")
+        # delete all the rules of a flag
+        checkout_flag.clear_rules(environment="staging")
+        await checkout_flag.save()
 
-        # alternatively:
-        # checkout_flag.environments["staging"] = {"enabled": True, "default": True, "rules": []}
+        # revert production's default value back to the flag default
+        checkout_flag.clear_default(environment="production")
         await checkout_flag.save()
         print(f"Updated flag: {checkout_flag.id}'")
+
+        # clear values (flag becomes unconstrained)
+        banner_flag.clear_values()
+        await banner_flag.save()
+        print(f"Updated flag: {banner_flag.id}'")
+
+        # delete flags
+        await manage.flags.delete("checkout-v2")
+        await banner_flag.delete()
+        print("Deleted flags")
 
         # cleanup
         await cleanup_management_showcase(manage)

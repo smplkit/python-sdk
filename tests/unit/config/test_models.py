@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from smplkit.config.models import AsyncConfig, Config
+from smplkit.config.models import AsyncConfig, Config, ConfigEnvironment, ConfigItem, ItemType
 
 
 def _make_config(**overrides) -> Config:
@@ -78,30 +78,35 @@ class TestConfigAttributes:
 # ===================================================================
 
 
-class TestConfigSettableItems:
-    def test_set_plain_values(self):
-        cfg = _make_config()
-        cfg.items = {"host": "localhost", "port": 5432}
-        assert cfg.items == {"host": "localhost", "port": 5432}
-        # Internally wrapped
-        assert cfg._items_raw == {"host": {"value": "localhost"}, "port": {"value": 5432}}
-
-    def test_set_already_wrapped_values(self):
-        cfg = _make_config()
-        cfg.items = {"host": {"value": "localhost", "type": "STRING"}}
-        assert cfg.items == {"host": "localhost"}
-        assert cfg._items_raw == {"host": {"value": "localhost", "type": "STRING"}}
-
-    def test_set_mixed_values(self):
-        cfg = _make_config()
-        cfg.items = {"host": "localhost", "port": {"value": 5432}}
-        assert cfg.items == {"host": "localhost", "port": 5432}
-
+class TestConfigItemsAccess:
     def test_items_raw_returns_copy(self):
         cfg = _make_config()
         raw = cfg.items_raw
         raw["new_key"] = {"value": "should not leak"}
         assert "new_key" not in cfg.items_raw
+
+    def test_items_returns_copy(self):
+        cfg = _make_config()
+        view = cfg.items
+        view["new_key"] = "should not leak"
+        assert "new_key" not in cfg.items
+
+    def test_items_has_no_setter(self):
+        cfg = _make_config()
+        with pytest.raises(AttributeError):
+            cfg.items = {"host": "localhost"}
+
+    def test_environments_returns_copy(self):
+        cfg = _make_config()
+        cfg.set_number("max_retries", 5, environment="production")
+        view = cfg.environments
+        del view["production"]
+        assert "production" in cfg.environments
+
+    def test_environments_has_no_setter(self):
+        cfg = _make_config()
+        with pytest.raises(AttributeError):
+            cfg.environments = {"prod": {}}
 
 
 # ===================================================================
@@ -176,7 +181,8 @@ class TestConfigApply:
         assert cfg.description == "New desc"
         assert cfg.parent == "parent-id"
         assert cfg.items == {"host": "h"}
-        assert cfg.environments == {"prod": {"values": {"host": "prod-h"}}}
+        assert list(cfg.environments) == ["prod"]
+        assert cfg.environments["prod"].values == {"host": "prod-h"}
         assert cfg.created_at == datetime.datetime(2025, 1, 1)
         assert cfg.updated_at == datetime.datetime(2025, 6, 1)
 
@@ -281,29 +287,35 @@ class TestAsyncConfigAttributes:
 # ===================================================================
 
 
-class TestAsyncConfigSettableItems:
-    def test_set_plain_values(self):
-        cfg = _make_async_config()
-        cfg.items = {"host": "localhost", "port": 5432}
-        assert cfg.items == {"host": "localhost", "port": 5432}
-        assert cfg._items_raw == {"host": {"value": "localhost"}, "port": {"value": 5432}}
-
-    def test_set_already_wrapped_values(self):
-        cfg = _make_async_config()
-        cfg.items = {"host": {"value": "localhost", "type": "STRING"}}
-        assert cfg.items == {"host": "localhost"}
-        assert cfg._items_raw == {"host": {"value": "localhost", "type": "STRING"}}
-
-    def test_set_mixed_values(self):
-        cfg = _make_async_config()
-        cfg.items = {"host": "localhost", "port": {"value": 5432}}
-        assert cfg.items == {"host": "localhost", "port": 5432}
-
+class TestAsyncConfigItemsAccess:
     def test_items_raw_returns_copy(self):
         cfg = _make_async_config()
         raw = cfg.items_raw
         raw["new_key"] = {"value": "should not leak"}
         assert "new_key" not in cfg.items_raw
+
+    def test_items_returns_copy(self):
+        cfg = _make_async_config()
+        view = cfg.items
+        view["new_key"] = "should not leak"
+        assert "new_key" not in cfg.items
+
+    def test_items_has_no_setter(self):
+        cfg = _make_async_config()
+        with pytest.raises(AttributeError):
+            cfg.items = {"host": "localhost"}
+
+    def test_environments_returns_copy(self):
+        cfg = _make_async_config()
+        cfg.set_number("max_retries", 5, environment="production")
+        view = cfg.environments
+        del view["production"]
+        assert "production" in cfg.environments
+
+    def test_environments_has_no_setter(self):
+        cfg = _make_async_config()
+        with pytest.raises(AttributeError):
+            cfg.environments = {"prod": {}}
 
 
 # ===================================================================
@@ -383,7 +395,8 @@ class TestAsyncConfigApply:
         assert cfg.description == "New desc"
         assert cfg.parent == "parent-id"
         assert cfg.items == {"host": "h"}
-        assert cfg.environments == {"prod": {"values": {"host": "prod-h"}}}
+        assert list(cfg.environments) == ["prod"]
+        assert cfg.environments["prod"].values == {"host": "prod-h"}
         assert cfg.created_at == datetime.datetime(2025, 1, 1)
         assert cfg.updated_at == datetime.datetime(2025, 6, 1)
 
@@ -467,3 +480,214 @@ class TestAsyncConfigBuildChain:
             assert chain[0]["id"] == "test_config"
 
         asyncio.run(_run())
+
+
+# ===================================================================
+# ConfigItem — typed item helper
+# ===================================================================
+
+
+class TestConfigItem:
+    def test_construct_with_enum_type(self):
+        item = ConfigItem("host", "localhost", ItemType.STRING)
+        assert item.name == "host"
+        assert item.value == "localhost"
+        assert item.type is ItemType.STRING
+        assert item.description is None
+
+    def test_construct_with_string_type(self):
+        item = ConfigItem("port", 5432, "NUMBER", description="DB port")
+        assert item.type is ItemType.NUMBER
+        assert item.description == "DB port"
+
+    def test_repr(self):
+        item = ConfigItem("flag", True, ItemType.BOOLEAN)
+        r = repr(item)
+        assert "ConfigItem(" in r
+        assert "flag" in r
+        assert "BOOLEAN" in r
+
+
+class TestConfigSetRemoveItems:
+    def test_set_writes_typed_item(self):
+        cfg = _make_config()
+        cfg.set(ConfigItem("host", "localhost", ItemType.STRING))
+        assert cfg.items_raw["host"] == {"value": "localhost", "type": "STRING"}
+
+    def test_set_includes_description(self):
+        cfg = _make_config()
+        cfg.set(ConfigItem("host", "localhost", ItemType.STRING, description="DB host"))
+        assert cfg.items_raw["host"]["description"] == "DB host"
+
+    def test_remove_existing(self):
+        cfg = _make_config()
+        cfg.set(ConfigItem("host", "localhost", ItemType.STRING))
+        cfg.remove("host")
+        assert "host" not in cfg.items_raw
+
+    def test_remove_missing_no_error(self):
+        cfg = _make_config()
+        cfg.remove("never-existed")  # should not raise
+
+    def test_set_string_helper(self):
+        cfg = _make_config()
+        cfg.set_string("host", "localhost")
+        assert cfg.items_raw["host"]["type"] == "STRING"
+
+    def test_set_number_helper(self):
+        cfg = _make_config()
+        cfg.set_number("port", 5432, description="db")
+        assert cfg.items_raw["port"]["type"] == "NUMBER"
+        assert cfg.items_raw["port"]["description"] == "db"
+
+    def test_set_boolean_helper(self):
+        cfg = _make_config()
+        cfg.set_boolean("on", True)
+        assert cfg.items_raw["on"]["type"] == "BOOLEAN"
+
+    def test_set_json_helper(self):
+        cfg = _make_config()
+        cfg.set_json("blob", {"a": 1})
+        assert cfg.items_raw["blob"]["type"] == "JSON"
+
+
+class TestAsyncConfigSetRemoveItems:
+    def test_set_writes_typed_item(self):
+        cfg = _make_async_config()
+        cfg.set(ConfigItem("host", "localhost", ItemType.STRING))
+        assert cfg.items_raw["host"] == {"value": "localhost", "type": "STRING"}
+
+    def test_set_includes_description(self):
+        cfg = _make_async_config()
+        cfg.set(ConfigItem("host", "h", ItemType.STRING, description="hint"))
+        assert cfg.items_raw["host"]["description"] == "hint"
+
+    def test_remove_existing(self):
+        cfg = _make_async_config()
+        cfg.set(ConfigItem("host", "h", ItemType.STRING))
+        cfg.remove("host")
+        assert "host" not in cfg.items_raw
+
+    def test_remove_missing_no_error(self):
+        cfg = _make_async_config()
+        cfg.remove("ghost")
+
+    def test_set_string_helper(self):
+        cfg = _make_async_config()
+        cfg.set_string("host", "h")
+        assert cfg.items_raw["host"]["type"] == "STRING"
+
+    def test_set_number_helper(self):
+        cfg = _make_async_config()
+        cfg.set_number("port", 1)
+        assert cfg.items_raw["port"]["type"] == "NUMBER"
+
+    def test_set_boolean_helper(self):
+        cfg = _make_async_config()
+        cfg.set_boolean("on", False)
+        assert cfg.items_raw["on"]["type"] == "BOOLEAN"
+
+    def test_set_json_helper(self):
+        cfg = _make_async_config()
+        cfg.set_json("blob", [])
+        assert cfg.items_raw["blob"]["type"] == "JSON"
+
+
+class TestConfigEnvironment:
+    def test_construct_empty(self):
+        env = ConfigEnvironment()
+        assert env.values == {}
+        assert env.values_raw == {}
+
+    def test_construct_with_wire_shape(self):
+        env = ConfigEnvironment(values={"host": {"value": "h", "type": "STRING"}})
+        assert env.values == {"host": "h"}
+        assert env.values_raw["host"]["type"] == "STRING"
+
+    def test_construct_with_raw_value(self):
+        env = ConfigEnvironment(values={"host": "h"})
+        assert env.values == {"host": "h"}
+        assert env.values_raw["host"] == {"value": "h"}
+
+    def test_repr(self):
+        env = ConfigEnvironment(values={"host": "h"})
+        r = repr(env)
+        assert "ConfigEnvironment(" in r
+        assert "host" in r
+
+
+class TestConfigEnvironmentsAccess:
+    def test_environments_property_starts_empty(self):
+        cfg = _make_config()
+        assert cfg.environments == {}
+
+    def test_setter_with_environment_kwarg_creates_and_writes(self):
+        cfg = _make_config()
+        cfg.set_number("max_retries", 5, environment="production")
+        assert isinstance(cfg.environments["production"], ConfigEnvironment)
+        assert cfg.environments["production"].values_raw["max_retries"] == {
+            "value": 5,
+            "type": "NUMBER",
+        }
+
+    def test_setter_with_environment_reuses_existing_env(self):
+        cfg = _make_config()
+        cfg.set_number("max_retries", 5, environment="production")
+        cfg.set_number("request_timeout_ms", 10000, environment="production")
+        assert len(cfg.environments) == 1
+        prod = cfg.environments["production"]
+        assert prod.values == {"max_retries": 5, "request_timeout_ms": 10000}
+
+    def test_set_with_environment_routes_to_override(self):
+        cfg = _make_config(items={})
+        cfg.set(ConfigItem("host", "prod-h", ItemType.STRING), environment="production")
+        assert cfg.items_raw == {}
+        assert cfg.environments["production"].values["host"] == "prod-h"
+
+    def test_remove_with_environment_only_clears_override(self):
+        cfg = _make_config()
+        cfg.set_number("max_retries", 3)
+        cfg.set_number("max_retries", 5, environment="production")
+        cfg.remove("max_retries", environment="production")
+        assert cfg.items_raw["max_retries"] == {"value": 3, "type": "NUMBER"}
+        assert "max_retries" not in cfg.environments["production"].values_raw
+
+    def test_init_converts_wire_dict(self):
+        cfg = _make_config(environments={"prod": {"values": {"host": "h"}}})
+        assert isinstance(cfg.environments["prod"], ConfigEnvironment)
+        assert cfg.environments["prod"].values == {"host": "h"}
+
+    def test_init_accepts_pre_built_instances(self):
+        env = ConfigEnvironment(values={"host": "h"})
+        cfg = _make_config(environments={"prod": env})
+        assert cfg.environments["prod"] is env
+
+    def test_init_handles_non_dict_values_gracefully(self):
+        cfg = _make_config(environments={"prod": "garbage"})
+        assert isinstance(cfg.environments["prod"], ConfigEnvironment)
+        assert cfg.environments["prod"].values == {}
+
+    def test_async_setter_with_environment_kwarg(self):
+        cfg = _make_async_config()
+        cfg.set_number("max_retries", 5, environment="production")
+        assert cfg.environments["production"].values_raw["max_retries"] == {
+            "value": 5,
+            "type": "NUMBER",
+        }
+
+    def test_async_set_with_environment_routes_to_override(self):
+        cfg = _make_async_config(items={})
+        cfg.set(ConfigItem("host", "prod-h", ItemType.STRING), environment="production")
+        assert cfg.items_raw == {}
+        assert cfg.environments["production"].values["host"] == "prod-h"
+
+    def test_async_remove_with_environment_only_clears_override(self):
+        cfg = _make_async_config()
+        cfg.set_number("max_retries", 5, environment="production")
+        cfg.remove("max_retries", environment="production")
+        assert "max_retries" not in cfg.environments["production"].values_raw
+
+    def test_async_init_converts_wire_dict(self):
+        cfg = _make_async_config(environments={"prod": {"values": {"host": "h"}}})
+        assert isinstance(cfg.environments["prod"], ConfigEnvironment)
+        assert cfg.environments["prod"].values == {"host": "h"}

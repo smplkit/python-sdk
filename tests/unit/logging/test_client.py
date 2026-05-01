@@ -631,66 +631,66 @@ class TestDeleteGroup:
 
 
 class TestLoggerConvenienceMethods:
-    def test_setLevel(self):
+    def test_set_level(self):
         lg = SmplLogger(None, id="sql", name="SQL Logger")
-        lg.setLevel(LogLevel.ERROR)
+        lg.set_level(LogLevel.ERROR)
         assert lg.level == "ERROR"
 
-    def test_clearLevel(self):
+    def test_clear_level(self):
         lg = SmplLogger(None, id="sql", name="SQL Logger", level="DEBUG")
-        lg.clearLevel()
+        lg.clear_level()
         assert lg.level is None
 
     def test_setEnvironmentLevel(self):
         lg = SmplLogger(None, id="sql", name="SQL Logger")
-        lg.setEnvironmentLevel("prod", LogLevel.WARN)
+        lg.set_level(LogLevel.WARN, environment="prod")
         assert lg.environments["prod"] == {"level": "WARN"}
 
     def test_clearEnvironmentLevel(self):
         lg = SmplLogger(None, id="sql", name="SQL Logger", environments={"prod": {"level": "WARN"}})
-        lg.clearEnvironmentLevel("prod")
+        lg.clear_level(environment="prod")
         assert "prod" not in lg.environments
 
     def test_clearEnvironmentLevel_missing_key(self):
         lg = SmplLogger(None, id="sql", name="SQL Logger")
-        lg.clearEnvironmentLevel("nonexistent")  # should not raise
+        lg.clear_level(environment="nonexistent")  # should not raise
 
     def test_clearAllEnvironmentLevels(self):
         lg = SmplLogger(
             None, id="sql", name="SQL Logger", environments={"prod": {"level": "WARN"}, "dev": {"level": "DEBUG"}}
         )
-        lg.clearAllEnvironmentLevels()
+        lg.clear_all_environment_levels()
         assert lg.environments == {}
 
 
 class TestLogGroupConvenienceMethods:
-    def test_setLevel(self):
+    def test_set_level(self):
         grp = SmplLogGroup(None, id="db", name="DB")
-        grp.setLevel(LogLevel.ERROR)
+        grp.set_level(LogLevel.ERROR)
         assert grp.level == "ERROR"
 
-    def test_clearLevel(self):
+    def test_clear_level(self):
         grp = SmplLogGroup(None, id="db", name="DB", level="WARN")
-        grp.clearLevel()
+        grp.clear_level()
         assert grp.level is None
 
     def test_setEnvironmentLevel(self):
         grp = SmplLogGroup(None, id="db", name="DB")
-        grp.setEnvironmentLevel("staging", LogLevel.DEBUG)
+        grp.set_level(LogLevel.DEBUG, environment="staging")
         assert grp.environments["staging"] == {"level": "DEBUG"}
 
     def test_clearEnvironmentLevel(self):
         grp = SmplLogGroup(None, id="db", name="DB", environments={"staging": {"level": "DEBUG"}})
-        grp.clearEnvironmentLevel("staging")
+        grp.clear_level(environment="staging")
         assert "staging" not in grp.environments
 
     def test_clearEnvironmentLevel_missing_key(self):
         grp = SmplLogGroup(None, id="db", name="DB")
-        grp.clearEnvironmentLevel("nonexistent")
+        grp.clear_level(environment="nonexistent")
 
     def test_clearAllEnvironmentLevels(self):
         grp = SmplLogGroup(None, id="db", name="DB", environments={"a": {"level": "DEBUG"}, "b": {"level": "ERROR"}})
-        grp.clearAllEnvironmentLevels()
+        grp.clear_all_environment_levels()
         assert grp.environments == {}
 
 
@@ -875,12 +875,14 @@ class TestLoggerRegistrationBuffer:
 
 
 class TestBulkFlush:
+    """Coverage of ``mgmt.loggers.flush()`` driven from the runtime buffer."""
+
     @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
     def test_flush_sends_batch(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_logging_client()
         client._parent.manage.loggers._buffer.add("com.test", "INFO", "INFO", None, None)
-        client._flush_bulk_sync()
+        client._parent.manage.loggers.flush()
         mock_bulk.assert_called_once()
 
     @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
@@ -889,7 +891,7 @@ class TestBulkFlush:
         mock_bulk.return_value = _ok_response()
         client = _make_logging_client()
         client._parent.manage.loggers._buffer.add("com.test", "INFO", "INFO", "my-svc", "production")
-        client._flush_bulk_sync()
+        client._parent.manage.loggers.flush()
 
         call_kwargs = mock_bulk.call_args
         body = call_kwargs[1]["body"] if "body" in call_kwargs[1] else call_kwargs[0][1]
@@ -900,54 +902,8 @@ class TestBulkFlush:
     @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
     def test_flush_noop_when_empty(self, mock_bulk):
         client = _make_logging_client()
-        client._flush_bulk_sync()
+        client._parent.manage.loggers.flush()
         mock_bulk.assert_not_called()
-
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
-    def test_flush_fire_and_forget(self, mock_bulk):
-        """Flush should not raise even if the HTTP call fails."""
-        mock_bulk.side_effect = Exception("network error")
-        client = _make_logging_client()
-        client._parent.manage.loggers._buffer.add("com.test", "INFO", "INFO", None, None)
-        client._flush_bulk_sync()
-
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
-    def test_flush_logs_warning_on_http_error(self, mock_bulk, caplog):
-        """Flush should log a WARNING with status and body on non-2xx."""
-        mock_bulk.return_value = _ok_response(
-            status=HTTPStatus.BAD_REQUEST,
-        )
-        mock_bulk.return_value.content = b'{"errors":[{"detail":"Invalid level"}]}'
-        client = _make_logging_client()
-        client._parent.manage.loggers._buffer.add("com.test", "INFO", "INFO", None, None)
-        with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
-            client._flush_bulk_sync()
-        assert len(caplog.records) == 1
-        assert "400" in caplog.records[0].message
-        assert "Invalid level" in caplog.records[0].message
-        assert caplog.records[0].levelno == stdlib_logging.WARNING
-
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
-    def test_flush_logs_warning_on_network_error(self, mock_bulk, caplog):
-        """Flush should log a WARNING on network-level exceptions."""
-        mock_bulk.side_effect = Exception("connection refused")
-        client = _make_logging_client()
-        client._parent.manage.loggers._buffer.add("com.test", "INFO", "INFO", None, None)
-        with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
-            client._flush_bulk_sync()
-        records = [r for r in caplog.records if r.name == "smplkit"]
-        assert len(records) == 1
-        assert records[0].levelno == stdlib_logging.WARNING
-
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
-    def test_flush_no_metrics_on_http_error(self, mock_bulk):
-        """Metrics should NOT be recorded on non-2xx responses."""
-        mock_bulk.return_value = _ok_response(status=HTTPStatus.BAD_REQUEST)
-        mock_bulk.return_value.content = b'{"errors":[]}'
-        client = _make_logging_client()
-        client._parent.manage.loggers._buffer.add("com.test", "INFO", "INFO", None, None)
-        client._flush_bulk_sync()
-        client._parent._metrics.record.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -983,7 +939,7 @@ class TestPayloadAssembly:
         smpl_explicit = python_level_to_smpl(explicit) if explicit else None
         smpl_effective = python_level_to_smpl(effective)
         client._parent.manage.loggers._buffer.add("test.payload.explicit", smpl_explicit, smpl_effective, None, None)
-        client._flush_bulk_sync()
+        client._parent.manage.loggers.flush()
 
         call_kwargs = mock_bulk.call_args
         body = call_kwargs[1]["body"] if "body" in call_kwargs[1] else call_kwargs[0][1]
@@ -1020,7 +976,7 @@ class TestPayloadAssembly:
         client._parent.manage.loggers._buffer.add(
             "test.payload.inherit_parent.child", smpl_explicit, smpl_effective, None, None
         )
-        client._flush_bulk_sync()
+        client._parent.manage.loggers.flush()
 
         call_kwargs = mock_bulk.call_args
         body = call_kwargs[1]["body"] if "body" in call_kwargs[1] else call_kwargs[0][1]
@@ -1051,7 +1007,7 @@ class TestPayloadAssembly:
         smpl_explicit = python_level_to_smpl(explicit)
         smpl_effective = python_level_to_smpl(effective)
         client._parent.manage.loggers._buffer.add("root", smpl_explicit, smpl_effective, None, None)
-        client._flush_bulk_sync()
+        client._parent.manage.loggers.flush()
 
         call_kwargs = mock_bulk.call_args
         body = call_kwargs[1]["body"] if "body" in call_kwargs[1] else call_kwargs[0][1]
@@ -1234,13 +1190,6 @@ class TestClose:
         client._adapters = [adapter]
         client._close()
         adapter.uninstall_hook.assert_called_once()
-
-    def test_close_cancels_timer(self):
-        client = _make_logging_client()
-        timer = MagicMock()
-        client._flush_timer = timer
-        client._close()
-        timer.cancel.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

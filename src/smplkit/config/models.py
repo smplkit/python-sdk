@@ -4,13 +4,107 @@ from __future__ import annotations
 
 import datetime
 import logging
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from smplkit.config.client import AsyncConfigClient, ConfigClient
-    from smplkit.management.client import AsyncConfigsClient, ConfigsClient
+    from smplkit.management.client import (
+        AsyncConfigClient as AsyncMgmtConfigClient,
+        ConfigClient as MgmtConfigClient,
+    )
 
 logger = logging.getLogger("smplkit")
+
+
+class ItemType(str, Enum):
+    """Type of a :class:`ConfigItem` value."""
+
+    STRING = "STRING"
+    NUMBER = "NUMBER"
+    BOOLEAN = "BOOLEAN"
+    JSON = "JSON"
+
+
+class ConfigItem:
+    """A single typed item in a :class:`Config`."""
+
+    name: str
+    value: Any
+    type: ItemType
+    description: str | None
+
+    def __init__(
+        self,
+        name: str,
+        value: Any,
+        type: ItemType | str,
+        *,
+        description: str | None = None,
+    ) -> None:
+        self.name = name
+        self.value = value
+        self.type = type if isinstance(type, ItemType) else ItemType(type)
+        self.description = description
+
+    def __repr__(self) -> str:
+        return f"ConfigItem(name={self.name!r}, value={self.value!r}, type={self.type.value})"
+
+
+class ConfigEnvironment:
+    """Per-environment value overrides for a :class:`Config`.
+
+    Read-only inspection container.  Mutation is performed via :class:`Config`'s
+    setters with ``environment="..."`` (e.g. ``cfg.set_string("k", "v",
+    environment="production")``).
+    """
+
+    def __init__(self, values: dict[str, Any] | None = None) -> None:
+        self._values_raw: dict[str, dict[str, Any]] = {}
+        if values:
+            for k, v in values.items():
+                if isinstance(v, dict) and "value" in v:
+                    self._values_raw[k] = v
+                else:
+                    self._values_raw[k] = {"value": v}
+
+    @property
+    def values(self) -> dict[str, Any]:
+        """Return overrides as a plain dict ``{key: raw_value}``."""
+        return {k: v["value"] for k, v in self._values_raw.items()}
+
+    @property
+    def values_raw(self) -> dict[str, Any]:
+        """Return the full typed overrides ``{key: {value, type, description}}``."""
+        return dict(self._values_raw)
+
+    def __repr__(self) -> str:
+        return f"ConfigEnvironment(values={self.values!r})"
+
+
+def _convert_environments(value: dict[str, Any] | None) -> dict[str, ConfigEnvironment]:
+    """Coerce a dict input into ``dict[str, ConfigEnvironment]``.
+
+    Accepts both pre-built :class:`ConfigEnvironment` instances and the wire-shaped
+    ``{env_id: {"values": {...}}}`` dicts produced by :func:`_extract_environments`.
+    """
+    if not value:
+        return {}
+    result: dict[str, ConfigEnvironment] = {}
+    for env_id, env_data in value.items():
+        if isinstance(env_data, ConfigEnvironment):
+            result[env_id] = env_data
+        elif isinstance(env_data, dict):
+            raw_values = env_data.get("values") if "values" in env_data else env_data
+            result[env_id] = ConfigEnvironment(values=raw_values or {})
+        else:
+            result[env_id] = ConfigEnvironment()
+    return result
+
+
+def _environments_to_wire(environments: dict[str, ConfigEnvironment]) -> dict[str, Any]:
+    """Convert a typed environments dict to the wire-shaped dict the resolver expects."""
+    return {env_id: {"values": env._values_raw} for env_id, env in environments.items()}
 
 
 class Config:
@@ -32,13 +126,12 @@ class Config:
     name: str
     description: str | None
     parent: str | None
-    environments: dict[str, Any]
     created_at: datetime.datetime | None
     updated_at: datetime.datetime | None
 
     def __init__(
         self,
-        client: ConfigsClient | ConfigClient | None = None,
+        client: MgmtConfigClient | ConfigClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -55,30 +148,77 @@ class Config:
         self.description = description
         self.parent = parent
         self._items_raw = items or {}
-        self.environments = environments or {}
+        self._environments: dict[str, ConfigEnvironment] = _convert_environments(environments)
         self.created_at = created_at
         self.updated_at = updated_at
 
     @property
     def items(self) -> dict[str, Any]:
-        """Return base values as a plain dict ``{key: raw_value}``."""
-        return {k: v["value"] if isinstance(v, dict) and "value" in v else v for k, v in self._items_raw.items()}
+        """Read-only plain ``{key: raw_value}`` view of base items.
 
-    @items.setter
-    def items(self, value: dict[str, Any]) -> None:
-        """Set base items from a plain ``{key: raw_value}`` dict."""
-        wrapped: dict[str, Any] = {}
-        for k, v in value.items():
-            if isinstance(v, dict) and "value" in v:
-                wrapped[k] = v
-            else:
-                wrapped[k] = {"value": v}
-        self._items_raw = wrapped
+        Mutate via :meth:`set` / :meth:`set_string` / :meth:`set_number` /
+        :meth:`set_boolean` / :meth:`set_json` / :meth:`remove`.
+        """
+        return {k: v["value"] if isinstance(v, dict) and "value" in v else v for k, v in self._items_raw.items()}
 
     @property
     def items_raw(self) -> dict[str, Any]:
         """Return the full typed items ``{key: {value, type, description}}``."""
         return dict(self._items_raw)
+
+    @property
+    def environments(self) -> dict[str, ConfigEnvironment]:
+        """Read-only view of per-environment overrides keyed by environment id.
+
+        Mutate via the ``environment="..."`` kwarg on :meth:`set` / :meth:`set_string`
+        / :meth:`set_number` / :meth:`set_boolean` / :meth:`set_json` / :meth:`remove`.
+        """
+        return dict(self._environments)
+
+    def _items_target(self, environment: str | None) -> dict[str, dict[str, Any]]:
+        """Return the dict that ``set()`` / ``remove()`` should mutate."""
+        if environment is None:
+            return self._items_raw
+        env = self._environments.get(environment)
+        if env is None:
+            env = ConfigEnvironment()
+            self._environments[environment] = env
+        return env._values_raw
+
+    def set(self, item: ConfigItem, *, environment: str | None = None) -> None:
+        """Set (or replace) an item.  When ``environment`` is given, sets an override on that environment."""
+        raw: dict[str, Any] = {"value": item.value, "type": item.type.value}
+        if item.description is not None:
+            raw["description"] = item.description
+        self._items_target(environment)[item.name] = raw
+
+    def remove(self, name: str, *, environment: str | None = None) -> None:
+        """Remove an item by name.  When ``environment`` is given, removes the per-environment override only."""
+        self._items_target(environment).pop(name, None)
+
+    def set_string(
+        self, name: str, value: str, *, description: str | None = None, environment: str | None = None
+    ) -> None:
+        """Convenience: set a STRING item (or environment override)."""
+        self.set(ConfigItem(name, value, ItemType.STRING, description=description), environment=environment)
+
+    def set_number(
+        self, name: str, value: int | float, *, description: str | None = None, environment: str | None = None
+    ) -> None:
+        """Convenience: set a NUMBER item (or environment override)."""
+        self.set(ConfigItem(name, value, ItemType.NUMBER, description=description), environment=environment)
+
+    def set_boolean(
+        self, name: str, value: bool, *, description: str | None = None, environment: str | None = None
+    ) -> None:
+        """Convenience: set a BOOLEAN item (or environment override)."""
+        self.set(ConfigItem(name, value, ItemType.BOOLEAN, description=description), environment=environment)
+
+    def set_json(
+        self, name: str, value: Any, *, description: str | None = None, environment: str | None = None
+    ) -> None:
+        """Convenience: set a JSON item (or environment override)."""
+        self.set(ConfigItem(name, value, ItemType.JSON, description=description), environment=environment)
 
     def save(self) -> None:
         """Persist this config to the server.
@@ -111,7 +251,7 @@ class Config:
         self.description = other.description
         self.parent = other.parent
         self._items_raw = other._items_raw
-        self.environments = other.environments
+        self._environments = other._environments
         self.created_at = other.created_at
         self.updated_at = other.updated_at
 
@@ -122,7 +262,13 @@ class Config:
             configs: Optional pre-fetched list of configs to look up parents
                 by ID, avoiding extra network calls.
         """
-        chain = [{"id": self.id, "items": self._items_raw, "environments": self.environments}]
+        chain = [
+            {
+                "id": self.id,
+                "items": self._items_raw,
+                "environments": _environments_to_wire(self._environments),
+            }
+        ]
         current = self
         configs_by_id = {c.id: c for c in configs} if configs else {}
         while current.parent is not None:
@@ -137,7 +283,7 @@ class Config:
                 {
                     "id": parent_config.id,
                     "items": parent_config._items_raw,
-                    "environments": parent_config.environments,
+                    "environments": _environments_to_wire(parent_config._environments),
                 }
             )
             current = parent_config
@@ -166,13 +312,12 @@ class AsyncConfig:
     name: str
     description: str | None
     parent: str | None
-    environments: dict[str, Any]
     created_at: datetime.datetime | None
     updated_at: datetime.datetime | None
 
     def __init__(
         self,
-        client: AsyncConfigsClient | AsyncConfigClient | None = None,
+        client: AsyncMgmtConfigClient | AsyncConfigClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -189,30 +334,77 @@ class AsyncConfig:
         self.description = description
         self.parent = parent
         self._items_raw = items or {}
-        self.environments = environments or {}
+        self._environments: dict[str, ConfigEnvironment] = _convert_environments(environments)
         self.created_at = created_at
         self.updated_at = updated_at
 
     @property
     def items(self) -> dict[str, Any]:
-        """Return base values as a plain dict ``{key: raw_value}``."""
-        return {k: v["value"] if isinstance(v, dict) and "value" in v else v for k, v in self._items_raw.items()}
+        """Read-only plain ``{key: raw_value}`` view of base items.
 
-    @items.setter
-    def items(self, value: dict[str, Any]) -> None:
-        """Set base items from a plain ``{key: raw_value}`` dict."""
-        wrapped: dict[str, Any] = {}
-        for k, v in value.items():
-            if isinstance(v, dict) and "value" in v:
-                wrapped[k] = v
-            else:
-                wrapped[k] = {"value": v}
-        self._items_raw = wrapped
+        Mutate via :meth:`set` / :meth:`set_string` / :meth:`set_number` /
+        :meth:`set_boolean` / :meth:`set_json` / :meth:`remove`.
+        """
+        return {k: v["value"] if isinstance(v, dict) and "value" in v else v for k, v in self._items_raw.items()}
 
     @property
     def items_raw(self) -> dict[str, Any]:
         """Return the full typed items ``{key: {value, type, description}}``."""
         return dict(self._items_raw)
+
+    @property
+    def environments(self) -> dict[str, ConfigEnvironment]:
+        """Read-only view of per-environment overrides keyed by environment id.
+
+        Mutate via the ``environment="..."`` kwarg on :meth:`set` / :meth:`set_string`
+        / :meth:`set_number` / :meth:`set_boolean` / :meth:`set_json` / :meth:`remove`.
+        """
+        return dict(self._environments)
+
+    def _items_target(self, environment: str | None) -> dict[str, dict[str, Any]]:
+        """Return the dict that ``set()`` / ``remove()`` should mutate."""
+        if environment is None:
+            return self._items_raw
+        env = self._environments.get(environment)
+        if env is None:
+            env = ConfigEnvironment()
+            self._environments[environment] = env
+        return env._values_raw
+
+    def set(self, item: ConfigItem, *, environment: str | None = None) -> None:
+        """Set (or replace) an item.  When ``environment`` is given, sets an override on that environment."""
+        raw: dict[str, Any] = {"value": item.value, "type": item.type.value}
+        if item.description is not None:
+            raw["description"] = item.description
+        self._items_target(environment)[item.name] = raw
+
+    def remove(self, name: str, *, environment: str | None = None) -> None:
+        """Remove an item by name.  When ``environment`` is given, removes the per-environment override only."""
+        self._items_target(environment).pop(name, None)
+
+    def set_string(
+        self, name: str, value: str, *, description: str | None = None, environment: str | None = None
+    ) -> None:
+        """Convenience: set a STRING item (or environment override)."""
+        self.set(ConfigItem(name, value, ItemType.STRING, description=description), environment=environment)
+
+    def set_number(
+        self, name: str, value: int | float, *, description: str | None = None, environment: str | None = None
+    ) -> None:
+        """Convenience: set a NUMBER item (or environment override)."""
+        self.set(ConfigItem(name, value, ItemType.NUMBER, description=description), environment=environment)
+
+    def set_boolean(
+        self, name: str, value: bool, *, description: str | None = None, environment: str | None = None
+    ) -> None:
+        """Convenience: set a BOOLEAN item (or environment override)."""
+        self.set(ConfigItem(name, value, ItemType.BOOLEAN, description=description), environment=environment)
+
+    def set_json(
+        self, name: str, value: Any, *, description: str | None = None, environment: str | None = None
+    ) -> None:
+        """Convenience: set a JSON item (or environment override)."""
+        self.set(ConfigItem(name, value, ItemType.JSON, description=description), environment=environment)
 
     async def save(self) -> None:
         """Persist this config to the server.
@@ -245,7 +437,7 @@ class AsyncConfig:
         self.description = other.description
         self.parent = other.parent
         self._items_raw = other._items_raw
-        self.environments = other.environments
+        self._environments = other._environments
         self.created_at = other.created_at
         self.updated_at = other.updated_at
 
@@ -256,7 +448,13 @@ class AsyncConfig:
             configs: Optional pre-fetched list of configs to look up parents
                 by ID, avoiding extra network calls.
         """
-        chain = [{"id": self.id, "items": self._items_raw, "environments": self.environments}]
+        chain = [
+            {
+                "id": self.id,
+                "items": self._items_raw,
+                "environments": _environments_to_wire(self._environments),
+            }
+        ]
         current = self
         configs_by_id = {c.id: c for c in configs} if configs else {}
         while current.parent is not None:
@@ -271,7 +469,7 @@ class AsyncConfig:
                 {
                     "id": parent_config.id,
                     "items": parent_config._items_raw,
-                    "environments": parent_config.environments,
+                    "environments": _environments_to_wire(parent_config._environments),
                 }
             )
             current = parent_config

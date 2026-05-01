@@ -77,6 +77,16 @@ class TestMakeEnvironments:
         env_override = result.additional_properties["prod"]
         assert isinstance(env_override, EnvironmentOverride)
 
+    def test_config_environment_instance(self):
+        """A ConfigEnvironment instance unwraps to the wire format."""
+        from smplkit.config.models import ConfigEnvironment
+
+        env = ConfigEnvironment(values={"host": {"value": "db-prod", "type": "STRING"}})
+        result = _make_environments({"prod": env})
+        env_override = result.additional_properties["prod"]
+        assert isinstance(env_override, EnvironmentOverride)
+        assert env_override.values.additional_properties["host"].value == "db-prod"
+
 
 class TestExtractItems:
     def test_none_returns_empty(self):

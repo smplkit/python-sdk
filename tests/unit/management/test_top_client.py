@@ -22,14 +22,14 @@ from smplkit._errors import Error
 from smplkit.management.client import (
     AccountSettingsClient,
     AsyncAccountSettingsClient,
-    AsyncConfigsClient,
+    AsyncConfigClient,
     AsyncContextsClient,
     AsyncContextTypesClient,
     AsyncEnvironmentsClient,
     AsyncFlagsClient,
     AsyncLogGroupsClient,
     AsyncLoggersClient,
-    ConfigsClient,
+    ConfigClient,
     ContextsClient,
     ContextTypesClient,
     EnvironmentsClient,
@@ -63,7 +63,7 @@ class TestSmplManagementClientConstruction:
         assert isinstance(mgmt.context_types, ContextTypesClient)
         assert isinstance(mgmt.environments, EnvironmentsClient)
         assert isinstance(mgmt.account_settings, AccountSettingsClient)
-        assert isinstance(mgmt.configs, ConfigsClient)
+        assert isinstance(mgmt.config, ConfigClient)
         assert isinstance(mgmt.flags, FlagsClient)
         assert isinstance(mgmt.loggers, LoggersClient)
         assert isinstance(mgmt.log_groups, LogGroupsClient)
@@ -170,7 +170,7 @@ class TestAsyncSmplManagementClientConstruction:
         assert isinstance(mgmt.context_types, AsyncContextTypesClient)
         assert isinstance(mgmt.environments, AsyncEnvironmentsClient)
         assert isinstance(mgmt.account_settings, AsyncAccountSettingsClient)
-        assert isinstance(mgmt.configs, AsyncConfigsClient)
+        assert isinstance(mgmt.config, AsyncConfigClient)
         assert isinstance(mgmt.flags, AsyncFlagsClient)
         assert isinstance(mgmt.loggers, AsyncLoggersClient)
         assert isinstance(mgmt.log_groups, AsyncLogGroupsClient)

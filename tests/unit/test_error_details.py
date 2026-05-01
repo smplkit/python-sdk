@@ -382,7 +382,7 @@ class TestConfigClientErrors:
 
         mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
         cfg = Config(
-            mgmt.configs,
+            mgmt.config,
             id="test",
             name="test",
             created_at=datetime.datetime(2025, 1, 1),
@@ -420,7 +420,7 @@ class TestConfigClientErrors:
         from smplkit import SmplManagementClient
 
         mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
-        cfg = mgmt.configs.new("test-key", name="test")
+        cfg = mgmt.config.new("test-key", name="test")
         with pytest.raises(ValidationError) as exc_info:
             cfg.save()
         exc = exc_info.value
@@ -446,7 +446,7 @@ class TestConfigClientErrors:
 
         mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
         with pytest.raises(NotFoundError) as exc_info:
-            mgmt.configs.get("abc")
+            mgmt.config.get("abc")
         exc = exc_info.value
         assert exc.status_code == 404
         assert "Config 'abc' does not exist." in str(exc)
@@ -470,7 +470,7 @@ class TestConfigClientErrors:
 
         mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
         with pytest.raises(ConflictError) as exc_info:
-            mgmt.configs.delete("test-config")
+            mgmt.config.delete("test-config")
         exc = exc_info.value
         assert exc.status_code == 409
         assert "Config has children" in str(exc)
@@ -486,7 +486,7 @@ class TestConfigClientErrors:
         from smplkit import SmplManagementClient
 
         mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
-        cfg = mgmt.configs.new("test-key", name="test")
+        cfg = mgmt.config.new("test-key", name="test")
         with pytest.raises(Error) as exc_info:
             cfg.save()
         exc = exc_info.value

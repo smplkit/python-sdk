@@ -1240,7 +1240,7 @@ class TestAsyncAccountSettingsClient:
 class TestSmplManagementClient:
     def test_init_wires_sub_clients(self, monkeypatch):
         from smplkit.management.client import (
-            ConfigsClient,
+            ConfigClient,
             FlagsClient as MgmtFlagsClient,
             LogGroupsClient,
             LoggersClient,
@@ -1252,7 +1252,7 @@ class TestSmplManagementClient:
         assert isinstance(mc.contexts, ContextsClient)
         assert isinstance(mc.context_types, ContextTypesClient)
         assert isinstance(mc.account_settings, AccountSettingsClient)
-        assert isinstance(mc.configs, ConfigsClient)
+        assert isinstance(mc.config, ConfigClient)
         assert isinstance(mc.flags, MgmtFlagsClient)
         assert isinstance(mc.loggers, LoggersClient)
         assert isinstance(mc.log_groups, LogGroupsClient)
@@ -1262,7 +1262,7 @@ class TestSmplManagementClient:
 class TestAsyncSmplManagementClient:
     def test_init_wires_sub_clients(self, monkeypatch):
         from smplkit.management.client import (
-            AsyncConfigsClient,
+            AsyncConfigClient,
             AsyncFlagsClient as AsyncMgmtFlagsClient,
             AsyncLogGroupsClient,
             AsyncLoggersClient,
@@ -1274,7 +1274,7 @@ class TestAsyncSmplManagementClient:
         assert isinstance(mc.contexts, AsyncContextsClient)
         assert isinstance(mc.context_types, AsyncContextTypesClient)
         assert isinstance(mc.account_settings, AsyncAccountSettingsClient)
-        assert isinstance(mc.configs, AsyncConfigsClient)
+        assert isinstance(mc.config, AsyncConfigClient)
         assert isinstance(mc.flags, AsyncMgmtFlagsClient)
         assert isinstance(mc.loggers, AsyncLoggersClient)
         assert isinstance(mc.log_groups, AsyncLogGroupsClient)
@@ -1469,3 +1469,243 @@ class TestAsyncContextEntityDelete:
                 await ent.delete()
 
         asyncio.run(_run())
+
+
+# ---------------------------------------------------------------------------
+# Threshold-flush behavior on the management sub-clients.
+#
+# Each ``register()`` checks ``_buffer.pending_count`` and spawns a daemon
+# thread that runs ``_threshold_flush()`` once the buffer crosses its size
+# threshold.  The threshold flush itself is a thin wrapper that calls
+# ``flush()`` (or ``flush_sync()`` on async clients) and swallows
+# exceptions so the thread doesn't propagate them.
+# ---------------------------------------------------------------------------
+
+
+class TestThresholdFlushTriggers:
+    def test_contexts_register_spawns_thread_at_threshold(self):
+        from smplkit.management._buffer import _CONTEXT_BATCH_FLUSH_SIZE
+
+        client = _make_contexts_client()
+        for i in range(_CONTEXT_BATCH_FLUSH_SIZE - 1):
+            client.register([Context("user", f"u-{i}")])
+        with patch("smplkit.management.client.threading.Thread") as mock_thread:
+            client.register([Context("user", "trigger")])
+            mock_thread.assert_called_once()
+            mock_thread.return_value.start.assert_called_once()
+
+    def test_async_contexts_register_spawns_thread_at_threshold(self):
+        from smplkit.management._buffer import _CONTEXT_BATCH_FLUSH_SIZE
+
+        client = _make_async_contexts_client()
+        for i in range(_CONTEXT_BATCH_FLUSH_SIZE - 1):
+            client.register([Context("user", f"u-{i}")])
+        with patch("smplkit.management.client.threading.Thread") as mock_thread:
+            client.register([Context("user", "trigger")])
+            mock_thread.assert_called_once()
+
+    def test_flags_register_spawns_thread_at_threshold(self):
+        from smplkit.flags.types import FlagDeclaration
+        from smplkit.management._buffer import _FLAG_BATCH_FLUSH_SIZE
+        from smplkit.management.client import FlagsClient as _FlagsClient
+
+        client = _FlagsClient(MagicMock())
+        for i in range(_FLAG_BATCH_FLUSH_SIZE - 1):
+            client.register(FlagDeclaration(id=f"flag-{i}", type="BOOLEAN", default=False))
+        with patch("smplkit.management.client.threading.Thread") as mock_thread:
+            client.register(FlagDeclaration(id="trigger", type="BOOLEAN", default=False))
+            mock_thread.assert_called_once()
+
+    def test_async_flags_register_spawns_thread_at_threshold(self):
+        from smplkit.flags.types import FlagDeclaration
+        from smplkit.management._buffer import _FLAG_BATCH_FLUSH_SIZE
+        from smplkit.management.client import AsyncFlagsClient as _AsyncFlagsClient
+
+        client = _AsyncFlagsClient(MagicMock())
+        for i in range(_FLAG_BATCH_FLUSH_SIZE - 1):
+            client.register(FlagDeclaration(id=f"flag-{i}", type="BOOLEAN", default=False))
+        with patch("smplkit.management.client.threading.Thread") as mock_thread:
+            client.register(FlagDeclaration(id="trigger", type="BOOLEAN", default=False))
+            mock_thread.assert_called_once()
+
+    def test_loggers_register_spawns_thread_at_threshold(self):
+        from smplkit import LogLevel
+        from smplkit.logging._sources import LoggerSource
+        from smplkit.management._buffer import _LOGGER_BATCH_FLUSH_SIZE
+        from smplkit.management.client import LoggersClient as _LoggersClient
+
+        client = _LoggersClient(MagicMock(), base_url="http://logging:8003")
+        for i in range(_LOGGER_BATCH_FLUSH_SIZE - 1):
+            client.register(LoggerSource(name=f"l-{i}", resolved_level=LogLevel.INFO))
+        with patch("smplkit.management.client.threading.Thread") as mock_thread:
+            client.register(LoggerSource(name="trigger", resolved_level=LogLevel.INFO))
+            mock_thread.assert_called_once()
+
+    def test_async_loggers_register_spawns_thread_at_threshold(self):
+        from smplkit import LogLevel
+        from smplkit.logging._sources import LoggerSource
+        from smplkit.management._buffer import _LOGGER_BATCH_FLUSH_SIZE
+        from smplkit.management.client import AsyncLoggersClient as _AsyncLoggersClient
+
+        client = _AsyncLoggersClient(MagicMock(), base_url="http://logging:8003")
+        for i in range(_LOGGER_BATCH_FLUSH_SIZE - 1):
+            client.register(LoggerSource(name=f"l-{i}", resolved_level=LogLevel.INFO))
+        with patch("smplkit.management.client.threading.Thread") as mock_thread:
+            client.register(LoggerSource(name="trigger", resolved_level=LogLevel.INFO))
+            mock_thread.assert_called_once()
+
+
+class TestThresholdFlushHandlesErrors:
+    """``_threshold_flush`` swallows exceptions so the daemon thread doesn't crash."""
+
+    @patch("smplkit.management.client._gen_bulk_register_contexts.sync_detailed")
+    def test_contexts_threshold_flush_logs_warning(self, mock_bulk, caplog):
+        import logging as stdlib_logging
+
+        mock_bulk.side_effect = RuntimeError("network down")
+        client = _make_contexts_client()
+        client._buffer.observe([Context("user", "u-1")])
+        with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
+            client._threshold_flush()
+        assert any("Context registration flush failed" in r.message for r in caplog.records)
+
+    def test_async_contexts_threshold_flush_logs_warning(self, caplog):
+        import logging as stdlib_logging
+
+        with patch("smplkit.management.client._gen_bulk_register_contexts.sync_detailed") as mock_bulk:
+            mock_bulk.side_effect = RuntimeError("network down")
+            client = _make_async_contexts_client()
+            client._buffer.observe([Context("user", "u-1")])
+            with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
+                client._threshold_flush()
+            assert any("Context registration flush failed" in r.message for r in caplog.records)
+
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    def test_flags_threshold_flush_logs_warning(self, mock_bulk, caplog):
+        import logging as stdlib_logging
+
+        from smplkit.flags.types import FlagDeclaration
+        from smplkit.management.client import FlagsClient as _FlagsClient
+
+        mock_bulk.side_effect = RuntimeError("network down")
+        client = _FlagsClient(MagicMock())
+        client.register(FlagDeclaration(id="x", type="BOOLEAN", default=False))
+        with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
+            client._threshold_flush()
+        assert any("Flag registration flush failed" in r.message for r in caplog.records)
+
+    def test_async_flags_threshold_flush_logs_warning(self, caplog):
+        import logging as stdlib_logging
+
+        from smplkit.flags.types import FlagDeclaration
+        from smplkit.management.client import AsyncFlagsClient as _AsyncFlagsClient
+
+        with patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed") as mock_bulk:
+            mock_bulk.side_effect = RuntimeError("network down")
+            client = _AsyncFlagsClient(MagicMock())
+            client.register(FlagDeclaration(id="x", type="BOOLEAN", default=False))
+            with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
+                client._threshold_flush()
+            assert any("Flag registration flush failed" in r.message for r in caplog.records)
+
+    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    def test_loggers_threshold_flush_logs_warning(self, mock_bulk, caplog):
+        import logging as stdlib_logging
+
+        from smplkit import LogLevel
+        from smplkit.logging._sources import LoggerSource
+        from smplkit.management.client import LoggersClient as _LoggersClient
+
+        mock_bulk.side_effect = RuntimeError("network down")
+        client = _LoggersClient(MagicMock(), base_url="http://logging:8003")
+        client.register(LoggerSource(name="l", resolved_level=LogLevel.INFO))
+        with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
+            client._threshold_flush()
+        assert any("Logger registration flush failed" in r.message for r in caplog.records)
+
+    def test_async_loggers_threshold_flush_logs_warning(self, caplog):
+        import logging as stdlib_logging
+
+        from smplkit import LogLevel
+        from smplkit.logging._sources import LoggerSource
+        from smplkit.management.client import AsyncLoggersClient as _AsyncLoggersClient
+
+        with patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed") as mock_bulk:
+            mock_bulk.side_effect = RuntimeError("network down")
+            client = _AsyncLoggersClient(MagicMock(), base_url="http://logging:8003")
+            client.register(LoggerSource(name="l", resolved_level=LogLevel.INFO))
+            with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
+                client._threshold_flush()
+            assert any("Logger registration flush failed" in r.message for r in caplog.records)
+
+
+class TestPendingCountProperty:
+    """Each sub-client exposes ``pending_count`` as a thin pass-through to the buffer."""
+
+    def test_contexts_pending_count(self):
+        client = _make_contexts_client()
+        assert client.pending_count == 0
+        client.register(Context("user", "u-1"))
+        assert client.pending_count == 1
+
+    def test_async_contexts_pending_count(self):
+        client = _make_async_contexts_client()
+        assert client.pending_count == 0
+        client.register(Context("user", "u-1"))
+        assert client.pending_count == 1
+
+    def test_flags_pending_count(self):
+        from smplkit.flags.types import FlagDeclaration
+        from smplkit.management.client import FlagsClient as _FlagsClient
+
+        client = _FlagsClient(MagicMock())
+        assert client.pending_count == 0
+        client.register(FlagDeclaration(id="x", type="BOOLEAN", default=False))
+        assert client.pending_count == 1
+
+    def test_async_flags_pending_count(self):
+        from smplkit.flags.types import FlagDeclaration
+        from smplkit.management.client import AsyncFlagsClient as _AsyncFlagsClient
+
+        client = _AsyncFlagsClient(MagicMock())
+        assert client.pending_count == 0
+        client.register(FlagDeclaration(id="x", type="BOOLEAN", default=False))
+        assert client.pending_count == 1
+
+    def test_loggers_pending_count(self):
+        from smplkit import LogLevel
+        from smplkit.logging._sources import LoggerSource
+        from smplkit.management.client import LoggersClient as _LoggersClient
+
+        client = _LoggersClient(MagicMock(), base_url="http://logging:8003")
+        assert client.pending_count == 0
+        client.register(LoggerSource(name="l", resolved_level=LogLevel.INFO))
+        assert client.pending_count == 1
+
+    def test_async_loggers_pending_count(self):
+        from smplkit import LogLevel
+        from smplkit.logging._sources import LoggerSource
+        from smplkit.management.client import AsyncLoggersClient as _AsyncLoggersClient
+
+        client = _AsyncLoggersClient(MagicMock(), base_url="http://logging:8003")
+        assert client.pending_count == 0
+        client.register(LoggerSource(name="l", resolved_level=LogLevel.INFO))
+        assert client.pending_count == 1
+
+
+class TestAsyncContextsFlushSync:
+    """``flush_sync`` lets the periodic-flush thread drain the async client's buffer."""
+
+    @patch("smplkit.management.client._gen_bulk_register_contexts.sync_detailed")
+    def test_flush_sync_drains_buffer(self, mock_bulk):
+        mock_bulk.return_value = _ok_resp()
+        client = _make_async_contexts_client()
+        client._buffer.observe([Context("user", "u-1")])
+        client.flush_sync()
+        mock_bulk.assert_called_once()
+
+    @patch("smplkit.management.client._gen_bulk_register_contexts.sync_detailed")
+    def test_flush_sync_empty(self, mock_bulk):
+        client = _make_async_contexts_client()
+        client.flush_sync()
+        mock_bulk.assert_not_called()

@@ -1,7 +1,7 @@
 """Stateless helpers shared between the runtime and management config clients.
 
 The runtime client (``ConfigClient``) and the management client
-(``ConfigsClient`` in ``mgmt.configs``) both need to convert generated
+(``ConfigClient`` in ``mgmt.config``) both need to convert generated
 API responses to/from :class:`Config` models. Putting these in a
 shared module avoids the runtime client depending on the management
 client (and vice versa) just to share conversion code.
@@ -18,11 +18,14 @@ from smplkit._generated.config.models.config_environments_type_0 import (
 from smplkit._generated.config.models.config_items_type_0 import ConfigItemsType0
 from smplkit._generated.config.models.config_resource import ConfigResource
 from smplkit._generated.config.models.config_response import ConfigResponse
-from smplkit.config.models import AsyncConfig, Config
+from smplkit.config.models import AsyncConfig, Config, ConfigEnvironment
 
 if TYPE_CHECKING:  # pragma: no cover
     from smplkit.config.client import AsyncConfigClient, ConfigClient
-    from smplkit.management.client import AsyncConfigsClient, ConfigsClient
+    from smplkit.management.client import (
+        AsyncConfigClient as AsyncMgmtConfigClient,
+        ConfigClient as MgmtConfigClient,
+    )
 
 
 def _make_items(items: dict[str, Any] | None) -> ConfigItemsType0 | None:
@@ -67,19 +70,22 @@ def _make_environments(
     obj = ConfigEnvironmentsType0()
     env_props: dict[str, EnvironmentOverride] = {}
     for env_name, env_data in environments.items():
-        if isinstance(env_data, dict):
+        if isinstance(env_data, ConfigEnvironment):
+            raw_values = env_data._values_raw
+        elif isinstance(env_data, dict):
             raw_values = env_data.get("values") or {}
-            vals_obj = EnvironmentOverrideValuesType0()
-            wrapped_vals: dict[str, ConfigItemOverride] = {}
-            for k, v in raw_values.items():
-                if isinstance(v, dict) and "value" in v:
-                    wrapped_vals[k] = ConfigItemOverride(value=v["value"])
-                else:
-                    wrapped_vals[k] = ConfigItemOverride(value=v)
-            vals_obj.additional_properties = wrapped_vals
-            env_props[env_name] = EnvironmentOverride(values=vals_obj)
         else:
             env_props[env_name] = EnvironmentOverride()
+            continue
+        vals_obj = EnvironmentOverrideValuesType0()
+        wrapped_vals: dict[str, ConfigItemOverride] = {}
+        for k, v in raw_values.items():
+            if isinstance(v, dict) and "value" in v:
+                wrapped_vals[k] = ConfigItemOverride(value=v["value"])
+            else:
+                wrapped_vals[k] = ConfigItemOverride(value=v)
+        vals_obj.additional_properties = wrapped_vals
+        env_props[env_name] = EnvironmentOverride(values=vals_obj)
     obj.additional_properties = env_props
     return obj
 
@@ -176,7 +182,7 @@ def _build_config_request_body(
     return ConfigResponse(data=resource)
 
 
-def _resource_to_config(client: ConfigClient | ConfigsClient | None, resource: Any) -> Config:
+def _resource_to_config(client: ConfigClient | MgmtConfigClient | None, resource: Any) -> Config:
     """Convert a ConfigResource to a Config model."""
     attrs = resource.attributes
     return Config(
@@ -192,7 +198,7 @@ def _resource_to_config(client: ConfigClient | ConfigsClient | None, resource: A
     )
 
 
-def _resource_to_async_config(client: AsyncConfigClient | AsyncConfigsClient | None, resource: Any) -> AsyncConfig:
+def _resource_to_async_config(client: AsyncConfigClient | AsyncMgmtConfigClient | None, resource: Any) -> AsyncConfig:
     """Convert a ConfigResource to an AsyncConfig model."""
     attrs = resource.attributes
     return AsyncConfig(

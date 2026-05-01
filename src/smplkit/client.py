@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
+import time
 import traceback
+from typing import TYPE_CHECKING
 
 from smplkit._config import ResolvedManagementConfig, _service_url, resolve_config
+from smplkit._context import ContextScope, set_context as _set_context
+from smplkit._errors import TimeoutError
 from smplkit._debug import debug, enable_debug
 from smplkit._generated.app.api.contexts import bulk_register_contexts as gen_bulk_register_contexts
 from smplkit._generated.app.models.context_bulk_item import ContextBulkItem
@@ -19,7 +24,15 @@ from smplkit.flags.client import AsyncFlagsClient, FlagsClient
 from smplkit.logging.client import AsyncLoggingClient, LoggingClient
 from smplkit.management.client import AsyncSmplManagementClient, SmplManagementClient
 
+if TYPE_CHECKING:
+    from smplkit.flags.types import Context
+
 logger = logging.getLogger("smplkit")
+
+# Periodic flush of all sub-client registration buffers (contexts, flags,
+# loggers).  Threshold flushes still fire immediately when buffers fill up;
+# this timer is the liveness guarantee for the tail.
+_PERIODIC_FLUSH_INTERVAL = 60.0  # seconds
 
 
 def _to_management_config(cfg) -> ResolvedManagementConfig:
@@ -44,7 +57,7 @@ class SmplClient:
         from smplkit import SmplClient
 
         with SmplClient(environment="production", service="my-svc") as client:
-            checkout_v2 = client.flags.booleanFlag("checkout-v2", default=False)
+            checkout_v2 = client.flags.boolean_flag("checkout-v2", default=False)
             if checkout_v2.get(): ...
 
     All parameters are optional. When omitted, the SDK resolves them from
@@ -150,9 +163,43 @@ class SmplClient:
             app_base_url=app_url,
         )
 
+        # Periodic flush of registration buffers (contexts, flags, loggers).
+        self._closed = False
+        self._flush_timer: threading.Timer | None = None
+        self._schedule_periodic_flush()
+
         # Register service context (fire-and-forget, non-blocking)
         self._init_thread = threading.Thread(target=self._register_service_context, daemon=True)
         self._init_thread.start()
+
+    def _schedule_periodic_flush(self) -> None:
+        """Tick the periodic registration-buffer flush.  Self-rescheduling."""
+
+        def _tick() -> None:
+            if self._closed:
+                return
+            try:
+                self.manage.contexts.flush()
+                self.manage.flags.flush()
+                self.manage.loggers.flush()
+            except Exception as exc:
+                logger.warning("Periodic registration flush failed: %s", exc)
+                debug("registration", traceback.format_exc().strip())
+            if not self._closed:
+                self._schedule_periodic_flush()
+
+        self._flush_timer = threading.Timer(_PERIODIC_FLUSH_INTERVAL, _tick)
+        self._flush_timer.daemon = True
+        self._flush_timer.start()
+
+    def _final_flush(self) -> None:
+        """Drain every registration buffer one last time on close."""
+        for fn in (self.manage.contexts.flush, self.manage.flags.flush, self.manage.loggers.flush):
+            try:
+                fn()
+            except Exception as exc:
+                logger.warning("Final registration flush failed: %s", exc)
+                debug("registration", traceback.format_exc().strip())
 
     def _register_service_context(self) -> None:
         """Register the environment and service as context instances on the app service."""
@@ -178,9 +225,66 @@ class SmplClient:
             self._ws_manager.start()
         return self._ws_manager
 
+    def wait_until_ready(self, timeout: float = 10.0) -> None:
+        """Eagerly initialize the SDK and block until it is fully ready.
+
+        Pre-fetches all flags and configs into the local cache, opens the
+        live-updates WebSocket, and waits for the handshake to complete.
+        After this returns, ``flag.get()`` / ``client.config.get()`` hit cache
+        (no first-request connect tax) and any ``on_change`` listeners
+        receive every server event from this point forward.
+
+        Logging integration is *not* started here — call ``client.logging.start()``
+        separately if you want it (it installs adapters and hooks into your
+        application's logger, which should be opt-in).
+
+        Raises:
+            TimeoutError: If the WebSocket fails to connect within *timeout* seconds.
+        """
+        self.flags.start()
+        self.config.start()
+        ws = self._ensure_ws()
+        deadline = time.monotonic() + timeout
+        while ws.connection_status != "connected":
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"Live-updates websocket did not connect within {timeout}s (status: {ws.connection_status!r})"
+                )
+            time.sleep(0.05)
+
+    def set_context(self, contexts: list[Context]) -> ContextScope:
+        """Stash *contexts* as the current request's evaluation context.
+
+        Typical use is from middleware — set the context once at request entry
+        and every ``flag.get()`` (and other context-sensitive evaluations) inside
+        that request automatically picks it up.  ``contextvars`` provides per-task
+        / per-thread isolation so concurrent requests don't cross-contaminate.
+
+        Each unique ``(type, key)`` is also queued for bulk registration on
+        the management API (deduplicated via an LRU; flushed in the background).
+
+        Two usage shapes::
+
+            # Fire-and-forget (typical middleware)
+            client.set_context([Context("user", ...), Context("account", ...)])
+
+            # Scoped block (e.g. impersonation or one-off override)
+            with client.set_context([Context("user", "impersonated")]):
+                ...
+            # original context restored here
+        """
+        if contexts:
+            self.manage.contexts.register(contexts)
+        return _set_context(contexts)
+
     def close(self) -> None:
         """Release all resources held by this client."""
         _debug("lifecycle", "SmplClient.close() called")
+        self._closed = True
+        if self._flush_timer is not None:
+            self._flush_timer.cancel()
+            self._flush_timer = None
+        self._final_flush()
         if self._metrics is not None:
             self._metrics.close()
         self.logging._close()
@@ -206,7 +310,7 @@ class AsyncSmplClient:
         from smplkit import AsyncSmplClient
 
         async with AsyncSmplClient(environment="production", service="my-svc") as client:
-            checkout_v2 = client.flags.booleanFlag("checkout-v2", default=False)
+            checkout_v2 = client.flags.boolean_flag("checkout-v2", default=False)
             if checkout_v2.get(): ...
 
     All parameters are optional. When omitted, the SDK resolves them from
@@ -299,9 +403,50 @@ class AsyncSmplClient:
             app_base_url=app_url,
         )
 
+        # Periodic flush of registration buffers (contexts, flags, loggers).
+        self._closed = False
+        self._flush_timer: threading.Timer | None = None
+        self._schedule_periodic_flush()
+
         # Register service context (fire-and-forget, non-blocking)
         self._init_thread = threading.Thread(target=self._register_service_context_sync, daemon=True)
         self._init_thread.start()
+
+    def _schedule_periodic_flush(self) -> None:
+        """Tick the periodic registration-buffer flush.  Self-rescheduling.
+
+        Runs on a daemon thread; calls the sync flush variants on each
+        sub-client so we don't block waiting for an event loop.
+        """
+
+        def _tick() -> None:
+            if self._closed:
+                return
+            for fn in (
+                self.manage.contexts.flush_sync,
+                self.manage.flags.flush_sync,
+                self.manage.loggers.flush_sync,
+            ):
+                try:
+                    fn()
+                except Exception as exc:
+                    logger.warning("Periodic registration flush failed: %s", exc)
+                    debug("registration", traceback.format_exc().strip())
+            if not self._closed:
+                self._schedule_periodic_flush()
+
+        self._flush_timer = threading.Timer(_PERIODIC_FLUSH_INTERVAL, _tick)
+        self._flush_timer.daemon = True
+        self._flush_timer.start()
+
+    async def _final_flush(self) -> None:
+        """Drain every registration buffer one last time on close."""
+        for fn in (self.manage.contexts.flush, self.manage.flags.flush, self.manage.loggers.flush):
+            try:
+                await fn()
+            except Exception as exc:
+                logger.warning("Final registration flush failed: %s", exc)
+                debug("registration", traceback.format_exc().strip())
 
     def _register_service_context_sync(self) -> None:
         """Sync wrapper for context registration (runs in background thread)."""
@@ -340,9 +485,67 @@ class AsyncSmplClient:
             self._ws_manager.start()
         return self._ws_manager
 
+    async def wait_until_ready(self, timeout: float = 10.0) -> None:
+        """Eagerly initialize the SDK and wait until it is fully ready.
+
+        Pre-fetches all flags and configs into the local cache, opens the
+        live-updates WebSocket, and waits for the handshake to complete.
+        After this returns, ``flag.get()`` / ``client.config.get()`` hit cache
+        (no first-request connect tax) and any ``on_change`` listeners
+        receive every server event from this point forward.
+
+        Logging integration is *not* started here — call
+        ``await client.logging.start()`` separately if you want it (it
+        installs adapters and hooks into your application's logger, which
+        should be opt-in).
+
+        Raises:
+            TimeoutError: If the WebSocket fails to connect within *timeout* seconds.
+        """
+        await self.flags.start()
+        await self.config.start()
+        ws = self._ensure_ws()
+        deadline = time.monotonic() + timeout
+        while ws.connection_status != "connected":
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"Live-updates websocket did not connect within {timeout}s (status: {ws.connection_status!r})"
+                )
+            await asyncio.sleep(0.05)
+
+    def set_context(self, contexts: list[Context]) -> ContextScope:
+        """Stash *contexts* as the current request's evaluation context.
+
+        Typical use is from middleware — set the context once at request entry
+        and every ``flag.get()`` (and other context-sensitive evaluations) inside
+        that request automatically picks it up.  ``contextvars`` provides per-task
+        / per-thread isolation so concurrent requests don't cross-contaminate.
+
+        Each unique ``(type, key)`` is also queued for bulk registration on
+        the management API (deduplicated via an LRU; flushed in the background).
+
+        Two usage shapes::
+
+            # Fire-and-forget (typical middleware)
+            client.set_context([Context("user", ...), Context("account", ...)])
+
+            # Scoped block (use ``async with`` if you want async semantics)
+            with client.set_context([Context("user", "impersonated")]):
+                ...
+            # original context restored here
+        """
+        if contexts:
+            self.manage.contexts.register(contexts)
+        return _set_context(contexts)
+
     async def close(self) -> None:
         """Release all resources held by this client."""
         _debug("lifecycle", "AsyncSmplClient.close() called")
+        self._closed = True
+        if self._flush_timer is not None:
+            self._flush_timer.cancel()
+            self._flush_timer = None
+        await self._final_flush()
         if self._metrics is not None:
             await self._metrics.close()
         self.logging._close()

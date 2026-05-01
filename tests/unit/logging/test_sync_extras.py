@@ -139,24 +139,18 @@ class TestSyncOnNewLogger:
         client._on_new_logger(test_name, 20, 20)
         mock_adapter.apply_level.assert_called_once_with(test_name, 40)
 
-    @patch("smplkit.logging.client.threading.Thread")
+    @patch("smplkit.management.client.threading.Thread")
     def test_callback_triggers_flush_at_threshold(self, mock_thread):
+        """When _on_new_logger pushes the buffer past the threshold, mgmt.loggers.register spawns a flush thread."""
         client = _make_logging_client()
         for i in range(50):
             client._parent.manage.loggers._buffer.add(f"logger.{i}", "INFO", "INFO", None, None)
         client._parent.manage.loggers._buffer.drain()
-        for i in range(50):
-            client._parent.manage.loggers._buffer.add(f"logger.thresh.{i}", "INFO", "INFO", None, None)
-        client._on_new_logger("trigger.flush", 20, 20)
+        # Use unique names so they're not deduped by the LRU.
+        for i in range(49):
+            client._on_new_logger(f"unseen.thresh.{i}", 20, 20)
+        client._on_new_logger("unseen.thresh.trigger", 20, 20)
         mock_thread.assert_called()
-
-
-class TestSyncScheduleFlush:
-    def test_schedule_creates_timer(self):
-        client = _make_logging_client()
-        client._schedule_flush()
-        assert client._flush_timer is not None
-        client._flush_timer.cancel()
 
 
 class TestSyncConnectWithService:
@@ -187,6 +181,24 @@ class TestSyncConnectWithService:
         mock_auto_load.return_value = [mock_adapter]
         mock_bulk.return_value = _ok_response()
         mock_loggers.side_effect = Exception("network error")
+
+        client = _make_logging_client()
+        client._connect_internal()
+        assert client._connected is True
+        client._close()
+
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.logging.client._auto_load_adapters")
+    def test_connect_swallows_initial_flush_failure(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
+        """An HTTP error from the initial registration flush is swallowed during connect."""
+        mock_adapter = MagicMock()
+        mock_adapter.discover.return_value = [("logger.x", None, 20)]
+        mock_auto_load.return_value = [mock_adapter]
+        mock_bulk.side_effect = Exception("initial flush failure")
+        mock_loggers.return_value = _ok_response(_make_list_parsed([]))
+        mock_groups.return_value = _ok_response(_make_list_parsed([]))
 
         client = _make_logging_client()
         client._connect_internal()

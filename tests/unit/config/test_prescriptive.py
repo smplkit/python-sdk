@@ -116,7 +116,7 @@ class TestResolveSyncPrescriptive:
 
     def test_resolve_triggers_lazy_connect(self):
         client = SmplClient(api_key="sk_test", environment="production", service="svc")
-        with patch.object(client.config, "_connect_internal") as mock_connect:
+        with patch.object(client.config, "start") as mock_connect:
             client.config._config_cache = {"db": {"host": "h"}}
             client.config.get("db")
         mock_connect.assert_called_once()

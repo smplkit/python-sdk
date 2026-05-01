@@ -69,24 +69,33 @@ class SmplLogger:
             raise RuntimeError("SmplLogger was constructed without a client or id; cannot delete")
         self._client.delete(self.id)
 
-    def setLevel(self, level: LogLevel) -> None:  # noqa: N802
-        """Set the base log level."""
-        self.level = level
+    def set_level(self, level: LogLevel, *, environment: str | None = None) -> None:
+        """Set the log level.
 
-    def clearLevel(self) -> None:  # noqa: N802
-        """Remove the base log level."""
-        self.level = None
+        With ``environment=None`` (the default), sets the base log level used
+        when no environment-specific override applies.  With ``environment="..."``,
+        sets the per-environment override.
+        """
+        if environment is None:
+            self.level = level
+        else:
+            self.environments[environment] = {"level": level.value}
 
-    def setEnvironmentLevel(self, env: str, level: LogLevel) -> None:  # noqa: N802
-        """Set the log level for a specific environment."""
-        self.environments[env] = {"level": level.value}
+    def clear_level(self, *, environment: str | None = None) -> None:
+        """Remove a log level.
 
-    def clearEnvironmentLevel(self, env: str) -> None:  # noqa: N802
-        """Remove the log level override for a specific environment."""
-        self.environments.pop(env, None)
+        With ``environment=None`` (the default), removes the base log level
+        (the logger then inherits from its group / dot-notation ancestor /
+        system default).  With ``environment="..."``, removes the per-environment
+        override only.
+        """
+        if environment is None:
+            self.level = None
+        else:
+            self.environments.pop(environment, None)
 
-    def clearAllEnvironmentLevels(self) -> None:  # noqa: N802
-        """Remove all environment-level overrides."""
+    def clear_all_environment_levels(self) -> None:
+        """Remove all per-environment level overrides."""
         self.environments = {}
 
     def _apply(self, other: SmplLogger) -> None:
@@ -156,24 +165,33 @@ class AsyncSmplLogger:
             raise RuntimeError("AsyncSmplLogger was constructed without a client or id; cannot delete")
         await self._client.delete(self.id)
 
-    def setLevel(self, level: LogLevel) -> None:  # noqa: N802
-        """Set the base log level."""
-        self.level = level
+    def set_level(self, level: LogLevel, *, environment: str | None = None) -> None:
+        """Set the log level.
 
-    def clearLevel(self) -> None:  # noqa: N802
-        """Remove the base log level."""
-        self.level = None
+        With ``environment=None`` (the default), sets the base log level used
+        when no environment-specific override applies.  With ``environment="..."``,
+        sets the per-environment override.
+        """
+        if environment is None:
+            self.level = level
+        else:
+            self.environments[environment] = {"level": level.value}
 
-    def setEnvironmentLevel(self, env: str, level: LogLevel) -> None:  # noqa: N802
-        """Set the log level for a specific environment."""
-        self.environments[env] = {"level": level.value}
+    def clear_level(self, *, environment: str | None = None) -> None:
+        """Remove a log level.
 
-    def clearEnvironmentLevel(self, env: str) -> None:  # noqa: N802
-        """Remove the log level override for a specific environment."""
-        self.environments.pop(env, None)
+        With ``environment=None`` (the default), removes the base log level
+        (the logger then inherits from its group / dot-notation ancestor /
+        system default).  With ``environment="..."``, removes the per-environment
+        override only.
+        """
+        if environment is None:
+            self.level = None
+        else:
+            self.environments.pop(environment, None)
 
-    def clearAllEnvironmentLevels(self) -> None:  # noqa: N802
-        """Remove all environment-level overrides."""
+    def clear_all_environment_levels(self) -> None:
+        """Remove all per-environment level overrides."""
         self.environments = {}
 
     def _apply(self, other: AsyncSmplLogger) -> None:
@@ -237,24 +255,33 @@ class SmplLogGroup:
             raise RuntimeError("SmplLogGroup was constructed without a client or id; cannot delete")
         self._client.delete(self.id)
 
-    def setLevel(self, level: LogLevel) -> None:  # noqa: N802
-        """Set the base log level."""
-        self.level = level
+    def set_level(self, level: LogLevel, *, environment: str | None = None) -> None:
+        """Set the log level.
 
-    def clearLevel(self) -> None:  # noqa: N802
-        """Remove the base log level."""
-        self.level = None
+        With ``environment=None`` (the default), sets the base log level used
+        when no environment-specific override applies.  With ``environment="..."``,
+        sets the per-environment override.
+        """
+        if environment is None:
+            self.level = level
+        else:
+            self.environments[environment] = {"level": level.value}
 
-    def setEnvironmentLevel(self, env: str, level: LogLevel) -> None:  # noqa: N802
-        """Set the log level for a specific environment."""
-        self.environments[env] = {"level": level.value}
+    def clear_level(self, *, environment: str | None = None) -> None:
+        """Remove a log level.
 
-    def clearEnvironmentLevel(self, env: str) -> None:  # noqa: N802
-        """Remove the log level override for a specific environment."""
-        self.environments.pop(env, None)
+        With ``environment=None`` (the default), removes the base log level
+        (the logger then inherits from its group / dot-notation ancestor /
+        system default).  With ``environment="..."``, removes the per-environment
+        override only.
+        """
+        if environment is None:
+            self.level = None
+        else:
+            self.environments.pop(environment, None)
 
-    def clearAllEnvironmentLevels(self) -> None:  # noqa: N802
-        """Remove all environment-level overrides."""
+    def clear_all_environment_levels(self) -> None:
+        """Remove all per-environment level overrides."""
         self.environments = {}
 
     def _apply(self, other: SmplLogGroup) -> None:
@@ -316,24 +343,33 @@ class AsyncSmplLogGroup:
             raise RuntimeError("AsyncSmplLogGroup was constructed without a client or id; cannot delete")
         await self._client.delete(self.id)
 
-    def setLevel(self, level: LogLevel) -> None:  # noqa: N802
-        """Set the base log level."""
-        self.level = level
+    def set_level(self, level: LogLevel, *, environment: str | None = None) -> None:
+        """Set the log level.
 
-    def clearLevel(self) -> None:  # noqa: N802
-        """Remove the base log level."""
-        self.level = None
+        With ``environment=None`` (the default), sets the base log level used
+        when no environment-specific override applies.  With ``environment="..."``,
+        sets the per-environment override.
+        """
+        if environment is None:
+            self.level = level
+        else:
+            self.environments[environment] = {"level": level.value}
 
-    def setEnvironmentLevel(self, env: str, level: LogLevel) -> None:  # noqa: N802
-        """Set the log level for a specific environment."""
-        self.environments[env] = {"level": level.value}
+    def clear_level(self, *, environment: str | None = None) -> None:
+        """Remove a log level.
 
-    def clearEnvironmentLevel(self, env: str) -> None:  # noqa: N802
-        """Remove the log level override for a specific environment."""
-        self.environments.pop(env, None)
+        With ``environment=None`` (the default), removes the base log level
+        (the logger then inherits from its group / dot-notation ancestor /
+        system default).  With ``environment="..."``, removes the per-environment
+        override only.
+        """
+        if environment is None:
+            self.level = None
+        else:
+            self.environments.pop(environment, None)
 
-    def clearAllEnvironmentLevels(self) -> None:  # noqa: N802
-        """Remove all environment-level overrides."""
+    def clear_all_environment_levels(self) -> None:
+        """Remove all per-environment level overrides."""
         self.environments = {}
 
     def _apply(self, other: AsyncSmplLogGroup) -> None:

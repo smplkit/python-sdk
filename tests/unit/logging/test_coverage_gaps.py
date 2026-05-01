@@ -298,41 +298,6 @@ class TestAsyncBareRaise:
 
 
 # ---------------------------------------------------------------------------
-# Timer _tick() coverage
-# ---------------------------------------------------------------------------
-
-
-class TestTickCallback:
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
-    def test_sync_tick(self, mock_bulk):
-        mock_bulk.return_value = _ok_response()
-        client = _make_sync_client()
-        client._connected = True
-        client._parent.manage.loggers._buffer.add("a", "INFO", "INFO", None, None)
-
-        client._schedule_flush()
-        timer = client._flush_timer
-        timer.cancel()
-        timer.function()
-        if client._flush_timer is not None:
-            client._flush_timer.cancel()
-
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
-    def test_async_tick(self, mock_bulk):
-        mock_bulk.return_value = _ok_response()
-        client = _make_async_client()
-        client._connected = True
-        client._parent.manage.loggers._buffer.add("a", "INFO", "INFO", None, None)
-
-        client._schedule_flush()
-        timer = client._flush_timer
-        timer.cancel()
-        timer.function()
-        if client._flush_timer is not None:
-            client._flush_timer.cancel()
-
-
-# ---------------------------------------------------------------------------
 # _fetch_and_apply: list_log_groups failure
 # ---------------------------------------------------------------------------
 

@@ -12,6 +12,8 @@ from smplkit._errors import (
     TimeoutError,
     ValidationError,
 )
+from smplkit.config.models import ConfigEnvironment, ConfigItem, ItemType
+from smplkit.flags.models import FlagEnvironment, FlagRule, FlagValue
 from smplkit.flags.types import Context, FlagDeclaration, Op, Rule
 from smplkit.logging._sources import LoggerSource
 from smplkit.management.client import AsyncSmplManagementClient, SmplManagementClient
@@ -34,9 +36,15 @@ __all__ = [
     "ApiErrorDetail",
     "AsyncSmplClient",
     "AsyncSmplManagementClient",
+    "ConfigEnvironment",
+    "ConfigItem",
     "Context",
     "EnvironmentClassification",
     "FlagDeclaration",
+    "FlagEnvironment",
+    "FlagRule",
+    "FlagValue",
+    "ItemType",
     "LoggerSource",
     "LogLevel",
     "Op",
