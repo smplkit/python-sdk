@@ -75,8 +75,8 @@ class ConfigEnvironment:
 
     @property
     def values_raw(self) -> dict[str, Any]:
-        """Return the full typed overrides ``{key: {value, type, description}}``."""
-        return dict(self._values_raw)
+        """Return the full typed overrides ``{key: {value, type, description}}`` (read-only deep copy)."""
+        return {k: dict(v) if isinstance(v, dict) else v for k, v in self._values_raw.items()}
 
     def __repr__(self) -> str:
         return f"ConfigEnvironment(values={self.values!r})"
@@ -163,8 +163,8 @@ class Config:
 
     @property
     def items_raw(self) -> dict[str, Any]:
-        """Return the full typed items ``{key: {value, type, description}}``."""
-        return dict(self._items_raw)
+        """Return the full typed items ``{key: {value, type, description}}`` (read-only deep copy)."""
+        return {k: dict(v) if isinstance(v, dict) else v for k, v in self._items_raw.items()}
 
     @property
     def environments(self) -> dict[str, ConfigEnvironment]:
@@ -349,8 +349,8 @@ class AsyncConfig:
 
     @property
     def items_raw(self) -> dict[str, Any]:
-        """Return the full typed items ``{key: {value, type, description}}``."""
-        return dict(self._items_raw)
+        """Return the full typed items ``{key: {value, type, description}}`` (read-only deep copy)."""
+        return {k: dict(v) if isinstance(v, dict) else v for k, v in self._items_raw.items()}
 
     @property
     def environments(self) -> dict[str, ConfigEnvironment]:

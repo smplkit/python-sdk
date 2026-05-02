@@ -381,7 +381,7 @@ class TestExtractEnvironments:
 
         result = _extract_environments(envs)
         assert "staging" in result
-        assert result["staging"].rules == []
+        assert result["staging"].rules == ()
 
 
 class TestExtractRule:

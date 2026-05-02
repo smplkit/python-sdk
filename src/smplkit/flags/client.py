@@ -7,6 +7,7 @@ moved to :class:`smplkit.SmplManagementClient` (``mgmt.flags.*``).
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import logging
@@ -117,20 +118,13 @@ def _hash_context(eval_dict: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 
+@dataclasses.dataclass(frozen=True, kw_only=True)
 class FlagChangeEvent:
-    """Describes a flag definition change."""
+    """Describes a flag definition change.  Frozen — fields are set at construction."""
 
     id: str
     source: str
-    deleted: bool
-
-    def __init__(self, *, id: str, source: str, deleted: bool = False) -> None:
-        self.id = id
-        self.source = source
-        self.deleted = deleted
-
-    def __repr__(self) -> str:
-        return f"FlagChangeEvent(id={self.id!r}, source={self.source!r}, deleted={self.deleted!r})"
+    deleted: bool = False
 
 
 # ---------------------------------------------------------------------------

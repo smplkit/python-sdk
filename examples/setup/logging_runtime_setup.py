@@ -23,19 +23,15 @@ async def setup_runtime_showcase(
     db_group.set_level(LogLevel.WARN, environment=environment)
     await db_group.save()
 
-    app_lg = manage.loggers.new("app", name="app", managed=True)
+    app_lg = manage.loggers.new("app")
     app_lg.set_level(LogLevel.WARN)
     app_lg.set_level(LogLevel.ERROR, environment=environment)
     await app_lg.save()
 
-    payments_lg = manage.loggers.new(
-        "app.payments", name="app.payments", managed=True
-    )
+    payments_lg = manage.loggers.new("app.payments")
     await payments_lg.save()
 
-    sqla_lg = manage.loggers.new(
-        "sqlalchemy.engine", name="sqlalchemy.engine", managed=True
-    )
+    sqla_lg = manage.loggers.new("sqlalchemy.engine")
     sqla_lg.group = db_group.id
     await sqla_lg.save()
 

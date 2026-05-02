@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -13,6 +14,61 @@ if TYPE_CHECKING:
         LogGroupsClient,
         LoggersClient,
     )
+
+
+@dataclasses.dataclass(frozen=True)
+class LoggerEnvironment:
+    """Per-environment configuration on a logger or log group.
+
+    Lives at ``logger.environments[env_name]`` (a ``dict[str, LoggerEnvironment]``).
+    Frozen — mutate the override via ``logger.set_level(level, environment="...")``
+    or remove it via ``logger.clear_level(environment="...")``.
+
+    Attributes:
+        level: Per-environment level override (``None`` means no override).
+    """
+
+    level: LogLevel | None = None
+
+
+def _convert_environments(
+    value: dict[str, Any] | None,
+) -> dict[str, LoggerEnvironment]:
+    """Coerce a dict input into ``dict[str, LoggerEnvironment]``.
+
+    Accepts both pre-built :class:`LoggerEnvironment` instances and the wire-shaped
+    ``{env_id: {"level": "ERROR"}}`` dicts produced by ``_extract_environments``.
+    """
+    if not value:
+        return {}
+    from smplkit import LogLevel as _LogLevel  # lazy to avoid circular import
+
+    result: dict[str, LoggerEnvironment] = {}
+    for env_id, env_data in value.items():
+        if isinstance(env_data, LoggerEnvironment):
+            result[env_id] = env_data
+        elif isinstance(env_data, dict):
+            level_str = env_data.get("level")
+            if level_str is not None:
+                try:
+                    result[env_id] = LoggerEnvironment(level=_LogLevel(level_str))
+                except ValueError:
+                    result[env_id] = LoggerEnvironment()
+            else:
+                result[env_id] = LoggerEnvironment()
+        else:
+            result[env_id] = LoggerEnvironment()
+    return result
+
+
+def _environments_to_wire(
+    environments: dict[str, LoggerEnvironment],
+) -> dict[str, Any]:
+    """Convert a typed environments dict to the wire-shaped dict for sending.
+
+    Entries with ``level=None`` are skipped (no override to send).
+    """
+    return {env_id: {"level": env.level.value} for env_id, env in environments.items() if env.level is not None}
 
 
 class SmplLogger:
@@ -27,7 +83,6 @@ class SmplLogger:
     group: str | None
     managed: bool | None
     sources: list[dict[str, Any]]
-    environments: dict[str, Any]
     created_at: Any
     updated_at: Any
 
@@ -52,9 +107,18 @@ class SmplLogger:
         self.group = group
         self.managed = managed
         self.sources = sources or []
-        self.environments = environments or {}
+        self._environments: dict[str, LoggerEnvironment] = _convert_environments(environments)
         self.created_at = created_at
         self.updated_at = updated_at
+
+    @property
+    def environments(self) -> dict[str, LoggerEnvironment]:
+        """Read-only view of per-environment level overrides.
+
+        Mutate via :meth:`set_level` / :meth:`clear_level` /
+        :meth:`clear_all_environment_levels` (with ``environment="..."``).
+        """
+        return dict(self._environments)
 
     def save(self) -> None:
         """Persist this logger to the server (create or update)."""
@@ -79,7 +143,7 @@ class SmplLogger:
         if environment is None:
             self.level = level
         else:
-            self.environments[environment] = {"level": level.value}
+            self._environments[environment] = LoggerEnvironment(level=level)
 
     def clear_level(self, *, environment: str | None = None) -> None:
         """Remove a log level.
@@ -92,11 +156,11 @@ class SmplLogger:
         if environment is None:
             self.level = None
         else:
-            self.environments.pop(environment, None)
+            self._environments.pop(environment, None)
 
     def clear_all_environment_levels(self) -> None:
         """Remove all per-environment level overrides."""
-        self.environments = {}
+        self._environments = {}
 
     def _apply(self, other: SmplLogger) -> None:
         """Copy all properties from other into self."""
@@ -106,7 +170,7 @@ class SmplLogger:
         self.group = other.group
         self.managed = other.managed
         self.sources = other.sources
-        self.environments = other.environments
+        self._environments = other._environments
         self.created_at = other.created_at
         self.updated_at = other.updated_at
 
@@ -123,7 +187,6 @@ class AsyncSmplLogger:
     group: str | None
     managed: bool | None
     sources: list[dict[str, Any]]
-    environments: dict[str, Any]
     created_at: Any
     updated_at: Any
 
@@ -148,9 +211,18 @@ class AsyncSmplLogger:
         self.group = group
         self.managed = managed
         self.sources = sources or []
-        self.environments = environments or {}
+        self._environments: dict[str, LoggerEnvironment] = _convert_environments(environments)
         self.created_at = created_at
         self.updated_at = updated_at
+
+    @property
+    def environments(self) -> dict[str, LoggerEnvironment]:
+        """Read-only view of per-environment level overrides.
+
+        Mutate via :meth:`set_level` / :meth:`clear_level` /
+        :meth:`clear_all_environment_levels` (with ``environment="..."``).
+        """
+        return dict(self._environments)
 
     async def save(self) -> None:
         """Persist this logger to the server (create or update)."""
@@ -175,7 +247,7 @@ class AsyncSmplLogger:
         if environment is None:
             self.level = level
         else:
-            self.environments[environment] = {"level": level.value}
+            self._environments[environment] = LoggerEnvironment(level=level)
 
     def clear_level(self, *, environment: str | None = None) -> None:
         """Remove a log level.
@@ -188,11 +260,11 @@ class AsyncSmplLogger:
         if environment is None:
             self.level = None
         else:
-            self.environments.pop(environment, None)
+            self._environments.pop(environment, None)
 
     def clear_all_environment_levels(self) -> None:
         """Remove all per-environment level overrides."""
-        self.environments = {}
+        self._environments = {}
 
     def _apply(self, other: AsyncSmplLogger) -> None:
         """Copy all properties from other into self."""
@@ -202,7 +274,7 @@ class AsyncSmplLogger:
         self.group = other.group
         self.managed = other.managed
         self.sources = other.sources
-        self.environments = other.environments
+        self._environments = other._environments
         self.created_at = other.created_at
         self.updated_at = other.updated_at
 
@@ -217,7 +289,6 @@ class SmplLogGroup:
     name: str
     level: LogLevel | None
     group: str | None
-    environments: dict[str, Any]
     created_at: Any
     updated_at: Any
 
@@ -238,9 +309,18 @@ class SmplLogGroup:
         self.name = name
         self.level = level
         self.group = group
-        self.environments = environments or {}
+        self._environments: dict[str, LoggerEnvironment] = _convert_environments(environments)
         self.created_at = created_at
         self.updated_at = updated_at
+
+    @property
+    def environments(self) -> dict[str, LoggerEnvironment]:
+        """Read-only view of per-environment level overrides.
+
+        Mutate via :meth:`set_level` / :meth:`clear_level` /
+        :meth:`clear_all_environment_levels` (with ``environment="..."``).
+        """
+        return dict(self._environments)
 
     def save(self) -> None:
         """Persist this group to the server (create or update)."""
@@ -265,7 +345,7 @@ class SmplLogGroup:
         if environment is None:
             self.level = level
         else:
-            self.environments[environment] = {"level": level.value}
+            self._environments[environment] = LoggerEnvironment(level=level)
 
     def clear_level(self, *, environment: str | None = None) -> None:
         """Remove a log level.
@@ -278,11 +358,11 @@ class SmplLogGroup:
         if environment is None:
             self.level = None
         else:
-            self.environments.pop(environment, None)
+            self._environments.pop(environment, None)
 
     def clear_all_environment_levels(self) -> None:
         """Remove all per-environment level overrides."""
-        self.environments = {}
+        self._environments = {}
 
     def _apply(self, other: SmplLogGroup) -> None:
         """Copy all properties from other into self."""
@@ -290,7 +370,7 @@ class SmplLogGroup:
         self.name = other.name
         self.level = other.level
         self.group = other.group
-        self.environments = other.environments
+        self._environments = other._environments
         self.created_at = other.created_at
         self.updated_at = other.updated_at
 
@@ -305,7 +385,6 @@ class AsyncSmplLogGroup:
     name: str
     level: LogLevel | None
     group: str | None
-    environments: dict[str, Any]
     created_at: Any
     updated_at: Any
 
@@ -326,9 +405,18 @@ class AsyncSmplLogGroup:
         self.name = name
         self.level = level
         self.group = group
-        self.environments = environments or {}
+        self._environments: dict[str, LoggerEnvironment] = _convert_environments(environments)
         self.created_at = created_at
         self.updated_at = updated_at
+
+    @property
+    def environments(self) -> dict[str, LoggerEnvironment]:
+        """Read-only view of per-environment level overrides.
+
+        Mutate via :meth:`set_level` / :meth:`clear_level` /
+        :meth:`clear_all_environment_levels` (with ``environment="..."``).
+        """
+        return dict(self._environments)
 
     async def save(self) -> None:
         """Persist this group to the server (create or update)."""
@@ -353,7 +441,7 @@ class AsyncSmplLogGroup:
         if environment is None:
             self.level = level
         else:
-            self.environments[environment] = {"level": level.value}
+            self._environments[environment] = LoggerEnvironment(level=level)
 
     def clear_level(self, *, environment: str | None = None) -> None:
         """Remove a log level.
@@ -366,11 +454,11 @@ class AsyncSmplLogGroup:
         if environment is None:
             self.level = None
         else:
-            self.environments.pop(environment, None)
+            self._environments.pop(environment, None)
 
     def clear_all_environment_levels(self) -> None:
         """Remove all per-environment level overrides."""
-        self.environments = {}
+        self._environments = {}
 
     def _apply(self, other: AsyncSmplLogGroup) -> None:
         """Copy all properties from other into self."""
@@ -378,7 +466,7 @@ class AsyncSmplLogGroup:
         self.name = other.name
         self.level = other.level
         self.group = other.group
-        self.environments = other.environments
+        self._environments = other._environments
         self.created_at = other.created_at
         self.updated_at = other.updated_at
 

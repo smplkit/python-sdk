@@ -249,7 +249,7 @@ class TestSyncErrorPaths:
         mgmt = _new_mgmt()
         from smplkit._errors import ConnectionError
 
-        lg = mgmt.loggers.new("sql", name="SQL")
+        lg = mgmt.loggers.new("sql")
         with pytest.raises(ConnectionError):
             lg.save()
 

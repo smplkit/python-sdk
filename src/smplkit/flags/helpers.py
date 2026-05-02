@@ -35,13 +35,13 @@ def _extract_environments(environments: Any) -> dict[str, FlagEnvironmentModel]:
             default_val = None
         rules_val = env_obj.rules
         if isinstance(rules_val, type(UNSET)):
-            rules_list: list[FlagRuleModel] = []
+            rules_tuple: tuple[FlagRuleModel, ...] = ()
         else:
-            rules_list = [_extract_rule(r) for r in rules_val]
+            rules_tuple = tuple(_extract_rule(r) for r in rules_val)
         result[env_name] = FlagEnvironmentModel(
             enabled=bool(enabled),
             default=default_val,
-            rules=rules_list,
+            rules=rules_tuple,
         )
     return result
 

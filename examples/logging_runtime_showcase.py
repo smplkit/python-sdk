@@ -78,6 +78,9 @@ async def main() -> None:
         for name in ["app", "app.payments", "sqlalchemy.engine"]:
             print(f"  {name}: {python_level_name(name)}")
 
+        # smplkit pushed the production override down to stdlib
+        assert python_level_name("app") == "ERROR"
+
         # level resolution — first non-null wins:
         #   1. Logger's own environment override
         #   2. Logger's own base level
@@ -117,6 +120,9 @@ async def main() -> None:
         print(f"app after: {python_level_name('app')}")
         print(f"app.payments after: {python_level_name('app.payments')}")
 
+        # TRACE (level 5) propagated through smplkit → stdlib
+        assert python_level_name("app") == "Level 5"
+
         # clear an environment override — falls through to base level
         print(f"app before: {python_level_name('app')}")
 
@@ -128,6 +134,9 @@ async def main() -> None:
         print(f"app after: {python_level_name('app')}")
         print(f"app.payments after: {python_level_name('app.payments')}")
 
+        # production override gone — fell through to base WARN
+        assert python_level_name("app") == "WARNING"
+
         # continuous discovery — new loggers after start() are picked up
         new_logger = stdlib_logging.getLogger("app.notifications")
         new_logger.setLevel(stdlib_logging.INFO)
@@ -135,6 +144,8 @@ async def main() -> None:
 
         print(f"Global changes received: {len(all_changes)}")
         print(f"SQL-specific changes received: {len(sql_changes)}")
+
+        assert len(all_changes) >= 1
 
         await cleanup_runtime_showcase(client.manage)
         print("Done!")

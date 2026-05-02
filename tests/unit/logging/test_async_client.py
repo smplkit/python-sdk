@@ -131,22 +131,17 @@ class TestAsyncNew:
         lg = mgmt.loggers.new("sql")
         assert isinstance(lg, AsyncSmplLogger)
         assert lg.id == "sql"
-        assert lg.managed is False
-
-    def test_new_with_name(self):
-        mgmt = _new_async_mgmt()
-        lg = mgmt.loggers.new("sql", name="SQL Logger")
-        assert lg.name == "SQL Logger"
-
-    def test_new_auto_generates_name(self):
-        mgmt = _new_async_mgmt()
-        lg = mgmt.loggers.new("checkout-v2")
-        assert lg.name == "Checkout V2"
-
-    def test_new_with_managed(self):
-        mgmt = _new_async_mgmt()
-        lg = mgmt.loggers.new("sql", managed=True)
         assert lg.managed is True
+
+    def test_new_name_equals_id(self):
+        mgmt = _new_async_mgmt()
+        lg = mgmt.loggers.new("sqlalchemy.engine")
+        assert lg.name == "sqlalchemy.engine"
+
+    def test_new_with_unmanaged(self):
+        mgmt = _new_async_mgmt()
+        lg = mgmt.loggers.new("sql", managed=False)
+        assert lg.managed is False
 
 
 # ---------------------------------------------------------------------------
@@ -249,7 +244,7 @@ class TestAsyncSaveLogger:
         mock_update.return_value = _ok_response(parsed)
 
         mgmt = _new_async_mgmt()
-        lg = mgmt.loggers.new("sql", name="SQL Logger")
+        lg = mgmt.loggers.new("sql")
         assert lg.created_at is None
         asyncio.run(lg.save())
 
@@ -265,7 +260,7 @@ class TestAsyncSaveLogger:
         mock_update.return_value = _ok_response(parsed)
 
         mgmt = _new_async_mgmt()
-        lg = mgmt.loggers.new("app.payments", name="Payments", managed=True)
+        lg = mgmt.loggers.new("app.payments")
         assert lg.level is None
         assert lg.created_at is None
         asyncio.run(lg.save())
@@ -491,7 +486,7 @@ class TestAsyncLoggerConvenienceMethods:
     def test_setEnvironmentLevel(self):
         lg = AsyncSmplLogger(None, id="sql", name="SQL Logger")
         lg.set_level(LogLevel.WARN, environment="prod")
-        assert lg.environments["prod"] == {"level": "WARN"}
+        assert lg.environments["prod"].level == LogLevel.WARN
 
     def test_clearEnvironmentLevel(self):
         lg = AsyncSmplLogger(None, id="sql", name="SQL Logger", environments={"prod": {"level": "WARN"}})
@@ -524,7 +519,7 @@ class TestAsyncLogGroupConvenienceMethods:
     def test_setEnvironmentLevel(self):
         grp = AsyncSmplLogGroup(None, id="db", name="DB")
         grp.set_level(LogLevel.DEBUG, environment="staging")
-        assert grp.environments["staging"] == {"level": "DEBUG"}
+        assert grp.environments["staging"].level == LogLevel.DEBUG
 
     def test_clearEnvironmentLevel(self):
         grp = AsyncSmplLogGroup(None, id="db", name="DB", environments={"staging": {"level": "DEBUG"}})

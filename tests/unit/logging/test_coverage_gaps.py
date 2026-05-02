@@ -500,3 +500,28 @@ class TestSyncNetworkErrors:
         grp = SmplLogGroup(mgmt.log_groups, id=_TEST_UUID, name="DB", created_at="2026-01-01T00:00:00Z")
         with pytest.raises(ConnectionError):
             mgmt.log_groups._save_group(grp)
+
+
+class TestConvertEnvironments:
+    def test_passthrough_loggerenvironment_instance(self):
+        """LoggerEnvironment instances pass through unchanged."""
+        from smplkit import LogLevel
+        from smplkit.logging.models import LoggerEnvironment, _convert_environments
+
+        env = LoggerEnvironment(level=LogLevel.ERROR)
+        result = _convert_environments({"prod": env})
+        assert result["prod"] is env
+
+    def test_invalid_level_string_yields_empty_environment(self):
+        """An unrecognized level string falls back to a level-less environment."""
+        from smplkit.logging.models import _convert_environments
+
+        result = _convert_environments({"prod": {"level": "NOT_A_LEVEL"}})
+        assert result["prod"].level is None
+
+    def test_non_dict_non_environment_value_yields_empty_environment(self):
+        """A garbage value (str/int) is treated as an empty override."""
+        from smplkit.logging.models import _convert_environments
+
+        result = _convert_environments({"prod": "garbage"})
+        assert result["prod"].level is None

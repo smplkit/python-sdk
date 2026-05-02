@@ -11,25 +11,25 @@ if TYPE_CHECKING:
     from smplkit.management.client import FlagsClient as MgmtFlagsClient
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class FlagValue:
     """A constrained value entry on a :class:`Flag`.
 
-    Lives in :attr:`Flag.values`.  ``name`` is the human-readable label
-    shown in the Console; ``value`` is the actual value served.
+    Lives in :attr:`Flag.values`.  Frozen — author values via
+    :meth:`Flag.add_value` / :meth:`Flag.remove_value` /
+    :meth:`Flag.clear_values`.
     """
 
     name: str
     value: Any
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class FlagRule:
     """A single targeting rule on a :class:`Flag`.
 
-    Lives in :attr:`FlagEnvironment.rules`.  ``logic`` is JSON Logic — use
-    the :class:`smplkit.Rule` fluent builder when authoring rather than
-    constructing logic dicts by hand.
+    Lives in :attr:`FlagEnvironment.rules`.  Frozen — author rules via the
+    :class:`smplkit.Rule` fluent builder and pass through :meth:`Flag.add_rule`.
 
     Attributes:
         logic: JSON Logic predicate.  Empty dict means "always match".
@@ -42,12 +42,14 @@ class FlagRule:
     description: str | None = None
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class FlagEnvironment:
     """Per-environment configuration on a :class:`Flag`.
 
     Lives at ``flag.environments[env_name]`` (a ``dict[str, FlagEnvironment]``).
-    Mutations are local; call ``flag.save()`` to persist.
+    Frozen — mutate via :meth:`Flag.add_rule` / :meth:`Flag.enable_rules` /
+    :meth:`Flag.disable_rules` / :meth:`Flag.set_default` / :meth:`Flag.clear_rules`
+    (with ``environment="..."``).
 
     Attributes:
         enabled: Whether the flag is active in this environment.
@@ -57,7 +59,17 @@ class FlagEnvironment:
 
     enabled: bool = True
     default: Any = None
-    rules: list[FlagRule] = dataclasses.field(default_factory=list)
+    rules: tuple[FlagRule, ...] = ()
+
+
+def _replace_env(
+    environments: dict[str, FlagEnvironment],
+    env_key: str,
+    **fields: Any,
+) -> None:
+    """Replace per-env config (frozen), creating a default instance if missing."""
+    existing = environments.get(env_key, FlagEnvironment())
+    environments[env_key] = dataclasses.replace(existing, **fields)
 
 
 class Flag:
@@ -169,7 +181,8 @@ class Flag:
             value=built_rule.get("value"),
             description=built_rule.get("description"),
         )
-        self._environments.setdefault(env_key, FlagEnvironment()).rules.append(flag_rule)
+        existing = self._environments.get(env_key, FlagEnvironment())
+        _replace_env(self._environments, env_key, rules=(*existing.rules, flag_rule))
         return self
 
     def enable_rules(self, *, environment: str | None = None) -> None:
@@ -179,10 +192,10 @@ class Flag:
         enables rules in every environment configured on this flag.
         """
         if environment is None:
-            for env in self._environments.values():
-                env.enabled = True
+            for env_key in list(self._environments.keys()):
+                _replace_env(self._environments, env_key, enabled=True)
         else:
-            self._environments.setdefault(environment, FlagEnvironment()).enabled = True
+            _replace_env(self._environments, environment, enabled=True)
 
     def disable_rules(self, *, environment: str | None = None) -> None:
         """Disable rule evaluation (kill switch).  Call :meth:`save` to persist.
@@ -193,10 +206,10 @@ class Flag:
         (or the flag's base default).
         """
         if environment is None:
-            for env in self._environments.values():
-                env.enabled = False
+            for env_key in list(self._environments.keys()):
+                _replace_env(self._environments, env_key, enabled=False)
         else:
-            self._environments.setdefault(environment, FlagEnvironment()).enabled = False
+            _replace_env(self._environments, environment, enabled=False)
 
     def set_default(self, value: Any, *, environment: str | None = None) -> None:
         """Set the flag's default served value.
@@ -210,7 +223,7 @@ class Flag:
         if environment is None:
             self.default = value
         else:
-            self._environments.setdefault(environment, FlagEnvironment()).default = value
+            _replace_env(self._environments, environment, default=value)
 
     def clear_default(self, *, environment: str) -> None:
         """Clear the per-environment default override on *environment*.
@@ -218,9 +231,8 @@ class Flag:
         After clearing, the environment falls back to the flag's base default
         when no rule matches.  Call :meth:`save` to persist.
         """
-        env = self._environments.get(environment)
-        if env is not None:
-            env.default = None
+        if environment in self._environments:
+            _replace_env(self._environments, environment, default=None)
 
     def clear_rules(self, *, environment: str | None = None) -> None:
         """Remove rules.  Call :meth:`save` to persist.
@@ -229,10 +241,10 @@ class Flag:
         removes rules from every environment configured on this flag.
         """
         if environment is None:
-            for env in self._environments.values():
-                env.rules = []
+            for env_key in list(self._environments.keys()):
+                _replace_env(self._environments, env_key, rules=())
         else:
-            self._environments.setdefault(environment, FlagEnvironment()).rules = []
+            _replace_env(self._environments, environment, rules=())
 
     def add_value(self, name: str, value: Any) -> Flag:
         """Append a constrained value to the flag's values list. Returns *self* for chaining."""
@@ -414,7 +426,8 @@ class AsyncFlag:
             value=built_rule.get("value"),
             description=built_rule.get("description"),
         )
-        self._environments.setdefault(env_key, FlagEnvironment()).rules.append(flag_rule)
+        existing = self._environments.get(env_key, FlagEnvironment())
+        _replace_env(self._environments, env_key, rules=(*existing.rules, flag_rule))
         return self
 
     def enable_rules(self, *, environment: str | None = None) -> None:
@@ -422,20 +435,20 @@ class AsyncFlag:
         environment configured on this flag.  Call :meth:`save` to persist.
         """
         if environment is None:
-            for env in self._environments.values():
-                env.enabled = True
+            for env_key in list(self._environments.keys()):
+                _replace_env(self._environments, env_key, enabled=True)
         else:
-            self._environments.setdefault(environment, FlagEnvironment()).enabled = True
+            _replace_env(self._environments, environment, enabled=True)
 
     def disable_rules(self, *, environment: str | None = None) -> None:
         """Disable rule evaluation.  Without ``environment``, applies to every
         environment configured on this flag.  Call :meth:`save` to persist.
         """
         if environment is None:
-            for env in self._environments.values():
-                env.enabled = False
+            for env_key in list(self._environments.keys()):
+                _replace_env(self._environments, env_key, enabled=False)
         else:
-            self._environments.setdefault(environment, FlagEnvironment()).enabled = False
+            _replace_env(self._environments, environment, enabled=False)
 
     def set_default(self, value: Any, *, environment: str | None = None) -> None:
         """Set the flag's default served value (base or per-environment).
@@ -445,23 +458,22 @@ class AsyncFlag:
         if environment is None:
             self.default = value
         else:
-            self._environments.setdefault(environment, FlagEnvironment()).default = value
+            _replace_env(self._environments, environment, default=value)
 
     def clear_default(self, *, environment: str) -> None:
         """Clear the per-environment default override on *environment*."""
-        env = self._environments.get(environment)
-        if env is not None:
-            env.default = None
+        if environment in self._environments:
+            _replace_env(self._environments, environment, default=None)
 
     def clear_rules(self, *, environment: str | None = None) -> None:
         """Remove rules.  Without ``environment``, applies to every environment
         configured on this flag.  Call :meth:`save` to persist.
         """
         if environment is None:
-            for env in self._environments.values():
-                env.rules = []
+            for env_key in list(self._environments.keys()):
+                _replace_env(self._environments, env_key, rules=())
         else:
-            self._environments.setdefault(environment, FlagEnvironment()).rules = []
+            _replace_env(self._environments, environment, rules=())
 
     def add_value(self, name: str, value: Any) -> AsyncFlag:
         """Append a constrained value to the flag's values list. Returns *self* for chaining."""

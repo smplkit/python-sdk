@@ -9,6 +9,7 @@ CRUD lives on :class:`smplkit.SmplManagementClient`.
 from __future__ import annotations
 
 
+import dataclasses
 import logging
 import threading
 from collections.abc import Callable
@@ -97,8 +98,11 @@ def _build_chain_sync(model: Any, models_by_id: dict[str, Any]) -> list[dict[str
     return chain
 
 
+@dataclasses.dataclass(frozen=True, kw_only=True)
 class ConfigChangeEvent:
     """Describes a single config value change.
+
+    Frozen — fields are set at construction and cannot be mutated afterward.
 
     Attributes:
         config_id: The config id that changed.
@@ -113,27 +117,6 @@ class ConfigChangeEvent:
     old_value: Any
     new_value: Any
     source: str
-
-    def __init__(
-        self,
-        *,
-        config_id: str,
-        item_key: str,
-        old_value: Any,
-        new_value: Any,
-        source: str,
-    ) -> None:
-        self.config_id = config_id
-        self.item_key = item_key
-        self.old_value = old_value
-        self.new_value = new_value
-        self.source = source
-
-    def __repr__(self) -> str:
-        return (
-            f"ConfigChangeEvent(config_id={self.config_id!r}, item_key={self.item_key!r}, "
-            f"old_value={self.old_value!r}, new_value={self.new_value!r}, source={self.source!r})"
-        )
 
 
 class LiveConfigProxy:

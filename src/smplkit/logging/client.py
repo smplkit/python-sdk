@@ -7,6 +7,7 @@ service, fetch resolved levels, and apply them. CRUD has moved to
 
 from __future__ import annotations
 
+import dataclasses
 import importlib
 import logging as stdlib_logging
 import threading
@@ -110,20 +111,13 @@ def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) ->
 # ---------------------------------------------------------------------------
 
 
+@dataclasses.dataclass(frozen=True, kw_only=True)
 class LoggerChangeEvent:
-    """Describes a logger or group definition change."""
+    """Describes a logger or group definition change.  Frozen — fields are set at construction."""
 
     id: str
     source: str
-    deleted: bool
-
-    def __init__(self, *, id: str, source: str, deleted: bool = False) -> None:
-        self.id = id
-        self.source = source
-        self.deleted = deleted
-
-    def __repr__(self) -> str:
-        return f"LoggerChangeEvent(id={self.id!r}, source={self.source!r}, deleted={self.deleted!r})"
+    deleted: bool = False
 
 
 # ---------------------------------------------------------------------------

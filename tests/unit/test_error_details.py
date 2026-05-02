@@ -566,7 +566,7 @@ class TestLoggingClientErrors:
         from smplkit import SmplManagementClient
 
         mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
-        lg = mgmt.loggers.new("test-key", name="Test")
+        lg = mgmt.loggers.new("test-key")
         with pytest.raises(ConnectionError):
             lg.save()
         mock_update.assert_called_once()

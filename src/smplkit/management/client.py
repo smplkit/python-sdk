@@ -138,7 +138,13 @@ from smplkit.logging.helpers import (
     _log_group_resource_to_async_model,
     _log_group_resource_to_model,
 )
-from smplkit.logging.models import AsyncSmplLogGroup, AsyncSmplLogger, SmplLogGroup, SmplLogger
+from smplkit.logging.models import (
+    AsyncSmplLogGroup,
+    AsyncSmplLogger,
+    SmplLogGroup,
+    SmplLogger,
+    _environments_to_wire as _logger_environments_to_wire,
+)
 from smplkit.management.models import (
     AccountSettings,
     AsyncAccountSettings,
@@ -1617,11 +1623,11 @@ class LoggersClient:
         """Number of sources queued and awaiting flush."""
         return self._buffer.pending_count
 
-    def new(self, id: str, *, name: str | None = None, managed: bool = False) -> SmplLogger:
+    def new(self, id: str, *, managed: bool = True) -> SmplLogger:
         return SmplLogger(
             self,
             id=id,
-            name=name if name is not None else key_to_display_name(id),
+            name=id,
             managed=managed,
         )
 
@@ -1662,7 +1668,7 @@ class LoggersClient:
             level=_loglevel_value(lg.level, where="SmplLogger.save"),
             managed=lg.managed,
             group=lg.group,
-            environments=lg.environments if lg.environments else None,
+            environments=_logger_environments_to_wire(lg._environments) if lg._environments else None,
         )
         try:
             response = _gen_update_logger.sync_detailed(lg.id, client=self._http_client, body=body)
@@ -1739,11 +1745,11 @@ class AsyncLoggersClient:
         """Number of sources queued and awaiting flush."""
         return self._buffer.pending_count
 
-    def new(self, id: str, *, name: str | None = None, managed: bool = False) -> AsyncSmplLogger:
+    def new(self, id: str, *, managed: bool = True) -> AsyncSmplLogger:
         return AsyncSmplLogger(
             self,
             id=id,
-            name=name if name is not None else key_to_display_name(id),
+            name=id,
             managed=managed,
         )
 
@@ -1784,7 +1790,7 @@ class AsyncLoggersClient:
             level=_loglevel_value(lg.level, where="AsyncSmplLogger.save"),
             managed=lg.managed,
             group=lg.group,
-            environments=lg.environments if lg.environments else None,
+            environments=_logger_environments_to_wire(lg._environments) if lg._environments else None,
         )
         try:
             response = await _gen_update_logger.asyncio_detailed(lg.id, client=self._http_client, body=body)
@@ -1855,7 +1861,7 @@ class LogGroupsClient:
             name=grp.name,
             level=_loglevel_value(grp.level, where="SmplLogGroup.save"),
             group=grp.group,
-            environments=grp.environments if grp.environments else None,
+            environments=_logger_environments_to_wire(grp._environments) if grp._environments else None,
         )
         try:
             if grp.created_at is None:
@@ -1924,7 +1930,7 @@ class AsyncLogGroupsClient:
             name=grp.name,
             level=_loglevel_value(grp.level, where="AsyncSmplLogGroup.save"),
             group=grp.group,
-            environments=grp.environments if grp.environments else None,
+            environments=_logger_environments_to_wire(grp._environments) if grp._environments else None,
         )
         try:
             if grp.created_at is None:

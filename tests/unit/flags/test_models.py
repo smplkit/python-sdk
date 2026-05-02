@@ -29,7 +29,7 @@ from smplkit.flags.models import (
 
 def _env(enabled=True, default=None, rules=None):
     """Shorthand for FlagEnvironment in test fixtures."""
-    return FlagEnvironment(enabled=enabled, default=default, rules=list(rules or []))
+    return FlagEnvironment(enabled=enabled, default=default, rules=tuple(rules or ()))
 
 
 def _rule(logic=None, value=None, description=None):
@@ -71,7 +71,7 @@ class TestFlag:
         assert flag.default is False
         assert flag.description == "A test flag"
         assert flag.values == [_val("True", True)]
-        assert flag.environments == {"staging": FlagEnvironment(enabled=True, default=None, rules=[])}
+        assert flag.environments == {"staging": FlagEnvironment(enabled=True, default=None, rules=())}
 
     def test_defaults(self):
         client = MagicMock()
@@ -273,12 +273,12 @@ class TestFlag:
     def test_clearRules_existing(self):
         flag = _make_flag(environments={"staging": _env(rules=[_rule(value=True)])})
         flag.clear_rules(environment="staging")
-        assert flag.environments["staging"].rules == []
+        assert flag.environments["staging"].rules == ()
 
     def test_clearRules_new_environment(self):
         flag = _make_flag(environments={})
         flag.clear_rules(environment="production")
-        assert flag.environments["production"].rules == []
+        assert flag.environments["production"].rules == ()
 
     def test_clearRules_no_env_applies_to_all(self):
         flag = _make_flag(
@@ -288,8 +288,8 @@ class TestFlag:
             }
         )
         flag.clear_rules()
-        assert flag.environments["staging"].rules == []
-        assert flag.environments["production"].rules == []
+        assert flag.environments["staging"].rules == ()
+        assert flag.environments["production"].rules == ()
 
     # ------------------------------------------------------------------
     # add_value / remove_value / clear_values
@@ -586,7 +586,7 @@ class TestAsyncFlag:
             environments={"staging": _env(rules=[_rule(value=True)])},
         )
         flag.clear_rules(environment="staging")
-        assert flag.environments["staging"].rules == []
+        assert flag.environments["staging"].rules == ()
 
     def test_enable_rules_no_env_applies_to_all(self):
         flag = _make_flag(
@@ -615,8 +615,8 @@ class TestAsyncFlag:
             },
         )
         flag.clear_rules()
-        assert flag.environments["staging"].rules == []
-        assert flag.environments["production"].rules == []
+        assert flag.environments["staging"].rules == ()
+        assert flag.environments["production"].rules == ()
 
     def test_clear_default_existing(self):
         flag = _make_flag(cls=AsyncFlag, environments={"staging": _env(default="overridden")})
