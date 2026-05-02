@@ -241,6 +241,22 @@ class LiveConfigProxy:
     def get(self, key: str, default: Any = None) -> Any:
         return self._current_values().get(key, default)
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        raise AttributeError(
+            f"LiveConfigProxy is read-only; cannot set {name!r}. Mutate config values via client.manage.config.*"
+        )
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        raise TypeError(
+            f"LiveConfigProxy is read-only; cannot set {key!r}. Mutate config values via client.manage.config.*"
+        )
+
+    def __delattr__(self, name: str) -> None:
+        raise AttributeError(f"LiveConfigProxy is read-only; cannot delete {name!r}.")
+
+    def __delitem__(self, key: str) -> None:
+        raise TypeError(f"LiveConfigProxy is read-only; cannot delete {key!r}.")
+
     def __repr__(self) -> str:
         config_id = object.__getattribute__(self, "_config_id")
         model = object.__getattribute__(self, "_model")

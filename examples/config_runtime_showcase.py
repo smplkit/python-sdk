@@ -61,8 +61,10 @@ async def main() -> None:
         print(f"database.host = {config_dict.get('database.host')}")
         print(f"max_retries = {config_dict.get('max_retries')}")
         print(f"cache_ttl_seconds = {config_dict.get('cache_ttl_seconds')}")
-        page_size = config_dict.get("pagination_default_page_size")
-        print(f"pagination_default_page_size = {page_size}")
+        print(
+            f"pagination_default_page_size = "
+            f"{config_dict.get('pagination_default_page_size')}"
+        )
         print(f"enable_signup = {config_dict.get('enable_signup')}")
         print(f"nonexistent_key = {config_dict.get('nonexistent_key')}")
 

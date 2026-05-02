@@ -576,3 +576,27 @@ class TestLiveConfigProxyDirect:
         proxy = LiveConfigProxy(client.config, "db", model=DbConfig)
         result = proxy._build_model()
         assert result.database == {"host": "h", "port": 5432}
+
+    def test_setattr_raises(self):
+        client = _make_connected_client({"db": {"host": "h"}})
+        proxy = LiveConfigProxy(client.config, "db")
+        with pytest.raises(AttributeError, match="read-only"):
+            proxy.host = "spoofed"
+
+    def test_setitem_raises(self):
+        client = _make_connected_client({"db": {"host": "h"}})
+        proxy = LiveConfigProxy(client.config, "db")
+        with pytest.raises(TypeError, match="read-only"):
+            proxy["host"] = "spoofed"
+
+    def test_delattr_raises(self):
+        client = _make_connected_client({"db": {"host": "h"}})
+        proxy = LiveConfigProxy(client.config, "db")
+        with pytest.raises(AttributeError, match="read-only"):
+            del proxy.host
+
+    def test_delitem_raises(self):
+        client = _make_connected_client({"db": {"host": "h"}})
+        proxy = LiveConfigProxy(client.config, "db")
+        with pytest.raises(TypeError, match="read-only"):
+            del proxy["host"]
