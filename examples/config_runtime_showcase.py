@@ -70,21 +70,12 @@ async def main() -> None:
         cfg = await client.config.get(
             "showcase-user-service", UserServiceConfig
         )
-        assert isinstance(cfg, UserServiceConfig)
-        assert isinstance(cfg.database, Database)
         print(f"cfg.database.host = {cfg.database.host}")
         print(f"cfg.database.pool_size = {cfg.database.pool_size}")
         print(f"cfg.cache_ttl_seconds = {cfg.cache_ttl_seconds}")
         print(f"cfg.enable_signup = {cfg.enable_signup}")
         print(f"cfg.max_retries = {cfg.max_retries}")
         print(f"cfg.app_name = {cfg.app_name}")
-
-        # subscribe — live proxy auto-updates when server values change
-        live = await client.config.subscribe(
-            "showcase-user-service", UserServiceConfig
-        )
-        print(f"live.database.host = {live.database.host}")
-        print(f"live.cache_ttl_seconds = {live.cache_ttl_seconds}")
 
         changes: list = []
         retries_changes: list = []
@@ -99,7 +90,7 @@ async def main() -> None:
             )
 
         # item-scoped listener via the live-proxy handle
-        shared = await client.config.subscribe("showcase-common")
+        shared = await client.config.get("showcase-common")
 
         @shared.on_change("max_retries")
         def on_retries_change(event):
