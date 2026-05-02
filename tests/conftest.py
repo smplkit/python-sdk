@@ -37,7 +37,7 @@ class _NoOpAsyncMetricsReporter(_NoOpMetricsReporter):
 
 
 @pytest.fixture(autouse=True)
-def _disable_telemetry(monkeypatch: pytest.MonkeyPatch) -> None:
+def _disable_telemetry_in_tests(monkeypatch: pytest.MonkeyPatch) -> None:
     """Prevent any SmplClient instantiation from firing real metrics HTTP calls.
 
     Unit tests must never hit the network.  The metrics reporters start a

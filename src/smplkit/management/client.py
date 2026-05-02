@@ -1,15 +1,42 @@
-"""Smpl management-plane sub-clients.
+"""Smpl management-plane sub-clients and top-level :class:`SmplManagementClient`.
 
-Provides ``client.management.{environments, contexts, context_types,
-account_settings}`` for app-service-owned resources.
+This module owns every CRUD/management surface in the SDK.  The top-level
+:class:`SmplManagementClient` (and :class:`AsyncSmplManagementClient`)
+expose them as flat namespaces:
+
+- ``mgmt.contexts.*``         (was ``client.management.contexts.*``)
+- ``mgmt.context_types.*``    (was ``client.management.context_types.*``)
+- ``mgmt.environments.*``     (was ``client.management.environments.*``)
+- ``mgmt.account_settings.*`` (was ``client.management.account_settings.*``)
+- ``mgmt.config.*``           (was ``client.config.management.*``)
+- ``mgmt.flags.*``            (was ``client.flags.management.*``)
+- ``mgmt.loggers.*``          (was ``client.logging.management.*`` — logger surface)
+- ``mgmt.log_groups.*``       (was ``client.logging.management.*`` — group surface)
+
+The runtime :class:`smplkit.SmplClient` no longer exposes a ``.management``
+attribute anywhere; runtime and management are strictly separated.
 """
 
 from __future__ import annotations
 
 import json
+import logging
+import threading
 from typing import TYPE_CHECKING, Any, overload
 
-from smplkit._errors import SmplNotFoundError, SmplValidationError, _raise_for_status
+import httpx
+
+from smplkit._config import ResolvedManagementConfig, _service_url, resolve_management_config
+from smplkit._debug import enable_debug
+from smplkit._errors import (
+    ConflictError,
+    ConnectionError,
+    NotFoundError,
+    TimeoutError,
+    ValidationError,
+    _raise_for_status,
+)
+from smplkit._helpers import key_to_display_name
 from smplkit._generated.app.api.context_types import (
     create_context_type as _gen_create_context_type,
     delete_context_type as _gen_delete_context_type,
@@ -22,6 +49,7 @@ from smplkit._generated.app.api.contexts import (
     delete_context as _gen_delete_context,
     get_context as _gen_get_context,
     list_contexts as _gen_list_contexts,
+    update_context as _gen_update_context,
 )
 from smplkit._generated.app.api.environments import (
     create_environment as _gen_create_environment,
@@ -32,9 +60,13 @@ from smplkit._generated.app.api.environments import (
 )
 from smplkit._generated.app.client import AuthenticatedClient as _AppAuthClient
 from smplkit._generated.app.models import (
+    Context as _GenContext,
+    ContextAttributes as _GenContextAttributes,
     ContextBulkItem as _GenContextBulkItem,
     ContextBulkItemAttributes as _GenContextBulkItemAttributes,
     ContextBulkRegister as _GenContextBulkRegister,
+    ContextResource as _GenContextResource,
+    ContextResponse as _GenContextResponse,
     ContextType as _GenContextType,
     ContextTypeAttributes as _GenContextTypeAttributes,
     ContextTypeResource as _GenContextTypeResource,
@@ -43,22 +75,102 @@ from smplkit._generated.app.models import (
     EnvironmentResource as _GenEnvironmentResource,
     EnvironmentResponse as _GenEnvironmentResponse,
 )
+from smplkit._generated.config.api.configs import (
+    create_config as _gen_create_config,
+    delete_config as _gen_delete_config,
+    get_config as _gen_get_config,
+    list_configs as _gen_list_configs,
+    update_config as _gen_update_config,
+)
+from smplkit._generated.config.client import AuthenticatedClient as _ConfigAuthClient
+from smplkit._generated.flags.api.flags import (
+    bulk_register_flags as _gen_bulk_register_flags,
+    create_flag as _gen_create_flag,
+    delete_flag as _gen_delete_flag,
+    get_flag as _gen_get_flag,
+    list_flags as _gen_list_flags,
+    update_flag as _gen_update_flag,
+)
+from smplkit._generated.flags.models.flag_bulk_item import FlagBulkItem as _GenFlagBulkItem
+from smplkit._generated.flags.models.flag_bulk_request import FlagBulkRequest as _GenFlagBulkRequest
+from smplkit._generated.flags.client import AuthenticatedClient as _FlagsAuthClient
+from smplkit._generated.logging.api.log_groups import (
+    create_log_group as _gen_create_log_group,
+    delete_log_group as _gen_delete_log_group,
+    get_log_group as _gen_get_log_group,
+    list_log_groups as _gen_list_log_groups,
+    update_log_group as _gen_update_log_group,
+)
+from smplkit._generated.logging.api.loggers import (
+    bulk_register_loggers as _gen_bulk_register_loggers,
+    delete_logger as _gen_delete_logger,
+    get_logger as _gen_get_logger,
+    list_loggers as _gen_list_loggers,
+    update_logger as _gen_update_logger,
+)
+from smplkit._generated.logging.client import AuthenticatedClient as _LoggingAuthClient
+from smplkit.config.helpers import (
+    _build_config_request_body,
+    _resource_to_config,
+    _resource_to_async_config,
+)
+from smplkit.config.models import AsyncConfig, Config
+from smplkit.flags.helpers import (
+    _build_flag_request_body,
+    _flag_dict_from_json,
+)
+from smplkit.flags.models import (
+    AsyncBooleanFlag,
+    AsyncFlag,
+    AsyncJsonFlag,
+    AsyncNumberFlag,
+    AsyncStringFlag,
+    BooleanFlag,
+    Flag,
+    FlagValue,
+    JsonFlag,
+    NumberFlag,
+    StringFlag,
+)
+from smplkit.logging._normalize import normalize_logger_name
+from smplkit.logging._sources import LoggerSource
+from smplkit.logging.helpers import (
+    _build_log_group_body,
+    _build_logger_body,
+    _logger_resource_to_async_model,
+    _logger_resource_to_model,
+    _loglevel_value,
+    _log_group_resource_to_async_model,
+    _log_group_resource_to_model,
+)
+from smplkit.logging.models import (
+    AsyncSmplLogGroup,
+    AsyncSmplLogger,
+    SmplLogGroup,
+    SmplLogger,
+    _environments_to_wire as _logger_environments_to_wire,
+)
+from smplkit.flags.types import AsyncContext, Context
 from smplkit.management.models import (
     AccountSettings,
     AsyncAccountSettings,
-    AsyncContextEntity,
     AsyncContextType,
     AsyncEnvironment,
-    ContextEntity,
     ContextType,
     Environment,
 )
-from smplkit.management.types import EnvironmentClassification
+from smplkit.management._buffer import (
+    _CONTEXT_BATCH_FLUSH_SIZE,
+    _FLAG_BATCH_FLUSH_SIZE,
+    _LOGGER_BATCH_FLUSH_SIZE,
+)
+from smplkit.management.types import Color, EnvironmentClassification
 
 if TYPE_CHECKING:  # pragma: no cover
-    from smplkit.client import AsyncSmplClient, SmplClient
-    from smplkit.flags.types import Context
+    from smplkit.flags.types import FlagDeclaration
     from smplkit.management._buffer import _ContextRegistrationBuffer
+
+logger = logging.getLogger("smplkit")
 
 
 # ---------------------------------------------------------------------------
@@ -81,7 +193,7 @@ def _split_context_id(id_or_type: str, key: str | None) -> tuple[str, str]:
 def _env_to_resource(env: Environment | AsyncEnvironment) -> _GenEnvironmentResponse:
     attrs = _GenEnvironment(
         name=env.name,
-        color=env.color,
+        color=env.color.hex if env.color is not None else None,
         classification=env.classification.value,
     )
     resource = _GenEnvironmentResource(
@@ -103,12 +215,15 @@ def _env_from_parsed(
         classification = EnvironmentClassification.AD_HOC
     else:
         classification = EnvironmentClassification.STANDARD
+    color_val = getattr(attrs, "color", None)
+    if _is_unset(color_val):
+        color_val = None
     if async_client is not None:
         return AsyncEnvironment(
             async_client,
             id=data.id,
             name=attrs.name,
-            color=getattr(attrs, "color", None),
+            color=color_val,
             classification=classification,
             created_at=getattr(attrs, "created_at", None) or None,
             updated_at=getattr(attrs, "updated_at", None) or None,
@@ -117,7 +232,7 @@ def _env_from_parsed(
         sync_client,
         id=data.id,
         name=attrs.name,
-        color=getattr(attrs, "color", None),
+        color=color_val,
         classification=classification,
         created_at=getattr(attrs, "created_at", None) or None,
         updated_at=getattr(attrs, "updated_at", None) or None,
@@ -166,8 +281,8 @@ def _ct_from_parsed(
     )
 
 
-def _ctx_entity_from_parsed(parsed: Any, sync: bool) -> Any:
-    """Build a ContextEntity / AsyncContextEntity from a parsed ContextResponse.
+def _ctx_entity_from_parsed(parsed: Any, sync: bool, client: Any = None) -> Context | AsyncContext:
+    """Build a :class:`Context` or :class:`AsyncContext` from a parsed ContextResponse.
 
     The on-the-wire id is the composite ``"type:key"``. We split it
     back into the two fields the model exposes (mirrored back as a
@@ -189,23 +304,30 @@ def _ctx_entity_from_parsed(parsed: Any, sync: bool) -> Any:
     else:
         attr_dict = dict(getattr(attr_obj, "additional_properties", {}))
 
-    if sync:
-        return ContextEntity(
-            type=ctx_type,
-            key=ctx_key,
-            name=getattr(attrs, "name", None) or None,
-            attributes=attr_dict,
-            created_at=getattr(attrs, "created_at", None) or None,
-            updated_at=getattr(attrs, "updated_at", None) or None,
-        )
-    return AsyncContextEntity(
-        type=ctx_type,
-        key=ctx_key,
+    cls = Context if sync else AsyncContext
+    ctx = cls(
+        ctx_type,
+        ctx_key,
+        attr_dict,
         name=getattr(attrs, "name", None) or None,
-        attributes=attr_dict,
         created_at=getattr(attrs, "created_at", None) or None,
         updated_at=getattr(attrs, "updated_at", None) or None,
     )
+    ctx._client = client
+    return ctx
+
+
+def _ctx_to_resource(ctx: Context | AsyncContext) -> _GenContextResponse:
+    """Build a wire ContextResponse body from a Context."""
+    gen_attrs = _GenContextAttributes()
+    gen_attrs.additional_properties = dict(ctx.attributes)
+    attrs = _GenContext(
+        context_type=ctx.type,
+        name=ctx.name,
+        attributes=gen_attrs,
+    )
+    resource = _GenContextResource(type_="context", attributes=attrs, id=ctx.id)
+    return _GenContextResponse(data=resource)
 
 
 def _is_unset(value: Any) -> bool:
@@ -216,16 +338,36 @@ def _check_status(status_code: int, content: bytes) -> None:
     _raise_for_status(int(status_code), content)
 
 
+def _exc_url(exc: Exception) -> str | None:
+    try:
+        return str(exc.request.url)  # type: ignore[attr-defined]
+    except Exception:
+        return None
+
+
+def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) -> None:
+    """Re-raise httpx exceptions as SDK exceptions when applicable."""
+    if isinstance(exc, httpx.TimeoutException):
+        url = _exc_url(exc) or base_url
+        msg = f"Request timed out connecting to {url}" if url else f"Request timed out: {exc}"
+        raise TimeoutError(msg) from exc
+    if isinstance(exc, httpx.HTTPError):
+        url = _exc_url(exc) or base_url
+        msg = f"Cannot connect to {url}: {exc}" if url else f"Connection error: {exc}"
+        raise ConnectionError(msg) from exc
+    if isinstance(exc, (NotFoundError, ConflictError, ValidationError)):
+        raise exc
+
+
 # ---------------------------------------------------------------------------
 # Environments
 # ---------------------------------------------------------------------------
 
 
 class EnvironmentsClient:
-    """Sync environment CRUD."""
+    """Sync environment CRUD (``mgmt.environments``)."""
 
-    def __init__(self, parent: SmplClient, app_http: _AppAuthClient) -> None:
-        self._parent = parent
+    def __init__(self, app_http: _AppAuthClient) -> None:
         self._app_http = app_http
 
     def new(
@@ -233,7 +375,7 @@ class EnvironmentsClient:
         id: str,
         *,
         name: str,
-        color: str | None = None,
+        color: Color | str | None = None,
         classification: EnvironmentClassification = EnvironmentClassification.STANDARD,
     ) -> Environment:
         """Return an unsaved :class:`Environment`. Call ``.save()`` to persist."""
@@ -255,7 +397,7 @@ class EnvironmentsClient:
         resp = _gen_get_environment.sync_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplNotFoundError(f"Environment with id {id!r} not found", status_code=404)
+            raise NotFoundError(f"Environment with id {id!r} not found", status_code=404)
         return _env_from_parsed(resp.parsed, sync_client=self, async_client=None)
 
     def delete(self, id: str) -> None:
@@ -267,7 +409,7 @@ class EnvironmentsClient:
         resp = _gen_create_environment.sync_detailed(client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(resp.status_code)}: unexpected response",
                 status_code=int(resp.status_code),
             )
@@ -280,7 +422,7 @@ class EnvironmentsClient:
         resp = _gen_update_environment.sync_detailed(env.id, client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(resp.status_code)}: unexpected response",
                 status_code=int(resp.status_code),
             )
@@ -288,10 +430,9 @@ class EnvironmentsClient:
 
 
 class AsyncEnvironmentsClient:
-    """Async environment CRUD."""
+    """Async environment CRUD (``mgmt.environments``)."""
 
-    def __init__(self, parent: AsyncSmplClient, app_http: _AppAuthClient) -> None:
-        self._parent = parent
+    def __init__(self, app_http: _AppAuthClient) -> None:
         self._app_http = app_http
 
     def new(
@@ -299,7 +440,7 @@ class AsyncEnvironmentsClient:
         id: str,
         *,
         name: str,
-        color: str | None = None,
+        color: Color | str | None = None,
         classification: EnvironmentClassification = EnvironmentClassification.STANDARD,
     ) -> AsyncEnvironment:
         return AsyncEnvironment(
@@ -320,7 +461,7 @@ class AsyncEnvironmentsClient:
         resp = await _gen_get_environment.asyncio_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplNotFoundError(f"Environment with id {id!r} not found", status_code=404)
+            raise NotFoundError(f"Environment with id {id!r} not found", status_code=404)
         return _env_from_parsed(resp.parsed, sync_client=None, async_client=self)
 
     async def delete(self, id: str) -> None:
@@ -332,7 +473,7 @@ class AsyncEnvironmentsClient:
         resp = await _gen_create_environment.asyncio_detailed(client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(resp.status_code)}: unexpected response",
                 status_code=int(resp.status_code),
             )
@@ -345,7 +486,7 @@ class AsyncEnvironmentsClient:
         resp = await _gen_update_environment.asyncio_detailed(env.id, client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(resp.status_code)}: unexpected response",
                 status_code=int(resp.status_code),
             )
@@ -358,11 +499,7 @@ def _env_resource_from_dict(
     sync_client: EnvironmentsClient | None = None,
     async_client: AsyncEnvironmentsClient | None = None,
 ) -> Any:
-    """Build an Environment from a raw JSON resource dict.
-
-    Used by list() — each entry is a ``{"id", "type", "attributes"}``
-    dict, not a pre-parsed model.
-    """
+    """Build an Environment from a raw JSON resource dict (used by list)."""
     attrs = item.get("attributes") or {}
     classification = (
         EnvironmentClassification.AD_HOC
@@ -396,10 +533,9 @@ def _env_resource_from_dict(
 
 
 class ContextTypesClient:
-    """Sync context-type CRUD."""
+    """Sync context-type CRUD (``mgmt.context_types``)."""
 
-    def __init__(self, parent: SmplClient, app_http: _AppAuthClient) -> None:
-        self._parent = parent
+    def __init__(self, app_http: _AppAuthClient) -> None:
         self._app_http = app_http
 
     def new(
@@ -426,7 +562,7 @@ class ContextTypesClient:
         resp = _gen_get_context_type.sync_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplNotFoundError(f"ContextType with id {id!r} not found", status_code=404)
+            raise NotFoundError(f"ContextType with id {id!r} not found", status_code=404)
         return _ct_from_parsed(resp.parsed, sync_client=self, async_client=None)
 
     def delete(self, id: str) -> None:
@@ -438,7 +574,7 @@ class ContextTypesClient:
         resp = _gen_create_context_type.sync_detailed(client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(resp.status_code)}: unexpected response",
                 status_code=int(resp.status_code),
             )
@@ -451,7 +587,7 @@ class ContextTypesClient:
         resp = _gen_update_context_type.sync_detailed(ct.id, client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(resp.status_code)}: unexpected response",
                 status_code=int(resp.status_code),
             )
@@ -459,8 +595,7 @@ class ContextTypesClient:
 
 
 class AsyncContextTypesClient:
-    def __init__(self, parent: AsyncSmplClient, app_http: _AppAuthClient) -> None:
-        self._parent = parent
+    def __init__(self, app_http: _AppAuthClient) -> None:
         self._app_http = app_http
 
     def new(
@@ -487,7 +622,7 @@ class AsyncContextTypesClient:
         resp = await _gen_get_context_type.asyncio_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplNotFoundError(f"ContextType with id {id!r} not found", status_code=404)
+            raise NotFoundError(f"ContextType with id {id!r} not found", status_code=404)
         return _ct_from_parsed(resp.parsed, sync_client=None, async_client=self)
 
     async def delete(self, id: str) -> None:
@@ -499,7 +634,7 @@ class AsyncContextTypesClient:
         resp = await _gen_create_context_type.asyncio_detailed(client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(resp.status_code)}: unexpected response",
                 status_code=int(resp.status_code),
             )
@@ -512,7 +647,7 @@ class AsyncContextTypesClient:
         resp = await _gen_update_context_type.asyncio_detailed(ct.id, client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplValidationError(
+            raise ValidationError(
                 f"HTTP {int(resp.status_code)}: unexpected response",
                 status_code=int(resp.status_code),
             )
@@ -557,6 +692,51 @@ def _ct_resource_from_dict(
 # ---------------------------------------------------------------------------
 
 
+def _build_logger_bulk_request(buffer: Any) -> Any:
+    """Drain the logger-discovery buffer and build a JSON:API bulk request body.
+
+    Returns ``None`` when there is nothing to flush.
+    """
+    from smplkit._generated.logging.models.logger_bulk_item import LoggerBulkItem
+    from smplkit._generated.logging.models.logger_bulk_request import LoggerBulkRequest
+
+    batch = buffer.drain()
+    if not batch:
+        return None
+    items = [
+        LoggerBulkItem(
+            id=b["id"],
+            level=b.get("level"),
+            resolved_level=b["resolved_level"],
+            service=b.get("service"),
+            environment=b.get("environment"),
+        )
+        for b in batch
+    ]
+    return LoggerBulkRequest(loggers=items)
+
+
+def _build_flag_bulk_request(buffer: Any) -> _GenFlagBulkRequest | None:
+    """Drain the flag-discovery buffer and build a JSON:API bulk request body.
+
+    Returns ``None`` when there is nothing to flush.
+    """
+    batch = buffer.drain()
+    if not batch:
+        return None
+    items = [
+        _GenFlagBulkItem(
+            id=b["id"],
+            type_=b["type"],
+            default=b["default"],
+            service=b.get("service"),
+            environment=b.get("environment"),
+        )
+        for b in batch
+    ]
+    return _GenFlagBulkRequest(flags=items)
+
+
 def _build_bulk_register_body(items: list[dict[str, Any]]) -> _GenContextBulkRegister:
     bulk: list[_GenContextBulkItem] = []
     for item in items:
@@ -573,30 +753,31 @@ def _build_bulk_register_body(items: list[dict[str, Any]]) -> _GenContextBulkReg
 
 
 class ContextsClient:
-    """Sync context registration + read/delete."""
+    """Sync context registration + read/delete (``mgmt.contexts``)."""
 
     def __init__(
         self,
-        parent: SmplClient,
         app_http: _AppAuthClient,
         buffer: _ContextRegistrationBuffer,
     ) -> None:
-        self._parent = parent
         self._app_http = app_http
         self._buffer = buffer
 
     def register(self, items: Context | list[Context], *, flush: bool = False) -> None:
-        """Buffer contexts for registration; optionally flush immediately.
-
-        When ``flush=False`` (default) contexts are queued for the
-        SDK's background flush — right for high-frequency observation
-        from a live request handler. When ``flush=True`` the call
-        awaits the round-trip — right for IaC scripts.
-        """
+        """Buffer contexts for registration; optionally flush immediately."""
         batch = items if isinstance(items, list) else [items]
         self._buffer.observe(batch)
         if flush:
             self.flush()
+            return
+        if self._buffer.pending_count >= _CONTEXT_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def _threshold_flush(self) -> None:
+        try:
+            self.flush()
+        except Exception as exc:
+            logger.warning("Context registration flush failed: %s", exc)
 
     def flush(self) -> None:
         """Send any pending observations to the server."""
@@ -607,7 +788,12 @@ class ContextsClient:
         resp = _gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
 
-    def list(self, type: str) -> list[ContextEntity]:
+    @property
+    def pending_count(self) -> int:
+        """Number of observations queued and awaiting flush."""
+        return self._buffer.pending_count
+
+    def list(self, type: str) -> list[Context]:
         """List all contexts of a given type."""
         resp = _gen_list_contexts.sync_detailed(
             client=self._app_http,
@@ -615,23 +801,23 @@ class ContextsClient:
         )
         _check_status(int(resp.status_code), resp.content)
         body = json.loads(resp.content)
-        return [_ctx_entity_from_dict(item) for item in body.get("data", [])]
+        return [_ctx_entity_from_dict(item, client=self) for item in body.get("data", [])]
 
     @overload
-    def get(self, id: str) -> ContextEntity: ...
+    def get(self, id: str) -> Context: ...
     @overload
-    def get(self, type: str, key: str) -> ContextEntity: ...
-    def get(self, id_or_type: str, key: str | None = None) -> ContextEntity:
+    def get(self, type: str, key: str) -> Context: ...
+    def get(self, id_or_type: str, key: str | None = None) -> Context:
         ctx_type, ctx_key = _split_context_id(id_or_type, key)
         composite = f"{ctx_type}:{ctx_key}"
         resp = _gen_get_context.sync_detailed(composite, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplNotFoundError(
+            raise NotFoundError(
                 f"Context with id {composite!r} not found",
                 status_code=404,
             )
-        return _ctx_entity_from_parsed(resp.parsed, sync=True)
+        return _ctx_entity_from_parsed(resp.parsed, sync=True, client=self)
 
     @overload
     def delete(self, id: str) -> None: ...
@@ -643,23 +829,39 @@ class ContextsClient:
         resp = _gen_delete_context.sync_detailed(composite, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
 
+    def _save_context(self, ctx: Context) -> Context:
+        body = _ctx_to_resource(ctx)
+        resp = _gen_update_context.sync_detailed(ctx.id, client=self._app_http, body=body)
+        _check_status(int(resp.status_code), resp.content)
+        if resp.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(resp.status_code)}: unexpected response",
+                status_code=int(resp.status_code),
+            )
+        return _ctx_entity_from_parsed(resp.parsed, sync=True, client=self)  # type: ignore[return-value]
+
 
 class AsyncContextsClient:
     def __init__(
         self,
-        parent: AsyncSmplClient,
         app_http: _AppAuthClient,
         buffer: _ContextRegistrationBuffer,
     ) -> None:
-        self._parent = parent
         self._app_http = app_http
         self._buffer = buffer
 
-    async def register(self, items: Context | list[Context], *, flush: bool = False) -> None:
+    def register(self, items: Context | list[Context]) -> None:
+        """Buffer contexts for registration.  Call ``await flush()`` to send them."""
         batch = items if isinstance(items, list) else [items]
         self._buffer.observe(batch)
-        if flush:
-            await self.flush()
+        if self._buffer.pending_count >= _CONTEXT_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def _threshold_flush(self) -> None:
+        try:
+            self.flush_sync()
+        except Exception as exc:
+            logger.warning("Context registration flush failed: %s", exc)
 
     async def flush(self) -> None:
         batch = self._buffer.drain()
@@ -669,30 +871,44 @@ class AsyncContextsClient:
         resp = await _gen_bulk_register_contexts.asyncio_detailed(client=self._app_http, body=body)
         _check_status(int(resp.status_code), resp.content)
 
-    async def list(self, type: str) -> list[AsyncContextEntity]:
+    def flush_sync(self) -> None:
+        """Synchronous flush — for use from non-event-loop threads (e.g. atexit handlers)."""
+        batch = self._buffer.drain()
+        if not batch:
+            return
+        body = _build_bulk_register_body(batch)
+        resp = _gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
+        _check_status(int(resp.status_code), resp.content)
+
+    @property
+    def pending_count(self) -> int:
+        """Number of observations queued and awaiting flush."""
+        return self._buffer.pending_count
+
+    async def list(self, type: str) -> list[AsyncContext]:
         resp = await _gen_list_contexts.asyncio_detailed(
             client=self._app_http,
             filtercontext_type=type,
         )
         _check_status(int(resp.status_code), resp.content)
         body = json.loads(resp.content)
-        return [_ctx_entity_from_dict(item, async_=True) for item in body.get("data", [])]
+        return [_ctx_entity_from_dict(item, async_=True, client=self) for item in body.get("data", [])]  # type: ignore[misc]
 
     @overload
-    async def get(self, id: str) -> AsyncContextEntity: ...
+    async def get(self, id: str) -> AsyncContext: ...
     @overload
-    async def get(self, type: str, key: str) -> AsyncContextEntity: ...
-    async def get(self, id_or_type: str, key: str | None = None) -> AsyncContextEntity:
+    async def get(self, type: str, key: str) -> AsyncContext: ...
+    async def get(self, id_or_type: str, key: str | None = None) -> AsyncContext:
         ctx_type, ctx_key = _split_context_id(id_or_type, key)
         composite = f"{ctx_type}:{ctx_key}"
         resp = await _gen_get_context.asyncio_detailed(composite, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
-            raise SmplNotFoundError(
+            raise NotFoundError(
                 f"Context with id {composite!r} not found",
                 status_code=404,
             )
-        return _ctx_entity_from_parsed(resp.parsed, sync=False)
+        return _ctx_entity_from_parsed(resp.parsed, sync=False, client=self)  # type: ignore[return-value]
 
     @overload
     async def delete(self, id: str) -> None: ...
@@ -704,8 +920,19 @@ class AsyncContextsClient:
         resp = await _gen_delete_context.asyncio_detailed(composite, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
 
+    async def _save_context(self, ctx: AsyncContext) -> AsyncContext:
+        body = _ctx_to_resource(ctx)
+        resp = await _gen_update_context.asyncio_detailed(ctx.id, client=self._app_http, body=body)
+        _check_status(int(resp.status_code), resp.content)
+        if resp.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(resp.status_code)}: unexpected response",
+                status_code=int(resp.status_code),
+            )
+        return _ctx_entity_from_parsed(resp.parsed, sync=False, client=self)  # type: ignore[return-value]
 
-def _ctx_entity_from_dict(item: dict[str, Any], *, async_: bool = False) -> Any:
+
+def _ctx_entity_from_dict(item: dict[str, Any], *, async_: bool = False, client: Any = None) -> Context | AsyncContext:
     composite_id = item.get("id") or ""
     if ":" in composite_id:
         ctx_type, _, ctx_key = composite_id.partition(":")
@@ -713,15 +940,17 @@ def _ctx_entity_from_dict(item: dict[str, Any], *, async_: bool = False) -> Any:
         ctx_type, ctx_key = composite_id, ""
     attrs = item.get("attributes") or {}
     raw_attrs = attrs.get("attributes") or {}
-    cls = AsyncContextEntity if async_ else ContextEntity
-    return cls(
-        type=ctx_type,
-        key=ctx_key,
+    cls = AsyncContext if async_ else Context
+    ctx = cls(
+        ctx_type,
+        ctx_key,
+        dict(raw_attrs) if isinstance(raw_attrs, dict) else {},
         name=attrs.get("name") or None,
-        attributes=dict(raw_attrs) if isinstance(raw_attrs, dict) else {},
         created_at=attrs.get("created_at"),
         updated_at=attrs.get("updated_at"),
     )
+    ctx._client = client
+    return ctx
 
 
 # ---------------------------------------------------------------------------
@@ -729,18 +958,14 @@ def _ctx_entity_from_dict(item: dict[str, Any], *, async_: bool = False) -> Any:
 # ---------------------------------------------------------------------------
 
 
-import httpx  # noqa: E402  (kept here so the management module is self-contained)
-
-
 class AccountSettingsClient:
-    """Sync account-settings get/save.
+    """Sync account-settings get/save (``mgmt.account_settings``).
 
     The endpoint isn't JSON:API — body is a raw JSON object — so we
     use httpx directly rather than going through a generated client.
     """
 
-    def __init__(self, parent: SmplClient, app_base_url: str, api_key: str) -> None:
-        self._parent = parent
+    def __init__(self, app_base_url: str, api_key: str) -> None:
         self._base_url = app_base_url
         self._headers = {
             "Authorization": f"Bearer {api_key}",
@@ -761,8 +986,7 @@ class AccountSettingsClient:
 
 
 class AsyncAccountSettingsClient:
-    def __init__(self, parent: AsyncSmplClient, app_base_url: str, api_key: str) -> None:
-        self._parent = parent
+    def __init__(self, app_base_url: str, api_key: str) -> None:
         self._base_url = app_base_url
         self._headers = {
             "Authorization": f"Bearer {api_key}",
@@ -783,51 +1007,1176 @@ class AsyncAccountSettingsClient:
 
 
 # ---------------------------------------------------------------------------
-# Top-level ManagementClient
+# Configs
 # ---------------------------------------------------------------------------
 
 
-class ManagementClient:
-    """Sync ``client.management`` namespace."""
+def _resolve_parent(parent: str | Config | AsyncConfig | None) -> str | None:
+    """Normalize a ``parent`` argument to a config id string."""
+    if parent is None or isinstance(parent, str):
+        return parent
+    if not parent.id:
+        raise ValueError(
+            "parent config must be saved (have an id) before being used as a parent",
+        )
+    return parent.id
 
-    environments: EnvironmentsClient
+
+class ConfigClient:
+    """Sync config CRUD (``mgmt.config``)."""
+
+    def __init__(self, http_client: _ConfigAuthClient) -> None:
+        self._http_client = http_client
+
+    def new(
+        self,
+        id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        parent: str | Config | None = None,
+    ) -> Config:
+        """Return a new unsaved :class:`Config`. Call :meth:`Config.save` to persist.
+
+        ``parent`` accepts either a config id (string) or an existing
+        :class:`Config` instance — passing the instance lets you skip naming
+        the id explicitly when you already have the parent in scope.
+        """
+        return Config(
+            self,
+            id=id,
+            name=name or key_to_display_name(id),
+            description=description,
+            parent=_resolve_parent(parent),
+        )
+
+    def get(self, id: str) -> Config:
+        try:
+            response = _gen_get_config.sync_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
+        return _resource_to_config(self, response.parsed.data)
+
+    def list(self) -> list[Config]:
+        try:
+            response = _gen_list_configs.sync_detailed(client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [_resource_to_config(self, r) for r in response.parsed.data]
+
+    def delete(self, id: str) -> None:
+        try:
+            response = _gen_delete_config.sync_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    def _create_config(self, config: Config) -> Config:
+        body = _build_config_request_body(
+            config_id=config.id,
+            name=config.name,
+            description=config.description,
+            parent=config.parent,
+            items=config._items_raw,
+            environments=config.environments,
+        )
+        try:
+            response = _gen_create_config.sync_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return _resource_to_config(self, response.parsed.data)
+
+    def _update_config_from_model(self, config: Config) -> Config:
+        body = _build_config_request_body(
+            config_id=config.id,
+            name=config.name,
+            description=config.description,
+            parent=config.parent,
+            items=config._items_raw,
+            environments=config.environments,
+        )
+        try:
+            response = _gen_update_config.sync_detailed(config.id, client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return _resource_to_config(self, response.parsed.data)
+
+
+class AsyncConfigClient:
+    """Async config CRUD (``mgmt.config``)."""
+
+    def __init__(self, http_client: _ConfigAuthClient) -> None:
+        self._http_client = http_client
+
+    def new(
+        self,
+        id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        parent: str | AsyncConfig | None = None,
+    ) -> AsyncConfig:
+        """Return a new unsaved :class:`AsyncConfig`. Call ``await save()`` to persist.
+
+        ``parent`` accepts either a config id (string) or an existing
+        :class:`AsyncConfig` instance — passing the instance lets you skip
+        naming the id explicitly when you already have the parent in scope.
+        """
+        return AsyncConfig(
+            self,
+            id=id,
+            name=name or key_to_display_name(id),
+            description=description,
+            parent=_resolve_parent(parent),
+        )
+
+    async def get(self, id: str) -> AsyncConfig:
+        try:
+            response = await _gen_get_config.asyncio_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
+        return _resource_to_async_config(self, response.parsed.data)
+
+    async def list(self) -> list[AsyncConfig]:
+        try:
+            response = await _gen_list_configs.asyncio_detailed(client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [_resource_to_async_config(self, r) for r in response.parsed.data]
+
+    async def delete(self, id: str) -> None:
+        try:
+            response = await _gen_delete_config.asyncio_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    async def _create_config(self, config: AsyncConfig) -> AsyncConfig:
+        body = _build_config_request_body(
+            config_id=config.id,
+            name=config.name,
+            description=config.description,
+            parent=config.parent,
+            items=config._items_raw,
+            environments=config.environments,
+        )
+        try:
+            response = await _gen_create_config.asyncio_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return _resource_to_async_config(self, response.parsed.data)
+
+    async def _update_config_from_model(self, config: AsyncConfig) -> AsyncConfig:
+        body = _build_config_request_body(
+            config_id=config.id,
+            name=config.name,
+            description=config.description,
+            parent=config.parent,
+            items=config._items_raw,
+            environments=config.environments,
+        )
+        try:
+            response = await _gen_update_config.asyncio_detailed(config.id, client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return _resource_to_async_config(self, response.parsed.data)
+
+
+# ---------------------------------------------------------------------------
+# Flags
+# ---------------------------------------------------------------------------
+
+
+class FlagsClient:
+    """Sync flag CRUD (``mgmt.flags``).
+
+    Distinct from the runtime :class:`smplkit.flags.client.FlagsClient` —
+    this class exposes management operations.  It also owns the
+    flag-discovery buffer that the runtime client populates when
+    customer code declares typed flag handles.
+    """
+
+    def __init__(self, http_client: _FlagsAuthClient) -> None:
+        self._http_client = http_client
+        from smplkit.management._buffer import _FlagRegistrationBuffer
+
+        self._buffer = _FlagRegistrationBuffer()
+
+    def register(
+        self,
+        items: FlagDeclaration | list[FlagDeclaration],
+        *,
+        flush: bool = False,
+    ) -> None:
+        """Buffer flag declarations for registration; optionally flush immediately."""
+        batch = items if isinstance(items, list) else [items]
+        for d in batch:
+            self._buffer.add(d.id, d.type, d.default, d.service, d.environment)
+        if flush:
+            self.flush()
+            return
+        if self._buffer.pending_count >= _FLAG_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def _threshold_flush(self) -> None:
+        try:
+            self.flush()
+        except Exception as exc:
+            logger.warning("Flag registration flush failed: %s", exc)
+
+    def flush(self) -> None:
+        """Drain the buffer and POST pending declarations to the bulk endpoint."""
+        body = _build_flag_bulk_request(self._buffer)
+        if body is None:
+            return
+        try:
+            response = _gen_bulk_register_flags.sync_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    @property
+    def pending_count(self) -> int:
+        """Number of declarations queued and awaiting flush."""
+        return self._buffer.pending_count
+
+    def new_boolean_flag(
+        self,
+        id: str,
+        *,
+        default: bool,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> BooleanFlag:
+        return BooleanFlag(
+            self,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="BOOLEAN",
+            default=default,
+            values=[FlagValue(name="True", value=True), FlagValue(name="False", value=False)],
+            description=description,
+        )
+
+    def new_string_flag(
+        self,
+        id: str,
+        *,
+        default: str,
+        name: str | None = None,
+        description: str | None = None,
+        values: list[FlagValue] | None = None,
+    ) -> StringFlag:
+        return StringFlag(
+            self,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="STRING",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    def new_number_flag(
+        self,
+        id: str,
+        *,
+        default: int | float,
+        name: str | None = None,
+        description: str | None = None,
+        values: list[FlagValue] | None = None,
+    ) -> NumberFlag:
+        return NumberFlag(
+            self,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="NUMERIC",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    def new_json_flag(
+        self,
+        id: str,
+        *,
+        default: dict[str, Any],
+        name: str | None = None,
+        description: str | None = None,
+        values: list[FlagValue] | None = None,
+    ) -> JsonFlag:
+        return JsonFlag(
+            self,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="JSON",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    def get(self, id: str) -> Flag:
+        try:
+            response = _gen_get_flag.sync_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        body = json.loads(response.content)
+        return self._model_from_json(body["data"])
+
+    def list(self) -> list[Flag]:
+        try:
+            response = _gen_list_flags.sync_detailed(client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        body = json.loads(response.content)
+        return [self._model_from_json(r) for r in body.get("data", [])]
+
+    def delete(self, id: str) -> None:
+        try:
+            response = _gen_delete_flag.sync_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    def _create_flag(self, flag: Flag) -> Flag:
+        body = _build_flag_request_body(flag, flag_id=flag.id)
+        try:
+            response = _gen_create_flag.sync_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        resp_body = json.loads(response.content)
+        return self._model_from_json(resp_body["data"])
+
+    def _update_flag(self, *, flag: Flag) -> Flag:
+        body = _build_flag_request_body(flag, flag_id=flag.id)
+        try:
+            response = _gen_update_flag.sync_detailed(flag.id, client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        resp_body = json.loads(response.content)
+        return self._model_from_json(resp_body["data"])
+
+    def _model_from_json(self, data: dict[str, Any]) -> Flag:
+        d = _flag_dict_from_json(data)
+        return Flag(self, **d)
+
+
+class AsyncFlagsClient:
+    """Async flag CRUD (``mgmt.flags``)."""
+
+    def __init__(self, http_client: _FlagsAuthClient) -> None:
+        self._http_client = http_client
+        from smplkit.management._buffer import _FlagRegistrationBuffer
+
+        self._buffer = _FlagRegistrationBuffer()
+
+    def register(
+        self,
+        items: FlagDeclaration | list[FlagDeclaration],
+    ) -> None:
+        """Buffer flag declarations for registration.  Call ``await flush()`` to send."""
+        batch = items if isinstance(items, list) else [items]
+        for d in batch:
+            self._buffer.add(d.id, d.type, d.default, d.service, d.environment)
+        if self._buffer.pending_count >= _FLAG_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def _threshold_flush(self) -> None:
+        try:
+            self.flush_sync()
+        except Exception as exc:
+            logger.warning("Flag registration flush failed: %s", exc)
+
+    async def flush(self) -> None:
+        """Drain the buffer and POST pending declarations to the bulk endpoint."""
+        body = _build_flag_bulk_request(self._buffer)
+        if body is None:
+            return
+        try:
+            response = await _gen_bulk_register_flags.asyncio_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    def flush_sync(self) -> None:
+        """Synchronous flush — for use from non-event-loop threads."""
+        body = _build_flag_bulk_request(self._buffer)
+        if body is None:
+            return
+        try:
+            response = _gen_bulk_register_flags.sync_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    @property
+    def pending_count(self) -> int:
+        """Number of declarations queued and awaiting flush."""
+        return self._buffer.pending_count
+
+    def new_boolean_flag(
+        self,
+        id: str,
+        *,
+        default: bool,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> AsyncBooleanFlag:
+        return AsyncBooleanFlag(
+            self,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="BOOLEAN",
+            default=default,
+            values=[FlagValue(name="True", value=True), FlagValue(name="False", value=False)],
+            description=description,
+        )
+
+    def new_string_flag(
+        self,
+        id: str,
+        *,
+        default: str,
+        name: str | None = None,
+        description: str | None = None,
+        values: list[FlagValue] | None = None,
+    ) -> AsyncStringFlag:
+        return AsyncStringFlag(
+            self,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="STRING",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    def new_number_flag(
+        self,
+        id: str,
+        *,
+        default: int | float,
+        name: str | None = None,
+        description: str | None = None,
+        values: list[FlagValue] | None = None,
+    ) -> AsyncNumberFlag:
+        return AsyncNumberFlag(
+            self,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="NUMERIC",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    def new_json_flag(
+        self,
+        id: str,
+        *,
+        default: dict[str, Any],
+        name: str | None = None,
+        description: str | None = None,
+        values: list[FlagValue] | None = None,
+    ) -> AsyncJsonFlag:
+        return AsyncJsonFlag(
+            self,
+            id=id,
+            name=name or key_to_display_name(id),
+            type="JSON",
+            default=default,
+            values=values,
+            description=description,
+        )
+
+    async def get(self, id: str) -> AsyncFlag:
+        try:
+            response = await _gen_get_flag.asyncio_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        body = json.loads(response.content)
+        return self._model_from_json(body["data"])
+
+    async def list(self) -> list[AsyncFlag]:
+        try:
+            response = await _gen_list_flags.asyncio_detailed(client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        body = json.loads(response.content)
+        return [self._model_from_json(r) for r in body.get("data", [])]
+
+    async def delete(self, id: str) -> None:
+        try:
+            response = await _gen_delete_flag.asyncio_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    async def _create_flag(self, flag: AsyncFlag) -> AsyncFlag:
+        body = _build_flag_request_body(flag, flag_id=flag.id)
+        try:
+            response = await _gen_create_flag.asyncio_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        resp_body = json.loads(response.content)
+        return self._model_from_json(resp_body["data"])
+
+    async def _update_flag(self, *, flag: AsyncFlag) -> AsyncFlag:
+        body = _build_flag_request_body(flag, flag_id=flag.id)
+        try:
+            response = await _gen_update_flag.asyncio_detailed(flag.id, client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        resp_body = json.loads(response.content)
+        return self._model_from_json(resp_body["data"])
+
+    def _model_from_json(self, data: dict[str, Any]) -> AsyncFlag:
+        d = _flag_dict_from_json(data)
+        return AsyncFlag(self, **d)
+
+
+# ---------------------------------------------------------------------------
+# Loggers
+# ---------------------------------------------------------------------------
+
+
+class LoggersClient:
+    """Sync logger CRUD (``mgmt.loggers``)."""
+
+    def __init__(self, http_client: _LoggingAuthClient, *, base_url: str) -> None:
+        self._http_client = http_client
+        self._base_url = base_url
+        from smplkit.management._buffer import _LoggerRegistrationBuffer
+
+        self._buffer = _LoggerRegistrationBuffer()
+
+    def register(
+        self,
+        items: LoggerSource | list[LoggerSource],
+        *,
+        flush: bool = False,
+    ) -> None:
+        """Buffer logger sources for registration; optionally flush immediately."""
+        batch = items if isinstance(items, list) else [items]
+        for src in batch:
+            self._buffer.add(
+                normalize_logger_name(src.name),
+                _loglevel_value(src.level, where="register[level]"),
+                _loglevel_value(src.resolved_level, where="register[resolved_level]"),
+                src.service,
+                src.environment,
+            )
+        if flush:
+            self.flush()
+            return
+        if self._buffer.pending_count >= _LOGGER_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def _threshold_flush(self) -> None:
+        try:
+            self.flush()
+        except Exception as exc:
+            logger.warning("Logger registration flush failed: %s", exc)
+
+    def flush(self) -> None:
+        """Drain the buffer and POST pending logger sources to the bulk endpoint."""
+        body = _build_logger_bulk_request(self._buffer)
+        if body is None:
+            return
+        try:
+            response = _gen_bulk_register_loggers.sync_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    @property
+    def pending_count(self) -> int:
+        """Number of sources queued and awaiting flush."""
+        return self._buffer.pending_count
+
+    def new(self, id: str, *, managed: bool = True) -> SmplLogger:
+        return SmplLogger(
+            self,
+            id=id,
+            name=id,
+            managed=managed,
+        )
+
+    def list(self) -> list[SmplLogger]:
+        try:
+            response = _gen_list_loggers.sync_detailed(client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [_logger_resource_to_model(self, r) for r in response.parsed.data]
+
+    def get(self, id: str) -> SmplLogger:
+        try:
+            response = _gen_get_logger.sync_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None:
+            raise NotFoundError(f"Logger with id {id!r} not found", status_code=404)
+        return _logger_resource_to_model(self, response.parsed.data)
+
+    def delete(self, id: str) -> None:
+        try:
+            response = _gen_delete_logger.sync_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    def _save_logger(self, lg: SmplLogger) -> SmplLogger:
+        body = _build_logger_body(
+            logger_id=lg.id,
+            name=lg.name,
+            level=_loglevel_value(lg.level, where="SmplLogger.save"),
+            managed=lg.managed,
+            group=lg.group,
+            environments=_logger_environments_to_wire(lg._environments) if lg._environments else None,
+        )
+        try:
+            response = _gen_update_logger.sync_detailed(lg.id, client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return _logger_resource_to_model(self, response.parsed.data)
+
+
+class AsyncLoggersClient:
+    """Async logger CRUD (``mgmt.loggers``)."""
+
+    def __init__(self, http_client: _LoggingAuthClient, *, base_url: str) -> None:
+        self._http_client = http_client
+        self._base_url = base_url
+        from smplkit.management._buffer import _LoggerRegistrationBuffer
+
+        self._buffer = _LoggerRegistrationBuffer()
+
+    def register(
+        self,
+        items: LoggerSource | list[LoggerSource],
+    ) -> None:
+        """Buffer logger sources for registration.  Call ``await flush()`` to send them."""
+        batch = items if isinstance(items, list) else [items]
+        for src in batch:
+            self._buffer.add(
+                normalize_logger_name(src.name),
+                _loglevel_value(src.level, where="register[level]"),
+                _loglevel_value(src.resolved_level, where="register[resolved_level]"),
+                src.service,
+                src.environment,
+            )
+        if self._buffer.pending_count >= _LOGGER_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def _threshold_flush(self) -> None:
+        try:
+            self.flush_sync()
+        except Exception as exc:
+            logger.warning("Logger registration flush failed: %s", exc)
+
+    async def flush(self) -> None:
+        """Drain the buffer and POST pending logger sources to the bulk endpoint."""
+        body = _build_logger_bulk_request(self._buffer)
+        if body is None:
+            return
+        try:
+            response = await _gen_bulk_register_loggers.asyncio_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    def flush_sync(self) -> None:
+        """Synchronous flush — for use from non-event-loop threads."""
+        body = _build_logger_bulk_request(self._buffer)
+        if body is None:
+            return
+        try:
+            response = _gen_bulk_register_loggers.sync_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    @property
+    def pending_count(self) -> int:
+        """Number of sources queued and awaiting flush."""
+        return self._buffer.pending_count
+
+    def new(self, id: str, *, managed: bool = True) -> AsyncSmplLogger:
+        return AsyncSmplLogger(
+            self,
+            id=id,
+            name=id,
+            managed=managed,
+        )
+
+    async def list(self) -> list[AsyncSmplLogger]:
+        try:
+            response = await _gen_list_loggers.asyncio_detailed(client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [_logger_resource_to_async_model(self, r) for r in response.parsed.data]
+
+    async def get(self, id: str) -> AsyncSmplLogger:
+        try:
+            response = await _gen_get_logger.asyncio_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None:
+            raise NotFoundError(f"Logger with id {id!r} not found", status_code=404)
+        return _logger_resource_to_async_model(self, response.parsed.data)
+
+    async def delete(self, id: str) -> None:
+        try:
+            response = await _gen_delete_logger.asyncio_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    async def _save_logger(self, lg: AsyncSmplLogger) -> AsyncSmplLogger:
+        body = _build_logger_body(
+            logger_id=lg.id,
+            name=lg.name,
+            level=_loglevel_value(lg.level, where="AsyncSmplLogger.save"),
+            managed=lg.managed,
+            group=lg.group,
+            environments=_logger_environments_to_wire(lg._environments) if lg._environments else None,
+        )
+        try:
+            response = await _gen_update_logger.asyncio_detailed(lg.id, client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return _logger_resource_to_async_model(self, response.parsed.data)
+
+
+# ---------------------------------------------------------------------------
+# Log Groups
+# ---------------------------------------------------------------------------
+
+
+class LogGroupsClient:
+    """Sync log-group CRUD (``mgmt.log_groups``)."""
+
+    def __init__(self, http_client: _LoggingAuthClient, *, base_url: str) -> None:
+        self._http_client = http_client
+        self._base_url = base_url
+
+    def new(self, id: str, *, name: str | None = None, group: str | None = None) -> SmplLogGroup:
+        return SmplLogGroup(
+            self,
+            id=id,
+            name=name if name is not None else key_to_display_name(id),
+            group=group,
+        )
+
+    def list(self) -> list[SmplLogGroup]:
+        try:
+            response = _gen_list_log_groups.sync_detailed(client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [_log_group_resource_to_model(self, r) for r in response.parsed.data]
+
+    def get(self, id: str) -> SmplLogGroup:
+        try:
+            response = _gen_get_log_group.sync_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None:
+            raise NotFoundError(f"Log group with id {id!r} not found", status_code=404)
+        return _log_group_resource_to_model(self, response.parsed.data)
+
+    def delete(self, id: str) -> None:
+        try:
+            response = _gen_delete_log_group.sync_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    def _save_group(self, grp: SmplLogGroup) -> SmplLogGroup:
+        body = _build_log_group_body(
+            group_id=grp.id,
+            name=grp.name,
+            level=_loglevel_value(grp.level, where="SmplLogGroup.save"),
+            group=grp.group,
+            environments=_logger_environments_to_wire(grp._environments) if grp._environments else None,
+        )
+        try:
+            if grp.created_at is None:
+                response = _gen_create_log_group.sync_detailed(client=self._http_client, body=body)
+            else:
+                response = _gen_update_log_group.sync_detailed(grp.id, client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return _log_group_resource_to_model(self, response.parsed.data)
+
+
+class AsyncLogGroupsClient:
+    """Async log-group CRUD (``mgmt.log_groups``)."""
+
+    def __init__(self, http_client: _LoggingAuthClient, *, base_url: str) -> None:
+        self._http_client = http_client
+        self._base_url = base_url
+
+    def new(self, id: str, *, name: str | None = None, group: str | None = None) -> AsyncSmplLogGroup:
+        return AsyncSmplLogGroup(
+            self,
+            id=id,
+            name=name if name is not None else key_to_display_name(id),
+            group=group,
+        )
+
+    async def list(self) -> list[AsyncSmplLogGroup]:
+        try:
+            response = await _gen_list_log_groups.asyncio_detailed(client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [_log_group_resource_to_async_model(self, r) for r in response.parsed.data]
+
+    async def get(self, id: str) -> AsyncSmplLogGroup:
+        try:
+            response = await _gen_get_log_group.asyncio_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None:
+            raise NotFoundError(f"Log group with id {id!r} not found", status_code=404)
+        return _log_group_resource_to_async_model(self, response.parsed.data)
+
+    async def delete(self, id: str) -> None:
+        try:
+            response = await _gen_delete_log_group.asyncio_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    async def _save_group(self, grp: AsyncSmplLogGroup) -> AsyncSmplLogGroup:
+        body = _build_log_group_body(
+            group_id=grp.id,
+            name=grp.name,
+            level=_loglevel_value(grp.level, where="AsyncSmplLogGroup.save"),
+            group=grp.group,
+            environments=_logger_environments_to_wire(grp._environments) if grp._environments else None,
+        )
+        try:
+            if grp.created_at is None:
+                response = await _gen_create_log_group.asyncio_detailed(client=self._http_client, body=body)
+            else:
+                response = await _gen_update_log_group.asyncio_detailed(grp.id, client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+        if response.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return _log_group_resource_to_async_model(self, response.parsed.data)
+
+
+# ---------------------------------------------------------------------------
+# Top-level SmplManagementClient
+# ---------------------------------------------------------------------------
+
+
+class SmplManagementClient:
+    """Synchronous management-only entry point for the smplkit SDK.
+
+    Use this client for setup scripts, CI/CD jobs, admin tools, and
+    anywhere else the goal is CRUD against the platform — not runtime
+    instrumentation. Construction has zero side effects: no service
+    registration, no metrics thread, no websocket, no logger discovery.
+
+    Usage::
+
+        from smplkit import SmplManagementClient
+
+        with SmplManagementClient() as mgmt:
+            for env in mgmt.environments.list():
+                print(env.id)
+
+    Args:
+        api_key: API key for authenticating with the smplkit platform.
+            When omitted, resolved from ``SMPLKIT_API_KEY`` or ``~/.smplkit``.
+        profile: Named profile section to read from ``~/.smplkit``.
+        base_domain: Base domain for API requests (default ``"smplkit.com"``).
+        scheme: URL scheme (default ``"https"``).
+        debug: Enable debug logging in the SDK.
+    """
+
     contexts: ContextsClient
     context_types: ContextTypesClient
+    environments: EnvironmentsClient
     account_settings: AccountSettingsClient
+    config: ConfigClient
+    flags: FlagsClient
+    loggers: LoggersClient
+    log_groups: LogGroupsClient
 
     def __init__(
         self,
-        parent: SmplClient,
+        api_key: str | None = None,
         *,
-        app_base_url: str,
-        api_key: str,
-        buffer: _ContextRegistrationBuffer,
+        profile: str | None = None,
+        base_domain: str | None = None,
+        scheme: str | None = None,
+        debug: bool | None = None,
     ) -> None:
-        self._parent = parent
-        app_http = _AppAuthClient(base_url=app_base_url, token=api_key)
-        self.environments = EnvironmentsClient(parent, app_http)
-        self.contexts = ContextsClient(parent, app_http, buffer)
-        self.context_types = ContextTypesClient(parent, app_http)
-        self.account_settings = AccountSettingsClient(parent, app_base_url, api_key)
+        cfg = resolve_management_config(
+            profile=profile,
+            api_key=api_key,
+            base_domain=base_domain,
+            scheme=scheme,
+            debug=debug,
+        )
+        self._init_from_resolved(cfg)
+
+    @classmethod
+    def _from_resolved(cls, cfg: "ResolvedManagementConfig") -> "SmplManagementClient":
+        """Construct from an already-resolved config (used by ``SmplClient``)."""
+        instance = cls.__new__(cls)
+        instance._init_from_resolved(cfg)
+        return instance
+
+    def _init_from_resolved(self, cfg: "ResolvedManagementConfig") -> None:
+        if cfg.debug:
+            enable_debug()
+            logger.setLevel(logging.DEBUG)
+
+        self._api_key = cfg.api_key
+        self._base_domain = cfg.base_domain
+        self._scheme = cfg.scheme
+
+        config_url = _service_url(cfg.scheme, "config", cfg.base_domain)
+        app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
+        flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
+        logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
+
+        self._app_http = _AppAuthClient(base_url=app_url, token=cfg.api_key)
+        self._config_http = _ConfigAuthClient(base_url=config_url, token=cfg.api_key)
+        self._flags_http = _FlagsAuthClient(base_url=flags_url, token=cfg.api_key)
+        self._logging_http = _LoggingAuthClient(base_url=logging_url, token=cfg.api_key)
+
+        from smplkit.management._buffer import _ContextRegistrationBuffer
+
+        self._context_buffer = _ContextRegistrationBuffer()
+
+        self.contexts = ContextsClient(self._app_http, self._context_buffer)
+        self.context_types = ContextTypesClient(self._app_http)
+        self.environments = EnvironmentsClient(self._app_http)
+        self.account_settings = AccountSettingsClient(app_url, cfg.api_key)
+        self.config = ConfigClient(self._config_http)
+        self.flags = FlagsClient(self._flags_http)
+        self.loggers = LoggersClient(self._logging_http, base_url=logging_url)
+        self.log_groups = LogGroupsClient(self._logging_http, base_url=logging_url)
+
+    def close(self) -> None:
+        """Release HTTP resources held by this client."""
+        for http in (self._app_http, self._config_http, self._flags_http, self._logging_http):
+            client = http._client
+            if client is not None:
+                client.close()
+                http._client = None
+
+    def __enter__(self) -> SmplManagementClient:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
 
 
-class AsyncManagementClient:
-    environments: AsyncEnvironmentsClient
+class AsyncSmplManagementClient:
+    """Asynchronous management-only entry point for the smplkit SDK.
+
+    Mirrors :class:`SmplManagementClient` but exposes async sub-clients.
+    Construction has the same zero-side-effect contract.
+    """
+
     contexts: AsyncContextsClient
     context_types: AsyncContextTypesClient
+    environments: AsyncEnvironmentsClient
     account_settings: AsyncAccountSettingsClient
+    config: AsyncConfigClient
+    flags: AsyncFlagsClient
+    loggers: AsyncLoggersClient
+    log_groups: AsyncLogGroupsClient
 
     def __init__(
         self,
-        parent: AsyncSmplClient,
+        api_key: str | None = None,
         *,
-        app_base_url: str,
-        api_key: str,
-        buffer: _ContextRegistrationBuffer,
+        profile: str | None = None,
+        base_domain: str | None = None,
+        scheme: str | None = None,
+        debug: bool | None = None,
     ) -> None:
-        self._parent = parent
-        app_http = _AppAuthClient(base_url=app_base_url, token=api_key)
-        self.environments = AsyncEnvironmentsClient(parent, app_http)
-        self.contexts = AsyncContextsClient(parent, app_http, buffer)
-        self.context_types = AsyncContextTypesClient(parent, app_http)
-        self.account_settings = AsyncAccountSettingsClient(parent, app_base_url, api_key)
+        cfg = resolve_management_config(
+            profile=profile,
+            api_key=api_key,
+            base_domain=base_domain,
+            scheme=scheme,
+            debug=debug,
+        )
+        self._init_from_resolved(cfg)
+
+    @classmethod
+    def _from_resolved(cls, cfg: "ResolvedManagementConfig") -> "AsyncSmplManagementClient":
+        """Construct from an already-resolved config (used by ``AsyncSmplClient``)."""
+        instance = cls.__new__(cls)
+        instance._init_from_resolved(cfg)
+        return instance
+
+    def _init_from_resolved(self, cfg: "ResolvedManagementConfig") -> None:
+        if cfg.debug:
+            enable_debug()
+            logger.setLevel(logging.DEBUG)
+
+        self._api_key = cfg.api_key
+        self._base_domain = cfg.base_domain
+        self._scheme = cfg.scheme
+
+        config_url = _service_url(cfg.scheme, "config", cfg.base_domain)
+        app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
+        flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
+        logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
+
+        self._app_http = _AppAuthClient(base_url=app_url, token=cfg.api_key)
+        self._config_http = _ConfigAuthClient(base_url=config_url, token=cfg.api_key)
+        self._flags_http = _FlagsAuthClient(base_url=flags_url, token=cfg.api_key)
+        self._logging_http = _LoggingAuthClient(base_url=logging_url, token=cfg.api_key)
+
+        from smplkit.management._buffer import _ContextRegistrationBuffer
+
+        self._context_buffer = _ContextRegistrationBuffer()
+
+        self.contexts = AsyncContextsClient(self._app_http, self._context_buffer)
+        self.context_types = AsyncContextTypesClient(self._app_http)
+        self.environments = AsyncEnvironmentsClient(self._app_http)
+        self.account_settings = AsyncAccountSettingsClient(app_url, cfg.api_key)
+        self.config = AsyncConfigClient(self._config_http)
+        self.flags = AsyncFlagsClient(self._flags_http)
+        self.loggers = AsyncLoggersClient(self._logging_http, base_url=logging_url)
+        self.log_groups = AsyncLogGroupsClient(self._logging_http, base_url=logging_url)
+
+    async def close(self) -> None:
+        """Release HTTP resources held by this client."""
+        for http in (self._app_http, self._config_http, self._flags_http, self._logging_http):
+            ac = http._async_client
+            if ac is not None:
+                await ac.aclose()
+                http._async_client = None
+
+    async def __aenter__(self) -> AsyncSmplManagementClient:
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        await self.close()

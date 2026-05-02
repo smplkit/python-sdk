@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from smplkit import SmplError
+from smplkit import Error
 from smplkit._config import _parse_bool, resolve_config
 
 
@@ -16,7 +16,7 @@ class TestResolveConfigDefaults:
         monkeypatch.delenv("SMPLKIT_BASE_DOMAIN", raising=False)
         monkeypatch.delenv("SMPLKIT_SCHEME", raising=False)
         monkeypatch.delenv("SMPLKIT_DEBUG", raising=False)
-        monkeypatch.delenv("SMPLKIT_DISABLE_TELEMETRY", raising=False)
+        monkeypatch.delenv("SMPLKIT_TELEMETRY", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         cfg = resolve_config(
             api_key="sk_api_test",
@@ -27,7 +27,7 @@ class TestResolveConfigDefaults:
         assert cfg.base_domain == "smplkit.com"
         assert cfg.scheme == "https"
         assert cfg.debug is False
-        assert cfg.disable_telemetry is False
+        assert cfg.telemetry is True
 
 
 class TestResolveConfigFile:
@@ -123,7 +123,7 @@ class TestResolveConfigFile:
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config = tmp_path / ".smplkit"
         config.write_text("[default]\napi_key = sk_api_default\n\n[staging]\napi_key = sk_api_staging\n")
-        with pytest.raises(SmplError, match="Profile \\[nonexistent\\] not found"):
+        with pytest.raises(Error, match="Profile \\[nonexistent\\] not found"):
             resolve_config(
                 profile="nonexistent",
                 environment="test",
@@ -190,7 +190,7 @@ class TestResolveConfigFile:
         config = tmp_path / ".smplkit"
         config.write_text("[default]\napi_key = \nenvironment = production\nservice = svc\n")
         # api_key is empty in file, should still be unset
-        with pytest.raises(SmplError, match="No API key provided"):
+        with pytest.raises(Error, match="No API key provided"):
             resolve_config(_home_dir=tmp_path)
 
     def test_semicolon_comments(self, monkeypatch, tmp_path):
@@ -225,20 +225,15 @@ class TestResolveConfigFile:
 
     def test_boolean_from_file(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_DEBUG", raising=False)
-        monkeypatch.delenv("SMPLKIT_DISABLE_TELEMETRY", raising=False)
+        monkeypatch.delenv("SMPLKIT_TELEMETRY", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config = tmp_path / ".smplkit"
         config.write_text(
-            "[default]\n"
-            "api_key = sk_api_test\n"
-            "environment = test\n"
-            "service = svc\n"
-            "debug = true\n"
-            "disable_telemetry = yes\n"
+            "[default]\napi_key = sk_api_test\nenvironment = test\nservice = svc\ndebug = true\ntelemetry = no\n"
         )
         cfg = resolve_config(_home_dir=tmp_path)
         assert cfg.debug is True
-        assert cfg.disable_telemetry is True
+        assert cfg.telemetry is False
 
 
 class TestResolveConfigEnvVars:
@@ -266,7 +261,7 @@ class TestResolveConfigEnvVars:
 
     def test_boolean_from_env(self, monkeypatch, tmp_path):
         monkeypatch.setenv("SMPLKIT_DEBUG", "1")
-        monkeypatch.setenv("SMPLKIT_DISABLE_TELEMETRY", "YES")
+        monkeypatch.setenv("SMPLKIT_TELEMETRY", "no")
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         cfg = resolve_config(
             api_key="sk_api_test",
@@ -275,7 +270,7 @@ class TestResolveConfigEnvVars:
             _home_dir=tmp_path,
         )
         assert cfg.debug is True
-        assert cfg.disable_telemetry is True
+        assert cfg.telemetry is False
 
     def test_base_domain_and_scheme_from_env(self, monkeypatch, tmp_path):
         monkeypatch.setenv("SMPLKIT_BASE_DOMAIN", "localhost")
@@ -307,7 +302,7 @@ class TestResolveConfigConstructorArgs:
             base_domain="custom.example.com",
             scheme="http",
             debug=True,
-            disable_telemetry=True,
+            telemetry=False,
             _home_dir=tmp_path,
         )
         assert cfg.api_key == "sk_api_explicit"
@@ -316,7 +311,7 @@ class TestResolveConfigConstructorArgs:
         assert cfg.base_domain == "custom.example.com"
         assert cfg.scheme == "http"
         assert cfg.debug is True
-        assert cfg.disable_telemetry is True
+        assert cfg.telemetry is False
 
     def test_explicit_false_overrides_file_true(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_DEBUG", raising=False)
@@ -360,7 +355,7 @@ class TestResolveConfigErrors:
     def test_missing_api_key(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
-        with pytest.raises(SmplError, match="No API key provided"):
+        with pytest.raises(Error, match="No API key provided"):
             resolve_config(
                 environment="test",
                 service="svc",
@@ -370,7 +365,7 @@ class TestResolveConfigErrors:
     def test_missing_environment(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_ENVIRONMENT", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
-        with pytest.raises(SmplError, match="No environment provided"):
+        with pytest.raises(Error, match="No environment provided"):
             resolve_config(
                 api_key="sk_api_test",
                 service="svc",
@@ -380,7 +375,7 @@ class TestResolveConfigErrors:
     def test_missing_service(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_SERVICE", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
-        with pytest.raises(SmplError, match="No service provided"):
+        with pytest.raises(Error, match="No service provided"):
             resolve_config(
                 api_key="sk_api_test",
                 environment="test",
@@ -392,7 +387,7 @@ class TestResolveConfigErrors:
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config = tmp_path / ".smplkit"
         config.write_text("[local]\nenvironment = dev\nservice = svc\n")
-        with pytest.raises(SmplError, match=r"\[local\]"):
+        with pytest.raises(Error, match=r"\[local\]"):
             resolve_config(
                 profile="local",
                 _home_dir=tmp_path,
@@ -402,13 +397,13 @@ class TestResolveConfigErrors:
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         config = tmp_path / ".smplkit"
         config.write_text("[default]\napi_key = sk_api_test\nenvironment = test\nservice = svc\ndebug = maybe\n")
-        with pytest.raises(SmplError, match="Invalid boolean value"):
+        with pytest.raises(Error, match="Invalid boolean value"):
             resolve_config(_home_dir=tmp_path)
 
     def test_invalid_boolean_env_raises_error(self, monkeypatch, tmp_path):
         monkeypatch.setenv("SMPLKIT_DEBUG", "maybe")
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
-        with pytest.raises(SmplError, match="Invalid boolean value"):
+        with pytest.raises(Error, match="Invalid boolean value"):
             resolve_config(
                 api_key="sk_api_test",
                 environment="test",
@@ -429,7 +424,7 @@ class TestParseBool:
         assert _parse_bool(value, "test") is False
 
     def test_invalid(self):
-        with pytest.raises(SmplError, match="Invalid boolean"):
+        with pytest.raises(Error, match="Invalid boolean"):
             _parse_bool("maybe", "test")
 
     def test_whitespace_stripped(self):

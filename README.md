@@ -16,67 +16,118 @@ pip install smplkit-sdk
 
 ## Quick Start
 
-```python
-from smplkit import SmplClient
+The SDK ships two top-level clients, each with a clearly-scoped purpose:
 
-# Option 1: Explicit API key
-client = SmplClient(api_key="sk_api_...")
+| Client | Use case | Construction side effects |
+|--------|----------|---------------------------|
+| `SmplClient` / `AsyncSmplClient` | **Runtime instrumentation** — flag evaluation, config reads, log emission | Auto-registers a service context, starts a metrics thread, opens a websocket |
+| `SmplManagementClient` / `AsyncSmplManagementClient` | **Management / CRUD** — setup scripts, CI/CD, admin tooling | None — pure HTTP setup |
 
-# Option 2: Environment variable (SMPLKIT_API_KEY)
-# export SMPLKIT_API_KEY=sk_api_...
-client = SmplClient()
-
-# Option 3: Configuration file (~/.smplkit)
-# [default]
-# api_key = sk_api_...
-client = SmplClient()
-```
+### Runtime: `SmplClient`
 
 ```python
-from smplkit import SmplClient
+from smplkit import Context, SmplClient
 
-with SmplClient(api_key="sk_api_...") as client:
-    # --- Runtime: resolve config values ---
-    # Connect and read resolved key/value pairs for your service
+with SmplClient(api_key="sk_api_...", environment="production", service="my-svc") as client:
+    # Resolve config values for the current environment
     db = client.config.get("database")  # {"host": "...", "port": 5432}
 
-    # --- Management: CRUD operations ---
-    # List all configs
-    configs = client.config.management.list()
+    # Set the current request's context once (typically from middleware) —
+    # contextvars provides per-request / per-thread isolation automatically.
+    client.set_context([
+        Context("user", request.user.id, plan=request.user.plan),
+        Context("account", request.account.id, region=request.account.region),
+    ])
 
-    # Create a new config
-    cfg = client.config.management.new("my_service", name="My Service")
-    cfg.save()
+    # Evaluate a flag — picks up the context set above.
+    checkout_v2 = client.flags.boolean_flag("checkout-v2", default=False)
+    if checkout_v2.get():
+        ...
 
-    # Get a config by id
-    cfg = client.config.management.get("my_service")
+    # Opt in to runtime logging level control
+    client.logging.start()
 
-    # Delete a config
-    client.config.management.delete("my_service")
-
-    # --- Flags management ---
-    flag = client.flags.management.newBooleanFlag("checkout-v2", default=False)
-    flag.save()
-    flags = client.flags.management.list()
-
-    # --- Logging management ---
-    logger = client.logging.management.new("sql", name="SQL Logger")
-    logger.save()
+    # Need to reach the management API from a runtime context?
+    # Every SmplClient owns an internal management client at `client.manage`.
+    cfg = client.manage.config.get("database")
 ```
 
-For async usage:
+`set_context()` returns a scope object that doubles as a `with` block, so you can override context for a single block (e.g. impersonation):
 
 ```python
-from smplkit import AsyncSmplClient
+with client.set_context([Context("user", "u-impersonated", plan="enterprise")]):
+    if checkout_v2.get():
+        ...
+# original context restored here
+```
 
-async with AsyncSmplClient(api_key="sk_api_...") as client:
-    # Runtime
+For deterministic startup — pre-fetch all flags + configs and wait for the live-updates websocket before serving traffic — call `client.wait_until_ready()` once at boot.
+
+### Management: `SmplManagementClient`
+
+```python
+from smplkit import SmplManagementClient
+
+with SmplManagementClient(api_key="sk_api_...") as mgmt:
+    # Configs
+    cfg = mgmt.config.new("my_service", name="My Service")
+    cfg.save()
+    configs = mgmt.config.list()
+
+    # Flags
+    flag = mgmt.flags.new_boolean_flag("checkout-v2", default=False)
+    flag.save()
+    flags = mgmt.flags.list()
+
+    # Loggers + log groups
+    logger = mgmt.loggers.new("sql", name="SQL Logger")
+    logger.save()
+    grp = mgmt.log_groups.new("databases", name="Databases")
+    grp.save()
+
+    # App-service-owned resources
+    for env in mgmt.environments.list():
+        print(env.id)
+    mgmt.contexts.register([...])
+    settings = mgmt.account_settings.get()
+```
+
+The management client takes only `api_key` (plus optional `profile`, `base_domain`, `scheme`, `debug`) — `environment` and `service` have no meaning for CRUD work and are deliberately rejected.
+
+For async usage, swap `SmplClient` → `AsyncSmplClient` and `SmplManagementClient` → `AsyncSmplManagementClient`; method bodies become `await`-able:
+
+```python
+from smplkit import AsyncSmplClient, AsyncSmplManagementClient
+
+async with AsyncSmplClient(api_key="sk_api_...", environment="prod", service="svc") as client:
     db = await client.config.get("database")
 
-    # Management
-    cfg = await client.config.management.get("my_service")
-    configs = await client.config.management.list()
+async with AsyncSmplManagementClient(api_key="sk_api_...") as mgmt:
+    cfg = await mgmt.config.get("my_service")
+    configs = await mgmt.config.list()
 ```
+
+### Which client should I use?
+
+- **Inside a request handler / running service** → `SmplClient`. You want lazy-fetched runtime state, the context registration loop, metrics, and the live-update websocket.
+- **In a setup script / CI job / admin CLI / seeder** → `SmplManagementClient`. No runtime side effects, no auto-registered service rows leaking into target accounts, no websocket dangling open.
+
+The two clients can be used together in the same process — e.g. a runtime app that occasionally needs to reach into the management API for an admin endpoint. To save you from juggling two clients, every `SmplClient` exposes a built-in management client at `client.manage` (sharing HTTP transports under the hood); reach for `SmplManagementClient` directly only for setup scripts, CI jobs, and admin tooling that have no runtime side effects to begin with.
+
+### Management namespaces
+
+`SmplManagementClient` (and `client.manage` on the runtime client) exposes eight flat namespaces (one per resource family):
+
+| Namespace | Resource |
+|-----------|----------|
+| `manage.contexts` | Context instances (register / list / get / delete) |
+| `manage.context_types` | Targeting-rule entity schemas |
+| `manage.environments` | Environments (built-ins + AD_HOC) |
+| `manage.account_settings` | Per-account settings |
+| `manage.config` | Smpl Config CRUD |
+| `manage.flags` | Smpl Flags CRUD |
+| `manage.loggers` | Smpl Logging logger CRUD |
+| `manage.log_groups` | Smpl Logging log-group CRUD |
 
 ## Configuration
 
@@ -131,7 +182,7 @@ All SDK errors extend `SmplError`:
 from smplkit import SmplError, SmplNotFoundError
 
 try:
-    config = client.config.management.get("nonexistent")
+    config = mgmt.config.get("nonexistent")
 except SmplNotFoundError:
     print("Config not found")
 except SmplError as e:

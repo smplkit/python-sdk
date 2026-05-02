@@ -70,7 +70,7 @@ def _parse_error_body(content: bytes) -> list[ApiErrorDetail]:
     return result
 
 
-class SmplError(Exception):
+class Error(Exception):
     """Base exception for all smplkit SDK errors."""
 
     def __init__(
@@ -98,23 +98,23 @@ class SmplError(Exception):
         return "\n".join(lines)
 
 
-class SmplConnectionError(SmplError):
+class ConnectionError(Error):
     """Raised when a network request fails."""
 
 
-class SmplTimeoutError(SmplError):
+class TimeoutError(Error):
     """Raised when an operation exceeds its timeout."""
 
 
-class SmplNotFoundError(SmplError):
+class NotFoundError(Error):
     """Raised when a requested resource does not exist."""
 
 
-class SmplConflictError(SmplError):
+class ConflictError(Error):
     """Raised when an operation conflicts with current state (e.g., deleting a config that has children)."""
 
 
-class SmplValidationError(SmplError):
+class ValidationError(Error):
     """Raised when the server rejects a request due to validation errors."""
 
 
@@ -129,14 +129,14 @@ def _raise_for_status(status_code: int, content: bytes) -> None:
     errors = _parse_error_body(content)
     message = _derive_message(errors) if errors else f"HTTP {status_code}"
 
-    exc_cls: type[SmplError]
+    exc_cls: type[Error]
     if status_code == 404:
-        exc_cls = SmplNotFoundError
+        exc_cls = NotFoundError
     elif status_code == 409:
-        exc_cls = SmplConflictError
+        exc_cls = ConflictError
     elif status_code in (400, 422):
-        exc_cls = SmplValidationError
+        exc_cls = ValidationError
     else:
-        exc_cls = SmplError
+        exc_cls = Error
 
     raise exc_cls(message, errors=errors, status_code=status_code)

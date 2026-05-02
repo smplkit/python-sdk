@@ -55,21 +55,31 @@ def _make_list_parsed(resources):
 
 
 def _make_sync_client(**kwargs):
+    from smplkit.management.client import LoggersClient as _MgmtLoggersClient
+
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = kwargs.get("service", None)
+    manage = MagicMock()
+    manage.loggers = _MgmtLoggersClient(MagicMock(), base_url="http://logging:8003")
+    parent.manage = manage
     with patch("smplkit.logging.client.AuthenticatedClient"):
-        return LoggingClient(parent)
+        return LoggingClient(parent, manage=manage, metrics=parent._metrics)
 
 
 def _make_async_client(**kwargs):
+    from smplkit.management.client import AsyncLoggersClient as _MgmtAsyncLoggersClient
+
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = kwargs.get("service", None)
+    manage = MagicMock()
+    manage.loggers = _MgmtAsyncLoggersClient(MagicMock(), base_url="http://logging:8003")
+    parent.manage = manage
     with patch("smplkit.logging.client.AuthenticatedClient"):
-        return AsyncLoggingClient(parent)
+        return AsyncLoggingClient(parent, manage=manage, metrics=parent._metrics)
 
 
 class TestAutoLoadAdapters:
@@ -123,7 +133,7 @@ class TestRegisterAdapter:
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
     def test_registered_adapter_used_on_connect(self, mock_bulk, mock_loggers, mock_groups):
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -138,21 +148,21 @@ class TestRegisterAdapter:
         assert adapter.install_hook_calls == 1
         client._close()
 
-    def test_register_after_start_raises(self):
+    def test_register_after_install_raises(self):
         client = _make_sync_client()
         client._connected = True
-        with pytest.raises(RuntimeError, match="Cannot register adapters after start"):
+        with pytest.raises(RuntimeError, match="Cannot register adapters after install"):
             client.register_adapter(_MockAdapter())
 
-    def test_async_register_after_start_raises(self):
+    def test_async_register_after_install_raises(self):
         client = _make_async_client()
         client._connected = True
-        with pytest.raises(RuntimeError, match="Cannot register adapters after start"):
+        with pytest.raises(RuntimeError, match="Cannot register adapters after install"):
             client.register_adapter(_MockAdapter())
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
     def test_multiple_adapters_all_called(self, mock_bulk, mock_loggers, mock_groups):
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -178,7 +188,7 @@ class TestRegisterAdapter:
 class TestAsyncRegisterAdapter:
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    @patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
     def test_registered_adapter_used_on_connect(self, mock_bulk, mock_loggers, mock_groups):
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -198,7 +208,7 @@ class TestAsyncRegisterAdapter:
 class TestAdapterErrorResilience:
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
     def test_discover_failure_does_not_block_connect(self, mock_bulk, mock_loggers, mock_groups):
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -217,7 +227,7 @@ class TestAdapterErrorResilience:
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
     def test_install_hook_failure_does_not_block_connect(self, mock_bulk, mock_loggers, mock_groups):
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -279,7 +289,7 @@ class TestAdapterErrorResilience:
 class TestAsyncAdapterErrorResilience:
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    @patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
     def test_async_discover_failure_does_not_block(self, mock_bulk, mock_loggers, mock_groups):
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -298,7 +308,7 @@ class TestAsyncAdapterErrorResilience:
 
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    @patch("smplkit.logging.client.bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
     def test_async_install_hook_failure_does_not_block(self, mock_bulk, mock_loggers, mock_groups):
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))

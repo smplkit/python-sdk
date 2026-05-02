@@ -1,217 +1,58 @@
-"""ConfigClient and AsyncConfigClient — management and runtime operations for configs."""
+"""ConfigClient and AsyncConfigClient — runtime operations for configs.
+
+Runtime config operations: lazy-fetch all configs for the SDK's
+current environment, resolve values down the inheritance chain, and
+emit change events when the server's WebSocket signals a refresh.
+CRUD lives on :class:`smplkit.SmplManagementClient`.
+"""
 
 from __future__ import annotations
 
 
+import dataclasses
 import logging
 import threading
 from collections.abc import Callable
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar, overload
 
 from smplkit._errors import (
-    SmplConflictError,
-    SmplConnectionError,
-    SmplNotFoundError,
-    SmplTimeoutError,
-    SmplValidationError,
+    ConflictError,
+    ConnectionError,
+    NotFoundError,
+    TimeoutError,
+    ValidationError,
     _raise_for_status,
 )
-from smplkit._helpers import key_to_display_name
 from smplkit._resolver import resolve
-from smplkit._generated.config.api.configs import (
+from smplkit._generated.config.api.configs import (  # noqa: F401  (re-exported for test patches)
     create_config,
     delete_config,
     get_config,
     list_configs,
     update_config,
 )
-from smplkit._generated.config.models.config import Config as GenConfig
-from smplkit._generated.config.models.config_environments_type_0 import (
-    ConfigEnvironmentsType0,
-)
-from smplkit._generated.config.models.config_items_type_0 import ConfigItemsType0
-from smplkit._generated.config.models.config_resource import ConfigResource
-from smplkit._generated.config.models.config_response import ConfigResponse
+from smplkit.config.helpers import _resource_to_async_config, _resource_to_config
 from smplkit.config.models import AsyncConfig, Config
 
 if TYPE_CHECKING:
+    from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
     from smplkit._ws import SharedWebSocket
     from smplkit.client import AsyncSmplClient, SmplClient
+    from smplkit.management.client import AsyncSmplManagementClient, SmplManagementClient
 
 logger = logging.getLogger("smplkit")
 ws_logger = logging.getLogger("smplkit.config.ws")
 
-
-def _make_items(items: dict[str, Any] | None) -> ConfigItemsType0 | None:
-    """Convert a plain items dict to the generated ConfigItemsType0 model.
-
-    Accepts items in the typed shape ``{key: {value, type, description}}``.
-    Plain ``{key: raw_value}`` dicts are auto-wrapped for convenience.
-    """
-    if items is None:
-        return None
-    from smplkit._generated.config.models.config_item_definition import (
-        ConfigItemDefinition,
-    )
-
-    obj = ConfigItemsType0()
-    wrapped: dict[str, ConfigItemDefinition] = {}
-    for k, v in items.items():
-        if isinstance(v, dict) and "value" in v:
-            wrapped[k] = ConfigItemDefinition(
-                value=v["value"],
-                type_=v.get("type"),
-                description=v.get("description"),
-            )
-        else:
-            wrapped[k] = ConfigItemDefinition(value=v)
-    obj.additional_properties = wrapped
-    return obj
-
-
-def _make_environments(
-    environments: dict[str, Any] | None,
-) -> ConfigEnvironmentsType0 | None:
-    """Convert a plain dict to the generated ConfigEnvironmentsType0 model.
-
-    Environment override values are wrapped as ``{key: {value: raw}}``.
-    """
-    if environments is None:
-        return None
-    from smplkit._generated.config.models.config_item_override import (
-        ConfigItemOverride,
-    )
-    from smplkit._generated.config.models.environment_override import (
-        EnvironmentOverride,
-    )
-    from smplkit._generated.config.models.environment_override_values_type_0 import (
-        EnvironmentOverrideValuesType0,
-    )
-
-    obj = ConfigEnvironmentsType0()
-    env_props: dict[str, EnvironmentOverride] = {}
-    for env_name, env_data in environments.items():
-        if isinstance(env_data, dict):
-            raw_values = env_data.get("values") or {}
-            vals_obj = EnvironmentOverrideValuesType0()
-            wrapped_vals: dict[str, ConfigItemOverride] = {}
-            for k, v in raw_values.items():
-                if isinstance(v, dict) and "value" in v:
-                    wrapped_vals[k] = ConfigItemOverride(value=v["value"])
-                else:
-                    wrapped_vals[k] = ConfigItemOverride(value=v)
-            vals_obj.additional_properties = wrapped_vals
-            env_props[env_name] = EnvironmentOverride(values=vals_obj)
-        else:
-            env_props[env_name] = EnvironmentOverride()
-    obj.additional_properties = env_props
-    return obj
-
-
-def _extract_items(items: Any) -> dict[str, Any]:
-    """Extract a typed items dict from a generated items object.
-
-    Returns ``{key: {value, type, description}}`` (the full typed shape).
-    """
-    if items is None or isinstance(items, type(None)):
-        return {}
-    type_name = type(items).__name__
-    if type_name == "Unset":
-        return {}
-    if isinstance(items, ConfigItemsType0):
-        result: dict[str, Any] = {}
-        for k, item_def in items.additional_properties.items():
-            entry: dict[str, Any] = {"value": item_def.value}
-            type_val = getattr(item_def, "type_", None)
-            if type_val is not None and type(type_val).__name__ != "Unset":
-                entry["type"] = type_val.value if hasattr(type_val, "value") else str(type_val)
-            desc_val = getattr(item_def, "description", None)
-            if desc_val is not None and type(desc_val).__name__ != "Unset":
-                entry["description"] = desc_val
-            result[k] = entry
-        return result
-    if isinstance(items, dict):
-        return dict(items)
-    return {}
-
-
-def _extract_environments(environments: Any) -> dict[str, Any]:
-    """Extract a plain dict from a generated environments object.
-
-    Environment override values are unwrapped from ``{key: {value: raw}}``
-    back to ``{key: raw}`` for the SDK model layer.
-    """
-    if environments is None or isinstance(environments, type(None)):
-        return {}
-    type_name = type(environments).__name__
-    if type_name == "Unset":
-        return {}
-    if isinstance(environments, ConfigEnvironmentsType0):
-        result: dict[str, Any] = {}
-        for env_name, env_override in environments.additional_properties.items():
-            env_entry: dict[str, Any] = {}
-            if hasattr(env_override, "values") and env_override.values is not None:
-                vals_type = type(env_override.values).__name__
-                if vals_type != "Unset":
-                    raw_vals: dict[str, Any] = {}
-                    if hasattr(env_override.values, "additional_properties"):
-                        for k, item_override in env_override.values.additional_properties.items():
-                            if hasattr(item_override, "value"):
-                                raw_vals[k] = item_override.value
-                            else:
-                                raw_vals[k] = item_override
-                    env_entry["values"] = raw_vals
-            result[env_name] = env_entry
-        return result
-    if isinstance(environments, dict):
-        return dict(environments)
-    return {}
-
-
-def _extract_datetime(value: Any) -> Any:
-    """Pass through datetime objects, return None for Unset/None."""
-    if value is None:
-        return None
-    # Check for Unset sentinel
-    type_name = type(value).__name__
-    if type_name == "Unset":
-        return None
-    return value
-
-
-def _unset_to_none(value: Any) -> Any:
-    """Convert Unset sentinels to None."""
-    type_name = type(value).__name__
-    if type_name == "Unset":
-        return None
-    return value
+# Type var for the optional ``model`` arg on get() — lets customers see
+# ``cfg: UserServiceConfig`` in their IDE rather than ``LiveConfigProxy``
+# when they pass a model class.
+_M = TypeVar("_M")
 
 
 def _check_response_status(status_code: HTTPStatus, content: bytes) -> None:
     """Map HTTP error status codes to SDK exceptions with full JSON:API error detail."""
     _raise_for_status(int(status_code), content)
-
-
-def _build_request_body(
-    *,
-    config_id: str | None = None,
-    name: str,
-    description: str | None = None,
-    parent: str | None = None,
-    items: dict[str, Any] | None = None,
-    environments: dict[str, Any] | None = None,
-) -> ConfigResponse:
-    """Build a JSON:API request body for create/update operations."""
-    attrs = GenConfig(
-        name=name,
-        description=description,
-        parent=parent,
-        items=_make_items(items),
-        environments=_make_environments(environments),
-    )
-    resource = ConfigResource(attributes=attrs, id=config_id, type_="config")
-    return ConfigResponse(data=resource)
 
 
 def _unflatten(flat: dict[str, Any]) -> dict[str, Any]:
@@ -232,19 +73,36 @@ def _unflatten(flat: dict[str, Any]) -> dict[str, Any]:
 
 def _build_chain_sync(model: Any, models_by_id: dict[str, Any]) -> list[dict[str, Any]]:
     """Build a parent chain from pre-fetched models without async calls."""
-    chain = [{"id": model.id, "items": model._items_raw, "environments": model.environments}]
+    from smplkit.config.models import _environments_to_wire
+
+    chain = [
+        {
+            "id": model.id,
+            "items": model._items_raw,
+            "environments": _environments_to_wire(model._environments),
+        }
+    ]
     current = model
     while current.parent is not None:
         parent = models_by_id.get(current.parent)
         if parent is None:
             break
-        chain.append({"id": parent.id, "items": parent._items_raw, "environments": parent.environments})
+        chain.append(
+            {
+                "id": parent.id,
+                "items": parent._items_raw,
+                "environments": _environments_to_wire(parent._environments),
+            }
+        )
         current = parent
     return chain
 
 
+@dataclasses.dataclass(frozen=True, kw_only=True)
 class ConfigChangeEvent:
     """Describes a single config value change.
+
+    Frozen — fields are set at construction and cannot be mutated afterward.
 
     Attributes:
         config_id: The config id that changed.
@@ -260,39 +118,26 @@ class ConfigChangeEvent:
     new_value: Any
     source: str
 
-    def __init__(
-        self,
-        *,
-        config_id: str,
-        item_key: str,
-        old_value: Any,
-        new_value: Any,
-        source: str,
-    ) -> None:
-        self.config_id = config_id
-        self.item_key = item_key
-        self.old_value = old_value
-        self.new_value = new_value
-        self.source = source
-
-    def __repr__(self) -> str:
-        return (
-            f"ConfigChangeEvent(config_id={self.config_id!r}, item_key={self.item_key!r}, "
-            f"old_value={self.old_value!r}, new_value={self.new_value!r}, source={self.source!r})"
-        )
-
 
 class LiveConfigProxy:
-    """A live proxy that always reflects the latest resolved config values.
+    """A live, dict-like view of resolved config values.
 
-    Returned by :meth:`ConfigClient.subscribe` and
-    :meth:`AsyncConfigClient.subscribe`.
+    Returned by :meth:`ConfigClient.get` and :meth:`AsyncConfigClient.get`.
+    Always reflects the latest server-pushed state — every read sees
+    current values.
 
     Attribute access returns the current resolved value for the given
     item key. If a *model* was provided, the model is reconstructed
-    from the latest values on each access.
+    from the latest values on each access (so attribute access type-checks
+    against the model).
 
-    Supports both ``proxy.attr`` and ``proxy["key"]`` access styles.
+    Also implements the standard ``Mapping`` API: ``proxy["key"]``,
+    ``key in proxy``, ``len(proxy)``, ``for k in proxy``, ``proxy.keys()``,
+    ``proxy.values()``, ``proxy.items()``, ``proxy.get(key, default)``.
+
+    Note: customer config items whose names collide with dict-method names
+    (``keys``, ``values``, ``items``, ``get``) are shadowed for attribute
+    access — use subscript (``proxy["values"]``) for those.
     """
 
     def __init__(
@@ -322,6 +167,27 @@ class LiveConfigProxy:
             return model.model_validate(nested)
         return model(**nested)
 
+    def on_change(self, fn_or_key: Callable[[ConfigChangeEvent], None] | str | None = None) -> Any:
+        """Register a change listener scoped to this config.
+
+        Supports three forms:
+
+        - ``@proxy.on_change`` — fires on any change to this config.
+        - ``@proxy.on_change("item_key")`` — fires only when ``item_key`` changes.
+        - ``@proxy.on_change()`` — same as the bare-decorator form.
+
+        Equivalent to ``client.config.on_change(self._config_id, ...)``;
+        offered as sugar so customers who already have a live proxy can
+        register listeners without re-stating the config id.
+        """
+        client = object.__getattribute__(self, "_client")
+        config_id = object.__getattribute__(self, "_config_id")
+        if callable(fn_or_key):
+            return client.on_change(config_id)(fn_or_key)
+        if isinstance(fn_or_key, str):
+            return client.on_change(config_id, item_key=fn_or_key)
+        return client.on_change(config_id)
+
     def __getattr__(self, name: str) -> Any:
         model = object.__getattribute__(self, "_model")
         if model is not None:
@@ -337,6 +203,43 @@ class LiveConfigProxy:
         values = self._current_values()
         return values[key]
 
+    def __iter__(self):
+        return iter(self._current_values())
+
+    def __contains__(self, key: object) -> bool:
+        return key in self._current_values()
+
+    def __len__(self) -> int:
+        return len(self._current_values())
+
+    def keys(self):
+        return self._current_values().keys()
+
+    def values(self):
+        return self._current_values().values()
+
+    def items(self):
+        return self._current_values().items()
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._current_values().get(key, default)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        raise AttributeError(
+            f"LiveConfigProxy is read-only; cannot set {name!r}. Mutate config values via client.manage.config.*"
+        )
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        raise TypeError(
+            f"LiveConfigProxy is read-only; cannot set {key!r}. Mutate config values via client.manage.config.*"
+        )
+
+    def __delattr__(self, name: str) -> None:
+        raise AttributeError(f"LiveConfigProxy is read-only; cannot delete {name!r}.")
+
+    def __delitem__(self, key: str) -> None:
+        raise TypeError(f"LiveConfigProxy is read-only; cannot delete {key!r}.")
+
     def __repr__(self) -> str:
         config_id = object.__getattribute__(self, "_config_id")
         model = object.__getattribute__(self, "_model")
@@ -345,140 +248,49 @@ class LiveConfigProxy:
         return f"LiveConfigProxy(config_id={config_id!r})"
 
 
-class ConfigManagementClient:
-    """Management (CRUD) operations for Smpl Config.
-
-    Obtained via ``SmplClient(...).config.management``.
-    """
-
-    def __init__(self, parent: ConfigClient) -> None:
-        self._parent = parent
-
-    def new(
-        self,
-        id: str,
-        *,
-        name: str | None = None,
-        description: str | None = None,
-        parent: str | None = None,
-    ) -> Config:
-        """Return a new unsaved :class:`Config`.
-
-        Call :meth:`Config.save` to persist it.
-
-        Args:
-            id: Config identifier (slug).
-            name: Display name. Auto-generated from *id* if omitted.
-            description: Optional description.
-            parent: Parent config id (slug), or ``None``.
-
-        Returns:
-            A new :class:`Config` that has not yet been saved.
-        """
-        return Config(
-            self._parent,
-            id=id,
-            name=name or key_to_display_name(id),
-            description=description,
-            parent=parent,
-        )
-
-    def get(self, id: str) -> Config:
-        """Fetch a config by id.
-
-        Args:
-            id: The config identifier (slug).
-
-        Returns:
-            The matching :class:`Config`.
-
-        Raises:
-            SmplNotFoundError: If no matching config exists.
-        """
-        try:
-            response = get_config.sync_detailed(
-                id,
-                client=self._parent._parent._http_client,
-            )
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            raise SmplNotFoundError(f"Config with id '{id}' not found", status_code=404)
-        return self._parent._resource_to_model(response.parsed.data)
-
-    def list(self) -> list[Config]:
-        """List all configs for the account.
-
-        Returns:
-            A list of :class:`Config` objects.
-        """
-        try:
-            response = list_configs.sync_detailed(
-                client=self._parent._parent._http_client,
-            )
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [self._parent._resource_to_model(r) for r in response.parsed.data]
-
-    def delete(self, id: str) -> None:
-        """Delete a config by id.
-
-        Args:
-            id: The config identifier (slug).
-
-        Raises:
-            SmplNotFoundError: If the config does not exist.
-            SmplConflictError: If the config has children.
-        """
-        try:
-            response = delete_config.sync_detailed(
-                id,
-                client=self._parent._parent._http_client,
-            )
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-
-
 class ConfigClient:
-    """Synchronous client for Smpl Config.
+    """Synchronous runtime client for Smpl Config.
 
-    Obtained via ``SmplClient(...).config``.
+    Obtained via ``SmplClient(...).config``. Exposes value resolution
+    (``get``) and refresh/change-listener APIs. CRUD has
+    moved to :class:`smplkit.SmplManagementClient` (``mgmt.config.*``).
     """
 
-    def __init__(self, parent: SmplClient) -> None:
+    def __init__(
+        self,
+        parent: SmplClient,
+        *,
+        manage: SmplManagementClient,
+        metrics: _MetricsReporter | None,
+    ) -> None:
         self._parent = parent
+        self._manage = manage
+        self._metrics = metrics
+        self._service = parent._service
+        self._environment = parent._environment
         self._config_cache: dict[str, dict[str, Any]] = {}
         self._raw_config_cache: dict[str, Any] = {}
         self._connected = False
         self._cache_lock = threading.Lock()
         self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
         self._ws_manager: SharedWebSocket | None = None
-        self.management = ConfigManagementClient(self)
 
-    def _connect_internal(self) -> None:
-        """Fetch all configs, resolve values for the environment, and cache.
+    def start(self) -> None:
+        """Eagerly initialize the config subclient.
 
-        Idempotent — returns immediately if already connected.
+        Fetches all configs, resolves environment-scoped values into the local
+        cache, opens the shared WebSocket and subscribes to ``config_changed``
+        / ``config_deleted`` / ``configs_changed`` events.
+
+        Idempotent — safe to call multiple times.  Called automatically on
+        first ``config.get()`` if not invoked manually.
         """
         if self._connected:
             return
-        configs = self.management.list()
-        environment = self._parent._environment
-        cache: dict[str, dict[str, Any]] = {}
-        for cfg in configs:
-            chain = cfg._build_chain(configs)
-            cache[cfg.id] = resolve(chain, environment)
-        with self._cache_lock:
-            self._config_cache = cache
-            self._raw_config_cache = {cfg.id: cfg for cfg in configs}
+
+        # Fetch + resolve + cache + fire change listeners (against empty old_cache,
+        # so any registered listeners see "initial" events).
+        self._do_refresh("initial")
         self._connected = True
 
         self._ws_manager = self._parent._ensure_ws()
@@ -486,54 +298,61 @@ class ConfigClient:
         self._ws_manager.on("config_deleted", self._handle_config_deleted)
         self._ws_manager.on("configs_changed", self._handle_configs_changed)
 
+    def _fetch_all_configs(self) -> list[Config]:
+        """List configs directly from the API (no management indirection)."""
+        try:
+            response = list_configs.sync_detailed(client=self._parent._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [_resource_to_config(None, r) for r in response.parsed.data]
+
+    def _fetch_config(self, config_id: str) -> Config | None:
+        """Fetch a single config from the API. Returns ``None`` on missing data."""
+        try:
+            response = get_config.sync_detailed(config_id, client=self._parent._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return None
+        return _resource_to_config(None, response.parsed.data)
+
     # ------------------------------------------------------------------
-    # Runtime: get / subscribe
+    # Runtime: get
     # ------------------------------------------------------------------
 
-    def get(self, id: str, model: type | None = None) -> Any:
-        """Return resolved config values for *id*.
+    @overload
+    def get(self, id: str) -> LiveConfigProxy: ...
+    @overload
+    def get(self, id: str, model: type[_M]) -> _M: ...
+    def get(self, id: str, model: type[_M] | None = None) -> Any:
+        """Return a live, dict-like view of the resolved values for *id*.
 
-        If *model* is ``None``, returns a flat ``dict[str, Any]`` of
-        resolved values.
+        Without ``model``, returns a :class:`LiveConfigProxy` that behaves
+        like a ``dict[str, Any]`` (``proxy["key"]``, iteration, ``items()``,
+        ``len()``) and updates automatically as the server pushes changes.
 
-        If *model* is provided, dot-notation keys (e.g. ``"database.host"``)
-        are expanded into nested structures and the model is constructed.
-        Supports Pydantic models, dataclasses, or any class accepting
-        keyword arguments.
+        With ``model``, the return value type-checks as *model* — attribute
+        access (``cfg.database.host``) walks a model rebuilt from the
+        current values on each read, so the customer sees the model's
+        type signature in their IDE while still tracking live data.
 
         Args:
             id: The config id to resolve.
-            model: Optional model class to construct from resolved values.
+            model: Optional model class to project attribute access through.
 
         Returns:
-            A flat dict, or an instance of *model*.
+            A :class:`LiveConfigProxy` (typed as *model* when supplied).
         """
-        self._connect_internal()
-        values = dict(self._config_cache.get(id, {}))
-        metrics = self._parent._metrics
+        self.start()
+        metrics = self._metrics
         if metrics is not None:
             metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
-        if model is None:
-            return values
-        nested = _unflatten(values)
-        if hasattr(model, "model_validate"):
-            return model.model_validate(nested)
-        return model(**nested)
-
-    def subscribe(self, id: str, model: type | None = None) -> LiveConfigProxy:
-        """Return a :class:`LiveConfigProxy` for *id*.
-
-        Values update automatically after :meth:`refresh`.
-
-        Args:
-            id: The config id to subscribe to.
-            model: Optional model class — if provided, attribute access
-                returns a model instance built from the latest values.
-
-        Returns:
-            A :class:`LiveConfigProxy`.
-        """
-        self._connect_internal()
         return LiveConfigProxy(self, id, model)
 
     # ------------------------------------------------------------------
@@ -546,12 +365,12 @@ class ConfigClient:
         Fires change listeners for any values that differ from the previous state.
 
         Raises:
-            SmplConnectionError: If the fetch fails.
+            ConnectionError: If the fetch fails.
         """
         self._do_refresh("manual")
 
     def _do_refresh(self, source: str) -> None:
-        configs = self.management.list()
+        configs = self._fetch_all_configs()
         environment = self._parent._environment
         new_cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
@@ -614,7 +433,7 @@ class ConfigClient:
                 new_val = new_items.get(i_key)
                 if old_val == new_val:
                     continue
-                metrics = self._parent._metrics
+                metrics = self._metrics
                 if metrics is not None:
                     metrics.record("config.changes", unit="changes", dimensions={"config": cfg_id})
                 event = ConfigChangeEvent(
@@ -643,29 +462,41 @@ class ConfigClient:
     # Internal: event handlers (called by SharedWebSocket)
     # ------------------------------------------------------------------
 
+    def _rebuild_resolved_cache(self, raw_cache: dict[str, Config], source: str) -> None:
+        """Re-resolve every config in ``raw_cache`` and fire change listeners.
+
+        Inheritance means a single config change can shift descendants' resolved
+        values too — so whenever ``raw_cache`` is mutated (config added, updated,
+        or deleted), every config gets re-resolved against the new snapshot.
+        """
+        environment = self._parent._environment
+        raw_list = list(raw_cache.values())
+        new_cache: dict[str, dict[str, Any]] = {}
+        for cfg_id, cfg in raw_cache.items():
+            chain = cfg._build_chain(raw_list)
+            new_cache[cfg_id] = resolve(chain, environment)
+        with self._cache_lock:
+            old_cache = self._config_cache
+            self._config_cache = new_cache
+            self._raw_config_cache = raw_cache
+        self._fire_change_listeners(old_cache, new_cache, source=source)
+
     def _handle_config_changed(self, data: dict[str, Any]) -> None:
         key = data.get("id")
         if not key:
             self._handle_configs_changed(data)
             return
-        environment = self._parent._environment
         with self._cache_lock:
-            old_values = dict(self._config_cache.get(key, {}))
             raw_cache = dict(self._raw_config_cache)
         try:
-            cfg = self.management.get(key)
+            cfg = self._fetch_config(key)
         except Exception:
             ws_logger.error("Failed to fetch config %r after WS event", key, exc_info=True)
             return
+        if cfg is None:
+            return
         raw_cache[key] = cfg
-        chain = cfg._build_chain(list(raw_cache.values()))
-        new_values = resolve(chain, environment)
-        with self._cache_lock:
-            self._raw_config_cache[key] = cfg
-            self._config_cache[key] = new_values
-        old_partial = {key: old_values}
-        new_partial = {key: new_values}
-        self._fire_change_listeners(old_partial, new_partial, source="websocket")
+        self._rebuild_resolved_cache(raw_cache, source="websocket")
 
     def _handle_config_deleted(self, data: dict[str, Any]) -> None:
         key = data.get("id")
@@ -673,12 +504,10 @@ class ConfigClient:
             self._handle_configs_changed(data)
             return
         with self._cache_lock:
-            old_values = dict(self._config_cache.pop(key, {}))
-            self._raw_config_cache.pop(key, None)
-        if old_values:
-            old_partial = {key: old_values}
-            new_partial: dict[str, dict[str, Any]] = {}
-            self._fire_change_listeners(old_partial, new_partial, source="websocket")
+            raw_cache = dict(self._raw_config_cache)
+        if raw_cache.pop(key, None) is None:
+            return
+        self._rebuild_resolved_cache(raw_cache, source="websocket")
 
     def _handle_configs_changed(self, data: dict[str, Any]) -> None:
         try:
@@ -686,221 +515,49 @@ class ConfigClient:
         except Exception:
             ws_logger.error("Failed to refresh configs after WS event", exc_info=True)
 
-    # ------------------------------------------------------------------
-    # Internal: create / update for Config.save()
-    # ------------------------------------------------------------------
-
-    def _create_config(self, config: Config) -> Config:
-        """Internal: POST a new config from a Config model (for Config.save)."""
-        body = _build_request_body(
-            config_id=config.id,
-            name=config.name,
-            description=config.description,
-            parent=config.parent,
-            items=config._items_raw,
-            environments=config.environments,
-        )
-        try:
-            response = create_config.sync_detailed(
-                client=self._parent._http_client,
-                body=body,
-            )
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return self._to_model(response.parsed)
-
-    def _update_config_from_model(self, config: Config) -> Config:
-        """Internal: PUT a config update from a Config model (for Config.save)."""
-        body = _build_request_body(
-            config_id=config.id,
-            name=config.name,
-            description=config.description,
-            parent=config.parent,
-            items=config._items_raw,
-            environments=config.environments,
-        )
-        try:
-            response = update_config.sync_detailed(
-                config.id,
-                client=self._parent._http_client,
-                body=body,
-            )
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return self._to_model(response.parsed)
-
-    # ------------------------------------------------------------------
-    # Internal: model conversion
-    # ------------------------------------------------------------------
-
-    def _to_model(self, parsed: Any) -> Config:
-        """Convert a ConfigResponse (single resource) to a Config model."""
-        return self._resource_to_model(parsed.data)
-
-    def _resource_to_model(self, resource: Any) -> Config:
-        """Convert a ConfigResource to a Config model."""
-        attrs = resource.attributes
-        return Config(
-            self,
-            id=_unset_to_none(resource.id) or "",
-            name=attrs.name,
-            description=_unset_to_none(attrs.description),
-            parent=_unset_to_none(attrs.parent),
-            items=_extract_items(attrs.items),
-            environments=_extract_environments(attrs.environments),
-            created_at=_extract_datetime(attrs.created_at),
-            updated_at=_extract_datetime(attrs.updated_at),
-        )
-
-
-class AsyncConfigManagementClient:
-    """Management (CRUD) operations for Smpl Config (async).
-
-    Obtained via ``AsyncSmplClient(...).config.management``.
-    """
-
-    def __init__(self, parent: AsyncConfigClient) -> None:
-        self._parent = parent
-
-    def new(
-        self,
-        id: str,
-        *,
-        name: str | None = None,
-        description: str | None = None,
-        parent: str | None = None,
-    ) -> AsyncConfig:
-        """Return a new unsaved :class:`AsyncConfig`.
-
-        Call :meth:`AsyncConfig.save` to persist it.
-
-        Args:
-            id: Config identifier (slug).
-            name: Display name. Auto-generated from *id* if omitted.
-            description: Optional description.
-            parent: Parent config id (slug), or ``None``.
-
-        Returns:
-            A new :class:`AsyncConfig` that has not yet been saved.
-        """
-        return AsyncConfig(
-            self._parent,
-            id=id,
-            name=name or key_to_display_name(id),
-            description=description,
-            parent=parent,
-        )
-
-    async def get(self, id: str) -> AsyncConfig:
-        """Fetch a config by id.
-
-        Args:
-            id: The config identifier (slug).
-
-        Returns:
-            The matching :class:`AsyncConfig`.
-
-        Raises:
-            SmplNotFoundError: If no matching config exists.
-        """
-        try:
-            response = await get_config.asyncio_detailed(
-                id,
-                client=self._parent._parent._http_client,
-            )
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            raise SmplNotFoundError(f"Config with id '{id}' not found", status_code=404)
-        return self._parent._resource_to_model(response.parsed.data)
-
-    async def list(self) -> list[AsyncConfig]:
-        """List all configs for the account.
-
-        Returns:
-            A list of :class:`AsyncConfig` objects.
-        """
-        try:
-            response = await list_configs.asyncio_detailed(
-                client=self._parent._parent._http_client,
-            )
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [self._parent._resource_to_model(r) for r in response.parsed.data]
-
-    async def delete(self, id: str) -> None:
-        """Delete a config by id.
-
-        Args:
-            id: The config identifier (slug).
-
-        Raises:
-            SmplNotFoundError: If the config does not exist.
-            SmplConflictError: If the config has children.
-        """
-        try:
-            response = await delete_config.asyncio_detailed(
-                id,
-                client=self._parent._parent._http_client,
-            )
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._parent._parent._http_client._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-
 
 class AsyncConfigClient:
-    """Asynchronous client for Smpl Config.
+    """Asynchronous runtime client for Smpl Config.
 
-    Obtained via ``AsyncSmplClient(...).config``.
+    Obtained via ``AsyncSmplClient(...).config``. CRUD has moved to
+    :class:`smplkit.AsyncSmplManagementClient` (``mgmt.config.*``).
     """
 
-    def __init__(self, parent: AsyncSmplClient) -> None:
+    def __init__(
+        self,
+        parent: AsyncSmplClient,
+        *,
+        manage: AsyncSmplManagementClient,
+        metrics: _AsyncMetricsReporter | None,
+    ) -> None:
         self._parent = parent
+        self._manage = manage
+        self._metrics = metrics
+        self._service = parent._service
+        self._environment = parent._environment
         self._config_cache: dict[str, dict[str, Any]] = {}
         self._raw_config_cache: dict[str, Any] = {}
         self._connected = False
         self._cache_lock = threading.Lock()
         self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
         self._ws_manager: SharedWebSocket | None = None
-        self.management = AsyncConfigManagementClient(self)
 
-    async def _connect_internal(self) -> None:
-        """Fetch all configs, resolve values for the environment, and cache.
+    async def start(self) -> None:
+        """Eagerly initialize the config subclient.
 
-        Idempotent — returns immediately if already connected.
+        Fetches all configs, resolves environment-scoped values into the local
+        cache, opens the shared WebSocket and subscribes to ``config_changed``
+        / ``config_deleted`` / ``configs_changed`` events.
+
+        Idempotent — safe to call multiple times.  Called automatically on
+        first ``config.get()`` if not invoked manually.
         """
         if self._connected:
             return
-        configs = await self.management.list()
-        environment = self._parent._environment
-        cache: dict[str, dict[str, Any]] = {}
-        for cfg in configs:
-            chain = await cfg._build_chain(configs)
-            cache[cfg.id] = resolve(chain, environment)
-        with self._cache_lock:
-            self._config_cache = cache
-            self._raw_config_cache = {cfg.id: cfg for cfg in configs}
+
+        # Fetch + resolve + cache + fire change listeners (against empty old_cache,
+        # so any registered listeners see "initial" events).
+        await self._do_refresh("initial")
         self._connected = True
 
         self._ws_manager = self._parent._ensure_ws()
@@ -908,53 +565,46 @@ class AsyncConfigClient:
         self._ws_manager.on("config_deleted", self._handle_config_deleted)
         self._ws_manager.on("configs_changed", self._handle_configs_changed)
 
+    async def _fetch_all_configs_async(self) -> list[AsyncConfig]:
+        try:
+            response = await list_configs.asyncio_detailed(client=self._parent._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [_resource_to_async_config(None, r) for r in response.parsed.data]
+
     # ------------------------------------------------------------------
-    # Runtime: get / subscribe
+    # Runtime: get
     # ------------------------------------------------------------------
 
-    async def get(self, id: str, model: type | None = None) -> Any:
-        """Return resolved config values for *id*.
+    @overload
+    async def get(self, id: str) -> LiveConfigProxy: ...
+    @overload
+    async def get(self, id: str, model: type[_M]) -> _M: ...
+    async def get(self, id: str, model: type[_M] | None = None) -> Any:
+        """Return a live, dict-like view of the resolved values for *id*.
 
-        If *model* is ``None``, returns a flat ``dict[str, Any]`` of
-        resolved values.
+        Without ``model``, returns a :class:`LiveConfigProxy` that behaves
+        like a ``dict[str, Any]`` and updates automatically as the server
+        pushes changes.
 
-        If *model* is provided, dot-notation keys (e.g. ``"database.host"``)
-        are expanded into nested structures and the model is constructed.
-        Supports Pydantic models, dataclasses, or any class accepting
-        keyword arguments.
+        With ``model``, the return value type-checks as *model* — attribute
+        access walks a model rebuilt from the current values on each read.
 
         Args:
             id: The config id to resolve.
-            model: Optional model class to construct from resolved values.
+            model: Optional model class to project attribute access through.
 
         Returns:
-            A flat dict, or an instance of *model*.
+            A :class:`LiveConfigProxy` (typed as *model* when supplied).
         """
-        await self._connect_internal()
-        values = dict(self._config_cache.get(id, {}))
-        metrics = self._parent._metrics
+        await self.start()
+        metrics = self._metrics
         if metrics is not None:
             metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
-        if model is None:
-            return values
-        nested = _unflatten(values)
-        if hasattr(model, "model_validate"):
-            return model.model_validate(nested)
-        return model(**nested)
-
-    async def subscribe(self, id: str, model: type | None = None) -> LiveConfigProxy:
-        """Return a :class:`LiveConfigProxy` for *id*.
-
-        Values update automatically after :meth:`refresh`.
-
-        Args:
-            id: The config id to subscribe to.
-            model: Optional model class.
-
-        Returns:
-            A :class:`LiveConfigProxy`.
-        """
-        await self._connect_internal()
         return LiveConfigProxy(self, id, model)
 
     # ------------------------------------------------------------------
@@ -967,12 +617,12 @@ class AsyncConfigClient:
         Fires change listeners for any values that differ from the previous state.
 
         Raises:
-            SmplConnectionError: If the fetch fails.
+            ConnectionError: If the fetch fails.
         """
         await self._do_refresh("manual")
 
     async def _do_refresh(self, source: str) -> None:
-        configs = await self.management.list()
+        configs = await self._fetch_all_configs_async()
         environment = self._parent._environment
         new_cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
@@ -1035,7 +685,7 @@ class AsyncConfigClient:
                 new_val = new_items.get(i_key)
                 if old_val == new_val:
                     continue
-                metrics = self._parent._metrics
+                metrics = self._metrics
                 if metrics is not None:
                     metrics.record("config.changes", unit="changes", dimensions={"config": cfg_id})
                 event = ConfigChangeEvent(
@@ -1064,33 +714,45 @@ class AsyncConfigClient:
     # Internal: event handlers (called by SharedWebSocket)
     # ------------------------------------------------------------------
 
+    def _rebuild_resolved_cache(self, raw_cache: dict[str, AsyncConfig], source: str) -> None:
+        """Re-resolve every config in ``raw_cache`` and fire change listeners.
+
+        Inheritance means a single config change can shift descendants' resolved
+        values too — so whenever ``raw_cache`` is mutated (config added, updated,
+        or deleted), every config gets re-resolved against the new snapshot.
+
+        Sync-shaped because the WS dispatch thread is sync; ``_build_chain_sync``
+        avoids any awaits and works against the already-loaded models.
+        """
+        environment = self._parent._environment
+        new_cache: dict[str, dict[str, Any]] = {}
+        for cfg_id, cfg in raw_cache.items():
+            chain = _build_chain_sync(cfg, raw_cache)
+            new_cache[cfg_id] = resolve(chain, environment)
+        with self._cache_lock:
+            old_cache = self._config_cache
+            self._config_cache = new_cache
+            self._raw_config_cache = raw_cache
+        self._fire_change_listeners(old_cache, new_cache, source=source)
+
     def _handle_config_changed(self, data: dict[str, Any]) -> None:
         key = data.get("id")
         if not key:
             self._handle_configs_changed(data)
             return
-        environment = self._parent._environment
         with self._cache_lock:
-            old_values = dict(self._config_cache.get(key, {}))
             raw_cache = dict(self._raw_config_cache)
         try:
             response = get_config.sync_detailed(key, client=self._parent._http_client)
             _check_response_status(response.status_code, response.content)
             if response.parsed is None or not hasattr(response.parsed, "data"):
                 return
-            cfg = self._resource_to_model(response.parsed.data)
+            cfg = _resource_to_async_config(None, response.parsed.data)
         except Exception:
             ws_logger.error("Failed to fetch config %r after WS event", key, exc_info=True)
             return
         raw_cache[key] = cfg
-        chain = _build_chain_sync(cfg, raw_cache)
-        new_values = resolve(chain, environment)
-        with self._cache_lock:
-            self._raw_config_cache[key] = cfg
-            self._config_cache[key] = new_values
-        old_partial = {key: old_values}
-        new_partial = {key: new_values}
-        self._fire_change_listeners(old_partial, new_partial, source="websocket")
+        self._rebuild_resolved_cache(raw_cache, source="websocket")
 
     def _handle_config_deleted(self, data: dict[str, Any]) -> None:
         key = data.get("id")
@@ -1098,12 +760,10 @@ class AsyncConfigClient:
             self._handle_configs_changed(data)
             return
         with self._cache_lock:
-            old_values = dict(self._config_cache.pop(key, {}))
-            self._raw_config_cache.pop(key, None)
-        if old_values:
-            old_partial = {key: old_values}
-            new_partial: dict[str, dict[str, Any]] = {}
-            self._fire_change_listeners(old_partial, new_partial, source="websocket")
+            raw_cache = dict(self._raw_config_cache)
+        if raw_cache.pop(key, None) is None:
+            return
+        self._rebuild_resolved_cache(raw_cache, source="websocket")
 
     def _handle_configs_changed(self, data: dict[str, Any]) -> None:
         try:
@@ -1111,100 +771,11 @@ class AsyncConfigClient:
             _check_response_status(response.status_code, response.content)
             if response.parsed is None or not hasattr(response.parsed, "data"):
                 return
-            models = [self._resource_to_model(r) for r in response.parsed.data]
-            environment = self._parent._environment
-            models_by_id = {m.id: m for m in models}
-            new_cache: dict[str, dict[str, Any]] = {}
-            for m in models:
-                chain = _build_chain_sync(m, models_by_id)
-                new_cache[m.id] = resolve(chain, environment)
-            with self._cache_lock:
-                old_cache = self._config_cache
-                self._config_cache = new_cache
-                self._raw_config_cache = models_by_id
-            self._fire_change_listeners(old_cache, new_cache, source="websocket")
+            models = [_resource_to_async_config(None, r) for r in response.parsed.data]
+            raw_cache = {m.id: m for m in models}
+            self._rebuild_resolved_cache(raw_cache, source="websocket")
         except Exception:
             ws_logger.error("Failed to refresh configs after WS event", exc_info=True)
-
-    # ------------------------------------------------------------------
-    # Internal: create / update for AsyncConfig.save()
-    # ------------------------------------------------------------------
-
-    async def _create_config(self, config: AsyncConfig) -> AsyncConfig:
-        """Internal: POST a new config from an AsyncConfig model (for AsyncConfig.save)."""
-        body = _build_request_body(
-            config_id=config.id,
-            name=config.name,
-            description=config.description,
-            parent=config.parent,
-            items=config._items_raw,
-            environments=config.environments,
-        )
-        try:
-            response = await create_config.asyncio_detailed(
-                client=self._parent._http_client,
-                body=body,
-            )
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return self._to_model(response.parsed)
-
-    async def _update_config_from_model(self, config: AsyncConfig) -> AsyncConfig:
-        """Internal: PUT a config update from an AsyncConfig model (for AsyncConfig.save)."""
-        body = _build_request_body(
-            config_id=config.id,
-            name=config.name,
-            description=config.description,
-            parent=config.parent,
-            items=config._items_raw,
-            environments=config.environments,
-        )
-        try:
-            response = await update_config.asyncio_detailed(
-                config.id,
-                client=self._parent._http_client,
-                body=body,
-            )
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None:
-            _raise_for_status(int(response.status_code), response.content)
-            raise SmplValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return self._to_model(response.parsed)
-
-    # ------------------------------------------------------------------
-    # Internal: model conversion
-    # ------------------------------------------------------------------
-
-    def _to_model(self, parsed: Any) -> AsyncConfig:
-        """Convert a ConfigResponse (single resource) to an AsyncConfig model."""
-        return self._resource_to_model(parsed.data)
-
-    def _resource_to_model(self, resource: Any) -> AsyncConfig:
-        """Convert a ConfigResource to an AsyncConfig model."""
-        attrs = resource.attributes
-        return AsyncConfig(
-            self,
-            id=_unset_to_none(resource.id) or "",
-            name=attrs.name,
-            description=_unset_to_none(attrs.description),
-            parent=_unset_to_none(attrs.parent),
-            items=_extract_items(attrs.items),
-            environments=_extract_environments(attrs.environments),
-            created_at=_extract_datetime(attrs.created_at),
-            updated_at=_extract_datetime(attrs.updated_at),
-        )
 
 
 def _exc_url(exc: Exception) -> str | None:
@@ -1229,10 +800,10 @@ def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) ->
     if isinstance(exc, httpx.TimeoutException):
         url = _exc_url(exc) or base_url
         msg = f"Request timed out connecting to {url}" if url else f"Request timed out: {exc}"
-        raise SmplTimeoutError(msg) from exc
+        raise TimeoutError(msg) from exc
     if isinstance(exc, httpx.HTTPError):
         url = _exc_url(exc) or base_url
         msg = f"Cannot connect to {url}: {exc}" if url else f"Connection error: {exc}"
-        raise SmplConnectionError(msg) from exc
-    if isinstance(exc, (SmplNotFoundError, SmplConflictError, SmplValidationError)):
+        raise ConnectionError(msg) from exc
+    if isinstance(exc, (NotFoundError, ConflictError, ValidationError)):
         raise exc

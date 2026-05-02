@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from smplkit._errors import SmplNotFoundError, SmplValidationError
+from smplkit._errors import NotFoundError, ValidationError
 from smplkit.logging.client import LoggingClient, SmplLogGroup, SmplLogger
 
 
@@ -70,20 +70,55 @@ def _ok_response(parsed=None, status=HTTPStatus.OK):
 
 
 def _make_logging_client(**kwargs):
+    from smplkit.management.client import LoggersClient as _MgmtLoggersClient
+
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = kwargs.get("service", None)
+    manage = MagicMock()
+    manage.loggers = _MgmtLoggersClient(MagicMock(), base_url="http://logging:8003")
+    parent.manage = manage
     with patch("smplkit.logging.client.AuthenticatedClient"):
-        client = LoggingClient(parent)
+        client = LoggingClient(parent, manage=manage, metrics=parent._metrics)
     return client
+
+
+def _new_mgmt_loggers():
+    """Return a LoggersClient bound to a mock http (for management-flavored tests)."""
+    from smplkit.management.client import LoggersClient
+    from unittest.mock import MagicMock as _MM
+
+    return LoggersClient(_MM(), base_url="http://logging:8003")
+
+
+def _new_mgmt_log_groups():
+    """Return a LogGroupsClient bound to a mock http."""
+    from smplkit.management.client import LogGroupsClient
+    from unittest.mock import MagicMock as _MM
+
+    return LogGroupsClient(_MM(), base_url="http://logging:8003")
+
+
+def _new_mgmt():
+    """Build a SmplManagementClient for management-flavored tests."""
+    from smplkit import SmplManagementClient
+
+    return SmplManagementClient(api_key="sk_test", base_domain="example.test")
+
+
+def _new_async_mgmt():
+    """Build an AsyncSmplManagementClient for management-flavored tests."""
+    from smplkit import AsyncSmplManagementClient
+
+    return AsyncSmplManagementClient(api_key="sk_test", base_domain="example.test")
 
 
 class TestSyncOnNewLogger:
     def test_callback_adds_to_buffer(self):
         client = _make_logging_client()
         client._on_new_logger("my.sync.logger", 20, 20)
-        assert client._buffer.pending_count == 1
+        assert client._parent.manage.loggers._buffer.pending_count == 1
         assert "my.sync.logger" in client._name_map
 
     def test_callback_applies_level_when_connected(self):
@@ -104,30 +139,24 @@ class TestSyncOnNewLogger:
         client._on_new_logger(test_name, 20, 20)
         mock_adapter.apply_level.assert_called_once_with(test_name, 40)
 
-    @patch("smplkit.logging.client.threading.Thread")
+    @patch("smplkit.management.client.threading.Thread")
     def test_callback_triggers_flush_at_threshold(self, mock_thread):
+        """When _on_new_logger pushes the buffer past the threshold, mgmt.loggers.register spawns a flush thread."""
         client = _make_logging_client()
         for i in range(50):
-            client._buffer.add(f"logger.{i}", "INFO", "INFO", None, None)
-        client._buffer.drain()
-        for i in range(50):
-            client._buffer.add(f"logger.thresh.{i}", "INFO", "INFO", None, None)
-        client._on_new_logger("trigger.flush", 20, 20)
+            client._parent.manage.loggers._buffer.add(f"logger.{i}", "INFO", "INFO", None, None)
+        client._parent.manage.loggers._buffer.drain()
+        # Use unique names so they're not deduped by the LRU.
+        for i in range(49):
+            client._on_new_logger(f"unseen.thresh.{i}", 20, 20)
+        client._on_new_logger("unseen.thresh.trigger", 20, 20)
         mock_thread.assert_called()
-
-
-class TestSyncScheduleFlush:
-    def test_schedule_creates_timer(self):
-        client = _make_logging_client()
-        client._schedule_flush()
-        assert client._flush_timer is not None
-        client._flush_timer.cancel()
 
 
 class TestSyncConnectWithService:
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_with_service(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
@@ -144,7 +173,7 @@ class TestSyncConnectWithService:
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.logging.client.bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_fetch_failure_resilient(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
@@ -152,6 +181,24 @@ class TestSyncConnectWithService:
         mock_auto_load.return_value = [mock_adapter]
         mock_bulk.return_value = _ok_response()
         mock_loggers.side_effect = Exception("network error")
+
+        client = _make_logging_client()
+        client._connect_internal()
+        assert client._connected is True
+        client._close()
+
+    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.logging.client._auto_load_adapters")
+    def test_connect_swallows_initial_flush_failure(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
+        """An HTTP error from the initial registration flush is swallowed during connect."""
+        mock_adapter = MagicMock()
+        mock_adapter.discover.return_value = [("logger.x", None, 20)]
+        mock_auto_load.return_value = [mock_adapter]
+        mock_bulk.side_effect = Exception("initial flush failure")
+        mock_loggers.return_value = _ok_response(_make_list_parsed([]))
+        mock_groups.return_value = _ok_response(_make_list_parsed([]))
 
         client = _make_logging_client()
         client._connect_internal()
@@ -199,113 +246,113 @@ class TestSyncErrorPaths:
         import httpx
 
         mock_update.side_effect = httpx.ConnectError("refused")
-        client = _make_logging_client()
-        from smplkit._errors import SmplConnectionError
+        mgmt = _new_mgmt()
+        from smplkit._errors import ConnectionError
 
-        lg = client.management.new("sql", name="SQL")
-        with pytest.raises(SmplConnectionError):
+        lg = mgmt.loggers.new("sql")
+        with pytest.raises(ConnectionError):
             lg.save()
 
     @patch("smplkit.logging.client.get_logger.sync_detailed")
     def test_get_null_parsed(self, mock_get):
         mock_get.return_value = _ok_response(None, HTTPStatus.OK)
-        client = _make_logging_client()
-        with pytest.raises(SmplNotFoundError):
-            client.management.get("sql")
+        mgmt = _new_mgmt()
+        with pytest.raises(NotFoundError):
+            mgmt.loggers.get("sql")
 
     @patch("smplkit.logging.client.create_log_group.sync_detailed")
     def test_save_group_create_null_parsed(self, mock_create):
         mock_create.return_value = _ok_response(None, HTTPStatus.CREATED)
-        client = _make_logging_client()
-        grp = client.management.new_group("db", name="DB")
-        with pytest.raises(SmplValidationError):
+        mgmt = _new_mgmt()
+        grp = mgmt.log_groups.new("db", name="DB")
+        with pytest.raises(ValidationError):
             grp.save()
 
     @patch("smplkit.logging.client.get_log_group.sync_detailed")
     def test_get_group_null_parsed(self, mock_get):
         mock_get.return_value = _ok_response(None, HTTPStatus.OK)
-        client = _make_logging_client()
-        with pytest.raises(SmplNotFoundError):
-            client.management.get_group("db")
+        mgmt = _new_mgmt()
+        with pytest.raises(NotFoundError):
+            mgmt.log_groups.get("db")
 
     @patch("smplkit.logging.client.update_logger.sync_detailed")
     def test_save_logger_null_parsed(self, mock_update):
         mock_update.return_value = _ok_response(None)
-        client = _make_logging_client()
-        lg = SmplLogger(client, id=_TEST_UUID, name="SQL Logger", created_at="2026-01-01T00:00:00Z")
-        with pytest.raises(SmplValidationError):
-            client._save_logger(lg)
+        mgmt = _new_mgmt()
+        lg = SmplLogger(mgmt.loggers, id=_TEST_UUID, name="SQL Logger", created_at="2026-01-01T00:00:00Z")
+        with pytest.raises(ValidationError):
+            mgmt.loggers._save_logger(lg)
 
     @patch("smplkit.logging.client.update_log_group.sync_detailed")
     def test_save_group_null_parsed(self, mock_update):
         mock_update.return_value = _ok_response(None)
-        client = _make_logging_client()
-        grp = SmplLogGroup(client, id=_TEST_UUID, name="DB Loggers", created_at="2026-01-01T00:00:00Z")
-        with pytest.raises(SmplValidationError):
-            client._save_group(grp)
+        mgmt = _new_mgmt()
+        grp = SmplLogGroup(mgmt.log_groups, id=_TEST_UUID, name="DB Loggers", created_at="2026-01-01T00:00:00Z")
+        with pytest.raises(ValidationError):
+            mgmt.log_groups._save_group(grp)
 
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     def test_list_network_error(self, mock_list):
         import httpx
 
         mock_list.side_effect = httpx.ConnectError("refused")
-        client = _make_logging_client()
-        from smplkit._errors import SmplConnectionError
+        mgmt = _new_mgmt()
+        from smplkit._errors import ConnectionError
 
-        with pytest.raises(SmplConnectionError):
-            client.management.list()
+        with pytest.raises(ConnectionError):
+            mgmt.loggers.list()
 
     @patch("smplkit.logging.client.get_logger.sync_detailed")
     def test_get_network_error(self, mock_get):
         import httpx
 
         mock_get.side_effect = httpx.ConnectError("refused")
-        client = _make_logging_client()
-        from smplkit._errors import SmplConnectionError
+        mgmt = _new_mgmt()
+        from smplkit._errors import ConnectionError
 
-        with pytest.raises(SmplConnectionError):
-            client.management.get("sql")
+        with pytest.raises(ConnectionError):
+            mgmt.loggers.get("sql")
 
     @patch("smplkit.logging.client.delete_logger.sync_detailed")
     def test_delete_network_error(self, mock_delete):
         import httpx
 
         mock_delete.side_effect = httpx.ConnectError("refused")
-        client = _make_logging_client()
-        from smplkit._errors import SmplConnectionError
+        mgmt = _new_mgmt()
+        from smplkit._errors import ConnectionError
 
-        with pytest.raises(SmplConnectionError):
-            client.management.delete("sql")
+        with pytest.raises(ConnectionError):
+            mgmt.loggers.delete("sql")
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     def test_list_groups_network_error(self, mock_list):
         import httpx
 
         mock_list.side_effect = httpx.ConnectError("refused")
-        client = _make_logging_client()
-        from smplkit._errors import SmplConnectionError
+        mgmt = _new_mgmt()
+        from smplkit._errors import ConnectionError
 
-        with pytest.raises(SmplConnectionError):
-            client.management.list_groups()
+        with pytest.raises(ConnectionError):
+            mgmt.log_groups.list()
 
     @patch("smplkit.logging.client.get_log_group.sync_detailed")
     def test_get_group_network_error(self, mock_get):
         import httpx
 
         mock_get.side_effect = httpx.ConnectError("refused")
-        client = _make_logging_client()
-        from smplkit._errors import SmplConnectionError
+        mgmt = _new_mgmt()
+        from smplkit._errors import ConnectionError
 
-        with pytest.raises(SmplConnectionError):
-            client.management.get_group("db")
+        with pytest.raises(ConnectionError):
+            mgmt.log_groups.get("db")
 
     @patch("smplkit.logging.client.delete_log_group.sync_detailed")
     def test_delete_group_network_error(self, mock_delete):
         import httpx
 
         mock_delete.side_effect = httpx.ConnectError("refused")
-        client = _make_logging_client()
-        from smplkit._errors import SmplConnectionError
+        mgmt = _new_mgmt()
+        from smplkit._errors import ConnectionError
 
-        with pytest.raises(SmplConnectionError):
-            client.management.delete_group("db")
+        with pytest.raises(ConnectionError):
+            mgmt.log_groups.delete("db")

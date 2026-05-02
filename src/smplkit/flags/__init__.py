@@ -2,10 +2,8 @@
 
 from smplkit.flags.client import (
     AsyncFlagsClient,
-    AsyncFlagsManagementClient,
     FlagChangeEvent,
     FlagsClient,
-    FlagsManagementClient,
     FlagStats,
 )
 from smplkit.flags.models import (
@@ -16,17 +14,19 @@ from smplkit.flags.models import (
     AsyncStringFlag,
     BooleanFlag,
     Flag,
+    FlagEnvironment,
+    FlagRule,
+    FlagValue,
     JsonFlag,
     NumberFlag,
     StringFlag,
 )
-from smplkit.flags.types import Context, Rule
+from smplkit.flags.types import Context, FlagDeclaration, Op, Rule
 
 __all__ = [
     "AsyncBooleanFlag",
     "AsyncFlag",
     "AsyncFlagsClient",
-    "AsyncFlagsManagementClient",
     "AsyncJsonFlag",
     "AsyncNumberFlag",
     "AsyncStringFlag",
@@ -34,11 +34,15 @@ __all__ = [
     "Context",
     "Flag",
     "FlagChangeEvent",
+    "FlagDeclaration",
+    "FlagEnvironment",
+    "FlagRule",
     "FlagsClient",
-    "FlagsManagementClient",
+    "FlagValue",
     "FlagStats",
     "JsonFlag",
     "NumberFlag",
+    "Op",
     "Rule",
     "StringFlag",
 ]

@@ -3,18 +3,17 @@
 from __future__ import annotations
 
 from smplkit.config.client import (
-    AsyncConfigManagementClient,
     ConfigChangeEvent,
-    ConfigManagementClient,
     LiveConfigProxy,
 )
-from smplkit.config.models import AsyncConfig, Config
+from smplkit.config.models import AsyncConfig, Config, ConfigEnvironment, ConfigItem, ItemType
 
 __all__ = [
     "AsyncConfig",
-    "AsyncConfigManagementClient",
     "Config",
     "ConfigChangeEvent",
-    "ConfigManagementClient",
+    "ConfigEnvironment",
+    "ConfigItem",
+    "ItemType",
     "LiveConfigProxy",
 ]

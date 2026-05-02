@@ -1,7 +1,7 @@
 """Basic tests for SDK client initialization."""
 
 import asyncio
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from smplkit import AsyncSmplClient, SmplClient
 from smplkit._ws import SharedWebSocket
@@ -134,6 +134,74 @@ def test_smpl_client_no_connect_method():
     assert not hasattr(client, "connect")
 
 
+def test_wait_until_ready_returns_when_connected():
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    with (
+        patch.object(SharedWebSocket, "start"),
+        patch.object(client.flags, "start"),
+        patch.object(client.config, "start"),
+    ):
+        ws = client._ensure_ws()
+        ws._connection_status = "connected"
+        client.wait_until_ready(timeout=1.0)
+        client.flags.start.assert_called_once()
+        client.config.start.assert_called_once()
+
+
+def test_wait_until_ready_raises_on_timeout():
+    import pytest as _pytest
+
+    from smplkit import TimeoutError as SmplTimeoutError
+
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    with (
+        patch.object(SharedWebSocket, "start"),
+        patch.object(client.flags, "start"),
+        patch.object(client.config, "start"),
+    ):
+        ws = client._ensure_ws()
+        ws._connection_status = "disconnected"
+        with _pytest.raises(SmplTimeoutError, match="websocket did not connect"):
+            client.wait_until_ready(timeout=0.1)
+
+
+def test_async_wait_until_ready_returns_when_connected():
+    async def _run():
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+        with (
+            patch.object(SharedWebSocket, "start"),
+            patch.object(client.flags, "start", new=AsyncMock()),
+            patch.object(client.config, "start", new=AsyncMock()),
+        ):
+            ws = client._ensure_ws()
+            ws._connection_status = "connected"
+            await client.wait_until_ready(timeout=1.0)
+            client.flags.start.assert_awaited_once()
+            client.config.start.assert_awaited_once()
+
+    asyncio.run(_run())
+
+
+def test_async_wait_until_ready_raises_on_timeout():
+    import pytest as _pytest
+
+    from smplkit import TimeoutError as SmplTimeoutError
+
+    async def _run():
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+        with (
+            patch.object(SharedWebSocket, "start"),
+            patch.object(client.flags, "start", new=AsyncMock()),
+            patch.object(client.config, "start", new=AsyncMock()),
+        ):
+            ws = client._ensure_ws()
+            ws._connection_status = "disconnected"
+            with _pytest.raises(SmplTimeoutError, match="websocket did not connect"):
+                await client.wait_until_ready(timeout=0.1)
+
+    asyncio.run(_run())
+
+
 def test_async_smpl_client_no_connect_method():
     """connect() has been removed from AsyncSmplClient."""
     client = AsyncSmplClient(api_key="sk_api_test", environment="test")
@@ -241,7 +309,7 @@ def test_smpl_client_default_urls():
     assert client._http_client._base_url == "https://config.smplkit.com"
     assert client._app_base_url == "https://app.smplkit.com"
     assert client.flags._flags_http._base_url == "https://flags.smplkit.com"
-    assert client.flags._app_http._base_url == "https://app.smplkit.com"
+    assert client.manage._app_http._base_url == "https://app.smplkit.com"
     assert client.logging._logging_http._base_url == "https://logging.smplkit.com"
 
 
@@ -256,7 +324,7 @@ def test_smpl_client_custom_base_domain():
     assert client._http_client._base_url == "http://config.localhost"
     assert client._app_base_url == "http://app.localhost"
     assert client.flags._flags_http._base_url == "http://flags.localhost"
-    assert client.flags._app_http._base_url == "http://app.localhost"
+    assert client.manage._app_http._base_url == "http://app.localhost"
     assert client.logging._logging_http._base_url == "http://logging.localhost"
 
 
@@ -293,7 +361,7 @@ def test_async_smpl_client_custom_base_domain():
     assert client._http_client._base_url == "http://config.localhost"
     assert client._app_base_url == "http://app.localhost"
     assert client.flags._flags_http._base_url == "http://flags.localhost"
-    assert client.flags._app_http._base_url == "http://app.localhost"
+    assert client.manage._app_http._base_url == "http://app.localhost"
     assert client.logging._logging_http._base_url == "http://logging.localhost"
 
 
@@ -347,3 +415,430 @@ def test_async_logging_client_stores_logging_base_url():
         scheme="http",
     )
     assert client.logging._logging_base_url == "http://logging.localhost"
+
+
+# ---------------------------------------------------------------------------
+# set_context — per-request context management via contextvars
+# ---------------------------------------------------------------------------
+
+
+def test_set_context_stashes_into_contextvar():
+    from smplkit import Context
+    from smplkit._context import get_context
+
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    client.set_context([Context("user", "u-1", plan="enterprise")])
+    stashed = get_context()
+    assert len(stashed) == 1
+    assert stashed[0].type == "user"
+    assert stashed[0].key == "u-1"
+
+
+def test_set_context_with_block_reverts_on_exit():
+    from smplkit import Context
+    from smplkit._context import get_context
+
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    client.set_context([Context("user", "outer")])
+    with client.set_context([Context("user", "inner")]):
+        assert get_context()[0].key == "inner"
+    assert get_context()[0].key == "outer"
+
+
+def test_set_context_nested_with_blocks_lifo():
+    from smplkit import Context
+    from smplkit._context import get_context
+
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    client.set_context([Context("user", "outer")])
+    with client.set_context([Context("user", "middle")]):
+        with client.set_context([Context("user", "inner")]):
+            assert get_context()[0].key == "inner"
+        assert get_context()[0].key == "middle"
+    assert get_context()[0].key == "outer"
+
+
+def test_set_context_async_with_block_reverts_on_exit():
+    from smplkit import Context
+    from smplkit._context import get_context
+
+    async def _run():
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+        client.set_context([Context("user", "outer")])
+        async with client.set_context([Context("user", "inner")]):
+            assert get_context()[0].key == "inner"
+        assert get_context()[0].key == "outer"
+
+    asyncio.run(_run())
+
+
+def test_async_set_context_stashes_into_contextvar():
+    from smplkit import Context
+    from smplkit._context import get_context
+
+    client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+    client.set_context([Context("account", "acme", region="us")])
+    stashed = get_context()
+    assert stashed[0].type == "account"
+    assert stashed[0].key == "acme"
+
+
+def test_get_context_default_is_empty():
+    from smplkit._context import _request_context, get_context
+
+    # reset to default to defend against test ordering
+    _request_context.set([])
+    assert get_context() == []
+
+
+# ---------------------------------------------------------------------------
+# set_context — eager registration
+# ---------------------------------------------------------------------------
+
+
+def test_set_context_eagerly_registers():
+    """``set_context([...])`` queues contexts for bulk registration."""
+    from smplkit import Context
+
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    try:
+        client.set_context([Context("user", "u-1", plan="enterprise")])
+        assert client.manage.contexts._buffer.pending_count >= 1
+    finally:
+        client.close()
+
+
+def test_set_context_empty_does_not_register():
+    """Empty context list is a no-op for registration."""
+    from smplkit import Context  # noqa: F401  -- ensure side-effect-free import
+
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    try:
+        # Service context registration runs in a daemon thread; the local
+        # registration buffer is unrelated to that.  An empty set_context
+        # must not push anything.
+        before = client.manage.contexts._buffer.pending_count
+        client.set_context([])
+        after = client.manage.contexts._buffer.pending_count
+        assert after == before
+    finally:
+        client.close()
+
+
+def test_async_set_context_eagerly_registers():
+    """``AsyncSmplClient.set_context([...])`` queues contexts for bulk registration."""
+    from smplkit import Context
+
+    async def _run():
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+        try:
+            client.set_context([Context("account", "acme", region="us")])
+            assert client.manage.contexts._buffer.pending_count >= 1
+        finally:
+            await client.close()
+
+    asyncio.run(_run())
+
+
+def test_async_set_context_empty_does_not_register():
+    async def _run():
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+        try:
+            before = client.manage.contexts._buffer.pending_count
+            client.set_context([])
+            after = client.manage.contexts._buffer.pending_count
+            assert after == before
+        finally:
+            await client.close()
+
+    asyncio.run(_run())
+
+
+# ---------------------------------------------------------------------------
+# Periodic flush timer — lifecycle
+# ---------------------------------------------------------------------------
+
+
+def test_smpl_client_init_starts_periodic_flush_timer():
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    try:
+        assert client._flush_timer is not None
+        assert client._closed is False
+    finally:
+        client.close()
+
+
+def test_smpl_client_close_cancels_timer_and_runs_final_flush():
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    timer_before = client._flush_timer
+    assert timer_before is not None
+    with (
+        patch.object(client.manage.contexts, "flush") as mock_ctx_flush,
+        patch.object(client.manage.flags, "flush") as mock_flag_flush,
+        patch.object(client.manage.loggers, "flush") as mock_log_flush,
+    ):
+        client.close()
+    assert client._closed is True
+    assert client._flush_timer is None
+    mock_ctx_flush.assert_called_once()
+    mock_flag_flush.assert_called_once()
+    mock_log_flush.assert_called_once()
+
+
+def test_async_smpl_client_init_starts_periodic_flush_timer():
+    async def _run():
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+        try:
+            assert client._flush_timer is not None
+            assert client._closed is False
+        finally:
+            await client.close()
+
+    asyncio.run(_run())
+
+
+def test_async_smpl_client_close_cancels_timer_and_runs_final_flush():
+    async def _run():
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+        assert client._flush_timer is not None
+        with (
+            patch.object(client.manage.contexts, "flush", new=AsyncMock()) as mock_ctx_flush,
+            patch.object(client.manage.flags, "flush", new=AsyncMock()) as mock_flag_flush,
+            patch.object(client.manage.loggers, "flush", new=AsyncMock()) as mock_log_flush,
+        ):
+            await client.close()
+        assert client._closed is True
+        assert client._flush_timer is None
+        mock_ctx_flush.assert_awaited_once()
+        mock_flag_flush.assert_awaited_once()
+        mock_log_flush.assert_awaited_once()
+
+    asyncio.run(_run())
+
+
+def test_periodic_flush_tick_drains_buffers():
+    """Firing the timer's callback drains all three buffers."""
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    try:
+        timer = client._flush_timer
+        assert timer is not None
+        timer.cancel()
+        with (
+            patch.object(client.manage.contexts, "flush") as mock_ctx_flush,
+            patch.object(client.manage.flags, "flush") as mock_flag_flush,
+            patch.object(client.manage.loggers, "flush") as mock_log_flush,
+            patch.object(client, "_schedule_periodic_flush"),
+        ):
+            timer.function()
+        mock_ctx_flush.assert_called_once()
+        mock_flag_flush.assert_called_once()
+        mock_log_flush.assert_called_once()
+    finally:
+        client._closed = True
+        if client._flush_timer is not None:
+            client._flush_timer.cancel()
+
+
+def test_async_periodic_flush_tick_drains_buffers_via_sync_variants():
+    """The async client's tick uses ``flush_sync`` so it can run on a thread."""
+
+    async def _run():
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+        try:
+            timer = client._flush_timer
+            assert timer is not None
+            timer.cancel()
+            with (
+                patch.object(client.manage.contexts, "flush_sync") as mock_ctx_flush,
+                patch.object(client.manage.flags, "flush_sync") as mock_flag_flush,
+                patch.object(client.manage.loggers, "flush_sync") as mock_log_flush,
+                patch.object(client, "_schedule_periodic_flush"),
+            ):
+                timer.function()
+            mock_ctx_flush.assert_called_once()
+            mock_flag_flush.assert_called_once()
+            mock_log_flush.assert_called_once()
+        finally:
+            client._closed = True
+            if client._flush_timer is not None:
+                client._flush_timer.cancel()
+            await client.close()
+
+    asyncio.run(_run())
+
+
+def test_periodic_flush_tick_no_op_when_closed():
+    """If the timer fires after ``close()`` set ``_closed``, the tick is a no-op."""
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    timer = client._flush_timer
+    assert timer is not None
+    timer.cancel()
+    client._closed = True
+    with (
+        patch.object(client.manage.contexts, "flush") as mock_ctx_flush,
+        patch.object(client, "_schedule_periodic_flush") as mock_resched,
+    ):
+        timer.function()
+    mock_ctx_flush.assert_not_called()
+    mock_resched.assert_not_called()
+
+
+def test_async_periodic_flush_tick_no_op_when_closed():
+    async def _run():
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+        timer = client._flush_timer
+        assert timer is not None
+        timer.cancel()
+        client._closed = True
+        with (
+            patch.object(client.manage.contexts, "flush_sync") as mock_ctx_flush,
+            patch.object(client, "_schedule_periodic_flush") as mock_resched,
+        ):
+            timer.function()
+        mock_ctx_flush.assert_not_called()
+        mock_resched.assert_not_called()
+        await client.close()
+
+    asyncio.run(_run())
+
+
+def test_periodic_flush_tick_swallows_flush_errors():
+    """A flush exception during the tick logs a warning but doesn't raise."""
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    timer = client._flush_timer
+    assert timer is not None
+    timer.cancel()
+    with (
+        patch.object(client.manage.contexts, "flush", side_effect=RuntimeError("boom")),
+        patch.object(client, "_schedule_periodic_flush") as mock_resched,
+    ):
+        timer.function()
+    # The loop catches and reschedules — verify reschedule still ran.
+    mock_resched.assert_called_once()
+    client._closed = True
+    if client._flush_timer is not None:
+        client._flush_timer.cancel()
+
+
+def test_async_periodic_flush_tick_swallows_flush_errors():
+    async def _run():
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+        timer = client._flush_timer
+        assert timer is not None
+        timer.cancel()
+        with (
+            patch.object(client.manage.contexts, "flush_sync", side_effect=RuntimeError("boom")),
+            patch.object(client.manage.flags, "flush_sync"),
+            patch.object(client.manage.loggers, "flush_sync"),
+            patch.object(client, "_schedule_periodic_flush") as mock_resched,
+        ):
+            timer.function()
+        mock_resched.assert_called_once()
+        client._closed = True
+        if client._flush_timer is not None:
+            client._flush_timer.cancel()
+        await client.close()
+
+    asyncio.run(_run())
+
+
+def test_final_flush_swallows_errors():
+    """``_final_flush`` keeps draining each buffer even if one raises."""
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    with (
+        patch.object(client.manage.contexts, "flush", side_effect=RuntimeError("boom")),
+        patch.object(client.manage.flags, "flush") as mock_flag,
+        patch.object(client.manage.loggers, "flush") as mock_log,
+    ):
+        client._final_flush()
+    mock_flag.assert_called_once()
+    mock_log.assert_called_once()
+    client._closed = True
+    if client._flush_timer is not None:
+        client._flush_timer.cancel()
+
+
+def test_async_final_flush_swallows_errors():
+    async def _run():
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+        with (
+            patch.object(client.manage.contexts, "flush", new=AsyncMock(side_effect=RuntimeError("boom"))),
+            patch.object(client.manage.flags, "flush", new=AsyncMock()) as mock_flag,
+            patch.object(client.manage.loggers, "flush", new=AsyncMock()) as mock_log,
+        ):
+            await client._final_flush()
+        mock_flag.assert_awaited_once()
+        mock_log.assert_awaited_once()
+        client._closed = True
+        if client._flush_timer is not None:
+            client._flush_timer.cancel()
+        with (
+            patch.object(client.manage.contexts, "flush", new=AsyncMock()),
+            patch.object(client.manage.flags, "flush", new=AsyncMock()),
+            patch.object(client.manage.loggers, "flush", new=AsyncMock()),
+        ):
+            await client.close()
+
+    asyncio.run(_run())
+
+
+# ---------------------------------------------------------------------------
+# flag.get(context=[...]) eagerly registers the explicit context
+# ---------------------------------------------------------------------------
+
+
+def test_flag_get_with_explicit_context_registers():
+    """Sync ``flag.get(context=[...])`` queues the explicit context for registration."""
+    from smplkit import Context
+
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    try:
+        flag = client.flags.boolean_flag("dark-mode", default=False)
+        client.flags._connected = True  # short-circuit lazy connect
+        client.flags._flag_store = {"dark-mode": {"id": "dark-mode", "default": False, "environments": {}}}
+        before = client.manage.contexts._buffer.pending_count
+        flag.get(context=[Context("user", "explicit-1", plan="pro")])
+        assert client.manage.contexts._buffer.pending_count > before
+    finally:
+        client.close()
+
+
+def test_async_flag_get_with_explicit_context_registers():
+    """Async ``flag.get(context=[...])`` queues the explicit context for registration."""
+    from smplkit import Context
+
+    async def _run():
+        client = AsyncSmplClient(api_key="sk_api_test", environment="test")
+        try:
+            flag = client.flags.boolean_flag("dark-mode", default=False)
+            client.flags._connected = True
+            client.flags._flag_store = {"dark-mode": {"id": "dark-mode", "default": False, "environments": {}}}
+            before = client.manage.contexts._buffer.pending_count
+            flag.get(context=[Context("user", "explicit-async", plan="pro")])
+            assert client.manage.contexts._buffer.pending_count > before
+        finally:
+            with (
+                patch.object(client.manage.contexts, "flush", new=AsyncMock()),
+                patch.object(client.manage.flags, "flush", new=AsyncMock()),
+                patch.object(client.manage.loggers, "flush", new=AsyncMock()),
+            ):
+                await client.close()
+
+    asyncio.run(_run())
+
+
+def test_flag_get_with_set_context_does_not_double_register():
+    """When ``set_context`` already registered, ``flag.get()`` reads contextvar without re-registering."""
+    from smplkit import Context
+
+    client = SmplClient(api_key="sk_api_test", environment="test")
+    try:
+        flag = client.flags.boolean_flag("dark-mode", default=False)
+        client.flags._connected = True
+        client.flags._flag_store = {"dark-mode": {"id": "dark-mode", "default": False, "environments": {}}}
+        client.set_context([Context("user", "u-set", plan="free")])
+        baseline = client.manage.contexts._buffer.pending_count
+        flag.get()
+        assert client.manage.contexts._buffer.pending_count == baseline
+    finally:
+        client.close()

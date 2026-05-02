@@ -6,11 +6,11 @@ import httpx
 import pytest
 
 from smplkit._errors import (
-    SmplConflictError,
-    SmplConnectionError,
-    SmplNotFoundError,
-    SmplTimeoutError,
-    SmplValidationError,
+    ConflictError,
+    ConnectionError,
+    NotFoundError,
+    TimeoutError,
+    ValidationError,
 )
 from smplkit._generated.config.models.config_environments_type_0 import (
     ConfigEnvironmentsType0,
@@ -25,14 +25,16 @@ from smplkit._generated.config.models.environment_override_values_type_0 import 
     EnvironmentOverrideValuesType0,
 )
 from smplkit.config.client import (
-    _build_request_body,
     _check_response_status,
+    _maybe_reraise_network_error,
+)
+from smplkit.config.helpers import (
+    _build_config_request_body as _build_request_body,
     _extract_datetime,
     _extract_environments,
     _extract_items,
     _make_environments,
     _make_items,
-    _maybe_reraise_network_error,
     _unset_to_none,
 )
 
@@ -74,6 +76,16 @@ class TestMakeEnvironments:
         result = _make_environments({"prod": "invalid"})
         env_override = result.additional_properties["prod"]
         assert isinstance(env_override, EnvironmentOverride)
+
+    def test_config_environment_instance(self):
+        """A ConfigEnvironment instance unwraps to the wire format."""
+        from smplkit.config.models import ConfigEnvironment
+
+        env = ConfigEnvironment(values={"host": {"value": "db-prod", "type": "STRING"}})
+        result = _make_environments({"prod": env})
+        env_override = result.additional_properties["prod"]
+        assert isinstance(env_override, EnvironmentOverride)
+        assert env_override.values.additional_properties["host"].value == "db-prod"
 
 
 class TestExtractItems:
@@ -179,15 +191,15 @@ class TestUnsetToNone:
 
 class TestCheckResponseStatus:
     def test_404_raises_not_found(self):
-        with pytest.raises(SmplNotFoundError):
+        with pytest.raises(NotFoundError):
             _check_response_status(HTTPStatus.NOT_FOUND, b"Not Found")
 
     def test_409_raises_conflict(self):
-        with pytest.raises(SmplConflictError):
+        with pytest.raises(ConflictError):
             _check_response_status(HTTPStatus.CONFLICT, b"Conflict")
 
     def test_422_raises_validation(self):
-        with pytest.raises(SmplValidationError):
+        with pytest.raises(ValidationError):
             _check_response_status(HTTPStatus.UNPROCESSABLE_ENTITY, b"Validation Error")
 
     def test_200_does_not_raise(self):
@@ -210,55 +222,55 @@ class TestBuildRequestBody:
 
 class TestMaybeReraiseNetworkError:
     def test_timeout_exception(self):
-        with pytest.raises(SmplTimeoutError):
+        with pytest.raises(TimeoutError):
             _maybe_reraise_network_error(httpx.ReadTimeout("timed out"))
 
     def test_timeout_includes_url_when_available(self):
         exc = httpx.ReadTimeout("timed out")
         exc.request = httpx.Request("GET", "http://config.localhost/api/v1/configs")
-        with pytest.raises(SmplTimeoutError, match="http://config.localhost/api/v1/configs"):
+        with pytest.raises(TimeoutError, match="http://config.localhost/api/v1/configs"):
             _maybe_reraise_network_error(exc)
 
     def test_connection_error(self):
-        with pytest.raises(SmplConnectionError):
+        with pytest.raises(ConnectionError):
             _maybe_reraise_network_error(httpx.ConnectError("connection refused"))
 
     def test_connection_error_includes_url_when_available(self):
         exc = httpx.ConnectError("nodename nor servname provided, or not known")
         exc.request = httpx.Request("GET", "http://config.localhost/api/v1/configs")
-        with pytest.raises(SmplConnectionError, match="http://config.localhost/api/v1/configs"):
+        with pytest.raises(ConnectionError, match="http://config.localhost/api/v1/configs"):
             _maybe_reraise_network_error(exc)
 
     def test_connection_error_fallback_message_without_url(self):
         exc = httpx.ConnectError("nodename nor servname provided, or not known")
-        with pytest.raises(SmplConnectionError, match="Connection error"):
+        with pytest.raises(ConnectionError, match="Connection error"):
             _maybe_reraise_network_error(exc)
 
     def test_connection_error_uses_base_url_when_request_not_attached(self):
         exc = httpx.ConnectError("nodename nor servname provided, or not known")
-        with pytest.raises(SmplConnectionError, match="http://config.localhost"):
+        with pytest.raises(ConnectionError, match="http://config.localhost"):
             _maybe_reraise_network_error(exc, "http://config.localhost")
 
     def test_timeout_uses_base_url_when_request_not_attached(self):
         exc = httpx.ReadTimeout("timed out")
-        with pytest.raises(SmplTimeoutError, match="http://config.localhost"):
+        with pytest.raises(TimeoutError, match="http://config.localhost"):
             _maybe_reraise_network_error(exc, "http://config.localhost")
 
     def test_exc_url_takes_precedence_over_base_url(self):
         exc = httpx.ConnectError("refused")
         exc.request = httpx.Request("GET", "http://config.localhost/api/v1/configs")
-        with pytest.raises(SmplConnectionError, match="http://config.localhost/api/v1/configs"):
+        with pytest.raises(ConnectionError, match="http://config.localhost/api/v1/configs"):
             _maybe_reraise_network_error(exc, "http://other.host")
 
     def test_sdk_errors_reraise(self):
-        with pytest.raises(SmplNotFoundError):
-            _maybe_reraise_network_error(SmplNotFoundError("not found"))
+        with pytest.raises(NotFoundError):
+            _maybe_reraise_network_error(NotFoundError("not found"))
 
-        with pytest.raises(SmplConflictError):
-            _maybe_reraise_network_error(SmplConflictError("conflict"))
+        with pytest.raises(ConflictError):
+            _maybe_reraise_network_error(ConflictError("conflict"))
 
-        with pytest.raises(SmplValidationError):
-            _maybe_reraise_network_error(SmplValidationError("invalid"))
+        with pytest.raises(ValidationError):
+            _maybe_reraise_network_error(ValidationError("invalid"))
 
     def test_other_exceptions_pass_through(self):
         # Should not raise — just returns
