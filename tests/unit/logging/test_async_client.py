@@ -546,7 +546,7 @@ class TestAsyncStart:
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
     @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
-    def test_start_connects(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
+    def test_install_connects(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
         mock_adapter.discover.return_value = []
         mock_auto_load.return_value = [mock_adapter]
@@ -555,7 +555,7 @@ class TestAsyncStart:
         mock_groups.return_value = _ok_response(_make_list_parsed([]))
 
         client = _make_async_logging_client()
-        asyncio.run(client.start())
+        asyncio.run(client.install())
         assert client._connected is True
         client._close()
 
@@ -563,7 +563,7 @@ class TestAsyncStart:
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
     @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
-    def test_start_is_idempotent(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
+    def test_install_is_idempotent(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
         mock_adapter.discover.return_value = []
         mock_auto_load.return_value = [mock_adapter]
@@ -572,8 +572,8 @@ class TestAsyncStart:
         mock_groups.return_value = _ok_response(_make_list_parsed([]))
 
         client = _make_async_logging_client()
-        asyncio.run(client.start())
-        asyncio.run(client.start())
+        asyncio.run(client.install())
+        asyncio.run(client.install())
         mock_auto_load.assert_called_once()
         client._close()
 

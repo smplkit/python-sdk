@@ -7,20 +7,19 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from smplkit.flags.types import Context
 from smplkit.management.models import (
     AccountSettings,
     AsyncAccountSettings,
-    AsyncContextEntity,
     AsyncContextType,
     AsyncEnvironment,
-    ContextEntity,
     ContextType,
     Environment,
     _AccountSettingsBase,
     _ContextTypeBase,
     _EnvironmentBase,
 )
-from smplkit.management.types import EnvironmentClassification
+from smplkit.management.types import Color, EnvironmentClassification
 
 
 # ---------------------------------------------------------------------------
@@ -51,7 +50,7 @@ class TestEnvironmentBase:
             updated_at="2026-01-02",
         )
         assert env.id == "env-1"
-        assert env.color == "#00ff00"
+        assert env.color == Color("#00ff00")
         assert env.classification == EnvironmentClassification.AD_HOC
 
     def test_repr(self):
@@ -67,8 +66,33 @@ class TestEnvironmentBase:
         env1._apply(env2)
         assert env1.name == "staging"
         assert env1.id == "e-2"
-        assert env1.color == "#ff0000"
+        assert env1.color == Color("#ff0000")
         assert env1.updated_at == "2026-02-01"
+
+    def test_color_setter_accepts_hex_string(self):
+        env = Environment(name="production")
+        env.color = "#ef4444"
+        assert env.color == Color("#ef4444")
+
+    def test_color_setter_accepts_color_instance(self):
+        env = Environment(name="production")
+        env.color = Color("#ef4444")
+        assert env.color == Color("#ef4444")
+
+    def test_color_setter_accepts_none(self):
+        env = Environment(name="production", color="#ef4444")
+        env.color = None
+        assert env.color is None
+
+    def test_color_setter_rejects_other_types(self):
+        env = Environment(name="production")
+        with pytest.raises(TypeError, match="color must be a Color, hex string, or None"):
+            env.color = 0xEF4444  # type: ignore[assignment]
+
+    def test_color_setter_rejects_invalid_hex(self):
+        env = Environment(name="production")
+        with pytest.raises(ValueError, match="must be a CSS hex string"):
+            env.color = "red"
 
 
 class TestEnvironmentSave:
@@ -253,40 +277,34 @@ class TestAsyncContextTypeSave:
 
 
 # ---------------------------------------------------------------------------
-# _ContextEntityBase / ContextEntity / AsyncContextEntity
+# Context (server-returned)
 # ---------------------------------------------------------------------------
 
 
-class TestContextEntityBase:
+class TestContextServerSide:
     def test_init(self):
-        entity = ContextEntity(type="user", key="u-1", name="Alice", attributes={"plan": "pro"})
-        assert entity.type == "user"
-        assert entity.key == "u-1"
-        assert entity.name == "Alice"
-        assert entity.attributes == {"plan": "pro"}
+        ctx = Context("user", "u-1", {"plan": "pro"}, name="Alice")
+        assert ctx.type == "user"
+        assert ctx.key == "u-1"
+        assert ctx.name == "Alice"
+        assert ctx.attributes == {"plan": "pro"}
 
-    def test_default_init(self):
-        entity = ContextEntity(type="user", key="u-1")
-        assert entity.name is None
-        assert entity.attributes == {}
-        assert entity.created_at is None
-        assert entity.updated_at is None
+    def test_default_metadata(self):
+        ctx = Context("user", "u-1")
+        assert ctx.name is None
+        assert ctx.attributes == {}
+        assert ctx.created_at is None
+        assert ctx.updated_at is None
 
     def test_id_property(self):
-        entity = ContextEntity(type="user", key="u-42")
-        assert entity.id == "user:u-42"
+        ctx = Context("user", "u-42")
+        assert ctx.id == "user:u-42"
 
-    def test_repr(self):
-        entity = ContextEntity(type="account", key="acme")
-        r = repr(entity)
-        assert "ContextEntity" in r
-        assert "account" in r
-        assert "acme" in r
-
-    def test_async_entity(self):
-        entity = AsyncContextEntity(type="user", key="u-1", created_at="2026-01-01")
-        assert entity.id == "user:u-1"
-        assert entity.created_at == "2026-01-01"
+    def test_with_timestamps(self):
+        ctx = Context("user", "u-1", created_at="2026-01-01", updated_at="2026-01-02")
+        assert ctx.id == "user:u-1"
+        assert ctx.created_at == "2026-01-01"
+        assert ctx.updated_at == "2026-01-02"
 
 
 # ---------------------------------------------------------------------------

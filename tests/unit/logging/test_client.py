@@ -699,7 +699,7 @@ class TestStart:
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
-    def test_start_connects(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
+    def test_install_connects(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
         mock_adapter.discover.return_value = []
         mock_auto_load.return_value = [mock_adapter]
@@ -708,7 +708,7 @@ class TestStart:
         mock_groups.return_value = _ok_response(_make_list_parsed([]))
 
         client = _make_logging_client()
-        client.start()
+        client.install()
         assert client._connected is True
         client._close()
 
@@ -716,7 +716,7 @@ class TestStart:
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
-    def test_start_is_idempotent(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
+    def test_install_is_idempotent(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
         mock_adapter.discover.return_value = []
         mock_auto_load.return_value = [mock_adapter]
@@ -725,8 +725,8 @@ class TestStart:
         mock_groups.return_value = _ok_response(_make_list_parsed([]))
 
         client = _make_logging_client()
-        client.start()
-        client.start()  # second call should be no-op
+        client.install()
+        client.install()  # second call should be no-op
         mock_auto_load.assert_called_once()
         client._close()
 

@@ -5,7 +5,17 @@ from __future__ import annotations
 import datetime
 from typing import TYPE_CHECKING, Any
 
-from smplkit.management.types import EnvironmentClassification
+from smplkit.management.types import Color, EnvironmentClassification
+
+
+def _coerce_color(value: Color | str | None) -> Color | None:
+    """Accept Color, hex string, or None; reject anything else."""
+    if value is None or isinstance(value, Color):
+        return value
+    if isinstance(value, str):
+        return Color(value)
+    raise TypeError(f"color must be a Color, hex string, or None; got {value.__class__.__name__}: {value!r}")
+
 
 if TYPE_CHECKING:  # pragma: no cover
     from smplkit.management.client import (
@@ -28,7 +38,6 @@ class _EnvironmentBase:
 
     id: str | None
     name: str
-    color: str | None
     classification: EnvironmentClassification
     created_at: datetime.datetime | None
     updated_at: datetime.datetime | None
@@ -38,17 +47,25 @@ class _EnvironmentBase:
         *,
         id: str | None = None,
         name: str,
-        color: str | None = None,
+        color: Color | str | None = None,
         classification: EnvironmentClassification = EnvironmentClassification.STANDARD,
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
     ) -> None:
         self.id = id
         self.name = name
-        self.color = color
+        self._color: Color | None = _coerce_color(color)
         self.classification = classification
         self.created_at = created_at
         self.updated_at = updated_at
+
+    @property
+    def color(self) -> Color | None:
+        return self._color
+
+    @color.setter
+    def color(self, value: Color | str | None) -> None:
+        self._color = _coerce_color(value)
 
     def __repr__(self) -> str:
         return f"Environment(id={self.id!r}, name={self.name!r}, classification={self.classification.value!r})"
@@ -56,7 +73,7 @@ class _EnvironmentBase:
     def _apply(self, other: _EnvironmentBase) -> None:
         self.id = other.id
         self.name = other.name
-        self.color = other.color
+        self._color = other._color
         self.classification = other.classification
         self.created_at = other.created_at
         self.updated_at = other.updated_at
@@ -71,7 +88,7 @@ class Environment(_EnvironmentBase):
         *,
         id: str | None = None,
         name: str,
-        color: str | None = None,
+        color: Color | str | None = None,
         classification: EnvironmentClassification = EnvironmentClassification.STANDARD,
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
@@ -112,7 +129,7 @@ class AsyncEnvironment(_EnvironmentBase):
         *,
         id: str | None = None,
         name: str,
-        color: str | None = None,
+        color: Color | str | None = None,
         classification: EnvironmentClassification = EnvironmentClassification.STANDARD,
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
@@ -264,70 +281,6 @@ class AsyncContextType(_ContextTypeBase):
         """Delete this context type from the server."""
         if self._client is None or self.id is None:
             raise RuntimeError("AsyncContextType was constructed without a client or id; cannot delete")
-        await self._client.delete(self.id)
-
-
-# ---------------------------------------------------------------------------
-# ContextEntity (read/delete model — write side is via register())
-# ---------------------------------------------------------------------------
-
-
-class _ContextEntityBase:
-    """A single context instance as returned by the management API.
-
-    The runtime ``client.management.contexts.register([...])`` call
-    accepts the lighter :class:`smplkit.flags.types.Context` builder
-    type; this model is what comes back from ``list``/``get``.
-    """
-
-    type: str
-    key: str
-    name: str | None
-    attributes: dict[str, Any]
-    created_at: datetime.datetime | None
-    updated_at: datetime.datetime | None
-
-    def __init__(
-        self,
-        client: Any = None,
-        *,
-        type: str,
-        key: str,
-        name: str | None = None,
-        attributes: dict[str, Any] | None = None,
-        created_at: datetime.datetime | None = None,
-        updated_at: datetime.datetime | None = None,
-    ) -> None:
-        self._client = client
-        self.type = type
-        self.key = key
-        self.name = name
-        self.attributes = dict(attributes) if attributes else {}
-        self.created_at = created_at
-        self.updated_at = updated_at
-
-    @property
-    def id(self) -> str:
-        """Composite ``"{type}:{key}"`` identifier."""
-        return f"{self.type}:{self.key}"
-
-    def __repr__(self) -> str:
-        return f"ContextEntity(type={self.type!r}, key={self.key!r})"
-
-
-class ContextEntity(_ContextEntityBase):
-    def delete(self) -> None:
-        """Delete this context entity from the server."""
-        if self._client is None:
-            raise RuntimeError("ContextEntity was constructed without a client; cannot delete")
-        self._client.delete(self.id)
-
-
-class AsyncContextEntity(_ContextEntityBase):
-    async def delete(self) -> None:
-        """Delete this context entity from the server."""
-        if self._client is None:
-            raise RuntimeError("AsyncContextEntity was constructed without a client; cannot delete")
         await self._client.delete(self.id)
 
 

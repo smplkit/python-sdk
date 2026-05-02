@@ -42,10 +42,8 @@ from smplkit.management.client import (
 from smplkit.management.models import (
     AccountSettings,
     AsyncAccountSettings,
-    AsyncContextEntity,
     AsyncContextType,
     AsyncEnvironment,
-    ContextEntity,
     ContextType,
     Environment,
 )
@@ -57,7 +55,6 @@ __all__ = [
     "AsyncAccountSettings",
     "AsyncAccountSettingsClient",
     "AsyncConfigClient",
-    "AsyncContextEntity",
     "AsyncContextType",
     "AsyncContextTypesClient",
     "AsyncContextsClient",
@@ -68,7 +65,6 @@ __all__ = [
     "AsyncLoggersClient",
     "AsyncSmplManagementClient",
     "ConfigClient",
-    "ContextEntity",
     "ContextType",
     "ContextTypesClient",
     "ContextsClient",

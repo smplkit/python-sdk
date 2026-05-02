@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from smplkit._errors import NotFoundError, ValidationError
-from smplkit.flags.types import Context
+from smplkit.flags.types import AsyncContext, Context
 from smplkit.management._buffer import _ContextRegistrationBuffer
 from smplkit.management.client import (
     AccountSettingsClient,
@@ -38,14 +38,12 @@ from smplkit.management.client import (
 from smplkit.management.models import (
     AccountSettings,
     AsyncAccountSettings,
-    AsyncContextEntity,
     AsyncContextType,
     AsyncEnvironment,
-    ContextEntity,
     ContextType,
     Environment,
 )
-from smplkit.management.types import EnvironmentClassification
+from smplkit.management.types import Color, EnvironmentClassification
 
 
 # ---------------------------------------------------------------------------
@@ -235,6 +233,13 @@ class TestEnvFromParsed:
         assert isinstance(result, AsyncEnvironment)
         assert result.classification == EnvironmentClassification.AD_HOC
 
+    def test_unset_color_normalized_to_none(self):
+        from smplkit._generated.app.types import UNSET
+
+        parsed = _parsed_env_resp(color=UNSET)
+        result = _env_from_parsed(parsed, sync_client=MagicMock(), async_client=None)
+        assert result.color is None
+
 
 class TestEnvResourceFromDict:
     def test_sync(self):
@@ -250,7 +255,7 @@ class TestEnvResourceFromDict:
         result = _env_resource_from_dict(item, sync_client=MagicMock())
         assert isinstance(result, Environment)
         assert result.id == "env-1"
-        assert result.color == "#ff0000"
+        assert result.color == Color("#ff0000")
 
     def test_async_ad_hoc(self):
         item = {
@@ -339,7 +344,7 @@ class TestCtxEntityFromParsed:
     def test_sync(self):
         parsed = _parsed_ctx_resp("user:u-1", name="Alice")
         result = _ctx_entity_from_parsed(parsed, sync=True)
-        assert isinstance(result, ContextEntity)
+        assert isinstance(result, Context)
         assert result.type == "user"
         assert result.key == "u-1"
         assert result.name == "Alice"
@@ -347,7 +352,7 @@ class TestCtxEntityFromParsed:
     def test_async(self):
         parsed = _parsed_ctx_resp("account:acme")
         result = _ctx_entity_from_parsed(parsed, sync=False)
-        assert isinstance(result, AsyncContextEntity)
+        assert isinstance(result, AsyncContext)
         assert result.type == "account"
         assert result.key == "acme"
 
@@ -387,7 +392,7 @@ class TestCtxEntityFromDict:
             "attributes": {"name": "Alice", "attributes": {"plan": "pro"}},
         }
         result = _ctx_entity_from_dict(item)
-        assert isinstance(result, ContextEntity)
+        assert isinstance(result, Context)
         assert result.type == "user"
         assert result.key == "u-1"
         assert result.attributes == {"plan": "pro"}
@@ -395,7 +400,7 @@ class TestCtxEntityFromDict:
     def test_async(self):
         item = {"id": "account:acme", "attributes": {}}
         result = _ctx_entity_from_dict(item, async_=True)
-        assert isinstance(result, AsyncContextEntity)
+        assert isinstance(result, AsyncContext)
 
     def test_no_colon(self):
         result = _ctx_entity_from_dict({"id": "nocolon", "attributes": {}})
@@ -437,7 +442,7 @@ class TestEnvironmentsClient:
         assert isinstance(env, Environment)
         assert env.id == "env-1"
         assert env.name == "production"
-        assert env.color == "#ff0000"
+        assert env.color == Color("#ff0000")
 
     @patch("smplkit.management.client._gen_list_environments.sync_detailed")
     def test_list(self, mock_list):
@@ -967,6 +972,52 @@ class TestContextsClient:
         client.delete("account", "acme")
         mock_delete.assert_called_once_with("account:acme", client=client._app_http)
 
+    @patch("smplkit.management.client._gen_update_context.sync_detailed")
+    def test_save_context(self, mock_update):
+        parsed = _parsed_ctx_resp("user:u-1", name="Alice")
+        resp = _ok_resp()
+        resp.parsed = parsed
+        mock_update.return_value = resp
+
+        client = _make_contexts_client()
+        ctx = Context("user", "u-1", {"plan": "pro"}, name="Alice")
+        ctx._client = client
+        ctx.save()
+        mock_update.assert_called_once()
+        args, kwargs = mock_update.call_args
+        assert args[0] == "user:u-1"
+        assert kwargs["body"].data.attributes.context_type == "user"
+        assert kwargs["body"].data.attributes.name == "Alice"
+
+    def test_save_without_client_raises(self):
+        ctx = Context("user", "u-1")
+        with pytest.raises(RuntimeError, match="cannot save"):
+            ctx.save()
+
+    @patch("smplkit.management.client._gen_update_context.sync_detailed")
+    def test_save_validation_error_when_parsed_is_none(self, mock_update):
+        resp = _ok_resp()
+        resp.parsed = None
+        mock_update.return_value = resp
+
+        client = _make_contexts_client()
+        ctx = Context("user", "u-1")
+        ctx._client = client
+        with pytest.raises(ValidationError):
+            ctx.save()
+
+    def test_delete_via_active_record(self):
+        client = MagicMock()
+        ctx = Context("user", "u-1")
+        ctx._client = client
+        ctx.delete()
+        client.delete.assert_called_once_with("user:u-1")
+
+    def test_delete_without_client_raises(self):
+        ctx = Context("user", "u-1")
+        with pytest.raises(RuntimeError, match="cannot delete"):
+            ctx.delete()
+
 
 # ---------------------------------------------------------------------------
 # AsyncContextsClient
@@ -1023,7 +1074,7 @@ class TestAsyncContextsClient:
             with patch("smplkit.management.client._gen_list_contexts.asyncio_detailed", mock_coro):
                 client = _make_async_contexts_client()
                 result = await client.list("account")
-                assert isinstance(result[0], AsyncContextEntity)
+                assert isinstance(result[0], AsyncContext)
                 assert result[0].type == "account"
 
         asyncio.run(_run())
@@ -1037,7 +1088,7 @@ class TestAsyncContextsClient:
             with patch("smplkit.management.client._gen_get_context.asyncio_detailed", mock_coro):
                 client = _make_async_contexts_client()
                 entity = await client.get("user:u-1")
-                assert isinstance(entity, AsyncContextEntity)
+                assert isinstance(entity, AsyncContext)
                 assert entity.type == "user"
 
         asyncio.run(_run())
@@ -1084,6 +1135,62 @@ class TestAsyncContextsClient:
                 client = _make_async_contexts_client()
                 await client.delete("account", "acme")
                 mock_coro.assert_called_once_with("account:acme", client=client._app_http)
+
+        asyncio.run(_run())
+
+    def test_save_context(self):
+        async def _run():
+            parsed = _parsed_ctx_resp("user:u-1", name="Alice")
+            resp = _ok_resp()
+            resp.parsed = parsed
+            mock_coro = AsyncMock(return_value=resp)
+            with patch("smplkit.management.client._gen_update_context.asyncio_detailed", mock_coro):
+                client = _make_async_contexts_client()
+                ctx = AsyncContext("user", "u-1", {"plan": "pro"}, name="Alice")
+                ctx._client = client
+                await ctx.save()
+                mock_coro.assert_called_once()
+
+        asyncio.run(_run())
+
+    def test_save_without_client_raises(self):
+        async def _run():
+            ctx = AsyncContext("user", "u-1")
+            with pytest.raises(RuntimeError, match="cannot save"):
+                await ctx.save()
+
+        asyncio.run(_run())
+
+    def test_save_validation_error_when_parsed_is_none(self):
+        async def _run():
+            resp = _ok_resp()
+            resp.parsed = None
+            mock_coro = AsyncMock(return_value=resp)
+            with patch("smplkit.management.client._gen_update_context.asyncio_detailed", mock_coro):
+                client = _make_async_contexts_client()
+                ctx = AsyncContext("user", "u-1")
+                ctx._client = client
+                with pytest.raises(ValidationError):
+                    await ctx.save()
+
+        asyncio.run(_run())
+
+    def test_delete_via_active_record(self):
+        async def _run():
+            client = MagicMock()
+            client.delete = AsyncMock()
+            ctx = AsyncContext("user", "u-1")
+            ctx._client = client
+            await ctx.delete()
+            client.delete.assert_called_once_with("user:u-1")
+
+        asyncio.run(_run())
+
+    def test_delete_without_client_raises(self):
+        async def _run():
+            ctx = AsyncContext("user", "u-1")
+            with pytest.raises(RuntimeError, match="cannot delete"):
+                await ctx.delete()
 
         asyncio.run(_run())
 
@@ -1350,7 +1457,7 @@ class TestAsyncMgmtFlagsRegisterAndFlush:
 
 
 # ---------------------------------------------------------------------------
-# Active-record delete() — Environment, ContextType, ContextEntity
+# Active-record delete() — Environment, ContextType, Context
 # ---------------------------------------------------------------------------
 
 
@@ -1428,45 +1535,6 @@ class TestAsyncContextTypeDelete:
         async def _run():
             with pytest.raises(RuntimeError, match="cannot delete"):
                 await ct.delete()
-
-        asyncio.run(_run())
-
-
-class TestContextEntityDelete:
-    def test_calls_client_delete(self):
-        from smplkit.management.models import ContextEntity
-
-        client = MagicMock()
-        ent = ContextEntity(client, type="user", key="u-1")
-        ent.delete()
-        client.delete.assert_called_once_with("user:u-1")
-
-    def test_without_client_raises(self):
-        from smplkit.management.models import ContextEntity
-
-        ent = ContextEntity(None, type="user", key="u-1")
-        with pytest.raises(RuntimeError, match="cannot delete"):
-            ent.delete()
-
-
-class TestAsyncContextEntityDelete:
-    def test_calls_client_delete(self):
-        from smplkit.management.models import AsyncContextEntity
-
-        client = MagicMock()
-        client.delete = AsyncMock()
-        ent = AsyncContextEntity(client, type="user", key="u-1")
-        asyncio.run(ent.delete())
-        client.delete.assert_called_once_with("user:u-1")
-
-    def test_without_client_raises(self):
-        from smplkit.management.models import AsyncContextEntity
-
-        ent = AsyncContextEntity(None, type="user", key="u-1")
-
-        async def _run():
-            with pytest.raises(RuntimeError, match="cannot delete"):
-                await ent.delete()
 
         asyncio.run(_run())
 

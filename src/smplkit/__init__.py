@@ -14,10 +14,10 @@ from smplkit._errors import (
 )
 from smplkit.config.models import ConfigEnvironment, ConfigItem, ItemType
 from smplkit.flags.models import FlagEnvironment, FlagRule, FlagValue
-from smplkit.flags.types import Context, FlagDeclaration, Op, Rule
+from smplkit.flags.types import AsyncContext, Context, FlagDeclaration, Op, Rule
 from smplkit.logging._sources import LoggerSource
 from smplkit.management.client import AsyncSmplManagementClient, SmplManagementClient
-from smplkit.management.types import EnvironmentClassification
+from smplkit.management.types import Color, EnvironmentClassification
 
 
 class LogLevel(str, enum.Enum):
@@ -34,8 +34,10 @@ class LogLevel(str, enum.Enum):
 
 __all__ = [
     "ApiErrorDetail",
+    "AsyncContext",
     "AsyncSmplClient",
     "AsyncSmplManagementClient",
+    "Color",
     "ConfigEnvironment",
     "ConfigItem",
     "Context",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import datetime
 import enum
 from typing import Any, overload
 
@@ -25,24 +26,28 @@ class Op(str, enum.Enum):
     CONTAINS = "contains"
 
 
-class Context:
-    """A typed evaluation context entity.
+_CONTEXT_FIELDS = frozenset(
+    {
+        "type",
+        "key",
+        "name",
+        "attributes",
+        "created_at",
+        "updated_at",
+        "_client",
+    }
+)
 
-    Represents a single entity (user, account, device, etc.) in the
-    evaluation context.  The *type* and *key* identify the entity;
-    *attributes* (provided as a dict and/or keyword arguments) carry the
-    data that targeting rules evaluate against.
 
-    Examples::
-
-        Context("user", "user-123", plan="enterprise")
-        Context("account", "acme-corp", {"region": "us"}, employee_count=500)
-    """
+class _ContextBase:
+    """Shared state + validation for :class:`Context` / :class:`AsyncContext`."""
 
     type: str
     key: str
     name: str | None
     attributes: dict[str, Any]
+    created_at: datetime.datetime | None
+    updated_at: datetime.datetime | None
 
     def __init__(
         self,
@@ -51,6 +56,8 @@ class Context:
         attributes: dict[str, Any] | None = None,
         *,
         name: str | None = None,
+        created_at: datetime.datetime | None = None,
+        updated_at: datetime.datetime | None = None,
         **kwargs: Any,
     ) -> None:
         if not isinstance(type, str):
@@ -64,9 +71,104 @@ class Context:
         self.key = key
         self.name = name
         self.attributes = {**(attributes or {}), **kwargs}
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self._client = None  # set by SDK parsers when constructed server-side
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        # Block dotted assignment of unknown names — silently mis-routes
+        # what customers usually mean to put in ``attributes``.
+        if name not in _CONTEXT_FIELDS:
+            raise AttributeError(
+                f"Cannot set unknown attribute {name!r} on Context. "
+                f"To add a context attribute use ctx.attributes[{name!r}] = ...; "
+                "to bulk-replace, set ctx.attributes = {...}."
+            )
+        # Identity fields are immutable once the context is persisted;
+        # changing them would mean a different entity, not a mutation.
+        if name in ("type", "key") and getattr(self, "created_at", None) is not None:
+            raise AttributeError(
+                f"Cannot reassign {name!r} on a persisted Context "
+                "(identity is fixed after save). Delete and create a new Context "
+                "if you need a different (type, key)."
+            )
+        object.__setattr__(self, name, value)
+
+    def _apply(self, other: _ContextBase) -> None:
+        # Bypass __setattr__ — the persisted-identity guard would otherwise
+        # block the legitimate post-save copy of fields from the server.
+        object.__setattr__(self, "type", other.type)
+        object.__setattr__(self, "key", other.key)
+        self.name = other.name
+        self.attributes = dict(other.attributes)
+        self.created_at = other.created_at
+        self.updated_at = other.updated_at
+
+    @property
+    def id(self) -> str:
+        """Composite ``"{type}:{key}"`` identifier."""
+        return f"{self.type}:{self.key}"
 
     def __repr__(self) -> str:
-        return f"Context(type={self.type!r}, key={self.key!r}, name={self.name!r}, attributes={self.attributes!r})"
+        return (
+            f"{self.__class__.__name__}(type={self.type!r}, key={self.key!r}, "
+            f"name={self.name!r}, attributes={self.attributes!r})"
+        )
+
+
+class Context(_ContextBase):
+    """A typed entity referenced by targeting rules and registered with smplkit.
+
+    Represents a single entity (user, account, device, etc.).  The *type*
+    and *key* identify the entity; *attributes* (provided as a dict and/or
+    keyword arguments) carry the data that targeting rules evaluate against.
+
+    Used for both authoring (``flag.get(context=[...])``,
+    ``client.set_context([...])``, ``mgmt.contexts.register([...])``)
+    and reading (``mgmt.contexts.list/get`` return populated ``Context``
+    instances with ``save()`` / ``delete()`` ready to call).
+
+    Examples::
+
+        Context("user", "user-123", plan="enterprise")
+        Context("account", "acme-corp", {"region": "us"}, employee_count=500)
+    """
+
+    def save(self) -> None:
+        """Persist this context to the server (create or update)."""
+        if self._client is None:
+            raise RuntimeError("Context was constructed without a client; cannot save")
+        updated = self._client._save_context(self)
+        self._apply(updated)
+
+    def delete(self) -> None:
+        """Delete this context from the server."""
+        if self._client is None:
+            raise RuntimeError("Context was constructed without a client; cannot delete")
+        self._client.delete(self.id)
+
+
+class AsyncContext(_ContextBase):
+    """Async variant of :class:`Context`.
+
+    Returned by ``await mgmt.contexts.list/get`` on the async client.
+    For authoring use cases (``flag.get(context=[...])``,
+    ``client.set_context([...])``, etc.), construct a regular
+    :class:`Context` — input usage doesn't require the async variant.
+    """
+
+    async def save(self) -> None:
+        """Persist this context to the server (create or update)."""
+        if self._client is None:
+            raise RuntimeError("AsyncContext was constructed without a client; cannot save")
+        updated = await self._client._save_context(self)
+        self._apply(updated)
+
+    async def delete(self) -> None:
+        """Delete this context from the server."""
+        if self._client is None:
+            raise RuntimeError("AsyncContext was constructed without a client; cannot delete")
+        await self._client.delete(self.id)
 
 
 @dataclasses.dataclass

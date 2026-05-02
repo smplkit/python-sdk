@@ -193,24 +193,26 @@ class LoggingClient:
     # --- Adapter registration ---
 
     def register_adapter(self, adapter: LoggingAdapter) -> None:
-        """Register a logging adapter. Must be called before start().
+        """Register a logging adapter. Must be called before install().
 
         If called at least once, auto-loading is disabled — only explicitly
         registered adapters are used.
         """
         if self._connected:
-            raise RuntimeError("Cannot register adapters after start()")
+            raise RuntimeError("Cannot register adapters after install()")
         self._explicit_adapters = True
         self._adapters.append(adapter)
 
-    # --- Runtime: start & change listeners ---
+    # --- Runtime: install & change listeners ---
 
-    def start(self) -> None:
-        """Explicitly opt in to runtime logging control.
+    def install(self) -> None:
+        """Hook smplkit into the application's logging machinery.
 
+        Loads adapters, scans existing loggers, applies levels from the
+        smplkit server, and wires WebSocket handlers for live updates.
         Idempotent — safe to call multiple times.
         """
-        debug("lifecycle", "LoggingClient.start() called")
+        debug("lifecycle", "LoggingClient.install() called")
         self._connect_internal()
 
     def on_change(self, fn_or_key: Callable[..., Any] | str | None = None) -> Any:
@@ -246,7 +248,7 @@ class LoggingClient:
     # --- Prescriptive (connect-gated) ---
 
     def _connect_internal(self) -> None:
-        """Called by ``SmplClient.connect()`` or :meth:`start`."""
+        """Called by ``SmplClient.connect()`` or :meth:`install`."""
         if self._connected:
             return
 
@@ -282,7 +284,7 @@ class LoggingClient:
 
         # 4-6. Fetch, resolve, apply
         try:
-            self._fetch_and_apply(trigger="start()")
+            self._fetch_and_apply(trigger="install()")
         except Exception as exc:
             logger.warning(
                 "Failed to fetch/apply logging levels during connect (logging: %s): %s",
@@ -581,24 +583,26 @@ class AsyncLoggingClient:
     # --- Adapter registration ---
 
     def register_adapter(self, adapter: LoggingAdapter) -> None:
-        """Register a logging adapter. Must be called before start().
+        """Register a logging adapter. Must be called before install().
 
         If called at least once, auto-loading is disabled — only explicitly
         registered adapters are used.
         """
         if self._connected:
-            raise RuntimeError("Cannot register adapters after start()")
+            raise RuntimeError("Cannot register adapters after install()")
         self._explicit_adapters = True
         self._adapters.append(adapter)
 
-    # --- Runtime: start & change listeners ---
+    # --- Runtime: install & change listeners ---
 
-    async def start(self) -> None:
-        """Explicitly opt in to runtime logging control.
+    async def install(self) -> None:
+        """Hook smplkit into the application's logging machinery.
 
+        Loads adapters, scans existing loggers, applies levels from the
+        smplkit server, and wires WebSocket handlers for live updates.
         Idempotent — safe to call multiple times.
         """
-        debug("lifecycle", "AsyncLoggingClient.start() called")
+        debug("lifecycle", "AsyncLoggingClient.install() called")
         await self._connect_internal()
 
     def on_change(self, fn_or_key: Callable[..., Any] | str | None = None) -> Any:
@@ -634,7 +638,7 @@ class AsyncLoggingClient:
     # --- Prescriptive (connect-gated) ---
 
     async def _connect_internal(self) -> None:
-        """Called by ``AsyncSmplClient.connect()`` or :meth:`start`."""
+        """Called by ``AsyncSmplClient.connect()`` or :meth:`install`."""
         if self._connected:
             return
 
@@ -664,7 +668,7 @@ class AsyncLoggingClient:
         await self._flush_bulk_async()
 
         try:
-            await self._fetch_and_apply(trigger="start()")
+            await self._fetch_and_apply(trigger="install()")
         except Exception as exc:
             logger.warning(
                 "Failed to fetch/apply logging levels during connect (logging: %s): %s",

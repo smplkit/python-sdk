@@ -55,6 +55,45 @@ class TestContext:
         with pytest.raises(TypeError, match="Context type must be a string"):
             Context(42, "key")  # type: ignore[arg-type]
 
+    def test_setattr_unknown_field_blocked(self):
+        ctx = Context("user", "u-1")
+        with pytest.raises(AttributeError, match=r"ctx\.attributes\['plan'\]"):
+            ctx.plan = "pro"  # type: ignore[attr-defined]
+
+    def test_setattr_known_fields_still_work(self):
+        ctx = Context("user", "u-1")
+        ctx.name = "Alice"
+        ctx.attributes = {"region": "us"}
+        assert ctx.name == "Alice"
+        assert ctx.attributes == {"region": "us"}
+
+    def test_id_property(self):
+        assert Context("user", "123").id == "user:123"
+
+    def test_type_returns_slug_not_jsonapi_resource_type(self):
+        # ctx.type is the context-type slug ("user"), not the JSON:API
+        # resource type ("context") that lives on the wire.
+        assert Context("user", "u-1").type == "user"
+        assert Context("account", "acme").type == "account"
+
+    def test_id_assignment_blocked(self):
+        ctx = Context("user", "u-1")
+        with pytest.raises(AttributeError):
+            ctx.id = "other:x"  # type: ignore[misc]
+
+    def test_type_key_mutable_pre_save(self):
+        ctx = Context("user", "u-1")
+        ctx.type = "account"
+        ctx.key = "acme"
+        assert ctx.id == "account:acme"
+
+    def test_type_key_immutable_post_save(self):
+        ctx = Context("user", "u-1", created_at="2026-01-01")
+        with pytest.raises(AttributeError, match="persisted Context"):
+            ctx.type = "account"
+        with pytest.raises(AttributeError, match="persisted Context"):
+            ctx.key = "x"
+
 
 class TestRule:
     def test_single_when(self):

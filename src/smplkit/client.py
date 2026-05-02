@@ -234,9 +234,10 @@ class SmplClient:
         (no first-request connect tax) and any ``on_change`` listeners
         receive every server event from this point forward.
 
-        Logging integration is *not* started here — call ``client.logging.start()``
-        separately if you want it (it installs adapters and hooks into your
-        application's logger, which should be opt-in).
+        Logging integration is *not* installed here — call
+        ``client.logging.install()`` separately if you want it (it installs
+        adapters and hooks into your application's logger, which should be
+        opt-in).
 
         Raises:
             TimeoutError: If the WebSocket fails to connect within *timeout* seconds.
@@ -494,8 +495,8 @@ class AsyncSmplClient:
         (no first-request connect tax) and any ``on_change`` listeners
         receive every server event from this point forward.
 
-        Logging integration is *not* started here — call
-        ``await client.logging.start()`` separately if you want it (it
+        Logging integration is *not* installed here — call
+        ``await client.logging.install()`` separately if you want it (it
         installs adapters and hooks into your application's logger, which
         should be opt-in).
 

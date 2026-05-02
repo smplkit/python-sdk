@@ -148,16 +148,16 @@ class TestRegisterAdapter:
         assert adapter.install_hook_calls == 1
         client._close()
 
-    def test_register_after_start_raises(self):
+    def test_register_after_install_raises(self):
         client = _make_sync_client()
         client._connected = True
-        with pytest.raises(RuntimeError, match="Cannot register adapters after start"):
+        with pytest.raises(RuntimeError, match="Cannot register adapters after install"):
             client.register_adapter(_MockAdapter())
 
-    def test_async_register_after_start_raises(self):
+    def test_async_register_after_install_raises(self):
         client = _make_async_client()
         client._connected = True
-        with pytest.raises(RuntimeError, match="Cannot register adapters after start"):
+        with pytest.raises(RuntimeError, match="Cannot register adapters after install"):
             client.register_adapter(_MockAdapter())
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")

@@ -49,6 +49,7 @@ from smplkit._generated.app.api.contexts import (
     delete_context as _gen_delete_context,
     get_context as _gen_get_context,
     list_contexts as _gen_list_contexts,
+    update_context as _gen_update_context,
 )
 from smplkit._generated.app.api.environments import (
     create_environment as _gen_create_environment,
@@ -59,9 +60,13 @@ from smplkit._generated.app.api.environments import (
 )
 from smplkit._generated.app.client import AuthenticatedClient as _AppAuthClient
 from smplkit._generated.app.models import (
+    Context as _GenContext,
+    ContextAttributes as _GenContextAttributes,
     ContextBulkItem as _GenContextBulkItem,
     ContextBulkItemAttributes as _GenContextBulkItemAttributes,
     ContextBulkRegister as _GenContextBulkRegister,
+    ContextResource as _GenContextResource,
+    ContextResponse as _GenContextResponse,
     ContextType as _GenContextType,
     ContextTypeAttributes as _GenContextTypeAttributes,
     ContextTypeResource as _GenContextTypeResource,
@@ -145,13 +150,12 @@ from smplkit.logging.models import (
     SmplLogger,
     _environments_to_wire as _logger_environments_to_wire,
 )
+from smplkit.flags.types import AsyncContext, Context
 from smplkit.management.models import (
     AccountSettings,
     AsyncAccountSettings,
-    AsyncContextEntity,
     AsyncContextType,
     AsyncEnvironment,
-    ContextEntity,
     ContextType,
     Environment,
 )
@@ -160,10 +164,10 @@ from smplkit.management._buffer import (
     _FLAG_BATCH_FLUSH_SIZE,
     _LOGGER_BATCH_FLUSH_SIZE,
 )
-from smplkit.management.types import EnvironmentClassification
+from smplkit.management.types import Color, EnvironmentClassification
 
 if TYPE_CHECKING:  # pragma: no cover
-    from smplkit.flags.types import Context, FlagDeclaration
+    from smplkit.flags.types import FlagDeclaration
     from smplkit.management._buffer import _ContextRegistrationBuffer
 
 logger = logging.getLogger("smplkit")
@@ -189,7 +193,7 @@ def _split_context_id(id_or_type: str, key: str | None) -> tuple[str, str]:
 def _env_to_resource(env: Environment | AsyncEnvironment) -> _GenEnvironmentResponse:
     attrs = _GenEnvironment(
         name=env.name,
-        color=env.color,
+        color=env.color.hex if env.color is not None else None,
         classification=env.classification.value,
     )
     resource = _GenEnvironmentResource(
@@ -211,12 +215,15 @@ def _env_from_parsed(
         classification = EnvironmentClassification.AD_HOC
     else:
         classification = EnvironmentClassification.STANDARD
+    color_val = getattr(attrs, "color", None)
+    if _is_unset(color_val):
+        color_val = None
     if async_client is not None:
         return AsyncEnvironment(
             async_client,
             id=data.id,
             name=attrs.name,
-            color=getattr(attrs, "color", None),
+            color=color_val,
             classification=classification,
             created_at=getattr(attrs, "created_at", None) or None,
             updated_at=getattr(attrs, "updated_at", None) or None,
@@ -225,7 +232,7 @@ def _env_from_parsed(
         sync_client,
         id=data.id,
         name=attrs.name,
-        color=getattr(attrs, "color", None),
+        color=color_val,
         classification=classification,
         created_at=getattr(attrs, "created_at", None) or None,
         updated_at=getattr(attrs, "updated_at", None) or None,
@@ -274,8 +281,8 @@ def _ct_from_parsed(
     )
 
 
-def _ctx_entity_from_parsed(parsed: Any, sync: bool, client: Any = None) -> Any:
-    """Build a ContextEntity / AsyncContextEntity from a parsed ContextResponse.
+def _ctx_entity_from_parsed(parsed: Any, sync: bool, client: Any = None) -> Context | AsyncContext:
+    """Build a :class:`Context` or :class:`AsyncContext` from a parsed ContextResponse.
 
     The on-the-wire id is the composite ``"type:key"``. We split it
     back into the two fields the model exposes (mirrored back as a
@@ -297,25 +304,30 @@ def _ctx_entity_from_parsed(parsed: Any, sync: bool, client: Any = None) -> Any:
     else:
         attr_dict = dict(getattr(attr_obj, "additional_properties", {}))
 
-    if sync:
-        return ContextEntity(
-            client,
-            type=ctx_type,
-            key=ctx_key,
-            name=getattr(attrs, "name", None) or None,
-            attributes=attr_dict,
-            created_at=getattr(attrs, "created_at", None) or None,
-            updated_at=getattr(attrs, "updated_at", None) or None,
-        )
-    return AsyncContextEntity(
-        client,
-        type=ctx_type,
-        key=ctx_key,
+    cls = Context if sync else AsyncContext
+    ctx = cls(
+        ctx_type,
+        ctx_key,
+        attr_dict,
         name=getattr(attrs, "name", None) or None,
-        attributes=attr_dict,
         created_at=getattr(attrs, "created_at", None) or None,
         updated_at=getattr(attrs, "updated_at", None) or None,
     )
+    ctx._client = client
+    return ctx
+
+
+def _ctx_to_resource(ctx: Context | AsyncContext) -> _GenContextResponse:
+    """Build a wire ContextResponse body from a Context."""
+    gen_attrs = _GenContextAttributes()
+    gen_attrs.additional_properties = dict(ctx.attributes)
+    attrs = _GenContext(
+        context_type=ctx.type,
+        name=ctx.name,
+        attributes=gen_attrs,
+    )
+    resource = _GenContextResource(type_="context", attributes=attrs, id=ctx.id)
+    return _GenContextResponse(data=resource)
 
 
 def _is_unset(value: Any) -> bool:
@@ -363,7 +375,7 @@ class EnvironmentsClient:
         id: str,
         *,
         name: str,
-        color: str | None = None,
+        color: Color | str | None = None,
         classification: EnvironmentClassification = EnvironmentClassification.STANDARD,
     ) -> Environment:
         """Return an unsaved :class:`Environment`. Call ``.save()`` to persist."""
@@ -428,7 +440,7 @@ class AsyncEnvironmentsClient:
         id: str,
         *,
         name: str,
-        color: str | None = None,
+        color: Color | str | None = None,
         classification: EnvironmentClassification = EnvironmentClassification.STANDARD,
     ) -> AsyncEnvironment:
         return AsyncEnvironment(
@@ -781,7 +793,7 @@ class ContextsClient:
         """Number of observations queued and awaiting flush."""
         return self._buffer.pending_count
 
-    def list(self, type: str) -> list[ContextEntity]:
+    def list(self, type: str) -> list[Context]:
         """List all contexts of a given type."""
         resp = _gen_list_contexts.sync_detailed(
             client=self._app_http,
@@ -792,10 +804,10 @@ class ContextsClient:
         return [_ctx_entity_from_dict(item, client=self) for item in body.get("data", [])]
 
     @overload
-    def get(self, id: str) -> ContextEntity: ...
+    def get(self, id: str) -> Context: ...
     @overload
-    def get(self, type: str, key: str) -> ContextEntity: ...
-    def get(self, id_or_type: str, key: str | None = None) -> ContextEntity:
+    def get(self, type: str, key: str) -> Context: ...
+    def get(self, id_or_type: str, key: str | None = None) -> Context:
         ctx_type, ctx_key = _split_context_id(id_or_type, key)
         composite = f"{ctx_type}:{ctx_key}"
         resp = _gen_get_context.sync_detailed(composite, client=self._app_http)
@@ -816,6 +828,17 @@ class ContextsClient:
         composite = f"{ctx_type}:{ctx_key}"
         resp = _gen_delete_context.sync_detailed(composite, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
+
+    def _save_context(self, ctx: Context) -> Context:
+        body = _ctx_to_resource(ctx)
+        resp = _gen_update_context.sync_detailed(ctx.id, client=self._app_http, body=body)
+        _check_status(int(resp.status_code), resp.content)
+        if resp.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(resp.status_code)}: unexpected response",
+                status_code=int(resp.status_code),
+            )
+        return _ctx_entity_from_parsed(resp.parsed, sync=True, client=self)  # type: ignore[return-value]
 
 
 class AsyncContextsClient:
@@ -862,20 +885,20 @@ class AsyncContextsClient:
         """Number of observations queued and awaiting flush."""
         return self._buffer.pending_count
 
-    async def list(self, type: str) -> list[AsyncContextEntity]:
+    async def list(self, type: str) -> list[AsyncContext]:
         resp = await _gen_list_contexts.asyncio_detailed(
             client=self._app_http,
             filtercontext_type=type,
         )
         _check_status(int(resp.status_code), resp.content)
         body = json.loads(resp.content)
-        return [_ctx_entity_from_dict(item, async_=True, client=self) for item in body.get("data", [])]
+        return [_ctx_entity_from_dict(item, async_=True, client=self) for item in body.get("data", [])]  # type: ignore[misc]
 
     @overload
-    async def get(self, id: str) -> AsyncContextEntity: ...
+    async def get(self, id: str) -> AsyncContext: ...
     @overload
-    async def get(self, type: str, key: str) -> AsyncContextEntity: ...
-    async def get(self, id_or_type: str, key: str | None = None) -> AsyncContextEntity:
+    async def get(self, type: str, key: str) -> AsyncContext: ...
+    async def get(self, id_or_type: str, key: str | None = None) -> AsyncContext:
         ctx_type, ctx_key = _split_context_id(id_or_type, key)
         composite = f"{ctx_type}:{ctx_key}"
         resp = await _gen_get_context.asyncio_detailed(composite, client=self._app_http)
@@ -885,7 +908,7 @@ class AsyncContextsClient:
                 f"Context with id {composite!r} not found",
                 status_code=404,
             )
-        return _ctx_entity_from_parsed(resp.parsed, sync=False, client=self)
+        return _ctx_entity_from_parsed(resp.parsed, sync=False, client=self)  # type: ignore[return-value]
 
     @overload
     async def delete(self, id: str) -> None: ...
@@ -897,8 +920,19 @@ class AsyncContextsClient:
         resp = await _gen_delete_context.asyncio_detailed(composite, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
 
+    async def _save_context(self, ctx: AsyncContext) -> AsyncContext:
+        body = _ctx_to_resource(ctx)
+        resp = await _gen_update_context.asyncio_detailed(ctx.id, client=self._app_http, body=body)
+        _check_status(int(resp.status_code), resp.content)
+        if resp.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(resp.status_code)}: unexpected response",
+                status_code=int(resp.status_code),
+            )
+        return _ctx_entity_from_parsed(resp.parsed, sync=False, client=self)  # type: ignore[return-value]
 
-def _ctx_entity_from_dict(item: dict[str, Any], *, async_: bool = False, client: Any = None) -> Any:
+
+def _ctx_entity_from_dict(item: dict[str, Any], *, async_: bool = False, client: Any = None) -> Context | AsyncContext:
     composite_id = item.get("id") or ""
     if ":" in composite_id:
         ctx_type, _, ctx_key = composite_id.partition(":")
@@ -906,16 +940,17 @@ def _ctx_entity_from_dict(item: dict[str, Any], *, async_: bool = False, client:
         ctx_type, ctx_key = composite_id, ""
     attrs = item.get("attributes") or {}
     raw_attrs = attrs.get("attributes") or {}
-    cls = AsyncContextEntity if async_ else ContextEntity
-    return cls(
-        client,
-        type=ctx_type,
-        key=ctx_key,
+    cls = AsyncContext if async_ else Context
+    ctx = cls(
+        ctx_type,
+        ctx_key,
+        dict(raw_attrs) if isinstance(raw_attrs, dict) else {},
         name=attrs.get("name") or None,
-        attributes=dict(raw_attrs) if isinstance(raw_attrs, dict) else {},
         created_at=attrs.get("created_at"),
         updated_at=attrs.get("updated_at"),
     )
+    ctx._client = client
+    return ctx
 
 
 # ---------------------------------------------------------------------------
