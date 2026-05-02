@@ -56,28 +56,43 @@ async def main() -> None:
         await client.wait_until_ready()
 
         # get a config as a plain dict
-        config_dict = await client.config.get("showcase-user-service")
-        print(f"Total resolved keys: {len(config_dict)}")
-        print(f"database.host = {config_dict.get('database.host')}")
-        print(f"max_retries = {config_dict.get('max_retries')}")
-        print(f"cache_ttl_seconds = {config_dict.get('cache_ttl_seconds')}")
+        user_svc_config_dict = await client.config.get("showcase-user-service")
+        print(f"Total resolved keys: {len(user_svc_config_dict)}")
+        print(f"database.host = {user_svc_config_dict.get('database.host')}")
+        print(f"max_retries = {user_svc_config_dict.get('max_retries')}")
+        print(
+            f"cache_ttl_seconds = {user_svc_config_dict.get('cache_ttl_seconds')}"
+        )
         print(
             f"pagination_default_page_size = "
-            f"{config_dict.get('pagination_default_page_size')}"
+            f"{user_svc_config_dict.get('pagination_default_page_size')}"
         )
-        print(f"enable_signup = {config_dict.get('enable_signup')}")
-        print(f"nonexistent_key = {config_dict.get('nonexistent_key')}")
+        print(f"enable_signup = {user_svc_config_dict.get('enable_signup')}")
+        print(
+            f"nonexistent_key = {user_svc_config_dict.get('nonexistent_key')}"
+        )
+
+        # production overrides resolve through the inheritance chain
+        assert (
+            user_svc_config_dict.get("database.host")
+            == "prod-users-rds.internal.acme.dev"
+        )
+        assert user_svc_config_dict.get("nonexistent_key") is None
 
         # get a config as a typed model
-        cfg = await client.config.get(
+        user_svc_config = await client.config.get(
             "showcase-user-service", UserServiceConfig
         )
-        print(f"cfg.database.host = {cfg.database.host}")
-        print(f"cfg.database.pool_size = {cfg.database.pool_size}")
-        print(f"cfg.cache_ttl_seconds = {cfg.cache_ttl_seconds}")
-        print(f"cfg.enable_signup = {cfg.enable_signup}")
-        print(f"cfg.max_retries = {cfg.max_retries}")
-        print(f"cfg.app_name = {cfg.app_name}")
+        print(f"cfg.database.host = {user_svc_config.database.host}")
+        print(f"cfg.database.pool_size = {user_svc_config.database.pool_size}")
+        print(f"cfg.cache_ttl_seconds = {user_svc_config.cache_ttl_seconds}")
+        print(f"cfg.enable_signup = {user_svc_config.enable_signup}")
+        print(f"cfg.max_retries = {user_svc_config.max_retries}")
+        print(f"cfg.app_name = {user_svc_config.app_name}")
+
+        assert isinstance(user_svc_config.database, Database)
+        assert user_svc_config.max_retries == 5
+        assert user_svc_config.app_name == "Acme SaaS Platform"
 
         changes: list = []
         retries_changes: list = []
@@ -92,29 +107,35 @@ async def main() -> None:
             )
 
         # item-scoped listener via the live-proxy handle
-        shared = await client.config.get("showcase-common")
+        common_cfg = await client.config.get("showcase-common")
 
-        @shared.on_change("max_retries")
+        @common_cfg.on_change("max_retries")
         def on_retries_change(event):
             retries_changes.append(event)
 
         # simulate someone making a change to trigger listeners
-        shared_mgmt = await client.manage.config.get("showcase-common")
-        shared_mgmt.set_number("max_retries", 7, environment="production")
-        await shared_mgmt.save()
+        await _update_max_retries(client)
 
         # wait a moment for the event to be delivered
         await asyncio.sleep(0.2)
 
-        new_retries = (await client.config.get("showcase-user-service")).get(
-            "max_retries"
-        )
-        print(f"max_retries after update = {new_retries}")
+        # user_svc_config always reflects the latest values
+        print(f"max_retries after update = {user_svc_config.max_retries}")
         print(f"Global changes received: {len(changes)}")
         print(f"Retries-specific changes received: {len(retries_changes)}")
 
+        assert user_svc_config.max_retries == 7
+        assert len(changes) >= 1
+        assert len(retries_changes) >= 1
+
         await cleanup_runtime_showcase(client.manage)
         print("Done!")
+
+
+async def _update_max_retries(client: AsyncSmplClient):
+    common_cfg = await client.manage.config.get("showcase-common")
+    common_cfg.set_number("max_retries", 7, environment="production")
+    await common_cfg.save()
 
 
 if __name__ == "__main__":
