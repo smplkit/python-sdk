@@ -114,7 +114,7 @@ async def main() -> None:
             retries_changes.append(event)
 
         # simulate someone making a change to trigger listeners
-        await _update_max_retries(client)
+        await _update_max_retries(client, 7)
 
         # wait a moment for the event to be delivered
         await asyncio.sleep(0.2)
@@ -132,9 +132,9 @@ async def main() -> None:
         print("Done!")
 
 
-async def _update_max_retries(client: AsyncSmplClient):
+async def _update_max_retries(client: AsyncSmplClient, max_retries: int):
     common_cfg = await client.manage.config.get("showcase-common")
-    common_cfg.set_number("max_retries", 7, environment="production")
+    common_cfg.set_number("max_retries", max_retries, environment="production")
     await common_cfg.save()
 
 

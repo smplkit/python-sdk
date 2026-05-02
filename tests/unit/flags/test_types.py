@@ -1,5 +1,7 @@
 """Tests for Context and Rule public types."""
 
+import pytest
+
 from smplkit.flags.types import Context, Rule
 
 
@@ -44,6 +46,14 @@ class TestContext:
         assert "user" in r
         assert "u-1" in r
         assert "Alice" in r
+
+    def test_int_key_raises_typeerror(self):
+        with pytest.raises(TypeError, match="Context key must be a string"):
+            Context("account", 1234)
+
+    def test_int_type_raises_typeerror(self):
+        with pytest.raises(TypeError, match="Context type must be a string"):
+            Context(42, "key")  # type: ignore[arg-type]
 
 
 class TestRule:

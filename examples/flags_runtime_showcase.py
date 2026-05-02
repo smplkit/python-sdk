@@ -72,7 +72,7 @@ def _create_context(user: dict, account: dict) -> list[Context]:
         ),
         Context(
             "account",
-            account["id"],
+            str(account["id"]),
             industry=account["industry"],
             region=account["region"],
             employee_count=account["employee_count"],
@@ -179,13 +179,7 @@ async def main() -> None:
         assert explicit_result is False
 
         # simulate someone making changes to a flag to trigger listeners
-        current_banner = await client.manage.flags.get("banner-color")
-        current_banner.add_rule(
-            Rule("Red for small companies", environment="staging")
-            .when("account.employee_count", Op.LT, 50)
-            .serve("red")
-        )
-        await current_banner.save()
+        await _update_rules(client)
 
         # wait a moment for the event to be delivered
         await asyncio.sleep(0.2)
@@ -200,6 +194,16 @@ async def main() -> None:
 
         await cleanup_runtime_showcase(client.manage)
         print("Done!")
+
+
+async def _update_rules(client: AsyncSmplClient):
+    current_banner = await client.manage.flags.get("banner-color")
+    current_banner.add_rule(
+        Rule("Red for small companies", environment="staging")
+        .when("account.employee_count", Op.LT, 50)
+        .serve("red")
+    )
+    await current_banner.save()
 
 
 if __name__ == "__main__":

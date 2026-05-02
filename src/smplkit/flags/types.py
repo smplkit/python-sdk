@@ -53,6 +53,13 @@ class Context:
         name: str | None = None,
         **kwargs: Any,
     ) -> None:
+        if not isinstance(type, str):
+            raise TypeError(f"Context type must be a string, got {type.__class__.__name__}: {type!r}")
+        if not isinstance(key, str):
+            raise TypeError(
+                f"Context key must be a string, got {key.__class__.__name__}: {key!r}. "
+                "If your identifier is numeric, stringify it at the SDK boundary."
+            )
         self.type = type
         self.key = key
         self.name = name
