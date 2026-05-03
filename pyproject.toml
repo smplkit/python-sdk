@@ -51,6 +51,9 @@ packages = ["src/smplkit"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Test against the source tree so the package does not need to be
+# (editable-)installed in the dev venv. Mirrors python-core.
+pythonpath = ["src"]
 
 [tool.coverage.run]
 omit = ["src/smplkit/_generated/*", "src/smplkit/_version.py"]
