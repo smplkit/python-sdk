@@ -56,6 +56,7 @@ from .email_resource import EmailResource
 from .email_resource_type import EmailResourceType
 from .email_response import EmailResponse
 from .environment import Environment
+from .environment_classification import EnvironmentClassification
 from .environment_list_response import EnvironmentListResponse
 from .environment_resource import EnvironmentResource
 from .environment_resource_type import EnvironmentResourceType
@@ -197,6 +198,7 @@ __all__ = (
     "EmailResourceType",
     "EmailResponse",
     "Environment",
+    "EnvironmentClassification",
     "EnvironmentListResponse",
     "EnvironmentResource",
     "EnvironmentResourceType",

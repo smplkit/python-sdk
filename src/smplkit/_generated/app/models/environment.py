@@ -8,6 +8,8 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.environment_classification import check_environment_classification
+from ..models.environment_classification import EnvironmentClassification
 from dateutil.parser import isoparse
 from typing import cast
 import datetime
@@ -26,14 +28,14 @@ class Environment:
     Attributes:
         name (str):
         color (None | str | Unset):
-        classification (None | str | Unset):
+        classification (EnvironmentClassification | Unset):  Default: 'AD_HOC'.
         created_at (datetime.datetime | None | Unset):
         updated_at (datetime.datetime | None | Unset):
     """
 
     name: str
     color: None | str | Unset = UNSET
-    classification: None | str | Unset = UNSET
+    classification: EnvironmentClassification | Unset = "AD_HOC"
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -47,10 +49,8 @@ class Environment:
         else:
             color = self.color
 
-        classification: None | str | Unset
-        if isinstance(self.classification, Unset):
-            classification = UNSET
-        else:
+        classification: str | Unset = UNSET
+        if not isinstance(self.classification, Unset):
             classification = self.classification
 
         created_at: None | str | Unset
@@ -101,14 +101,12 @@ class Environment:
 
         color = _parse_color(d.pop("color", UNSET))
 
-        def _parse_classification(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        classification = _parse_classification(d.pop("classification", UNSET))
+        _classification = d.pop("classification", UNSET)
+        classification: EnvironmentClassification | Unset
+        if isinstance(_classification, Unset):
+            classification = UNSET
+        else:
+            classification = check_environment_classification(_classification)
 
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
