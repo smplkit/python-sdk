@@ -45,7 +45,7 @@ with SmplClient(api_key="sk_api_...", environment="production", service="my-svc"
         ...
 
     # Opt in to runtime logging level control
-    client.logging.start()
+    client.logging.install()
 
     # Need to reach the management API from a runtime context?
     # Every SmplClient owns an internal management client at `client.manage`.
@@ -176,27 +176,29 @@ For the complete configuration reference, see the [Configuration Guide](https://
 
 ## Error Handling
 
-All SDK errors extend `SmplError`:
+All SDK errors extend `smplkit.Error`:
 
 ```python
-from smplkit import SmplError, SmplNotFoundError
+from smplkit import Error, NotFoundError
 
 try:
     config = mgmt.config.get("nonexistent")
-except SmplNotFoundError:
+except NotFoundError:
     print("Config not found")
-except SmplError as e:
+except Error as e:
     print(f"SDK error: {e}")
 ```
 
-| Exception              | Cause                        |
-|------------------------|------------------------------|
-| `SmplNotFoundError`    | Resource not found           |
-| `SmplConflictError`    | Conflict (e.g., has children)|
-| `SmplValidationError`  | Validation error             |
-| `SmplTimeoutError`     | Request timed out            |
-| `SmplConnectionError`  | Network connectivity issue   |
-| `SmplError`            | Any other SDK error          |
+The error classes shadow built-ins (`ConnectionError`, `TimeoutError`, `ValidationError`), so import them from `smplkit` rather than relying on `from smplkit import *`, or alias on import (e.g. `from smplkit import NotFoundError as SmplNotFound`) if that collides with your own names.
+
+| Exception          | Cause                         |
+|--------------------|-------------------------------|
+| `NotFoundError`    | Resource not found            |
+| `ConflictError`    | Conflict (e.g., has children) |
+| `ValidationError`  | Validation error              |
+| `TimeoutError`     | Request timed out             |
+| `ConnectionError`  | Network connectivity issue    |
+| `Error`            | Any other SDK error           |
 
 ## Debug Logging
 
