@@ -8,8 +8,8 @@ service, fetch resolved levels, and apply them. CRUD has moved to
 from __future__ import annotations
 
 import dataclasses
-import importlib
 import logging as stdlib_logging
+from importlib.metadata import entry_points
 import threading
 import traceback
 from typing import TYPE_CHECKING, Any, Callable
@@ -124,26 +124,18 @@ class LoggerChangeEvent:
 # Adapter auto-loading
 # ---------------------------------------------------------------------------
 
-_BUILTIN_ADAPTERS = [
-    "smplkit.logging.adapters.stdlib_logging.StdlibLoggingAdapter",
-    "smplkit.logging.adapters.loguru_adapter.LoguruAdapter",
-]
-
-
 def _auto_load_adapters() -> list[LoggingAdapter]:
-    """Attempt to load all built-in adapters, skipping those whose dependencies are missing."""
+    """Discover and load adapters registered under the smplkit.logging.adapters entry-point group."""
     adapters: list[LoggingAdapter] = []
-    for fqn in _BUILTIN_ADAPTERS:
-        module_path, class_name = fqn.rsplit(".", 1)
+    for ep in entry_points(group="smplkit.logging.adapters"):
         try:
-            module = importlib.import_module(module_path)
-            cls = getattr(module, class_name)
+            cls = ep.load()
             adapters.append(cls())
-            debug("lifecycle", f"Loaded logging adapter: {class_name}")
+            debug("lifecycle", f"Loaded logging adapter: {ep.name}")
         except ImportError:
-            debug("lifecycle", f"Skipped logging adapter {class_name} (dependency not installed)")
+            debug("lifecycle", f"Skipped logging adapter {ep.name} (dependency not installed)")
         except Exception:
-            logger.warning("Failed to load logging adapter %s", class_name, exc_info=True)
+            logger.warning("Failed to load logging adapter %s", ep.name, exc_info=True)
     if not adapters:
         logger.warning("No logging framework detected. Runtime logging control requires a supported framework.")
     return adapters

@@ -30,6 +30,10 @@ Homepage = "https://www.smplkit.com"
 Documentation = "https://docs.smplkit.com"
 Repository = "https://github.com/smplkit/python-sdk"
 
+[project.entry-points."smplkit.logging.adapters"]
+stdlib = "smplkit.logging.adapters.stdlib_logging:StdlibLoggingAdapter"
+loguru = "smplkit.logging.adapters.loguru_adapter:LoguruAdapter"
+
 [project.optional-dependencies]
 loguru = ["loguru>=0.7.0"]
 dev = [

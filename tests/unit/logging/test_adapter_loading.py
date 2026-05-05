@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from smplkit.logging.adapters.base import LoggingAdapter
+from smplkit.logging.adapters.stdlib_logging import StdlibLoggingAdapter
 from smplkit.logging.client import AsyncLoggingClient, LoggingClient, _auto_load_adapters
 
 
@@ -84,28 +85,31 @@ def _make_async_client(**kwargs):
 
 class TestAutoLoadAdapters:
     def test_finds_stdlib(self):
-        adapters = _auto_load_adapters()
-        names = [a.name for a in adapters]
-        assert "stdlib-logging" in names
+        mock_ep = MagicMock()
+        mock_ep.name = "stdlib"
+        mock_ep.load.return_value = StdlibLoggingAdapter
+        with patch("smplkit.logging.client.entry_points", return_value=[mock_ep]):
+            adapters = _auto_load_adapters()
+        assert any(a.name == "stdlib-logging" for a in adapters)
 
     def test_skips_missing_dependency(self):
-        import importlib as real_importlib
+        stdlib_ep = MagicMock()
+        stdlib_ep.name = "stdlib"
+        stdlib_ep.load.return_value = StdlibLoggingAdapter
 
-        original = real_importlib.import_module
+        loguru_ep = MagicMock()
+        loguru_ep.name = "loguru"
+        loguru_ep.load.side_effect = ImportError("No module named 'loguru'")
 
-        def _side_effect(name):
-            if "loguru" in name:
-                raise ImportError("No module named 'loguru'")
-            return original(name)
-
-        with patch.object(real_importlib, "import_module", side_effect=_side_effect):
+        with patch("smplkit.logging.client.entry_points", return_value=[stdlib_ep, loguru_ep]):
             adapters = _auto_load_adapters()
 
         names = [a.name for a in adapters]
         assert "stdlib-logging" in names
+        assert len(adapters) == 1
 
     def test_no_adapters_warns(self):
-        with patch("smplkit.logging.client.importlib.import_module", side_effect=ImportError("no module")):
+        with patch("smplkit.logging.client.entry_points", return_value=[]):
             import logging
 
             with patch.object(logging.getLogger("smplkit"), "warning") as mock_warning:
@@ -114,7 +118,11 @@ class TestAutoLoadAdapters:
                 mock_warning.assert_called()
 
     def test_non_import_error_warns(self):
-        with patch("smplkit.logging.client.importlib.import_module", side_effect=RuntimeError("broken")):
+        broken_ep = MagicMock()
+        broken_ep.name = "broken"
+        broken_ep.load.side_effect = RuntimeError("broken")
+
+        with patch("smplkit.logging.client.entry_points", return_value=[broken_ep]):
             import logging
 
             with patch.object(logging.getLogger("smplkit"), "warning") as mock_warning:
