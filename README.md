@@ -129,6 +129,45 @@ The two clients can be used together in the same process — e.g. a runtime app 
 | `manage.loggers` | Smpl Logging logger CRUD |
 | `manage.log_groups` | Smpl Logging log-group CRUD |
 
+## Logging Adapters
+
+`client.logging.install()` auto-loads adapters for every supported framework it finds installed. Two adapters ship with the SDK:
+
+| Adapter | Covers |
+|---------|--------|
+| `stdlib-logging` | Python `logging.getLogger(...)` — discovered and managed automatically |
+| `loguru` | The [`loguru`](https://github.com/Delgan/loguru) library — requires `pip install smplkit-sdk[loguru]` |
+
+Both are registered as `smplkit.logging.adapters` entry points in `pyproject.toml`, so they are discovered via `importlib.metadata` at `install()` time with no extra wiring.
+
+**Adding a custom adapter** — implement `LoggingAdapter` and register it before `install()`:
+
+```python
+from smplkit.logging.adapters.base import LoggingAdapter
+
+class StructlogAdapter(LoggingAdapter):
+    @property
+    def name(self) -> str:
+        return "structlog"
+
+    def discover(self): ...
+    def apply_level(self, name, level): ...
+    def install_hook(self, on_new_logger): ...
+    def uninstall_hook(self): ...
+
+client.logging.register_adapter(StructlogAdapter())
+client.logging.install()
+```
+
+Calling `register_adapter()` disables auto-loading — only the adapters you register are used.
+
+**Packaging an adapter for auto-discovery** — declare the entry point in your package's `pyproject.toml` so it is picked up without any caller code change:
+
+```toml
+[project.entry-points."smplkit.logging.adapters"]
+structlog = "my_package.adapter:StructlogAdapter"
+```
+
 ## Configuration
 
 All settings are resolved from three sources, in order of precedence:
