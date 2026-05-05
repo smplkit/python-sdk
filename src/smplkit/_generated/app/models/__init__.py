@@ -118,6 +118,7 @@ from .put_account_settings_response_put_account_settings import PutAccountSettin
 from .put_user_settings_key_response_put_user_settings_key import PutUserSettingsKeyResponsePutUserSettingsKey
 from .put_user_settings_response_put_user_settings import PutUserSettingsResponsePutUserSettings
 from .register_request import RegisterRequest
+from .register_request_entry_point import RegisterRequestEntryPoint
 from .send_contact_email_body import SendContactEmailBody
 from .service import Service
 from .service_list_response import ServiceListResponse
@@ -260,6 +261,7 @@ __all__ = (
     "PutUserSettingsKeyResponsePutUserSettingsKey",
     "PutUserSettingsResponsePutUserSettings",
     "RegisterRequest",
+    "RegisterRequestEntryPoint",
     "SendContactEmailBody",
     "Service",
     "ServiceListResponse",
