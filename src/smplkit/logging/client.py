@@ -124,6 +124,7 @@ class LoggerChangeEvent:
 # Adapter auto-loading
 # ---------------------------------------------------------------------------
 
+
 def _auto_load_adapters() -> list[LoggingAdapter]:
     """Discover and load adapters registered under the smplkit.logging.adapters entry-point group."""
     adapters: list[LoggingAdapter] = []
