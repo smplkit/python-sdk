@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from typing import cast
 
 if TYPE_CHECKING:
     from ..models.product_limits import ProductLimits
@@ -25,6 +26,8 @@ class Product:
         description (str):
         limits (ProductLimits):
         plans (ProductPlans):
+        tagline (None | str | Unset):
+        features (list[str] | Unset):
         coming_soon (bool | Unset):  Default: False.
     """
 
@@ -32,6 +35,8 @@ class Product:
     description: str
     limits: ProductLimits
     plans: ProductPlans
+    tagline: None | str | Unset = UNSET
+    features: list[str] | Unset = UNSET
     coming_soon: bool | Unset = False
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -43,6 +48,16 @@ class Product:
         limits = self.limits.to_dict()
 
         plans = self.plans.to_dict()
+
+        tagline: None | str | Unset
+        if isinstance(self.tagline, Unset):
+            tagline = UNSET
+        else:
+            tagline = self.tagline
+
+        features: list[str] | Unset = UNSET
+        if not isinstance(self.features, Unset):
+            features = self.features
 
         coming_soon = self.coming_soon
 
@@ -56,6 +71,10 @@ class Product:
                 "plans": plans,
             }
         )
+        if tagline is not UNSET:
+            field_dict["tagline"] = tagline
+        if features is not UNSET:
+            field_dict["features"] = features
         if coming_soon is not UNSET:
             field_dict["coming_soon"] = coming_soon
 
@@ -75,6 +94,17 @@ class Product:
 
         plans = ProductPlans.from_dict(d.pop("plans"))
 
+        def _parse_tagline(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        tagline = _parse_tagline(d.pop("tagline", UNSET))
+
+        features = cast(list[str], d.pop("features", UNSET))
+
         coming_soon = d.pop("coming_soon", UNSET)
 
         product = cls(
@@ -82,6 +112,8 @@ class Product:
             description=description,
             limits=limits,
             plans=plans,
+            tagline=tagline,
+            features=features,
             coming_soon=coming_soon,
         )
 

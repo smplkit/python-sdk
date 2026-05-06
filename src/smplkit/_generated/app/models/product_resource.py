@@ -23,11 +23,12 @@ T = TypeVar("T", bound="ProductResource")
 class ProductResource:
     """
     Example:
-        {'attributes': {'coming_soon': False, 'description': 'Feature flags with targeting rules and real-time updates',
-            'display_name': 'Smpl Flags', 'limits': {'flags': {'description': 'Maximum number of feature flags',
-            'display_name': 'Feature Flags', 'unit': 'flags'}}, 'plans': {'free': {'limits': {'flags': 10},
-            'price_monthly_cents': 0}, 'pro': {'limits': {'flags': -1}, 'price_monthly_cents': 2900}}}, 'id': 'flags',
-            'type': 'product'}
+        {'attributes': {'coming_soon': False, 'description': 'Feature flag management', 'display_name': 'Smpl Flags',
+            'features': ['Targeted rollouts', 'Experiment toggles', 'Environment controls'], 'limits': {'flags':
+            {'description': 'Maximum number of feature flags', 'display_name': 'Feature Flags', 'unit': 'flags'}}, 'plans':
+            {'free': {'limits': {'flags': 10}, 'price_monthly_cents': 0}, 'pro': {'limits': {'flags': -1},
+            'price_monthly_cents': 2900}}, 'tagline': 'Feature flag delivery for safer rollouts and controlled
+            experiments.'}, 'id': 'flags', 'type': 'product'}
 
     Attributes:
         type_ (ProductResourceType):
