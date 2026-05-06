@@ -19,6 +19,7 @@ from smplkit._generated.app.models.context_bulk_item_attributes import ContextBu
 from smplkit._generated.app.models.context_bulk_register import ContextBulkRegister
 from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
 from smplkit._ws import SharedWebSocket
+from smplkit.audit.client import AsyncAuditClient, AuditClient
 from smplkit.config.client import AsyncConfigClient, ConfigClient
 from smplkit.flags.client import AsyncFlagsClient, FlagsClient
 from smplkit.logging.client import AsyncLoggingClient, LoggingClient
@@ -79,6 +80,7 @@ class SmplClient:
     config: ConfigClient
     flags: FlagsClient
     logging: LoggingClient
+    audit: AuditClient
 
     def __init__(
         self,
@@ -130,6 +132,7 @@ class SmplClient:
         app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
         flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
         logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
+        audit_url = _service_url(cfg.scheme, "audit", cfg.base_domain)
 
         # Alias the management's HTTP transports — single connection pool per service.
         self._http_client = self.manage._config_http
@@ -162,6 +165,7 @@ class SmplClient:
             logging_base_url=logging_url,
             app_base_url=app_url,
         )
+        self.audit = AuditClient(api_key=cfg.api_key, base_url=audit_url)
 
         # Periodic flush of registration buffers (contexts, flags, loggers).
         self._closed = False
@@ -290,6 +294,7 @@ class SmplClient:
             self._metrics.close()
         self.logging._close()
         self.flags._close()
+        self.audit._close()
         if self._ws_manager is not None:
             self._ws_manager.stop()
             self._ws_manager = None
@@ -323,6 +328,7 @@ class AsyncSmplClient:
     config: AsyncConfigClient
     flags: AsyncFlagsClient
     logging: AsyncLoggingClient
+    audit: AsyncAuditClient
 
     def __init__(
         self,
@@ -372,6 +378,7 @@ class AsyncSmplClient:
         app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
         flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
         logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
+        audit_url = _service_url(cfg.scheme, "audit", cfg.base_domain)
 
         self._http_client = self.manage._config_http
         self._app_http = self.manage._app_http
@@ -403,6 +410,7 @@ class AsyncSmplClient:
             logging_base_url=logging_url,
             app_base_url=app_url,
         )
+        self.audit = AsyncAuditClient(api_key=cfg.api_key, base_url=audit_url)
 
         # Periodic flush of registration buffers (contexts, flags, loggers).
         self._closed = False
@@ -551,6 +559,7 @@ class AsyncSmplClient:
             await self._metrics.close()
         self.logging._close()
         self.flags._close()
+        await self.audit._close()
         if self._ws_manager is not None:
             self._ws_manager.stop()
             self._ws_manager = None
