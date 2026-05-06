@@ -18,7 +18,6 @@ import logging
 import random
 import threading
 import time
-import traceback
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -68,9 +67,7 @@ class AuditEventBuffer:
         self._wake = threading.Event()
         self._closed = False
         self._dropped_count = 0
-        self._worker = threading.Thread(
-            target=self._run, name="smplkit-audit-flush", daemon=True
-        )
+        self._worker = threading.Thread(target=self._run, name="smplkit-audit-flush", daemon=True)
         self._worker.start()
 
     # ------------------------------------------------------------------ public
@@ -84,8 +81,7 @@ class AuditEventBuffer:
                 self._queue.popleft()
                 self._dropped_count += 1
                 logger.warning(
-                    "audit buffer full (size=%d); dropped oldest event "
-                    "(total dropped=%d)",
+                    "audit buffer full (size=%d); dropped oldest event (total dropped=%d)",
                     self._max_size,
                     self._dropped_count,
                 )
@@ -107,9 +103,7 @@ class AuditEventBuffer:
                 if not self._queue:
                     return
             if deadline is not None and time.monotonic() >= deadline:
-                logger.warning(
-                    "audit buffer flush timed out (timeout=%.2fs)", timeout
-                )
+                logger.warning("audit buffer flush timed out (timeout=%.2fs)", timeout)
                 return
             self._wake.set()
             time.sleep(0.05)
@@ -165,20 +159,14 @@ class AuditEventBuffer:
                 for item in reversed(retries):
                     self._queue.appendleft(item)
 
-    def _handle_outcome(
-        self, item: _PendingEvent, outcome: "httpx.Response | Exception"
-    ) -> _PendingEvent | None:
+    def _handle_outcome(self, item: _PendingEvent, outcome: "httpx.Response | Exception") -> _PendingEvent | None:
         """Decide whether an item is done, retried, or dropped."""
         # Success.
         if isinstance(outcome, httpx.Response) and 200 <= outcome.status_code < 300:
             return None
 
         # Permanent failure — 4xx other than 429.
-        if (
-            isinstance(outcome, httpx.Response)
-            and 400 <= outcome.status_code < 500
-            and outcome.status_code != 429
-        ):
+        if isinstance(outcome, httpx.Response) and 400 <= outcome.status_code < 500 and outcome.status_code != 429:
             logger.warning(
                 "audit POST permanent failure: status=%d body=%r",
                 outcome.status_code,
@@ -212,8 +200,3 @@ def _safe_body(response: "httpx.Response") -> str:
         return response.text[:200]
     except Exception:
         return "<unreadable body>"
-
-
-# Silence unused-import warnings in static analysis since traceback is
-# referenced via debug logging in subsequent revisions.
-_ = traceback
