@@ -1,4 +1,5 @@
 """Tests for the SDK audit namespace."""
+
 from __future__ import annotations
 
 import time
