@@ -28,7 +28,7 @@ class TestForwarderRequest:
             method (str | Unset):  Default: 'POST'.
             headers (list[HttpHeader] | Unset):
             body (None | str | Unset):
-            success_status (int | str | Unset):  Default: '2xx'.
+            success_status (str | Unset):  Default: '2xx'.
             timeout_ms (int | None | Unset):
     """
 
@@ -36,7 +36,7 @@ class TestForwarderRequest:
     method: str | Unset = "POST"
     headers: list[HttpHeader] | Unset = UNSET
     body: None | str | Unset = UNSET
-    success_status: int | str | Unset = "2xx"
+    success_status: str | Unset = "2xx"
     timeout_ms: int | None | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
@@ -57,11 +57,7 @@ class TestForwarderRequest:
         else:
             body = self.body
 
-        success_status: int | str | Unset
-        if isinstance(self.success_status, Unset):
-            success_status = UNSET
-        else:
-            success_status = self.success_status
+        success_status = self.success_status
 
         timeout_ms: int | None | Unset
         if isinstance(self.timeout_ms, Unset):
@@ -116,12 +112,7 @@ class TestForwarderRequest:
 
         body = _parse_body(d.pop("body", UNSET))
 
-        def _parse_success_status(data: object) -> int | str | Unset:
-            if isinstance(data, Unset):
-                return data
-            return cast(int | str | Unset, data)
-
-        success_status = _parse_success_status(d.pop("success_status", UNSET))
+        success_status = d.pop("success_status", UNSET)
 
         def _parse_timeout_ms(data: object) -> int | None | Unset:
             if data is None:
