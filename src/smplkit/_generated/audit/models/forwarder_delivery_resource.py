@@ -10,44 +10,35 @@ from ..types import UNSET, Unset
 
 
 if TYPE_CHECKING:
-    from ..models.event import Event
+    from ..models.forwarder_delivery import ForwarderDelivery
 
 
-T = TypeVar("T", bound="EventResource")
+T = TypeVar("T", bound="ForwarderDeliveryResource")
 
 
 @_attrs_define
-class EventResource:
-    """JSON:API resource envelope for an audit event.
-
+class ForwarderDeliveryResource:
+    """
     Example:
-        {'attributes': {'action': 'user.created', 'actor_id': 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'actor_label':
-            'alice@example.com', 'actor_type': 'USER', 'created_at': '2026-05-06T20:00:00.123Z', 'data': {'request_id':
-            'req-abc'}, 'do_not_forward': False, 'idempotency_key': 'auto-1234abcd', 'occurred_at': '2026-05-06T20:00:00Z',
-            'resource_id': 'u-1', 'resource_type': 'user', 'snapshot': {'email': 'alice@example.com'}}, 'id':
-            '11111111-2222-3333-4444-555555555555', 'type': 'event'}
+        {'attributes': {'attempt_number': 1, 'created_at': '2026-05-07T12:00:01.234Z', 'event_id':
+            '33333333-4444-5555-6666-777777777777', 'forwarder_id': '11111111-2222-3333-4444-555555555555', 'latency_ms':
+            187, 'request': {'body': '{"action":"user.created","resource_id":"u-1"}', 'headers': [{'name': 'DD-API-KEY',
+            'value': '<redacted>'}], 'method': 'POST', 'url': 'https://http-intake.logs.datadoghq.com/api/v2/logs'},
+            'response_body': '', 'response_status': 202, 'status': 'succeeded'}, 'id':
+            '22222222-3333-4444-5555-666666666666', 'type': 'forwarder_delivery'}
 
     Attributes:
         id (str):
-        attributes (Event): Public-facing event resource.
+        attributes (ForwarderDelivery): Read-only delivery log row.
 
-            Attribute set on POST /api/v1/events:
-                - action (required)
-                - resource_type (required)
-                - resource_id (required)
-                - occurred_at (optional; defaults to ``created_at``)
-                - snapshot (optional)
-                - data (optional; defaults to ``{}``)
-
-            Attribute set on GET responses includes everything above plus the
-            server-populated fields: ``created_at``, ``actor_type``, ``actor_id``,
-            ``actor_label``, ``idempotency_key``.
-        type_ (str | Unset):  Default: 'event'.
+            All fields are server-populated. Headers in ``request`` always show
+            redacted values, regardless of who configured them.
+        type_ (str | Unset):  Default: 'forwarder_delivery'.
     """
 
     id: str
-    attributes: Event
-    type_: str | Unset = "event"
+    attributes: ForwarderDelivery
+    type_: str | Unset = "forwarder_delivery"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -72,23 +63,23 @@ class EventResource:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.event import Event
+        from ..models.forwarder_delivery import ForwarderDelivery
 
         d = dict(src_dict)
         id = d.pop("id")
 
-        attributes = Event.from_dict(d.pop("attributes"))
+        attributes = ForwarderDelivery.from_dict(d.pop("attributes"))
 
         type_ = d.pop("type", UNSET)
 
-        event_resource = cls(
+        forwarder_delivery_resource = cls(
             id=id,
             attributes=attributes,
             type_=type_,
         )
 
-        event_resource.additional_properties = d
-        return event_resource
+        forwarder_delivery_resource.additional_properties = d
+        return forwarder_delivery_resource
 
     @property
     def additional_keys(self) -> list[str]:
