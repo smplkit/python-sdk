@@ -39,7 +39,7 @@ def test_buffer_drops_oldest_when_over_capacity():
     def post(item: _PendingEvent) -> httpx.Response:
         # Hold the worker by returning success only after we've populated.
         posts.append(item)
-        return httpx.Response(status_code=201)
+        return 201
 
     buf = AuditEventBuffer(post_fn=post, max_size=3, watermark=999)
     try:
@@ -64,8 +64,8 @@ def test_buffer_retries_on_transient_failure():
         attempts.append(item.attempts)
         # Fail twice, succeed on the third try.
         if len([a for a in attempts if a < 2]) < 2:
-            return httpx.Response(status_code=503)
-        return httpx.Response(status_code=201)
+            return 503
+        return 201
 
     buf = AuditEventBuffer(
         post_fn=post,
@@ -91,7 +91,7 @@ def test_buffer_drops_permanent_failures():
 
     def post(item: _PendingEvent) -> httpx.Response:
         posted.append(item)
-        return httpx.Response(status_code=400, text="bad request")
+        return 400
 
     buf = AuditEventBuffer(post_fn=post, max_size=10, watermark=1)
     try:
@@ -112,12 +112,33 @@ def test_buffer_drops_permanent_failures():
 
 def test_create_returns_immediately(monkeypatch):
     """The fire-and-forget contract: create() returns without blocking on POST."""
-    transport = httpx.MockTransport(lambda req: httpx.Response(201, json={"data": {}}))
+    # Body must round-trip through the generated EventResponse model, so
+    # include all required fields on the resource. This also makes the
+    # buffer's success path (status_code returned) covered.
+    _success_body = {
+        "data": {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "type": "event",
+            "attributes": {
+                "action": "invoice.created",
+                "resource_type": "invoice",
+                "resource_id": "inv-x",
+                "occurred_at": "2026-05-06T12:00:00+00:00",
+                "created_at": "2026-05-06T12:00:01+00:00",
+                "actor_type": "API_KEY",
+                "actor_id": None,
+                "actor_label": "",
+                "snapshot": None,
+                "data": {},
+                "idempotency_key": "auto",
+            },
+        }
+    }
+    transport = httpx.MockTransport(lambda req: httpx.Response(201, json=_success_body))
     client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     # Replace the underlying httpx client so we never actually go to the network.
-    client._http = httpx.Client(transport=transport)
+    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     # Re-bind the buffer to use the new http client's POST behavior.
-    client.events._http = client._http
 
     started = time.monotonic()
     for i in range(20):
@@ -161,8 +182,7 @@ def test_get_round_trips_a_single_event(monkeypatch):
 
     transport = httpx.MockTransport(handler)
     client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    client._http = httpx.Client(transport=transport)
-    client.events._http = client._http
+    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         ev = client.events.get(event_id)
         assert ev.id == event_id
@@ -181,8 +201,12 @@ def test_list_paginates(monkeypatch):
                 _make_resource("11111111-1111-1111-1111-111111111111"),
             ],
             "links": {"next": "/api/v1/events?page[size]=1&page[after]=tok-2"},
+            "meta": {"page_size": 1},
         },
-        {"data": [_make_resource("22222222-2222-2222-2222-222222222222")]},
+        {
+            "data": [_make_resource("22222222-2222-2222-2222-222222222222")],
+            "meta": {"page_size": 1},
+        },
     ]
     call_count = [0]
 
@@ -193,8 +217,7 @@ def test_list_paginates(monkeypatch):
 
     transport = httpx.MockTransport(handler)
     client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    client._http = httpx.Client(transport=transport)
-    client.events._http = client._http
+    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         first = client.events.list(page_size=1)
         assert len(first.events) == 1

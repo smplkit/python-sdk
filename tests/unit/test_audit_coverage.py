@@ -20,13 +20,13 @@ from smplkit.audit._buffer import (
     AuditEventBuffer,
     MAX_ATTEMPTS_PER_ITEM,
     _PendingEvent,
-    _safe_body,
 )
+from smplkit._generated.audit.errors import UnexpectedStatus
 from smplkit.audit.client import AsyncAuditClient, AuditClient
 
 
 def test_buffer_enqueue_silent_when_closed() -> None:
-    buf = AuditEventBuffer(post_fn=lambda item: httpx.Response(201))
+    buf = AuditEventBuffer(post_fn=lambda item: 201)
     buf.close(timeout=1.0)
     # No-op: enqueue on a closed buffer just returns.
     buf.enqueue({"x": 1})
@@ -38,7 +38,7 @@ def test_buffer_flush_warns_on_timeout() -> None:
 
     def post(item: _PendingEvent) -> httpx.Response:
         attempts.append(item.attempts)
-        return httpx.Response(503)
+        return 503
 
     buf = AuditEventBuffer(post_fn=post, max_size=10, watermark=999)
     try:
@@ -56,7 +56,7 @@ def test_buffer_gives_up_after_max_attempts() -> None:
 
     def post(item: _PendingEvent) -> httpx.Response:
         attempts[0] += 1
-        return httpx.Response(503)
+        return 503
 
     buf = AuditEventBuffer(
         post_fn=post,
@@ -83,7 +83,7 @@ def test_buffer_post_raising_treated_as_transient() -> None:
         calls[0] += 1
         if calls[0] == 1:
             raise RuntimeError("simulated network blip")
-        return httpx.Response(201)
+        return 201
 
     buf = AuditEventBuffer(post_fn=post, max_size=10, watermark=1, flush_interval=0.05)
     try:
@@ -96,20 +96,6 @@ def test_buffer_post_raising_treated_as_transient() -> None:
         assert calls[0] >= 2
     finally:
         buf.close(timeout=2.0)
-
-
-def test_safe_body_returns_text() -> None:
-    resp = httpx.Response(400, text="boom")
-    assert _safe_body(resp) == "boom"
-
-
-def test_safe_body_handles_unreadable() -> None:
-    class Broken:
-        @property
-        def text(self) -> str:
-            raise RuntimeError("unreadable")
-
-    assert _safe_body(Broken()) == "<unreadable body>"  # type: ignore[arg-type]
 
 
 # --------------------------------------------------------------------------
@@ -125,12 +111,32 @@ def test_create_serializes_snapshot_and_data() -> None:
 
     def handler(req: httpx.Request) -> httpx.Response:
         seen_bodies.append(_json.loads(req.read()))
-        return httpx.Response(201)
+        return httpx.Response(
+            201,
+            json={
+                "data": {
+                    "id": "00000000-0000-0000-0000-000000000001",
+                    "type": "event",
+                    "attributes": {
+                        "action": "invoice.created",
+                        "resource_type": "invoice",
+                        "resource_id": "inv-1",
+                        "occurred_at": "2026-05-06T12:00:00+00:00",
+                        "created_at": "2026-05-06T12:00:01+00:00",
+                        "actor_type": "API_KEY",
+                        "actor_id": None,
+                        "actor_label": "",
+                        "snapshot": None,
+                        "data": {},
+                        "idempotency_key": "k-1",
+                    },
+                }
+            },
+        )
 
     transport = httpx.MockTransport(handler)
     client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    client._http = httpx.Client(transport=transport)
-    client.events._http = client._http
+    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         client.events.record(
             action="invoice.created",
@@ -167,8 +173,7 @@ def test_post_wrapper_returns_httpx_error_on_connection_failure() -> None:
 
     transport = httpx.MockTransport(handler)
     client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    client._http = httpx.Client(transport=transport)
-    client.events._http = client._http
+    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         client.events.record(action="x", resource_type="y", resource_id="1")
         # Force a drain pass via flush; the wrapper's except clause runs.
@@ -183,12 +188,11 @@ def test_list_threads_filter_and_pagination_params() -> None:
 
     def handler(req: httpx.Request) -> httpx.Response:
         seen_urls.append(str(req.url))
-        return httpx.Response(200, json={"data": [], "links": {}})
+        return httpx.Response(200, json={"data": [], "links": {}, "meta": {"page_size": 50}})
 
     transport = httpx.MockTransport(handler)
     client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    client._http = httpx.Client(transport=transport)
-    client.events._http = client._http
+    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         client.events.list(
             action="user.created",
@@ -215,13 +219,24 @@ def test_list_threads_filter_and_pagination_params() -> None:
         client._close()
 
 
+def test_list_raises_unexpected_status_on_5xx() -> None:
+    """Cover the list path's UnexpectedStatus raise."""
+    transport = httpx.MockTransport(lambda req: httpx.Response(503, json={}))
+    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
+    try:
+        with pytest.raises(UnexpectedStatus):
+            client.events.list()
+    finally:
+        client._close()
+
+
 def test_get_raises_for_404() -> None:
     transport = httpx.MockTransport(lambda req: httpx.Response(404, json={}))
     client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    client._http = httpx.Client(transport=transport)
-    client.events._http = client._http
+    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(UnexpectedStatus):
             client.events.get(UUID("00000000-0000-0000-0000-000000000099"))
     finally:
         client._close()
@@ -261,13 +276,13 @@ def test_event_list_page_iter_and_len() -> None:
                             "idempotency_key": "k",
                         },
                     }
-                ]
+                ],
+                "meta": {"page_size": 1},
             },
         )
     )
     client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    client._http = httpx.Client(transport=transport)
-    client.events._http = client._http
+    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         page = client.events.list()
         assert len(page) == 1

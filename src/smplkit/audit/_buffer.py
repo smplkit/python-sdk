@@ -10,6 +10,10 @@ Retry strategy: exponential backoff with jitter on transient failures
 (connection errors, 5xx, 429). Permanent failures (4xx other than 429)
 are logged and dropped. The retry budget per item is finite so a single
 event can't block the queue indefinitely.
+
+The buffer is HTTP-library-agnostic: ``post_fn`` returns either an
+``int`` HTTP status code (when the generated client got a response)
+or an ``Exception`` (transport failures, unexpected statuses, etc.).
 """
 
 from __future__ import annotations
@@ -21,8 +25,6 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Callable
-
-import httpx
 
 logger = logging.getLogger("smplkit.audit")
 
@@ -53,7 +55,7 @@ class AuditEventBuffer:
     def __init__(
         self,
         *,
-        post_fn: Callable[[_PendingEvent], "httpx.Response | Exception"],
+        post_fn: Callable[[_PendingEvent], "int | Exception"],
         max_size: int = MAX_BUFFER_SIZE,
         flush_interval: float = PERIODIC_FLUSH_INTERVAL,
         watermark: int = HIGH_WATERMARK,
@@ -67,6 +69,12 @@ class AuditEventBuffer:
         self._wake = threading.Event()
         self._closed = False
         self._dropped_count = 0
+        # ``_in_flight`` is the count of items the worker has popped from
+        # the queue but not yet finished POSTing. flush() must wait on
+        # both queue empty AND in_flight == 0 — otherwise it can return
+        # while a just-popped item is still mid-roundtrip and an
+        # immediately following list() call would miss the event.
+        self._in_flight = 0
         self._worker = threading.Thread(target=self._run, name="smplkit-audit-flush", daemon=True)
         self._worker.start()
 
@@ -93,14 +101,15 @@ class AuditEventBuffer:
     def flush(self, timeout: float | None = 5.0) -> None:
         """Drain the buffer synchronously. Used on shutdown.
 
-        Returns when the queue is empty OR ``timeout`` elapses. The worker
-        thread continues processing in parallel; the caller's flush is a
-        cooperative drain rather than a takeover.
+        Returns when the buffer is idle (queue empty AND no in-flight
+        POST) OR ``timeout`` elapses. The worker thread continues
+        processing in parallel; the caller's flush is a cooperative
+        drain rather than a takeover.
         """
         deadline = time.monotonic() + timeout if timeout is not None else None
         while True:
             with self._lock:
-                if not self._queue:
+                if not self._queue and self._in_flight == 0:
                     return
             if deadline is not None and time.monotonic() >= deadline:
                 logger.warning("audit buffer flush timed out (timeout=%.2fs)", timeout)
@@ -140,6 +149,7 @@ class AuditEventBuffer:
                 if item.next_retry_at > now:
                     break
                 self._queue.popleft()
+                self._in_flight += 1
 
             try:
                 outcome = self._post_fn(item)
@@ -148,6 +158,8 @@ class AuditEventBuffer:
                 outcome = exc
 
             handled = self._handle_outcome(item, outcome)
+            with self._lock:
+                self._in_flight -= 1
             if handled is not None:
                 retries.append(handled)
 
@@ -159,25 +171,21 @@ class AuditEventBuffer:
                 for item in reversed(retries):
                     self._queue.appendleft(item)
 
-    def _handle_outcome(self, item: _PendingEvent, outcome: "httpx.Response | Exception") -> _PendingEvent | None:
+    def _handle_outcome(self, item: _PendingEvent, outcome: "int | Exception") -> _PendingEvent | None:
         """Decide whether an item is done, retried, or dropped."""
         # Success.
-        if isinstance(outcome, httpx.Response) and 200 <= outcome.status_code < 300:
+        if isinstance(outcome, int) and 200 <= outcome < 300:
             return None
 
         # Permanent failure — 4xx other than 429.
-        if isinstance(outcome, httpx.Response) and 400 <= outcome.status_code < 500 and outcome.status_code != 429:
-            logger.warning(
-                "audit POST permanent failure: status=%d body=%r",
-                outcome.status_code,
-                _safe_body(outcome),
-            )
+        if isinstance(outcome, int) and 400 <= outcome < 500 and outcome != 429:
+            logger.warning("audit POST permanent failure: status=%d", outcome)
             return None
 
         # Transient failure — retry with exponential backoff.
         item.attempts += 1
-        if isinstance(outcome, httpx.Response):
-            item.last_error = f"status={outcome.status_code}"
+        if isinstance(outcome, int):
+            item.last_error = f"status={outcome}"
         else:
             item.last_error = repr(outcome)
 
@@ -193,10 +201,3 @@ class AuditEventBuffer:
         jitter = random.uniform(0.0, backoff * 0.25)
         item.next_retry_at = time.monotonic() + backoff + jitter
         return item
-
-
-def _safe_body(response: "httpx.Response") -> str:
-    try:
-        return response.text[:200]
-    except Exception:
-        return "<unreadable body>"
