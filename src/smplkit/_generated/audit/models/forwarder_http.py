@@ -20,23 +20,26 @@ T = TypeVar("T", bound="ForwarderHttp")
 class ForwarderHttp:
     """The destination HTTP request shape stored encrypted on a forwarder.
 
-    ``success_status`` is either a single integer status (e.g. ``200``) or
-    a class string like ``"2xx"``. Anything outside the matched set is
-    treated as a delivery failure.
+    ``success_status`` is a string: either a single status code (e.g.
+    ``"200"``, ``"204"``) or a class (e.g. ``"2xx"``, ``"3xx"``). The
+    string-only contract is intentional — a Pydantic ``int | str`` union
+    confused several SDK code generators (Java in particular wrote the
+    default ``"2xx"`` unquoted into a typed enum). String covers both
+    shapes universally with a single wire type.
 
         Attributes:
             url (str):
             method (str | Unset):  Default: 'POST'.
             headers (list[HttpHeader] | Unset):
             body (None | str | Unset):
-            success_status (int | str | Unset):  Default: '2xx'.
+            success_status (str | Unset):  Default: '2xx'.
     """
 
     url: str
     method: str | Unset = "POST"
     headers: list[HttpHeader] | Unset = UNSET
     body: None | str | Unset = UNSET
-    success_status: int | str | Unset = "2xx"
+    success_status: str | Unset = "2xx"
 
     def to_dict(self) -> dict[str, Any]:
         url = self.url
@@ -56,11 +59,7 @@ class ForwarderHttp:
         else:
             body = self.body
 
-        success_status: int | str | Unset
-        if isinstance(self.success_status, Unset):
-            success_status = UNSET
-        else:
-            success_status = self.success_status
+        success_status = self.success_status
 
         field_dict: dict[str, Any] = {}
 
@@ -107,12 +106,7 @@ class ForwarderHttp:
 
         body = _parse_body(d.pop("body", UNSET))
 
-        def _parse_success_status(data: object) -> int | str | Unset:
-            if isinstance(data, Unset):
-                return data
-            return cast(int | str | Unset, data)
-
-        success_status = _parse_success_status(d.pop("success_status", UNSET))
+        success_status = d.pop("success_status", UNSET)
 
         forwarder_http = cls(
             url=url,
