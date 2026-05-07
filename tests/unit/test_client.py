@@ -845,52 +845,50 @@ def test_flag_get_with_set_context_does_not_double_register():
 
 
 def test_smpl_client_extra_headers_flags() -> None:
-    """extra_headers propagate to FlagsClient._flags_http."""
+    """extra_headers are stored on FlagsClient._flags_http and applied to every request."""
     client = SmplClient(api_key="sk_api_test", environment="test", service="svc", extra_headers={"X-Test": "v"})
     try:
-        http = client.flags._flags_http.get_httpx_client()
-        assert http.headers.get("x-test") == "v"
+        assert client.flags._flags_http._headers.get("X-Test") == "v"
     finally:
         client.close()
 
 
 def test_smpl_client_extra_headers_logging() -> None:
-    """extra_headers propagate to LoggingClient._logging_http."""
+    """extra_headers are stored on LoggingClient._logging_http and applied to every request."""
     client = SmplClient(api_key="sk_api_test", environment="test", service="svc", extra_headers={"X-Test": "v"})
     try:
-        http = client.logging._logging_http.get_httpx_client()
-        assert http.headers.get("x-test") == "v"
+        assert client.logging._logging_http._headers.get("X-Test") == "v"
     finally:
         client.close()
 
 
 def test_smpl_client_extra_headers_audit() -> None:
-    """extra_headers propagate to AuditClient._auth."""
+    """extra_headers are stored on AuditClient._auth and applied to every request."""
     client = SmplClient(api_key="sk_api_test", environment="test", service="svc", extra_headers={"X-Test": "v"})
     try:
-        http = client.audit._auth.get_httpx_client()
-        assert http.headers.get("x-test") == "v"
+        assert client.audit._auth._headers.get("X-Test") == "v"
     finally:
         client.close()
 
 
 def test_smpl_client_extra_headers_config() -> None:
-    """extra_headers propagate to the config HTTP transport (via management client)."""
+    """extra_headers propagate to the config HTTP transport via the management client."""
     client = SmplClient(api_key="sk_api_test", environment="test", service="svc", extra_headers={"X-Test": "v"})
     try:
-        http = client._http_client.get_httpx_client()
-        assert http.headers.get("x-test") == "v"
+        assert client._http_client._headers.get("X-Test") == "v"
     finally:
         client.close()
 
 
 def test_async_smpl_client_extra_headers_audit() -> None:
     """extra_headers propagate through AsyncSmplClient to AsyncAuditClient."""
+
     async def _run():
-        client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="svc", extra_headers={"X-Test": "v"})
+        client = AsyncSmplClient(
+            api_key="sk_api_test", environment="test", service="svc", extra_headers={"X-Test": "v"}
+        )
         try:
-            http = client.audit._inner._auth.get_httpx_client()
-            assert http.headers.get("x-test") == "v"
+            assert client.audit._inner._auth._headers.get("X-Test") == "v"
         finally:
             await client.close()
 

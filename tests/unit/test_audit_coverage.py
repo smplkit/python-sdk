@@ -302,7 +302,9 @@ def test_audit_client_extra_headers_reach_transport() -> None:
 
 def test_async_audit_client_extra_headers_reach_transport() -> None:
     """AsyncAuditClient forwards extra_headers to its inner AuditClient."""
-    client = AsyncAuditClient(api_key="sk_api_test", base_url="https://audit.example.com", extra_headers={"X-Test": "v"})
+    client = AsyncAuditClient(
+        api_key="sk_api_test", base_url="https://audit.example.com", extra_headers={"X-Test": "v"}
+    )
     http = client._inner._auth.get_httpx_client()
     assert http.headers.get("x-test") == "v"
 
