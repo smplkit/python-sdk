@@ -1,40 +1,43 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-if TYPE_CHECKING:
-    from ..models.catalog_bundle_resource import CatalogBundleResource
-
-
-T = TypeVar("T", bound="BundleListResponse")
+T = TypeVar("T", bound="NextTierMeta")
 
 
 @_attrs_define
-class BundleListResponse:
+class NextTierMeta:
     """
     Attributes:
-        data (list[CatalogBundleResource]):
+        products_needed (int):
+        discount_pct (int):
+        additional_savings_cents (int):
     """
 
-    data: list[CatalogBundleResource]
+    products_needed: int
+    discount_pct: int
+    additional_savings_cents: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = []
-        for data_item_data in self.data:
-            data_item = data_item_data.to_dict()
-            data.append(data_item)
+        products_needed = self.products_needed
+
+        discount_pct = self.discount_pct
+
+        additional_savings_cents = self.additional_savings_cents
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "data": data,
+                "products_needed": products_needed,
+                "discount_pct": discount_pct,
+                "additional_savings_cents": additional_savings_cents,
             }
         )
 
@@ -42,22 +45,21 @@ class BundleListResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.catalog_bundle_resource import CatalogBundleResource
-
         d = dict(src_dict)
-        data = []
-        _data = d.pop("data")
-        for data_item_data in _data:
-            data_item = CatalogBundleResource.from_dict(data_item_data)
+        products_needed = d.pop("products_needed")
 
-            data.append(data_item)
+        discount_pct = d.pop("discount_pct")
 
-        bundle_list_response = cls(
-            data=data,
+        additional_savings_cents = d.pop("additional_savings_cents")
+
+        next_tier_meta = cls(
+            products_needed=products_needed,
+            discount_pct=discount_pct,
+            additional_savings_cents=additional_savings_cents,
         )
 
-        bundle_list_response.additional_properties = d
-        return bundle_list_response
+        next_tier_meta.additional_properties = d
+        return next_tier_meta
 
     @property
     def additional_keys(self) -> list[str]:
