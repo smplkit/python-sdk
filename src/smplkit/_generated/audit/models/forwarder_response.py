@@ -8,26 +8,25 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.event_resource import EventResource
+    from ..models.forwarder_resource import ForwarderResource
 
 
-T = TypeVar("T", bound="EventResponse")
+T = TypeVar("T", bound="ForwarderResponse")
 
 
 @_attrs_define
-class EventResponse:
-    """JSON:API single-resource response.
-
+class ForwarderResponse:
+    """
     Attributes:
-        data (EventResource): JSON:API resource envelope for an audit event. Example: {'attributes': {'action':
-            'user.created', 'actor_id': 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'actor_label': 'alice@example.com',
-            'actor_type': 'USER', 'created_at': '2026-05-06T20:00:00.123Z', 'data': {'request_id': 'req-abc'},
-            'do_not_forward': False, 'idempotency_key': 'auto-1234abcd', 'occurred_at': '2026-05-06T20:00:00Z',
-            'resource_id': 'u-1', 'resource_type': 'user', 'snapshot': {'email': 'alice@example.com'}}, 'id':
-            '11111111-2222-3333-4444-555555555555', 'type': 'event'}.
+        data (ForwarderResource):  Example: {'attributes': {'created_at': '2026-05-07T12:00:00Z', 'data': {}, 'enabled':
+            True, 'filter': {'==': [{'var': 'action'}, 'user.created']}, 'forwarder_type': 'datadog', 'http': {'headers':
+            [{'name': 'DD-API-KEY', 'value': '<redacted>'}], 'method': 'POST', 'success_status': '2xx', 'url':
+            'https://http-intake.logs.datadoghq.com/api/v2/logs'}, 'name': 'Datadog production', 'slug':
+            'datadog_production', 'updated_at': '2026-05-07T12:00:00Z', 'version': 1}, 'id':
+            '11111111-2222-3333-4444-555555555555', 'type': 'forwarder'}.
     """
 
-    data: EventResource
+    data: ForwarderResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -45,17 +44,17 @@ class EventResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.event_resource import EventResource
+        from ..models.forwarder_resource import ForwarderResource
 
         d = dict(src_dict)
-        data = EventResource.from_dict(d.pop("data"))
+        data = ForwarderResource.from_dict(d.pop("data"))
 
-        event_response = cls(
+        forwarder_response = cls(
             data=data,
         )
 
-        event_response.additional_properties = d
-        return event_response
+        forwarder_response.additional_properties = d
+        return forwarder_response
 
     @property
     def additional_keys(self) -> list[str]:

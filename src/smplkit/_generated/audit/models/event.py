@@ -44,6 +44,9 @@ class Event:
             occurred_at (datetime.datetime | None | Unset):
             snapshot (EventSnapshotType0 | None | Unset):
             data (EventData | Unset):
+            do_not_forward (bool | Unset): When true, this event is recorded normally but is not forwarded to any configured
+                SIEM forwarder. A forwarder_delivery row with status=skipped_do_not_forward is recorded for each enabled
+                forwarder so the skip is visible in the delivery log. Default: False.
             created_at (datetime.datetime | None | Unset):
             actor_type (None | str | Unset):
             actor_id (None | Unset | UUID):
@@ -57,6 +60,7 @@ class Event:
     occurred_at: datetime.datetime | None | Unset = UNSET
     snapshot: EventSnapshotType0 | None | Unset = UNSET
     data: EventData | Unset = UNSET
+    do_not_forward: bool | Unset = False
     created_at: datetime.datetime | None | Unset = UNSET
     actor_type: None | str | Unset = UNSET
     actor_id: None | Unset | UUID = UNSET
@@ -92,6 +96,8 @@ class Event:
         data: dict[str, Any] | Unset = UNSET
         if not isinstance(self.data, Unset):
             data = self.data.to_dict()
+
+        do_not_forward = self.do_not_forward
 
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
@@ -142,6 +148,8 @@ class Event:
             field_dict["snapshot"] = snapshot
         if data is not UNSET:
             field_dict["data"] = data
+        if do_not_forward is not UNSET:
+            field_dict["do_not_forward"] = do_not_forward
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
         if actor_type is not UNSET:
@@ -207,6 +215,8 @@ class Event:
             data = UNSET
         else:
             data = EventData.from_dict(_data)
+
+        do_not_forward = d.pop("do_not_forward", UNSET)
 
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -276,6 +286,7 @@ class Event:
             occurred_at=occurred_at,
             snapshot=snapshot,
             data=data,
+            do_not_forward=do_not_forward,
             created_at=created_at,
             actor_type=actor_type,
             actor_id=actor_id,

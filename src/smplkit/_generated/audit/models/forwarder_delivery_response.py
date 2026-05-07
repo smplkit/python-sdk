@@ -8,26 +8,26 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.event_resource import EventResource
+    from ..models.forwarder_delivery_resource import ForwarderDeliveryResource
 
 
-T = TypeVar("T", bound="EventResponse")
+T = TypeVar("T", bound="ForwarderDeliveryResponse")
 
 
 @_attrs_define
-class EventResponse:
-    """JSON:API single-resource response.
-
+class ForwarderDeliveryResponse:
+    """
     Attributes:
-        data (EventResource): JSON:API resource envelope for an audit event. Example: {'attributes': {'action':
-            'user.created', 'actor_id': 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'actor_label': 'alice@example.com',
-            'actor_type': 'USER', 'created_at': '2026-05-06T20:00:00.123Z', 'data': {'request_id': 'req-abc'},
-            'do_not_forward': False, 'idempotency_key': 'auto-1234abcd', 'occurred_at': '2026-05-06T20:00:00Z',
-            'resource_id': 'u-1', 'resource_type': 'user', 'snapshot': {'email': 'alice@example.com'}}, 'id':
-            '11111111-2222-3333-4444-555555555555', 'type': 'event'}.
+        data (ForwarderDeliveryResource):  Example: {'attributes': {'attempt_number': 1, 'created_at':
+            '2026-05-07T12:00:01.234Z', 'event_id': '33333333-4444-5555-6666-777777777777', 'forwarder_id':
+            '11111111-2222-3333-4444-555555555555', 'latency_ms': 187, 'request': {'body':
+            '{"action":"user.created","resource_id":"u-1"}', 'headers': [{'name': 'DD-API-KEY', 'value': '<redacted>'}],
+            'method': 'POST', 'url': 'https://http-intake.logs.datadoghq.com/api/v2/logs'}, 'response_body': '',
+            'response_status': 202, 'status': 'succeeded'}, 'id': '22222222-3333-4444-5555-666666666666', 'type':
+            'forwarder_delivery'}.
     """
 
-    data: EventResource
+    data: ForwarderDeliveryResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -45,17 +45,17 @@ class EventResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.event_resource import EventResource
+        from ..models.forwarder_delivery_resource import ForwarderDeliveryResource
 
         d = dict(src_dict)
-        data = EventResource.from_dict(d.pop("data"))
+        data = ForwarderDeliveryResource.from_dict(d.pop("data"))
 
-        event_response = cls(
+        forwarder_delivery_response = cls(
             data=data,
         )
 
-        event_response.additional_properties = d
-        return event_response
+        forwarder_delivery_response.additional_properties = d
+        return forwarder_delivery_response
 
     @property
     def additional_keys(self) -> list[str]:

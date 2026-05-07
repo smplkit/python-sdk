@@ -10,44 +10,43 @@ from ..types import UNSET, Unset
 
 
 if TYPE_CHECKING:
-    from ..models.event import Event
+    from ..models.forwarder import Forwarder
 
 
-T = TypeVar("T", bound="EventResource")
+T = TypeVar("T", bound="ForwarderResource")
 
 
 @_attrs_define
-class EventResource:
-    """JSON:API resource envelope for an audit event.
-
+class ForwarderResource:
+    """
     Example:
-        {'attributes': {'action': 'user.created', 'actor_id': 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'actor_label':
-            'alice@example.com', 'actor_type': 'USER', 'created_at': '2026-05-06T20:00:00.123Z', 'data': {'request_id':
-            'req-abc'}, 'do_not_forward': False, 'idempotency_key': 'auto-1234abcd', 'occurred_at': '2026-05-06T20:00:00Z',
-            'resource_id': 'u-1', 'resource_type': 'user', 'snapshot': {'email': 'alice@example.com'}}, 'id':
-            '11111111-2222-3333-4444-555555555555', 'type': 'event'}
+        {'attributes': {'created_at': '2026-05-07T12:00:00Z', 'data': {}, 'enabled': True, 'filter': {'==': [{'var':
+            'action'}, 'user.created']}, 'forwarder_type': 'datadog', 'http': {'headers': [{'name': 'DD-API-KEY', 'value':
+            '<redacted>'}], 'method': 'POST', 'success_status': '2xx', 'url': 'https://http-
+            intake.logs.datadoghq.com/api/v2/logs'}, 'name': 'Datadog production', 'slug': 'datadog_production',
+            'updated_at': '2026-05-07T12:00:00Z', 'version': 1}, 'id': '11111111-2222-3333-4444-555555555555', 'type':
+            'forwarder'}
 
     Attributes:
         id (str):
-        attributes (Event): Public-facing event resource.
+        attributes (Forwarder): Public-facing forwarder resource.
 
-            Attribute set on POST /api/v1/events:
-                - action (required)
-                - resource_type (required)
-                - resource_id (required)
-                - occurred_at (optional; defaults to ``created_at``)
-                - snapshot (optional)
-                - data (optional; defaults to ``{}``)
+            Attribute set on POST /api/v1/forwarders:
+                - name (required)
+                - forwarder_type (required)
+                - http (required)
+                - enabled (optional, defaults true)
+                - filter (optional, JSON Logic)
+                - transform (optional, JSONata)
 
-            Attribute set on GET responses includes everything above plus the
-            server-populated fields: ``created_at``, ``actor_type``, ``actor_id``,
-            ``actor_label``, ``idempotency_key``.
-        type_ (str | Unset):  Default: 'event'.
+            The slug is server-derived from name on create; it is immutable on
+            update because consumers (UI, observability) key off it.
+        type_ (str | Unset):  Default: 'forwarder'.
     """
 
     id: str
-    attributes: Event
-    type_: str | Unset = "event"
+    attributes: Forwarder
+    type_: str | Unset = "forwarder"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -72,23 +71,23 @@ class EventResource:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.event import Event
+        from ..models.forwarder import Forwarder
 
         d = dict(src_dict)
         id = d.pop("id")
 
-        attributes = Event.from_dict(d.pop("attributes"))
+        attributes = Forwarder.from_dict(d.pop("attributes"))
 
         type_ = d.pop("type", UNSET)
 
-        event_resource = cls(
+        forwarder_resource = cls(
             id=id,
             attributes=attributes,
             type_=type_,
         )
 
-        event_resource.additional_properties = d
-        return event_resource
+        forwarder_resource.additional_properties = d
+        return forwarder_resource
 
     @property
     def additional_keys(self) -> list[str]:
