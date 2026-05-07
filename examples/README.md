@@ -26,6 +26,7 @@ Each product has two showcases — **management** and **runtime** — plus a set
 | **Flags** | `flags_management_showcase.py` | `flags_runtime_showcase.py` | `flags_runtime_setup.py` |
 | **Config** | `config_management_showcase.py` | `config_runtime_showcase.py` | `config_runtime_setup.py` |
 | **Logging** | `logging_management_showcase.py` | `logging_runtime_showcase.py` | `logging_runtime_setup.py` |
+| **Audit** | _(no management API)_ | `audit_runtime_showcase.py` | _(none — events created at runtime)_ |
 
 **Management showcases** demonstrate the programmatic CRUD API: creating resources with `new*()` + `save()`, fetching with `get(id)`, listing, mutating, and deleting. No `connect()` or `start()` needed — management methods are stateless HTTP calls.
 
@@ -43,6 +44,7 @@ python examples/logging_management_showcase.py
 python examples/flags_runtime_showcase.py
 python examples/config_runtime_showcase.py
 python examples/logging_runtime_showcase.py
+python examples/audit_runtime_showcase.py
 ```
 
 Each script creates temporary resources, exercises all SDK features, then cleans up after itself.
