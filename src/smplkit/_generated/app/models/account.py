@@ -36,6 +36,11 @@ class Account:
         product_subscriptions (AccountProductSubscriptions | None | Unset):
         entry_point (None | str | Unset): Registration entry point (from account.data)
         show_sample_data (bool | None | Unset): Whether sample data is active (from account.settings)
+        discount_override_pct (int | None | Unset): Custom discount percentage that overrides the volume schedule. Null
+            means the volume schedule applies.
+        discount_override_reason (None | str | Unset): Free-form note explaining why the override was set.
+        discount_override_set_by_user_id (None | str | Unset): UUID of the admin user who set the override.
+        discount_override_set_at (datetime.datetime | None | Unset): Timestamp when the override was last changed.
     """
 
     name: str
@@ -47,6 +52,10 @@ class Account:
     product_subscriptions: AccountProductSubscriptions | None | Unset = UNSET
     entry_point: None | str | Unset = UNSET
     show_sample_data: bool | None | Unset = UNSET
+    discount_override_pct: int | None | Unset = UNSET
+    discount_override_reason: None | str | Unset = UNSET
+    discount_override_set_by_user_id: None | str | Unset = UNSET
+    discount_override_set_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -102,6 +111,32 @@ class Account:
         else:
             show_sample_data = self.show_sample_data
 
+        discount_override_pct: int | None | Unset
+        if isinstance(self.discount_override_pct, Unset):
+            discount_override_pct = UNSET
+        else:
+            discount_override_pct = self.discount_override_pct
+
+        discount_override_reason: None | str | Unset
+        if isinstance(self.discount_override_reason, Unset):
+            discount_override_reason = UNSET
+        else:
+            discount_override_reason = self.discount_override_reason
+
+        discount_override_set_by_user_id: None | str | Unset
+        if isinstance(self.discount_override_set_by_user_id, Unset):
+            discount_override_set_by_user_id = UNSET
+        else:
+            discount_override_set_by_user_id = self.discount_override_set_by_user_id
+
+        discount_override_set_at: None | str | Unset
+        if isinstance(self.discount_override_set_at, Unset):
+            discount_override_set_at = UNSET
+        elif isinstance(self.discount_override_set_at, datetime.datetime):
+            discount_override_set_at = self.discount_override_set_at.isoformat()
+        else:
+            discount_override_set_at = self.discount_override_set_at
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -124,6 +159,14 @@ class Account:
             field_dict["entry_point"] = entry_point
         if show_sample_data is not UNSET:
             field_dict["show_sample_data"] = show_sample_data
+        if discount_override_pct is not UNSET:
+            field_dict["discount_override_pct"] = discount_override_pct
+        if discount_override_reason is not UNSET:
+            field_dict["discount_override_reason"] = discount_override_reason
+        if discount_override_set_by_user_id is not UNSET:
+            field_dict["discount_override_set_by_user_id"] = discount_override_set_by_user_id
+        if discount_override_set_at is not UNSET:
+            field_dict["discount_override_set_at"] = discount_override_set_at
 
         return field_dict
 
@@ -224,6 +267,52 @@ class Account:
 
         show_sample_data = _parse_show_sample_data(d.pop("show_sample_data", UNSET))
 
+        def _parse_discount_override_pct(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        discount_override_pct = _parse_discount_override_pct(d.pop("discount_override_pct", UNSET))
+
+        def _parse_discount_override_reason(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        discount_override_reason = _parse_discount_override_reason(d.pop("discount_override_reason", UNSET))
+
+        def _parse_discount_override_set_by_user_id(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        discount_override_set_by_user_id = _parse_discount_override_set_by_user_id(
+            d.pop("discount_override_set_by_user_id", UNSET)
+        )
+
+        def _parse_discount_override_set_at(data: object) -> datetime.datetime | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                discount_override_set_at_type_0 = isoparse(data)
+
+                return discount_override_set_at_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None | Unset, data)
+
+        discount_override_set_at = _parse_discount_override_set_at(d.pop("discount_override_set_at", UNSET))
+
         account = cls(
             name=name,
             key=key,
@@ -234,6 +323,10 @@ class Account:
             product_subscriptions=product_subscriptions,
             entry_point=entry_point,
             show_sample_data=show_sample_data,
+            discount_override_pct=discount_override_pct,
+            discount_override_reason=discount_override_reason,
+            discount_override_set_by_user_id=discount_override_set_by_user_id,
+            discount_override_set_at=discount_override_set_at,
         )
 
         account.additional_properties = d

@@ -6,8 +6,11 @@ from typing import Any, TypeVar, TYPE_CHECKING
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..types import UNSET, Unset
+
 
 if TYPE_CHECKING:
+    from ..models.subscription_list_meta import SubscriptionListMeta
     from ..models.subscription_resource import SubscriptionResource
 
 
@@ -19,9 +22,11 @@ class SubscriptionListResponse:
     """
     Attributes:
         data (list[SubscriptionResource]):
+        meta (SubscriptionListMeta | Unset): Discount and totals summary attached to GET /api/v1/subscriptions.
     """
 
     data: list[SubscriptionResource]
+    meta: SubscriptionListMeta | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -30,6 +35,10 @@ class SubscriptionListResponse:
             data_item = data_item_data.to_dict()
             data.append(data_item)
 
+        meta: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.meta, Unset):
+            meta = self.meta.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -37,11 +46,14 @@ class SubscriptionListResponse:
                 "data": data,
             }
         )
+        if meta is not UNSET:
+            field_dict["meta"] = meta
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.subscription_list_meta import SubscriptionListMeta
         from ..models.subscription_resource import SubscriptionResource
 
         d = dict(src_dict)
@@ -52,8 +64,16 @@ class SubscriptionListResponse:
 
             data.append(data_item)
 
+        _meta = d.pop("meta", UNSET)
+        meta: SubscriptionListMeta | Unset
+        if isinstance(_meta, Unset):
+            meta = UNSET
+        else:
+            meta = SubscriptionListMeta.from_dict(_meta)
+
         subscription_list_response = cls(
             data=data,
+            meta=meta,
         )
 
         subscription_list_response.additional_properties = d
