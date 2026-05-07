@@ -65,7 +65,7 @@ def sync_detailed(
     body: EventResponse,
     idempotency_key: None | str | Unset = UNSET,
 ) -> Response[EventResponse]:
-    """Create Event
+    """Record Event
 
      Record an audit event for the authenticated account.
 
@@ -106,7 +106,7 @@ def sync(
     body: EventResponse,
     idempotency_key: None | str | Unset = UNSET,
 ) -> EventResponse | None:
-    """Create Event
+    """Record Event
 
      Record an audit event for the authenticated account.
 
@@ -142,7 +142,7 @@ async def asyncio_detailed(
     body: EventResponse,
     idempotency_key: None | str | Unset = UNSET,
 ) -> Response[EventResponse]:
-    """Create Event
+    """Record Event
 
      Record an audit event for the authenticated account.
 
@@ -181,7 +181,7 @@ async def asyncio(
     body: EventResponse,
     idempotency_key: None | str | Unset = UNSET,
 ) -> EventResponse | None:
-    """Create Event
+    """Record Event
 
      Record an audit event for the authenticated account.
 
