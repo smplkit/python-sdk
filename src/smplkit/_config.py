@@ -51,6 +51,7 @@ class ResolvedManagementConfig:
     base_domain: str
     scheme: str
     debug: bool
+    extra_headers: dict[str, str] | None = None
 
 
 def _parse_bool(value: str, key: str) -> bool:

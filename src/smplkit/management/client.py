@@ -2061,10 +2061,11 @@ class SmplManagementClient:
         flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
         logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
 
-        self._app_http = _AppAuthClient(base_url=app_url, token=cfg.api_key)
-        self._config_http = _ConfigAuthClient(base_url=config_url, token=cfg.api_key)
-        self._flags_http = _FlagsAuthClient(base_url=flags_url, token=cfg.api_key)
-        self._logging_http = _LoggingAuthClient(base_url=logging_url, token=cfg.api_key)
+        _extra = {**(cfg.extra_headers or {})}
+        self._app_http = _AppAuthClient(base_url=app_url, token=cfg.api_key, headers=_extra)
+        self._config_http = _ConfigAuthClient(base_url=config_url, token=cfg.api_key, headers=_extra)
+        self._flags_http = _FlagsAuthClient(base_url=flags_url, token=cfg.api_key, headers=_extra)
+        self._logging_http = _LoggingAuthClient(base_url=logging_url, token=cfg.api_key, headers=_extra)
 
         from smplkit.management._buffer import _ContextRegistrationBuffer
 
@@ -2149,10 +2150,11 @@ class AsyncSmplManagementClient:
         flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
         logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
 
-        self._app_http = _AppAuthClient(base_url=app_url, token=cfg.api_key)
-        self._config_http = _ConfigAuthClient(base_url=config_url, token=cfg.api_key)
-        self._flags_http = _FlagsAuthClient(base_url=flags_url, token=cfg.api_key)
-        self._logging_http = _LoggingAuthClient(base_url=logging_url, token=cfg.api_key)
+        _extra = {**(cfg.extra_headers or {})}
+        self._app_http = _AppAuthClient(base_url=app_url, token=cfg.api_key, headers=_extra)
+        self._config_http = _ConfigAuthClient(base_url=config_url, token=cfg.api_key, headers=_extra)
+        self._flags_http = _FlagsAuthClient(base_url=flags_url, token=cfg.api_key, headers=_extra)
+        self._logging_http = _LoggingAuthClient(base_url=logging_url, token=cfg.api_key, headers=_extra)
 
         from smplkit.management._buffer import _ContextRegistrationBuffer
 

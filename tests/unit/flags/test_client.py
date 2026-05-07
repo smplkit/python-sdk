@@ -3183,3 +3183,13 @@ class TestAsyncFlagsClientFlagRegistration:
         with patch("smplkit.management.client.threading.Thread") as mock_thread:
             client.boolean_flag(f"flag-{_FLAG_BULK_FLUSH_THRESHOLD - 1}", default=True)
             mock_thread.assert_called_once()
+
+
+def test_flags_client_extra_headers_reach_transport() -> None:
+    """extra_headers are applied as defaults on FlagsClient._flags_http."""
+    client = SmplClient(api_key="sk_api_test", environment="test", service="svc", extra_headers={"X-Test": "v"})
+    try:
+        http = client.flags._flags_http.get_httpx_client()
+        assert http.headers.get("x-test") == "v"
+    finally:
+        client.close()

@@ -162,6 +162,7 @@ class LoggingClient:
         metrics: _MetricsReporter | None,
         logging_base_url: str = _DEFAULT_LOGGING_BASE_URL,
         app_base_url: str | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> None:
         self._parent = parent
         self._manage = manage
@@ -172,6 +173,7 @@ class LoggingClient:
         self._logging_http = AuthenticatedClient(
             base_url=logging_base_url,
             token=parent._api_key,
+            headers={**(extra_headers or {})},
         )
         self._connected = False
         self._name_map: dict[str, str] = {}  # original_name → normalized_id
@@ -552,6 +554,7 @@ class AsyncLoggingClient:
         metrics: _AsyncMetricsReporter | None,
         logging_base_url: str = _DEFAULT_LOGGING_BASE_URL,
         app_base_url: str | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> None:
         self._parent = parent
         self._manage = manage
@@ -562,6 +565,7 @@ class AsyncLoggingClient:
         self._logging_http = AuthenticatedClient(
             base_url=logging_base_url,
             token=parent._api_key,
+            headers={**(extra_headers or {})},
         )
         self._connected = False
         self._name_map: dict[str, str] = {}

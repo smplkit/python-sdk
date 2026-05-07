@@ -1687,3 +1687,13 @@ class TestAsyncConfigClientWebSocket:
         client.config._config_cache = dict(original)
         client.config._handle_configs_changed({})
         assert client.config._config_cache == original
+
+
+def test_config_extra_headers_reach_transport() -> None:
+    """extra_headers reach the config HTTP transport via the management client."""
+    client = SmplClient(api_key="sk_api_test", environment="test", service="svc", extra_headers={"X-Test": "v"})
+    try:
+        http = client._http_client.get_httpx_client()
+        assert http.headers.get("x-test") == "v"
+    finally:
+        client.close()

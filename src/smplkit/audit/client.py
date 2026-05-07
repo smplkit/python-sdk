@@ -648,14 +648,14 @@ class AuditClient:
     forwarders: _ForwardersClient
     functions: _FunctionsClient
 
-    def __init__(self, *, api_key: str, base_url: str) -> None:
+    def __init__(self, *, api_key: str, base_url: str, extra_headers: dict[str, str] | None = None) -> None:
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
         self._auth = AuthenticatedClient(
             base_url=self._base_url,
             token=api_key,
             timeout=httpx.Timeout(10.0),
-            headers={"Accept": "application/vnd.api+json"},
+            headers={**(extra_headers or {}), "Accept": "application/vnd.api+json"},
         )
         self.events = _EventsClient(auth_client=self._auth)
         self.forwarders = _ForwardersClient(auth_client=self._auth)
@@ -684,8 +684,8 @@ class AsyncAuditClient:
     forwarders: _ForwardersClient
     functions: _FunctionsClient
 
-    def __init__(self, *, api_key: str, base_url: str) -> None:
-        self._inner = AuditClient(api_key=api_key, base_url=base_url)
+    def __init__(self, *, api_key: str, base_url: str, extra_headers: dict[str, str] | None = None) -> None:
+        self._inner = AuditClient(api_key=api_key, base_url=base_url, extra_headers=extra_headers)
         self.events = self._inner.events
         self.forwarders = self._inner.forwarders
         self.functions = self._inner.functions

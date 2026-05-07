@@ -36,7 +36,7 @@ logger = logging.getLogger("smplkit")
 _PERIODIC_FLUSH_INTERVAL = 60.0  # seconds
 
 
-def _to_management_config(cfg) -> ResolvedManagementConfig:
+def _to_management_config(cfg, extra_headers: dict[str, str] | None = None) -> ResolvedManagementConfig:
     """Project the runtime ResolvedConfig down to the management subset.
 
     SmplClient's resolved config is a superset of SmplManagementClient's;
@@ -47,6 +47,7 @@ def _to_management_config(cfg) -> ResolvedManagementConfig:
         base_domain=cfg.base_domain,
         scheme=cfg.scheme,
         debug=cfg.debug,
+        extra_headers=extra_headers,
     )
 
 
@@ -93,6 +94,7 @@ class SmplClient:
         scheme: str | None = None,
         debug: bool | None = None,
         telemetry: bool | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> None:
         cfg = resolve_config(
             profile=profile,
@@ -112,6 +114,7 @@ class SmplClient:
         self._service = cfg.service
         self._base_domain = cfg.base_domain
         self._scheme = cfg.scheme
+        self._extra_headers = extra_headers
 
         if cfg.debug:
             logger.setLevel(logging.DEBUG)
@@ -127,7 +130,7 @@ class SmplClient:
 
         # Construct the management client first; the runtime client uses
         # its HTTP transports + registration buffers under the hood.
-        self.manage = SmplManagementClient._from_resolved(_to_management_config(cfg))
+        self.manage = SmplManagementClient._from_resolved(_to_management_config(cfg, extra_headers))
 
         app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
         flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
@@ -157,6 +160,7 @@ class SmplClient:
             metrics=self._metrics,
             flags_base_url=flags_url,
             app_base_url=app_url,
+            extra_headers=extra_headers,
         )
         self.logging = LoggingClient(
             self,
@@ -164,8 +168,9 @@ class SmplClient:
             metrics=self._metrics,
             logging_base_url=logging_url,
             app_base_url=app_url,
+            extra_headers=extra_headers,
         )
-        self.audit = AuditClient(api_key=cfg.api_key, base_url=audit_url)
+        self.audit = AuditClient(api_key=cfg.api_key, base_url=audit_url, extra_headers=extra_headers)
 
         # Periodic flush of registration buffers (contexts, flags, loggers).
         self._closed = False
@@ -341,6 +346,7 @@ class AsyncSmplClient:
         scheme: str | None = None,
         debug: bool | None = None,
         telemetry: bool | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> None:
         cfg = resolve_config(
             profile=profile,
@@ -360,6 +366,7 @@ class AsyncSmplClient:
         self._service = cfg.service
         self._base_domain = cfg.base_domain
         self._scheme = cfg.scheme
+        self._extra_headers = extra_headers
 
         if cfg.debug:
             logger.setLevel(logging.DEBUG)
@@ -373,7 +380,7 @@ class AsyncSmplClient:
             f" debug={cfg.debug} telemetry={cfg.telemetry}",
         )
 
-        self.manage = AsyncSmplManagementClient._from_resolved(_to_management_config(cfg))
+        self.manage = AsyncSmplManagementClient._from_resolved(_to_management_config(cfg, extra_headers))
 
         app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
         flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
@@ -402,6 +409,7 @@ class AsyncSmplClient:
             metrics=self._metrics,
             flags_base_url=flags_url,
             app_base_url=app_url,
+            extra_headers=extra_headers,
         )
         self.logging = AsyncLoggingClient(
             self,
@@ -409,8 +417,9 @@ class AsyncSmplClient:
             metrics=self._metrics,
             logging_base_url=logging_url,
             app_base_url=app_url,
+            extra_headers=extra_headers,
         )
-        self.audit = AsyncAuditClient(api_key=cfg.api_key, base_url=audit_url)
+        self.audit = AsyncAuditClient(api_key=cfg.api_key, base_url=audit_url, extra_headers=extra_headers)
 
         # Periodic flush of registration buffers (contexts, flags, loggers).
         self._closed = False

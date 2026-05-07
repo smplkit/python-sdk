@@ -204,6 +204,7 @@ class FlagsClient:
         metrics: _MetricsReporter | None,
         flags_base_url: str = _DEFAULT_FLAGS_BASE_URL,
         app_base_url: str = _DEFAULT_APP_BASE_URL,
+        extra_headers: dict[str, str] | None = None,
     ) -> None:
         self._parent = parent
         self._manage = manage
@@ -213,6 +214,7 @@ class FlagsClient:
         self._flags_http = AuthenticatedClient(
             base_url=flags_base_url,
             token=parent._api_key,
+            headers={**(extra_headers or {})},
         )
 
         # Runtime state
@@ -556,6 +558,7 @@ class AsyncFlagsClient:
         metrics: _AsyncMetricsReporter | None,
         flags_base_url: str = _DEFAULT_FLAGS_BASE_URL,
         app_base_url: str = _DEFAULT_APP_BASE_URL,
+        extra_headers: dict[str, str] | None = None,
     ) -> None:
         self._parent = parent
         self._manage = manage
@@ -565,6 +568,7 @@ class AsyncFlagsClient:
         self._flags_http = AuthenticatedClient(
             base_url=flags_base_url,
             token=parent._api_key,
+            headers={**(extra_headers or {})},
         )
 
         # Runtime state
