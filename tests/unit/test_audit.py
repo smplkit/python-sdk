@@ -121,7 +121,7 @@ def test_create_returns_immediately(monkeypatch):
 
     started = time.monotonic()
     for i in range(20):
-        client.events.create(
+        client.events.record(
             action="invoice.created",
             resource_type="invoice",
             resource_id=f"inv-{i}",

@@ -82,7 +82,7 @@ class _EventsClient:
 
         self._buffer = AuditEventBuffer(post_fn=_post)
 
-    def create(
+    def record(
         self,
         action: str,
         resource_type: str,

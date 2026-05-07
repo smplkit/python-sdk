@@ -132,7 +132,7 @@ def test_create_serializes_snapshot_and_data() -> None:
     client._http = httpx.Client(transport=transport)
     client.events._http = client._http
     try:
-        client.events.create(
+        client.events.record(
             action="invoice.created",
             resource_type="invoice",
             resource_id="inv-1",
@@ -170,7 +170,7 @@ def test_post_wrapper_returns_httpx_error_on_connection_failure() -> None:
     client._http = httpx.Client(transport=transport)
     client.events._http = client._http
     try:
-        client.events.create(action="x", resource_type="y", resource_id="1")
+        client.events.record(action="x", resource_type="y", resource_id="1")
         # Force a drain pass via flush; the wrapper's except clause runs.
         client.events.flush(timeout=0.5)
         assert calls[0] >= 1

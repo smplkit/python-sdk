@@ -6,7 +6,6 @@ Prerequisites:
     - A valid smplkit API key, provided via one of:
         - ``SMPLKIT_API_KEY`` environment variable
         - ``~/.smplkit`` configuration file (see SDK docs)
-    - The smplkit Config service running and reachable
 
 Usage::
 
