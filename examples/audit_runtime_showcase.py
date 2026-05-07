@@ -39,7 +39,7 @@ async def main() -> None:
 
         # force the event to be posted (normally happens automatically, in the
         # background, but we want to force it to be written now for this demo)
-        client.audit.events.flush(timeout=5.0)
+        client.audit.events.flush(timeout=0.2)
 
         # list events
         page = client.audit.events.list(
