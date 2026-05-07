@@ -293,10 +293,9 @@ def test_event_list_page_iter_and_len() -> None:
 
 
 def test_audit_client_extra_headers_reach_transport() -> None:
-    """extra_headers are set as defaults on the underlying httpx.Client."""
+    """extra_headers are stored on _auth and applied as defaults to every request."""
     client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com", extra_headers={"X-Test": "v"})
-    http = client._auth.get_httpx_client()
-    assert http.headers.get("x-test") == "v"
+    assert client._auth._headers.get("X-Test") == "v"
     client._close()
 
 
@@ -305,8 +304,7 @@ def test_async_audit_client_extra_headers_reach_transport() -> None:
     client = AsyncAuditClient(
         api_key="sk_api_test", base_url="https://audit.example.com", extra_headers={"X-Test": "v"}
     )
-    http = client._inner._auth.get_httpx_client()
-    assert http.headers.get("x-test") == "v"
+    assert client._inner._auth._headers.get("X-Test") == "v"
 
 
 _ = MagicMock  # silence unused-import warnings on aggressive linters

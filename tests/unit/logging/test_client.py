@@ -1594,12 +1594,11 @@ class TestRegisterAndFlush:
 
 
 def test_logging_client_extra_headers_reach_transport() -> None:
-    """extra_headers are applied as defaults on LoggingClient._logging_http."""
+    """extra_headers are stored on LoggingClient._logging_http and applied to every request."""
     from smplkit.client import SmplClient
 
     client = SmplClient(api_key="sk_api_test", environment="test", service="svc", extra_headers={"X-Test": "v"})
     try:
-        http = client.logging._logging_http.get_httpx_client()
-        assert http.headers.get("x-test") == "v"
+        assert client.logging._logging_http._headers.get("X-Test") == "v"
     finally:
         client.close()

@@ -3186,10 +3186,9 @@ class TestAsyncFlagsClientFlagRegistration:
 
 
 def test_flags_client_extra_headers_reach_transport() -> None:
-    """extra_headers are applied as defaults on FlagsClient._flags_http."""
+    """extra_headers are stored on FlagsClient._flags_http and applied to every request."""
     client = SmplClient(api_key="sk_api_test", environment="test", service="svc", extra_headers={"X-Test": "v"})
     try:
-        http = client.flags._flags_http.get_httpx_client()
-        assert http.headers.get("x-test") == "v"
+        assert client.flags._flags_http._headers.get("X-Test") == "v"
     finally:
         client.close()
