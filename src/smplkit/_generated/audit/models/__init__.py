@@ -7,7 +7,6 @@ from .event_list_meta import EventListMeta
 from .event_list_response import EventListResponse
 from .event_resource import EventResource
 from .event_response import EventResponse
-from .event_snapshot_type_0 import EventSnapshotType0
 from .forwarder import Forwarder
 from .forwarder_data import ForwarderData
 from .forwarder_delivery import ForwarderDelivery
@@ -40,7 +39,6 @@ __all__ = (
     "EventListResponse",
     "EventResource",
     "EventResponse",
-    "EventSnapshotType0",
     "Forwarder",
     "ForwarderData",
     "ForwarderDelivery",

@@ -15,7 +15,6 @@ import datetime
 
 if TYPE_CHECKING:
     from ..models.event_data import EventData
-    from ..models.event_snapshot_type_0 import EventSnapshotType0
 
 
 T = TypeVar("T", bound="Event")
@@ -30,8 +29,12 @@ class Event:
         - resource_type (required)
         - resource_id (required)
         - occurred_at (optional; defaults to ``created_at``)
-        - snapshot (optional)
         - data (optional; defaults to ``{}``)
+
+    There is no top-level ``snapshot`` attribute. Customers wishing to
+    record a resource snapshot place it inside ``data`` -- smplkit's
+    internal convention nests it at ``data.snapshot``, but customers may
+    follow their own convention.
 
     Attribute set on GET responses includes everything above plus the
     server-populated fields: ``created_at``, ``actor_type``, ``actor_id``,
@@ -42,7 +45,6 @@ class Event:
             resource_type (str):
             resource_id (str):
             occurred_at (datetime.datetime | None | Unset):
-            snapshot (EventSnapshotType0 | None | Unset):
             data (EventData | Unset):
             do_not_forward (bool | Unset): When true, this event is recorded normally but is not forwarded to any configured
                 SIEM forwarder. A forwarder_delivery row with status=skipped_do_not_forward is recorded for each enabled
@@ -58,7 +60,6 @@ class Event:
     resource_type: str
     resource_id: str
     occurred_at: datetime.datetime | None | Unset = UNSET
-    snapshot: EventSnapshotType0 | None | Unset = UNSET
     data: EventData | Unset = UNSET
     do_not_forward: bool | Unset = False
     created_at: datetime.datetime | None | Unset = UNSET
@@ -69,8 +70,6 @@ class Event:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.event_snapshot_type_0 import EventSnapshotType0
-
         action = self.action
 
         resource_type = self.resource_type
@@ -84,14 +83,6 @@ class Event:
             occurred_at = self.occurred_at.isoformat()
         else:
             occurred_at = self.occurred_at
-
-        snapshot: dict[str, Any] | None | Unset
-        if isinstance(self.snapshot, Unset):
-            snapshot = UNSET
-        elif isinstance(self.snapshot, EventSnapshotType0):
-            snapshot = self.snapshot.to_dict()
-        else:
-            snapshot = self.snapshot
 
         data: dict[str, Any] | Unset = UNSET
         if not isinstance(self.data, Unset):
@@ -144,8 +135,6 @@ class Event:
         )
         if occurred_at is not UNSET:
             field_dict["occurred_at"] = occurred_at
-        if snapshot is not UNSET:
-            field_dict["snapshot"] = snapshot
         if data is not UNSET:
             field_dict["data"] = data
         if do_not_forward is not UNSET:
@@ -166,7 +155,6 @@ class Event:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.event_data import EventData
-        from ..models.event_snapshot_type_0 import EventSnapshotType0
 
         d = dict(src_dict)
         action = d.pop("action")
@@ -191,23 +179,6 @@ class Event:
             return cast(datetime.datetime | None | Unset, data)
 
         occurred_at = _parse_occurred_at(d.pop("occurred_at", UNSET))
-
-        def _parse_snapshot(data: object) -> EventSnapshotType0 | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                snapshot_type_0 = EventSnapshotType0.from_dict(data)
-
-                return snapshot_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(EventSnapshotType0 | None | Unset, data)
-
-        snapshot = _parse_snapshot(d.pop("snapshot", UNSET))
 
         _data = d.pop("data", UNSET)
         data: EventData | Unset
@@ -284,7 +255,6 @@ class Event:
             resource_type=resource_type,
             resource_id=resource_id,
             occurred_at=occurred_at,
-            snapshot=snapshot,
             data=data,
             do_not_forward=do_not_forward,
             created_at=created_at,
