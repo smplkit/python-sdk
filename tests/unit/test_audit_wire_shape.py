@@ -59,7 +59,9 @@ _FORWARDER_POST_ATTRS = {
 }
 
 
-def _client_capturing_body(captured: list[dict[str, Any]], status: int = 201, response_body: dict | None = None) -> AuditClient:
+def _client_capturing_body(
+    captured: list[dict[str, Any]], status: int = 201, response_body: dict | None = None
+) -> AuditClient:
     """Build an AuditClient whose mock transport stores each request body."""
 
     def handler(req: httpx.Request) -> httpx.Response:
@@ -419,9 +421,7 @@ class TestForwardersUpdateWireShape:
 
     def test_attributes_set_is_subset_of_documented_post_schema(self):
         captured: list[dict[str, Any]] = []
-        c = _client_capturing_body(
-            captured, status=200, response_body=_forwarder_response_body()
-        )
+        c = _client_capturing_body(captured, status=200, response_body=_forwarder_response_body())
         try:
             c.forwarders.update(
                 FWD_ID,
