@@ -128,7 +128,6 @@ def test_create_returns_immediately(monkeypatch):
                 "actor_type": "API_KEY",
                 "actor_id": None,
                 "actor_label": "",
-                "snapshot": None,
                 "data": {},
                 "idempotency_key": "auto",
             },
@@ -172,7 +171,6 @@ def test_get_round_trips_a_single_event(monkeypatch):
                         "actor_type": "API_KEY",
                         "actor_id": None,
                         "actor_label": "",
-                        "snapshot": None,
                         "data": {},
                         "idempotency_key": "auto-abc",
                     },
@@ -188,7 +186,7 @@ def test_get_round_trips_a_single_event(monkeypatch):
         assert ev.id == event_id
         assert ev.action == "invoice.created"
         assert ev.actor_type == "API_KEY"
-        assert ev.snapshot is None
+        assert ev.data == {}
         assert ev.data == {}
     finally:
         client._close()
@@ -271,7 +269,6 @@ def _make_resource(
             "actor_type": "USER" if actor_id else "API_KEY",
             "actor_id": actor_id,
             "actor_label": "alice@example.com" if actor_id else "",
-            "snapshot": None,
             "data": {},
             "idempotency_key": "auto-abc",
         },

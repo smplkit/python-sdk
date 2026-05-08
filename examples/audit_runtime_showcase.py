@@ -41,8 +41,10 @@ async def main() -> None:
             resource_type="invoice",
             resource_id=some_resource_id,
             occurred_at=datetime.now(timezone.utc),
-            snapshot={"total_cents": 4900, "currency": "USD"},
-            data={"request_id": "req-abc"},
+            data={
+                "snapshot": {"total_cents": 4900, "currency": "USD"},
+                "request_id": "req-abc",
+            },
         )
 
         # force the event to be posted (normally happens automatically, in the

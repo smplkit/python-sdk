@@ -2,7 +2,7 @@
 
 Fills in branches that ``test_audit.py`` doesn't directly exercise so the
 100% line-coverage gate stays green: list filter passthrough, get error
-paths, AsyncAuditClient delegation, _build_attributes' optional snapshot
+paths, AsyncAuditClient delegation, _build_attributes' optional data
 and data fields, and the buffer's gave-up + safe-body paths.
 """
 
@@ -103,8 +103,10 @@ def test_buffer_post_raising_treated_as_transient() -> None:
 # --------------------------------------------------------------------------
 
 
-def test_create_serializes_snapshot_and_data() -> None:
-    """Both snapshot and data fields are forwarded onto the request body."""
+def test_create_nests_snapshot_inside_data() -> None:
+    """Snapshots are recorded by nesting inside ``data``; the SDK does not
+    expose a separate ``snapshot`` parameter and the wire body has no
+    top-level ``snapshot`` attribute."""
     import json as _json
 
     seen_bodies: list[dict] = []
@@ -126,8 +128,7 @@ def test_create_serializes_snapshot_and_data() -> None:
                         "actor_type": "API_KEY",
                         "actor_id": None,
                         "actor_label": "",
-                        "snapshot": None,
-                        "data": {},
+                        "data": {"snapshot": {"total_cents": 4900}, "request_id": "req-1"},
                         "idempotency_key": "k-1",
                     },
                 }
@@ -143,15 +144,17 @@ def test_create_serializes_snapshot_and_data() -> None:
             resource_type="invoice",
             resource_id="inv-1",
             occurred_at=datetime(2026, 5, 6, 12, 0, tzinfo=timezone.utc),
-            snapshot={"total_cents": 4900},
-            data={"request_id": "req-1"},
+            data={"snapshot": {"total_cents": 4900}, "request_id": "req-1"},
             idempotency_key="k-1",
         )
         client.events.flush(timeout=2.0)
         assert seen_bodies, "the buffer should have flushed at least one body"
         attrs = seen_bodies[0]["data"]["attributes"]
-        assert attrs["snapshot"] == {"total_cents": 4900}
-        assert attrs["data"] == {"request_id": "req-1"}
+        assert "snapshot" not in attrs
+        assert attrs["data"] == {
+            "snapshot": {"total_cents": 4900},
+            "request_id": "req-1",
+        }
         assert attrs["occurred_at"].startswith("2026-05-06T12:00:00")
     finally:
         client._close()
@@ -271,7 +274,6 @@ def test_event_list_page_iter_and_len() -> None:
                             "actor_type": "API_KEY",
                             "actor_id": None,
                             "actor_label": "",
-                            "snapshot": None,
                             "data": {},
                             "idempotency_key": "k",
                         },

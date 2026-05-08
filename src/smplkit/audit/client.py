@@ -83,7 +83,6 @@ def _build_attributes(
     resource_id: str,
     *,
     occurred_at: datetime | None,
-    snapshot: dict[str, Any] | None,
     data: dict[str, Any] | None,
     do_not_forward: bool,
 ) -> dict[str, Any]:
@@ -94,8 +93,6 @@ def _build_attributes(
     }
     if occurred_at is not None:
         attrs["occurred_at"] = occurred_at.astimezone(timezone.utc).isoformat()
-    if snapshot is not None:
-        attrs["snapshot"] = snapshot
     if data is not None:
         attrs["data"] = data
     if do_not_forward:
@@ -131,7 +128,6 @@ class _EventsClient:
         resource_id: str,
         *,
         occurred_at: datetime | None = None,
-        snapshot: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         idempotency_key: str | None = None,
         do_not_forward: bool = False,
@@ -150,13 +146,21 @@ class _EventsClient:
             resource_id: Identifier of the affected resource.
             occurred_at: When the event happened in the originating
                 system. Defaults to ``now`` server-side if omitted.
-            snapshot: Optional full state snapshot (for `*.created`,
-                ``*.updated``, ``*.discovered`` per ADR-047 §2.5).
-            data: Free-form contextual extras (request id, IP, etc.).
+            data: Free-form contextual JSON. To record a resource
+                snapshot, place it inside ``data`` -- smplkit's internal
+                convention nests it at ``data["snapshot"]`` for
+                consistency with the platform's own emissions, but the
+                shape is unconstrained::
+
+                    record(
+                        "invoice.created", "invoice", "inv-1",
+                        data={"snapshot": {"total_cents": 4900}, "ip": "1.2.3.4"},
+                    )
+
             idempotency_key: Optional caller-supplied idempotency key.
                 If omitted, the server derives one from event content
                 (account_id + action + resource_type + resource_id +
-                occurred_at + snapshot).
+                occurred_at + data).
             do_not_forward: When True, the audit service records the
                 event normally but does NOT POST it through any
                 configured SIEM forwarder. A
@@ -173,7 +177,6 @@ class _EventsClient:
                     resource_type,
                     resource_id,
                     occurred_at=occurred_at,
-                    snapshot=snapshot,
                     data=data,
                     do_not_forward=do_not_forward,
                 ),

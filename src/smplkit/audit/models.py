@@ -32,7 +32,6 @@ class Event:
     occurred_at: datetime
     created_at: datetime
     actor_id: UUID | None = None
-    snapshot: dict[str, Any] | None = None
     data: dict[str, Any] = field(default_factory=dict)
     idempotency_key: str = ""
     do_not_forward: bool = False
@@ -51,7 +50,6 @@ class Event:
             actor_id=UUID(actor_id) if actor_id else None,
             occurred_at=_parse_iso(attrs["occurred_at"]),
             created_at=_parse_iso(attrs["created_at"]),
-            snapshot=attrs.get("snapshot"),
             data=attrs.get("data") or {},
             idempotency_key=attrs.get("idempotency_key") or "",
             do_not_forward=bool(attrs.get("do_not_forward", False)),

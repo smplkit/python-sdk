@@ -501,7 +501,6 @@ def test_event_record_passes_do_not_forward():
                         "actor_type": "API_KEY",
                         "actor_id": None,
                         "actor_label": "",
-                        "snapshot": None,
                         "data": {},
                         "idempotency_key": "auto-abc",
                         "do_not_forward": True,
