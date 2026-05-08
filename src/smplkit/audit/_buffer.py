@@ -38,7 +38,12 @@ MAX_BACKOFF = 8.0  # seconds
 
 @dataclass
 class _PendingEvent:
-    body: dict[str, Any]
+    # Typed EventResponse from the generated client. We carry the
+    # already-built model rather than a dict so a spec change that
+    # drops a field shows up as a build/type error in the wrapper
+    # construction site rather than as silently-emitted stale bytes
+    # on the wire (the failure mode that shipped 3.2.21).
+    body: Any
     idempotency_key: str | None
     attempts: int = 0
     next_retry_at: float = 0.0  # monotonic clock
@@ -80,7 +85,7 @@ class AuditEventBuffer:
 
     # ------------------------------------------------------------------ public
 
-    def enqueue(self, body: dict[str, Any], idempotency_key: str | None = None) -> None:
+    def enqueue(self, body: Any, idempotency_key: str | None = None) -> None:
         """Add an event to the buffer. May drop the oldest item if full."""
         with self._lock:
             if self._closed:

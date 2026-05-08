@@ -55,10 +55,23 @@ from smplkit._generated.audit.api.forwarders import (
 )
 from smplkit._generated.audit.client import AuthenticatedClient
 from smplkit._generated.audit.errors import UnexpectedStatus
+from smplkit._generated.audit.models.event import Event as _GenEvent
+from smplkit._generated.audit.models.event_data import EventData as _GenEventData
+from smplkit._generated.audit.models.event_resource import EventResource as _GenEventResource
 from smplkit._generated.audit.models.event_response import EventResponse as _GenEventResponse
+from smplkit._generated.audit.models.forwarder import Forwarder as _GenForwarder
+from smplkit._generated.audit.models.forwarder_data import ForwarderData as _GenForwarderData
+from smplkit._generated.audit.models.forwarder_filter_type_0 import (
+    ForwarderFilterType0 as _GenForwarderFilter,
+)
+from smplkit._generated.audit.models.forwarder_http import ForwarderHttp as _GenForwarderHttp
+from smplkit._generated.audit.models.forwarder_resource import (
+    ForwarderResource as _GenForwarderResource,
+)
 from smplkit._generated.audit.models.forwarder_response import (
     ForwarderResponse as _GenForwarderResponse,
 )
+from smplkit._generated.audit.models.http_header import HttpHeader as _GenHttpHeader
 from smplkit._generated.audit.models.test_forwarder_request import (
     TestForwarderRequest as _GenTestForwarderRequest,
 )
@@ -77,29 +90,6 @@ from smplkit.audit.models import (
 logger = logging.getLogger("smplkit.audit")
 
 
-def _build_attributes(
-    action: str,
-    resource_type: str,
-    resource_id: str,
-    *,
-    occurred_at: datetime | None,
-    data: dict[str, Any] | None,
-    do_not_forward: bool,
-) -> dict[str, Any]:
-    attrs: dict[str, Any] = {
-        "action": action,
-        "resource_type": resource_type,
-        "resource_id": resource_id,
-    }
-    if occurred_at is not None:
-        attrs["occurred_at"] = occurred_at.astimezone(timezone.utc).isoformat()
-    if data is not None:
-        attrs["data"] = data
-    if do_not_forward:
-        attrs["do_not_forward"] = True
-    return attrs
-
-
 class _EventsClient:
     """Surface for ``client.audit.events.*``."""
 
@@ -108,11 +98,10 @@ class _EventsClient:
 
         def _post(item: _PendingEvent) -> "int | Exception":
             try:
-                gen_body = _GenEventResponse.from_dict(item.body)
                 idem = item.idempotency_key if item.idempotency_key is not None else UNSET
                 resp = _gen_record_event.sync_detailed(
                     client=self._auth,
-                    body=gen_body,
+                    body=item.body,
                     idempotency_key=idem,
                 )
                 return resp.status_code
@@ -168,20 +157,20 @@ class _EventsClient:
                 each enabled forwarder so the skip is visible in the
                 forwarder delivery log.
         """
-        body = {
-            "data": {
-                "id": "",  # server assigns; required by the generated EventResource model
-                "type": "event",
-                "attributes": _build_attributes(
-                    action,
-                    resource_type,
-                    resource_id,
-                    occurred_at=occurred_at,
-                    data=data,
-                    do_not_forward=do_not_forward,
-                ),
-            }
-        }
+        attrs = _GenEvent(
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+        )
+        if occurred_at is not None:
+            attrs.occurred_at = occurred_at.astimezone(timezone.utc)
+        if data is not None:
+            attrs.data = _GenEventData.from_dict(data)
+        if do_not_forward:
+            attrs.do_not_forward = True
+        body = _GenEventResponse(
+            data=_GenEventResource(id="", attributes=attrs),
+        )
         self._buffer.enqueue(body, idempotency_key=idempotency_key)
 
     def list(
@@ -273,7 +262,23 @@ class EventListPage:
 # ---------------------------------------------------------------------------
 
 
-def _forwarder_attributes(
+def _http_to_gen(http: ForwarderHttp | dict[str, Any]) -> _GenForwarderHttp:
+    """Convert a wrapper ForwarderHttp (or its dict equivalent) to the
+    typed generated model. Going through the typed constructor means a
+    spec change that drops a field will fail to compile here, instead
+    of silently passing through on the wire."""
+    src = http._to_dict() if isinstance(http, ForwarderHttp) else dict(http)
+    headers = [_GenHttpHeader(name=h["name"], value=h["value"]) for h in (src.get("headers") or [])]
+    return _GenForwarderHttp(
+        url=src["url"],
+        method=src.get("method", "POST"),
+        headers=headers,
+        body=src.get("body"),
+        success_status=src.get("success_status", "2xx"),
+    )
+
+
+def _build_forwarder_attrs(
     *,
     name: str,
     forwarder_type: str,
@@ -282,25 +287,20 @@ def _forwarder_attributes(
     filter: dict[str, Any] | None,
     transform: str | None,
     data: dict[str, Any] | None,
-) -> dict[str, Any]:
-    http_dict = http._to_dict() if isinstance(http, ForwarderHttp) else dict(http)
-    attrs: dict[str, Any] = {
-        "name": name,
-        "forwarder_type": forwarder_type,
-        "enabled": enabled,
-        "http": http_dict,
-    }
+) -> _GenForwarder:
+    attrs = _GenForwarder(
+        name=name,
+        forwarder_type=forwarder_type,
+        http=_http_to_gen(http),
+        enabled=enabled,
+    )
     if filter is not None:
-        attrs["filter"] = filter
+        attrs.filter_ = _GenForwarderFilter.from_dict(filter)
     if transform is not None:
-        attrs["transform"] = transform
+        attrs.transform = transform
     if data is not None:
-        attrs["data"] = data
+        attrs.data = _GenForwarderData.from_dict(data)
     return attrs
-
-
-def _wrap_resource(attrs: dict[str, Any], *, resource_type: str, resource_id: str = "") -> dict[str, Any]:
-    return {"data": {"id": resource_id, "type": resource_type, "attributes": attrs}}
 
 
 def _expect_status(resp: Any, *expected: int) -> None:
@@ -437,19 +437,17 @@ class _ForwardersClient:
                 payload before POST. Empty/None sends the event as-is.
             data: Free-form attributes JSON.
         """
-        body = _wrap_resource(
-            _forwarder_attributes(
-                name=name,
-                forwarder_type=forwarder_type,
-                http=http,
-                enabled=enabled,
-                filter=filter,
-                transform=transform,
-                data=data,
-            ),
-            resource_type="forwarder",
+        attrs = _build_forwarder_attrs(
+            name=name,
+            forwarder_type=forwarder_type,
+            http=http,
+            enabled=enabled,
+            filter=filter,
+            transform=transform,
+            data=data,
         )
-        resp = _gen_create_forwarder.sync_detailed(client=self._auth, body=_GenForwarderResponse.from_dict(body))
+        body = _GenForwarderResponse(data=_GenForwarderResource(id="", attributes=attrs))
+        resp = _gen_create_forwarder.sync_detailed(client=self._auth, body=body)
         _expect_status(resp, 201)
         return Forwarder._from_resource(resp.parsed.to_dict()["data"])
 
@@ -504,22 +502,17 @@ class _ForwardersClient:
         round-trip them on update.
         """
         fid = forwarder_id if isinstance(forwarder_id, UUID) else UUID(str(forwarder_id))
-        body = _wrap_resource(
-            _forwarder_attributes(
-                name=name,
-                forwarder_type=forwarder_type,
-                http=http,
-                enabled=enabled,
-                filter=filter,
-                transform=transform,
-                data=data,
-            ),
-            resource_type="forwarder",
-            resource_id=str(fid),
+        attrs = _build_forwarder_attrs(
+            name=name,
+            forwarder_type=forwarder_type,
+            http=http,
+            enabled=enabled,
+            filter=filter,
+            transform=transform,
+            data=data,
         )
-        resp = _gen_update_forwarder.sync_detailed(
-            forwarder_id=fid, client=self._auth, body=_GenForwarderResponse.from_dict(body)
-        )
+        body = _GenForwarderResponse(data=_GenForwarderResource(id=str(fid), attributes=attrs))
+        resp = _gen_update_forwarder.sync_detailed(forwarder_id=fid, client=self._auth, body=body)
         _expect_status(resp, 200)
         return Forwarder._from_resource(resp.parsed.to_dict()["data"])
 
@@ -591,23 +584,22 @@ class _TestForwarderActionsClient:
         addresses (incl. the EC2 IMDS at 169.254.169.254) and ports
         outside the allowlist are rejected without making the request.
         """
-        normalized_headers = []
+        gen_headers: list[_GenHttpHeader] = []
         for h in headers or []:
             if isinstance(h, HttpHeader):
-                normalized_headers.append(h._to_dict())
+                gen_headers.append(_GenHttpHeader(name=h.name, value=h.value))
             else:
-                normalized_headers.append({"name": h["name"], "value": h["value"]})
+                gen_headers.append(_GenHttpHeader(name=h["name"], value=h["value"]))
 
-        req_dict: dict[str, Any] = {
-            "method": method,
-            "url": url,
-            "headers": normalized_headers,
-            "body": body,
-            "success_status": success_status,
-        }
+        gen_body = _GenTestForwarderRequest(
+            url=url,
+            method=method,
+            headers=gen_headers,
+            body=body,
+            success_status=success_status,
+        )
         if timeout_ms is not None:
-            req_dict["timeout_ms"] = timeout_ms
-        gen_body = _GenTestForwarderRequest.from_dict(req_dict)
+            gen_body.timeout_ms = timeout_ms
         resp = _gen_execute_test_forwarder.sync_detailed(client=self._auth, body=gen_body)
         _expect_status(resp, 200)
         d = resp.parsed.to_dict()
