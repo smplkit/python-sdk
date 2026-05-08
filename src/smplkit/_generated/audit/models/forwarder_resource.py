@@ -22,7 +22,7 @@ class ForwarderResource:
     Example:
         {'attributes': {'created_at': '2026-05-07T12:00:00Z', 'data': {}, 'enabled': True, 'filter': {'==': [{'var':
             'action'}, 'user.created']}, 'forwarder_type': 'datadog', 'http': {'headers': [{'name': 'DD-API-KEY', 'value':
-            '<redacted>'}], 'method': 'POST', 'success_status': '2xx', 'url': 'https://http-
+            'dd-api-key-plaintext'}], 'method': 'POST', 'success_status': '2xx', 'url': 'https://http-
             intake.logs.datadoghq.com/api/v2/logs'}, 'name': 'Datadog production', 'slug': 'datadog_production',
             'updated_at': '2026-05-07T12:00:00Z', 'version': 1}, 'id': '11111111-2222-3333-4444-555555555555', 'type':
             'forwarder'}
