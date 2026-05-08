@@ -61,16 +61,13 @@ def sync_detailed(
     client: AuthenticatedClient,
     body: ForwarderResponse,
 ) -> Response[ForwarderResponse]:
-    r"""Update Forwarder
+    """Update Forwarder
 
      Full-replace update. PUT semantics — every field is overwritten.
 
-    The header values must be re-supplied; the GET path redacts them, but
-    a PUT body that contains ``\"<redacted>\"`` would persist that literal.
-    Customers must round-trip the actual secret back. This is the standard
-    get-mutate-put pattern (see CLAUDE.md \"Updating Resources via the
-    API\"); the SDK helpers track the un-redacted secret client-side so
-    customers don't usually need to re-enter it.
+    The GET path returns plaintext header values, so the standard
+    get-mutate-put round-trip (ADR-014) preserves secrets without any
+    extra work from the caller: GET, change one field, PUT the result.
 
     Args:
         forwarder_id (UUID):
@@ -102,16 +99,13 @@ def sync(
     client: AuthenticatedClient,
     body: ForwarderResponse,
 ) -> ForwarderResponse | None:
-    r"""Update Forwarder
+    """Update Forwarder
 
      Full-replace update. PUT semantics — every field is overwritten.
 
-    The header values must be re-supplied; the GET path redacts them, but
-    a PUT body that contains ``\"<redacted>\"`` would persist that literal.
-    Customers must round-trip the actual secret back. This is the standard
-    get-mutate-put pattern (see CLAUDE.md \"Updating Resources via the
-    API\"); the SDK helpers track the un-redacted secret client-side so
-    customers don't usually need to re-enter it.
+    The GET path returns plaintext header values, so the standard
+    get-mutate-put round-trip (ADR-014) preserves secrets without any
+    extra work from the caller: GET, change one field, PUT the result.
 
     Args:
         forwarder_id (UUID):
@@ -138,16 +132,13 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     body: ForwarderResponse,
 ) -> Response[ForwarderResponse]:
-    r"""Update Forwarder
+    """Update Forwarder
 
      Full-replace update. PUT semantics — every field is overwritten.
 
-    The header values must be re-supplied; the GET path redacts them, but
-    a PUT body that contains ``\"<redacted>\"`` would persist that literal.
-    Customers must round-trip the actual secret back. This is the standard
-    get-mutate-put pattern (see CLAUDE.md \"Updating Resources via the
-    API\"); the SDK helpers track the un-redacted secret client-side so
-    customers don't usually need to re-enter it.
+    The GET path returns plaintext header values, so the standard
+    get-mutate-put round-trip (ADR-014) preserves secrets without any
+    extra work from the caller: GET, change one field, PUT the result.
 
     Args:
         forwarder_id (UUID):
@@ -177,16 +168,13 @@ async def asyncio(
     client: AuthenticatedClient,
     body: ForwarderResponse,
 ) -> ForwarderResponse | None:
-    r"""Update Forwarder
+    """Update Forwarder
 
      Full-replace update. PUT semantics — every field is overwritten.
 
-    The header values must be re-supplied; the GET path redacts them, but
-    a PUT body that contains ``\"<redacted>\"`` would persist that literal.
-    Customers must round-trip the actual secret back. This is the standard
-    get-mutate-put pattern (see CLAUDE.md \"Updating Resources via the
-    API\"); the SDK helpers track the un-redacted secret client-side so
-    customers don't usually need to re-enter it.
+    The GET path returns plaintext header values, so the standard
+    get-mutate-put round-trip (ADR-014) preserves secrets without any
+    extra work from the caller: GET, change one field, PUT the result.
 
     Args:
         forwarder_id (UUID):

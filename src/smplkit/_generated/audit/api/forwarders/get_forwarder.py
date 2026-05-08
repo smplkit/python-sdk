@@ -58,7 +58,10 @@ def sync_detailed(
 
     Returns 404 if no forwarder with that id exists in the caller's
     account, including if the forwarder is soft-deleted. Header values
-    in the response are always redacted regardless of caller permission.
+    in the response are returned in plaintext so callers can perform a
+    GET-modify-PUT round-trip without re-entering secrets (ADR-014).
+    The persisted ``forwarder_delivery.request`` log column is what
+    keeps redaction; that read path is unaffected by this route.
 
     Args:
         forwarder_id (UUID):
@@ -93,7 +96,10 @@ def sync(
 
     Returns 404 if no forwarder with that id exists in the caller's
     account, including if the forwarder is soft-deleted. Header values
-    in the response are always redacted regardless of caller permission.
+    in the response are returned in plaintext so callers can perform a
+    GET-modify-PUT round-trip without re-entering secrets (ADR-014).
+    The persisted ``forwarder_delivery.request`` log column is what
+    keeps redaction; that read path is unaffected by this route.
 
     Args:
         forwarder_id (UUID):
@@ -123,7 +129,10 @@ async def asyncio_detailed(
 
     Returns 404 if no forwarder with that id exists in the caller's
     account, including if the forwarder is soft-deleted. Header values
-    in the response are always redacted regardless of caller permission.
+    in the response are returned in plaintext so callers can perform a
+    GET-modify-PUT round-trip without re-entering secrets (ADR-014).
+    The persisted ``forwarder_delivery.request`` log column is what
+    keeps redaction; that read path is unaffected by this route.
 
     Args:
         forwarder_id (UUID):
@@ -156,7 +165,10 @@ async def asyncio(
 
     Returns 404 if no forwarder with that id exists in the caller's
     account, including if the forwarder is soft-deleted. Header values
-    in the response are always redacted regardless of caller permission.
+    in the response are returned in plaintext so callers can perform a
+    GET-modify-PUT round-trip without re-entering secrets (ADR-014).
+    The persisted ``forwarder_delivery.request`` log column is what
+    keeps redaction; that read path is unaffected by this route.
 
     Args:
         forwarder_id (UUID):
