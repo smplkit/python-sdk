@@ -21,9 +21,9 @@ class EventResponse:
     Attributes:
         data (EventResource): JSON:API resource envelope for an audit event. Example: {'attributes': {'action':
             'user.created', 'actor_id': 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'actor_label': 'alice@example.com',
-            'actor_type': 'USER', 'created_at': '2026-05-06T20:00:00.123Z', 'data': {'request_id': 'req-abc'},
-            'do_not_forward': False, 'idempotency_key': 'auto-1234abcd', 'occurred_at': '2026-05-06T20:00:00Z',
-            'resource_id': 'u-1', 'resource_type': 'user', 'snapshot': {'email': 'alice@example.com'}}, 'id':
+            'actor_type': 'USER', 'created_at': '2026-05-06T20:00:00.123Z', 'data': {'request_id': 'req-abc', 'snapshot':
+            {'email': 'alice@example.com'}}, 'do_not_forward': False, 'idempotency_key': 'auto-1234abcd', 'occurred_at':
+            '2026-05-06T20:00:00Z', 'resource_id': 'u-1', 'resource_type': 'user'}, 'id':
             '11111111-2222-3333-4444-555555555555', 'type': 'event'}.
     """
 
