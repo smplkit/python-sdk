@@ -2897,6 +2897,36 @@ class TestFlagRegistrationBuffer:
         assert len(batch) == 3
         assert [b["id"] for b in batch] == ["f1", "f2", "f3"]
 
+    def test_peek_does_not_remove(self):
+        """``peek()`` returns a snapshot but leaves items pending."""
+        buf = _FlagRegistrationBuffer()
+        buf.add("f1", "BOOLEAN", True, None, None)
+        buf.add("f2", "STRING", "x", None, None)
+        snapshot = buf.peek()
+        assert [b["id"] for b in snapshot] == ["f1", "f2"]
+        assert buf.pending_count == 2
+        # And mutating the snapshot doesn't affect the buffer.
+        snapshot.clear()
+        assert buf.pending_count == 2
+
+    def test_commit_removes_only_specified_ids(self):
+        """``commit(ids)`` removes the listed items but keeps any added in flight."""
+        buf = _FlagRegistrationBuffer()
+        buf.add("f1", "BOOLEAN", True, None, None)
+        buf.add("f2", "STRING", "x", None, None)
+        snapshot = buf.peek()
+        # New declaration arrives between peek and commit (e.g. another thread).
+        buf.add("f3", "NUMERIC", 5, None, None)
+        buf.commit([b["id"] for b in snapshot])
+        remaining = buf.peek()
+        assert [b["id"] for b in remaining] == ["f3"]
+
+    def test_commit_empty_is_noop(self):
+        buf = _FlagRegistrationBuffer()
+        buf.add("f1", "BOOLEAN", True, None, None)
+        buf.commit([])
+        assert buf.pending_count == 1
+
 
 # ===========================================================================
 # Sync FlagsClient: flag registration buffer integration
@@ -2972,18 +3002,25 @@ class TestFlagsClientFlagRegistration:
         mock_bulk.assert_not_called()
 
     @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
-    def test_flush_flags_sync_exception_swallowed(self, mock_bulk):
+    def test_flush_flags_sync_reraises_network_error(self, mock_bulk):
+        """Network errors propagate so ``start()`` can schedule a retry."""
         mock_bulk.side_effect = httpx.ConnectError("fail")
         client = _make_flags_client()
         client.boolean_flag("f1", default=True)
-        client._flush_flags_sync()  # should not raise
+        with pytest.raises(ConnectionError):
+            client._flush_flags_sync()
+        # Buffer must retain the declaration for the next attempt.
+        assert client._parent.manage.flags._buffer.pending_count == 1
 
     @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
-    def test_flush_flags_sync_http_error_logged(self, mock_bulk):
+    def test_flush_flags_sync_reraises_http_error(self, mock_bulk):
+        """HTTP error responses propagate; declarations remain queued."""
         mock_bulk.return_value = _ok_response(status=HTTPStatus.INTERNAL_SERVER_ERROR)
         client = _make_flags_client()
         client.boolean_flag("f1", default=True)
-        client._flush_flags_sync()  # should not raise
+        with pytest.raises(Exception):
+            client._flush_flags_sync()
+        assert client._parent.manage.flags._buffer.pending_count == 1
 
     @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
@@ -3019,6 +3056,140 @@ class TestFlagsClientFlagRegistration:
         with patch("smplkit.management.client.threading.Thread") as mock_thread:
             client.boolean_flag(f"flag-{_FLAG_BULK_FLUSH_THRESHOLD - 1}", default=True)
             mock_thread.assert_called_once()
+
+
+# ===========================================================================
+# Sync FlagsClient: start() retries when the flags-service is unhealthy
+# ===========================================================================
+
+
+class TestFlagsClientStartRetry:
+    """Pod-rebuild scenario: flags-service is unavailable when ``start()`` runs."""
+
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    def test_failed_flush_keeps_queue_and_retries_on_next_start(self, mock_list, mock_bulk):
+        """First flush 500s; queue is retained; second start() succeeds.
+
+        This is the production regression: a coordinated rebuild brought
+        flags-service down momentarily and the app pod marked itself
+        connected after a silent registration failure.  After the fix,
+        ``start()`` must leave the buffer intact, keep ``_connected``
+        false, and re-attempt on the next call.
+        """
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
+        mock_bulk.side_effect = [
+            _ok_response(status=HTTPStatus.INTERNAL_SERVER_ERROR),
+            _ok_response(status=HTTPStatus.OK),
+        ]
+        client = _make_flags_client()
+        client._parent._environment = "test"
+        client._parent._ensure_ws.return_value = MagicMock()
+
+        client.boolean_flag("product_alpha", default=False)
+        assert client._parent.manage.flags._buffer.pending_count == 1
+
+        # First attempt: bulk-register 500s.  Queue must NOT be drained,
+        # client must remain not-connected, retry must be scheduled.
+        client.start()
+        assert client._connected is False
+        assert client._parent.manage.flags._buffer.pending_count == 1
+        assert mock_bulk.call_count == 1
+
+        # Skip the backoff window so the next attempt actually runs.
+        client._next_start_attempt_at = 0.0
+
+        # Second attempt: bulk-register 200s.  Queue drains, client connects.
+        client.start()
+        assert client._connected is True
+        assert client._parent.manage.flags._buffer.pending_count == 0
+        assert mock_bulk.call_count == 2
+
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    def test_backoff_skips_redundant_attempts(self, mock_list, mock_bulk):
+        """Repeated calls inside the backoff window are no-ops."""
+        mock_list.return_value = _ok_json_response({"data": []})
+        mock_bulk.side_effect = httpx.ConnectError("flags-service down")
+        client = _make_flags_client()
+        client._parent._environment = "test"
+        client._parent._ensure_ws.return_value = MagicMock()
+        client.boolean_flag("f1", default=True)
+
+        client.start()  # fails, schedules retry ~1s out
+        first_call_count = mock_bulk.call_count
+        client.start()  # within backoff window — no new HTTP call
+        client.start()
+        assert mock_bulk.call_count == first_call_count
+        assert client._connected is False
+        assert client._parent.manage.flags._buffer.pending_count == 1
+
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    def test_backoff_delay_doubles_then_caps(self, mock_list, mock_bulk):
+        """Each failed attempt doubles the delay, capped at the configured maximum."""
+        from smplkit.flags.client import _MAX_START_RETRY_DELAY
+
+        mock_list.return_value = _ok_json_response({"data": []})
+        mock_bulk.side_effect = httpx.ConnectError("flags-service down")
+        client = _make_flags_client()
+        client._parent._environment = "test"
+        client._parent._ensure_ws.return_value = MagicMock()
+        client.boolean_flag("f1", default=True)
+
+        seen_delays = []
+        for _ in range(10):
+            client._next_start_attempt_at = 0.0
+            before = client._start_retry_delay
+            client.start()
+            seen_delays.append(before)
+        # Delays double up to the cap.
+        assert seen_delays[0] == 1.0
+        assert seen_delays[1] == 2.0
+        assert seen_delays[2] == 4.0
+        assert seen_delays[-1] == _MAX_START_RETRY_DELAY
+
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    def test_evaluation_falls_back_to_default_while_disconnected(self, mock_list, mock_bulk):
+        """Until ``start()`` succeeds, evaluation must return the handle default."""
+        mock_list.return_value = _ok_json_response({"data": []})
+        mock_bulk.side_effect = httpx.ConnectError("flags-service down")
+        client = _make_flags_client()
+        client._parent._environment = "test"
+        client._parent._service = None
+        client._parent._metrics = None
+        client._parent._ensure_ws.return_value = MagicMock()
+
+        flag = client.boolean_flag("checkout_v2", default=False)
+        # First evaluation triggers start(), which fails; fall through to default.
+        assert flag.get() is False
+        assert client._connected is False
+        assert client._parent.manage.flags._buffer.pending_count == 1
+
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    def test_ws_subscribed_only_once_across_retry_attempts(self, mock_list, mock_bulk):
+        """WS handlers must not be re-registered when start() retries after failure."""
+        mock_list.return_value = _ok_json_response({"data": []})
+        mock_bulk.side_effect = [
+            _ok_response(status=HTTPStatus.INTERNAL_SERVER_ERROR),
+            _ok_response(status=HTTPStatus.OK),
+            _ok_response(status=HTTPStatus.OK),
+        ]
+        client = _make_flags_client()
+        client._parent._environment = "test"
+        mock_ws = MagicMock()
+        client._parent._ensure_ws.return_value = mock_ws
+        client.boolean_flag("f1", default=True)
+
+        client.start()  # fails
+        client._next_start_attempt_at = 0.0
+        client.start()  # succeeds, registers 3 WS handlers
+        client.start()  # idempotent fast path
+
+        # Exactly three subscriptions, even though start() ran multiple times.
+        assert mock_ws.on.call_count == 3
 
 
 # ===========================================================================
@@ -3084,13 +3255,17 @@ class TestAsyncFlagsClientFlagRegistration:
         asyncio.run(_run())
 
     @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
-    def test_flush_flags_async_exception_swallowed(self, mock_bulk):
+    def test_flush_flags_async_reraises_network_error(self, mock_bulk):
+        """Network errors propagate so ``start()`` can schedule a retry."""
         mock_bulk.side_effect = httpx.ConnectError("fail")
 
         async def _run():
             client = _make_async_flags_client()
             client.boolean_flag("f1", default=True)
-            await client._flush_flags_async()  # should not raise
+            with pytest.raises(ConnectionError):
+                await client._flush_flags_async()
+            # Buffer must retain the declaration for the next attempt.
+            assert client._manage.flags._buffer.pending_count == 1
 
         asyncio.run(_run())
 
@@ -3151,29 +3326,38 @@ class TestAsyncFlagsClientFlagRegistration:
         client._close()  # should not raise
 
     @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
-    def test_flush_flags_async_http_error_logged(self, mock_bulk):
+    def test_flush_flags_async_reraises_http_error(self, mock_bulk):
+        """HTTP error responses propagate; declarations remain queued."""
         mock_bulk.return_value = _ok_response(status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
         async def _run():
             client = _make_async_flags_client()
             client.boolean_flag("f1", default=True)
-            await client._flush_flags_async()  # should not raise
+            with pytest.raises(Exception):
+                await client._flush_flags_async()
+            assert client._manage.flags._buffer.pending_count == 1
 
         asyncio.run(_run())
 
     @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
-    def test_flush_flags_sync_http_error_logged(self, mock_bulk):
+    def test_flush_flags_sync_reraises_http_error(self, mock_bulk):
+        """HTTP error responses propagate; declarations remain queued."""
         mock_bulk.return_value = _ok_response(status=HTTPStatus.INTERNAL_SERVER_ERROR)
         client = _make_async_flags_client()
         client.boolean_flag("f1", default=True)
-        client._flush_flags_sync()  # should not raise
+        with pytest.raises(Exception):
+            client._flush_flags_sync()
+        assert client._manage.flags._buffer.pending_count == 1
 
     @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
-    def test_flush_flags_sync_exception_swallowed(self, mock_bulk):
+    def test_flush_flags_sync_reraises_network_error(self, mock_bulk):
+        """Network errors propagate so the lazy-init retry can reschedule."""
         mock_bulk.side_effect = httpx.ConnectError("fail")
         client = _make_async_flags_client()
         client.boolean_flag("f1", default=True)
-        client._flush_flags_sync()  # should not raise
+        with pytest.raises(ConnectionError):
+            client._flush_flags_sync()
+        assert client._manage.flags._buffer.pending_count == 1
 
     def test_threshold_triggers_flush_via_mgmt(self):
         """Async runtime declarations route through ``mgmt.flags.register`` and trigger threshold flush."""
@@ -3183,6 +3367,84 @@ class TestAsyncFlagsClientFlagRegistration:
         with patch("smplkit.management.client.threading.Thread") as mock_thread:
             client.boolean_flag(f"flag-{_FLAG_BULK_FLUSH_THRESHOLD - 1}", default=True)
             mock_thread.assert_called_once()
+
+
+# ===========================================================================
+# Async FlagsClient: start() retries when the flags-service is unhealthy
+# ===========================================================================
+
+
+class TestAsyncFlagsClientStartRetry:
+    """Mirror of TestFlagsClientStartRetry for the async client."""
+
+    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.flags.client.list_flags.asyncio_detailed")
+    def test_failed_flush_keeps_queue_and_retries_on_next_start(self, mock_list, mock_bulk):
+        mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
+        mock_bulk.side_effect = [
+            _ok_response(status=HTTPStatus.INTERNAL_SERVER_ERROR),
+            _ok_response(status=HTTPStatus.OK),
+        ]
+
+        async def _run():
+            client = _make_async_flags_client()
+            client._parent._environment = "test"
+            client._parent._ensure_ws.return_value = MagicMock()
+
+            client.boolean_flag("product_alpha", default=False)
+            assert client._manage.flags._buffer.pending_count == 1
+
+            await client.start()
+            assert client._connected is False
+            assert client._manage.flags._buffer.pending_count == 1
+            assert mock_bulk.call_count == 1
+
+            client._next_start_attempt_at = 0.0
+            await client.start()
+            assert client._connected is True
+            assert client._manage.flags._buffer.pending_count == 0
+            assert mock_bulk.call_count == 2
+
+        asyncio.run(_run())
+
+    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    def test_evaluate_handle_lazy_init_retains_queue_on_failure(self, mock_list, mock_bulk):
+        """The thread-safe lazy-init path mirrors ``start()`` semantics."""
+        mock_list.return_value = _ok_json_response({"data": []})
+        mock_bulk.side_effect = httpx.ConnectError("flags-service down")
+        client = _make_async_flags_client()
+        client._parent._environment = "test"
+        client._parent._service = None
+        client._parent._metrics = None
+        client._parent._ensure_ws.return_value = MagicMock()
+
+        flag = client.boolean_flag("checkout_v2", default=False)
+        assert flag.get() is False  # falls back to default
+        assert client._connected is False
+        assert client._manage.flags._buffer.pending_count == 1
+
+    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.flags.client.list_flags.asyncio_detailed")
+    def test_start_backoff_skips_redundant_attempts(self, mock_list, mock_bulk):
+        """Repeated async ``start()`` calls inside the backoff window are no-ops."""
+        mock_list.return_value = _ok_json_response({"data": []})
+        mock_bulk.side_effect = httpx.ConnectError("flags-service down")
+
+        async def _run():
+            client = _make_async_flags_client()
+            client._parent._environment = "test"
+            client._parent._ensure_ws.return_value = MagicMock()
+            client.boolean_flag("f1", default=True)
+
+            await client.start()  # fails, schedules retry
+            first_call_count = mock_bulk.call_count
+            await client.start()  # within backoff window — no new HTTP call
+            assert mock_bulk.call_count == first_call_count
+            assert client._connected is False
+            assert client._manage.flags._buffer.pending_count == 1
+
+        asyncio.run(_run())
 
 
 def test_flags_client_extra_headers_reach_transport() -> None:

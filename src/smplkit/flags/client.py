@@ -12,6 +12,7 @@ import hashlib
 import json
 import logging
 import threading
+import time
 import traceback
 from collections import OrderedDict
 from collections.abc import Callable
@@ -62,6 +63,9 @@ ws_logger = logging.getLogger("smplkit.flags.ws")
 _DEFAULT_FLAGS_BASE_URL = "https://flags.smplkit.com"
 _DEFAULT_APP_BASE_URL = "https://app.smplkit.com"
 _CACHE_MAX_SIZE = 10_000
+# Backoff for ``start()`` retries when the flags-service is unhealthy.
+_INITIAL_START_RETRY_DELAY = 1.0
+_MAX_START_RETRY_DELAY = 60.0
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +224,9 @@ class FlagsClient:
         # Runtime state
         self._flag_store: dict[str, dict[str, Any]] = {}
         self._connected = False
+        self._ws_subscribed = False
+        self._next_start_attempt_at = 0.0
+        self._start_retry_delay = _INITIAL_START_RETRY_DELAY
         self._cache = _ResolutionCache()
         self._handles: dict[str, Flag] = {}
         self._global_listeners: list[Callable[[FlagChangeEvent], None]] = []
@@ -284,30 +291,57 @@ class FlagsClient:
     def start(self) -> None:
         """Eagerly initialize the flags subclient.
 
-        Drains any pending flag-declaration buffer, fetches all flag
+        Flushes any pending flag-declaration buffer, fetches all flag
         definitions, opens the shared WebSocket and subscribes to
         ``flag_changed`` / ``flag_deleted`` / ``flags_changed`` events.
 
         Idempotent — safe to call multiple times.  Called automatically
         on first ``flag.get()`` evaluation if not invoked manually.
+
+        If the flags-service is unhealthy (e.g. a coordinated rebuild
+        where the app pod starts before the schema is loaded), the flush
+        or refresh will fail.  Pending declarations stay queued, the
+        client remains *not connected*, and the next call retries after
+        an exponentially backed-off delay (capped at
+        ``_MAX_START_RETRY_DELAY`` seconds).  Evaluations during that
+        window fall back to handle defaults rather than raising.
         """
         if self._connected:
             return
+        if time.monotonic() < self._next_start_attempt_at:
+            return
         self._environment = self._parent._environment
 
-        # Flush discovered flags BEFORE fetching definitions so the fetch
-        # reflects them.
-        self._flush_flags_sync()
+        try:
+            # Flush discovered flags BEFORE fetching definitions so the
+            # fetch reflects them.  Items remain in the mgmt buffer until
+            # the POST succeeds.
+            self._flush_flags_sync()
+            # Fetch + cache + fire change listeners
+            self.refresh()
+        except Exception as exc:
+            self._schedule_start_retry(exc)
+            return
 
-        # Fetch + cache + fire change listeners
-        self.refresh()
         self._connected = True
+        self._start_retry_delay = _INITIAL_START_RETRY_DELAY
+        self._next_start_attempt_at = 0.0
 
-        # Register on the shared WebSocket
+        # Register on the shared WebSocket — only once across retry attempts.
         self._ws_manager = self._parent._ensure_ws()
-        self._ws_manager.on("flag_changed", self._handle_flag_changed)
-        self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
-        self._ws_manager.on("flags_changed", self._handle_flags_changed)
+        if not self._ws_subscribed:
+            self._ws_manager.on("flag_changed", self._handle_flag_changed)
+            self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
+            self._ws_manager.on("flags_changed", self._handle_flags_changed)
+            self._ws_subscribed = True
+
+    def _schedule_start_retry(self, exc: Exception) -> None:
+        """Back off the next ``start()`` attempt after a failure."""
+        delay = self._start_retry_delay
+        self._next_start_attempt_at = time.monotonic() + delay
+        self._start_retry_delay = min(delay * 2, _MAX_START_RETRY_DELAY)
+        logger.warning("Flags client start failed (will retry in %.1fs): %s", delay, exc)
+        debug("registration", traceback.format_exc().strip())
 
     def refresh(self) -> None:
         """Re-fetch all flag definitions and clear cache."""
@@ -357,12 +391,13 @@ class FlagsClient:
     # ------------------------------------------------------------------
 
     def _flush_flags_sync(self) -> None:
-        """Flush the flag registration buffer (delegates to mgmt.flags)."""
-        try:
-            self._manage.flags.flush()
-        except Exception as exc:
-            logger.warning("Bulk flag registration failed: %s", exc)
-            debug("registration", traceback.format_exc().strip())
+        """Flush the flag registration buffer (delegates to mgmt.flags).
+
+        Re-raises on failure so ``start()`` can decide whether to retry.
+        Items stay in the mgmt buffer until a successful flush, so this
+        is safe to call repeatedly.
+        """
+        self._manage.flags.flush()
 
     # ------------------------------------------------------------------
     # Internal: evaluation
@@ -574,6 +609,9 @@ class AsyncFlagsClient:
         # Runtime state
         self._flag_store: dict[str, dict[str, Any]] = {}
         self._connected = False
+        self._ws_subscribed = False
+        self._next_start_attempt_at = 0.0
+        self._start_retry_delay = _INITIAL_START_RETRY_DELAY
         self._cache = _ResolutionCache()
         self._handles: dict[str, AsyncFlag] = {}
         self._global_listeners: list[Callable[[FlagChangeEvent], None]] = []
@@ -634,28 +672,51 @@ class AsyncFlagsClient:
     async def start(self) -> None:
         """Eagerly initialize the flags subclient.
 
-        Drains any pending flag-declaration buffer, fetches all flag
+        Flushes any pending flag-declaration buffer, fetches all flag
         definitions, opens the shared WebSocket and subscribes to
         ``flag_changed`` / ``flag_deleted`` / ``flags_changed`` events.
 
         Idempotent.  Called automatically on first ``flag.get()``.
+
+        On failure (e.g. flags-service unhealthy), pending declarations
+        stay queued, the client remains *not connected*, and the next
+        call retries after an exponentially backed-off delay.
         """
         if self._connected:
             return
+        if time.monotonic() < self._next_start_attempt_at:
+            return
         self._environment = self._parent._environment
 
-        # Flush discovered flags BEFORE fetching definitions so the fetch
-        # reflects them.
-        await self._flush_flags_async()
+        try:
+            # Flush discovered flags BEFORE fetching definitions so the
+            # fetch reflects them.  Items remain in the mgmt buffer until
+            # the POST succeeds.
+            await self._flush_flags_async()
+            # Fetch + cache + fire change listeners
+            await self.refresh()
+        except Exception as exc:
+            self._schedule_start_retry(exc)
+            return
 
-        # Fetch + cache + fire change listeners
-        await self.refresh()
         self._connected = True
+        self._start_retry_delay = _INITIAL_START_RETRY_DELAY
+        self._next_start_attempt_at = 0.0
 
         self._ws_manager = self._parent._ensure_ws()
-        self._ws_manager.on("flag_changed", self._handle_flag_changed)
-        self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
-        self._ws_manager.on("flags_changed", self._handle_flags_changed)
+        if not self._ws_subscribed:
+            self._ws_manager.on("flag_changed", self._handle_flag_changed)
+            self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
+            self._ws_manager.on("flags_changed", self._handle_flags_changed)
+            self._ws_subscribed = True
+
+    def _schedule_start_retry(self, exc: Exception) -> None:
+        """Back off the next ``start()`` attempt after a failure."""
+        delay = self._start_retry_delay
+        self._next_start_attempt_at = time.monotonic() + delay
+        self._start_retry_delay = min(delay * 2, _MAX_START_RETRY_DELAY)
+        logger.warning("Flags client start failed (will retry in %.1fs): %s", delay, exc)
+        debug("registration", traceback.format_exc().strip())
 
     async def refresh(self) -> None:
         """Re-fetch all flag definitions and clear cache."""
@@ -706,20 +767,20 @@ class AsyncFlagsClient:
     # ------------------------------------------------------------------
 
     async def _flush_flags_async(self) -> None:
-        """Flush the flag registration buffer (delegates to mgmt.flags)."""
-        try:
-            await self._manage.flags.flush()
-        except Exception as exc:
-            logger.warning("Bulk flag registration failed: %s", exc)
-            debug("registration", traceback.format_exc().strip())
+        """Flush the flag registration buffer (delegates to mgmt.flags).
+
+        Re-raises on failure so ``start()`` can decide whether to retry.
+        Items stay queued in the mgmt buffer until a successful flush.
+        """
+        await self._manage.flags.flush()
 
     def _flush_flags_sync(self) -> None:
-        """Flush the flag registration buffer (delegates to mgmt.flags)."""
-        try:
-            self._manage.flags.flush_sync()
-        except Exception as exc:
-            logger.warning("Bulk flag registration failed: %s", exc)
-            debug("registration", traceback.format_exc().strip())
+        """Flush the flag registration buffer (delegates to mgmt.flags).
+
+        Re-raises on failure so the lazy-init path in
+        ``_evaluate_handle`` can decide whether to retry.
+        """
+        self._manage.flags.flush_sync()
 
     # ------------------------------------------------------------------
     # Internal: evaluation
@@ -732,17 +793,26 @@ class AsyncFlagsClient:
         async, so we use sync HTTP calls for the initial fetch (called from
         the WebSocket background thread as well).
         """
-        if not self._connected:
-            # Lazy init using sync HTTP (safe from any thread)
+        if not self._connected and time.monotonic() >= self._next_start_attempt_at:
+            # Lazy init using sync HTTP (safe from any thread).  Mirrors
+            # the backoff/retain-on-failure semantics of ``start()``.
             self._environment = self._parent._environment
-            self._flush_flags_sync()
-            self._fetch_all_flags_sync()
-            self._connected = True
-            self._cache.clear()
-            self._ws_manager = self._parent._ensure_ws()
-            self._ws_manager.on("flag_changed", self._handle_flag_changed)
-            self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
-            self._ws_manager.on("flags_changed", self._handle_flags_changed)
+            try:
+                self._flush_flags_sync()
+                self._fetch_all_flags_sync()
+            except Exception as exc:
+                self._schedule_start_retry(exc)
+            else:
+                self._connected = True
+                self._start_retry_delay = _INITIAL_START_RETRY_DELAY
+                self._next_start_attempt_at = 0.0
+                self._cache.clear()
+                self._ws_manager = self._parent._ensure_ws()
+                if not self._ws_subscribed:
+                    self._ws_manager.on("flag_changed", self._handle_flag_changed)
+                    self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
+                    self._ws_manager.on("flags_changed", self._handle_flags_changed)
+                    self._ws_subscribed = True
 
         if context is not None:
             # Explicit context: register here.  (Implicit set_context registers

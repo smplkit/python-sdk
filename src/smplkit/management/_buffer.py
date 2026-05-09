@@ -70,7 +70,12 @@ class _ContextRegistrationBuffer:
 
 
 class _FlagRegistrationBuffer:
-    """Thread-safe batch buffer for flag declarations."""
+    """Thread-safe batch buffer for flag declarations.
+
+    Use ``peek()`` + ``commit(ids)`` for the send path so a failed POST
+    leaves declarations queued for the next attempt; the legacy
+    ``drain()`` is unconditional and used only by tests.
+    """
 
     def __init__(self) -> None:
         self._seen: OrderedDict[str, bool] = OrderedDict()
@@ -99,6 +104,19 @@ class _FlagRegistrationBuffer:
                 if environment is not None:
                     item["environment"] = environment
                 self._pending.append(item)
+
+    def peek(self) -> list[dict[str, Any]]:
+        """Return a snapshot of the pending batch without removing items."""
+        with self._lock:
+            return list(self._pending)
+
+    def commit(self, ids: list[str]) -> None:
+        """Remove items by id from the pending batch (call after a successful send)."""
+        if not ids:
+            return
+        committed = set(ids)
+        with self._lock:
+            self._pending = [item for item in self._pending if item["id"] not in committed]
 
     def drain(self) -> list[dict[str, Any]]:
         """Return and clear the pending batch."""

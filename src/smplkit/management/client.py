@@ -716,12 +716,12 @@ def _build_logger_bulk_request(buffer: Any) -> Any:
     return LoggerBulkRequest(loggers=items)
 
 
-def _build_flag_bulk_request(buffer: Any) -> _GenFlagBulkRequest | None:
-    """Drain the flag-discovery buffer and build a JSON:API bulk request body.
+def _build_flag_bulk_request(batch: list[dict[str, Any]]) -> _GenFlagBulkRequest | None:
+    """Build a JSON:API bulk request body from a list of pending flag items.
 
-    Returns ``None`` when there is nothing to flush.
+    Returns ``None`` when *batch* is empty.  Items are not removed from any
+    buffer here; callers must commit on a successful send.
     """
-    batch = buffer.drain()
     if not batch:
         return None
     items = [
@@ -1267,8 +1267,15 @@ class FlagsClient:
             logger.warning("Flag registration flush failed: %s", exc)
 
     def flush(self) -> None:
-        """Drain the buffer and POST pending declarations to the bulk endpoint."""
-        body = _build_flag_bulk_request(self._buffer)
+        """POST pending declarations to the bulk endpoint.
+
+        Items remain in the buffer until the request succeeds, so a flush
+        against an unhealthy ``flags`` service is automatically retried by
+        the next ``flush()`` call (lazy ``start()`` retry, periodic
+        background flush, or final flush on close).
+        """
+        batch = self._buffer.peek()
+        body = _build_flag_bulk_request(batch)
         if body is None:
             return
         try:
@@ -1277,6 +1284,7 @@ class FlagsClient:
             _maybe_reraise_network_error(exc, self._http_client._base_url)
             raise
         _check_status(int(response.status_code), response.content)
+        self._buffer.commit([b["id"] for b in batch])
 
     @property
     def pending_count(self) -> int:
@@ -1440,8 +1448,13 @@ class AsyncFlagsClient:
             logger.warning("Flag registration flush failed: %s", exc)
 
     async def flush(self) -> None:
-        """Drain the buffer and POST pending declarations to the bulk endpoint."""
-        body = _build_flag_bulk_request(self._buffer)
+        """POST pending declarations to the bulk endpoint.
+
+        Items remain in the buffer until the request succeeds; failed
+        flushes are retried by the next ``flush()`` call.
+        """
+        batch = self._buffer.peek()
+        body = _build_flag_bulk_request(batch)
         if body is None:
             return
         try:
@@ -1450,10 +1463,12 @@ class AsyncFlagsClient:
             _maybe_reraise_network_error(exc, self._http_client._base_url)
             raise
         _check_status(int(response.status_code), response.content)
+        self._buffer.commit([b["id"] for b in batch])
 
     def flush_sync(self) -> None:
         """Synchronous flush — for use from non-event-loop threads."""
-        body = _build_flag_bulk_request(self._buffer)
+        batch = self._buffer.peek()
+        body = _build_flag_bulk_request(batch)
         if body is None:
             return
         try:
@@ -1462,6 +1477,7 @@ class AsyncFlagsClient:
             _maybe_reraise_network_error(exc, self._http_client._base_url)
             raise
         _check_status(int(response.status_code), response.content)
+        self._buffer.commit([b["id"] for b in batch])
 
     @property
     def pending_count(self) -> int:
