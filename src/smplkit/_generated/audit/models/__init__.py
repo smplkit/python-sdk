@@ -27,6 +27,7 @@ from .forwarder_list_meta import ForwarderListMeta
 from .forwarder_list_response import ForwarderListResponse
 from .forwarder_resource import ForwarderResource
 from .forwarder_response import ForwarderResponse
+from .forwarder_type import ForwarderType
 from .http_header import HttpHeader
 from .resource_type_attributes import ResourceTypeAttributes
 from .resource_type_list_links import ResourceTypeListLinks
@@ -72,6 +73,7 @@ __all__ = (
     "ForwarderListResponse",
     "ForwarderResource",
     "ForwarderResponse",
+    "ForwarderType",
     "HttpHeader",
     "ResourceTypeAttributes",
     "ResourceTypeListLinks",
