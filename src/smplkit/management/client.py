@@ -59,6 +59,7 @@ from smplkit._generated.app.api.environments import (
     update_environment as _gen_update_environment,
 )
 from smplkit._generated.app.client import AuthenticatedClient as _AppAuthClient
+from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 from smplkit._generated.app.models import (
     Context as _GenContext,
     ContextAttributes as _GenContextAttributes,
@@ -169,6 +170,10 @@ from smplkit.management.types import Color, EnvironmentClassification
 if TYPE_CHECKING:  # pragma: no cover
     from smplkit.flags.types import FlagDeclaration
     from smplkit.management._buffer import _ContextRegistrationBuffer
+    from smplkit.management.audit import (
+        AsyncAuditClient as _MgmtAsyncAuditClient,
+        AuditClient as _MgmtAuditClient,
+    )
 
 logger = logging.getLogger("smplkit")
 
@@ -2037,6 +2042,7 @@ class SmplManagementClient:
     flags: FlagsClient
     loggers: LoggersClient
     log_groups: LogGroupsClient
+    audit: "_MgmtAuditClient"
 
     def __init__(
         self,
@@ -2076,12 +2082,21 @@ class SmplManagementClient:
         app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
         flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
         logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
+        audit_url = _service_url(cfg.scheme, "audit", cfg.base_domain)
 
         _extra = {**(cfg.extra_headers or {})}
         self._app_http = _AppAuthClient(base_url=app_url, token=cfg.api_key, headers=_extra)
         self._config_http = _ConfigAuthClient(base_url=config_url, token=cfg.api_key, headers=_extra)
         self._flags_http = _FlagsAuthClient(base_url=flags_url, token=cfg.api_key, headers=_extra)
         self._logging_http = _LoggingAuthClient(base_url=logging_url, token=cfg.api_key, headers=_extra)
+        # Audit's wire format is JSON:API; all other services pass through
+        # ``application/json`` because their generated clients send it. The
+        # Accept header here mirrors the runtime audit client.
+        self._audit_http = _AuditAuthClient(
+            base_url=audit_url,
+            token=cfg.api_key,
+            headers={**_extra, "Accept": "application/vnd.api+json"},
+        )
 
         from smplkit.management._buffer import _ContextRegistrationBuffer
 
@@ -2095,10 +2110,22 @@ class SmplManagementClient:
         self.flags = FlagsClient(self._flags_http)
         self.loggers = LoggersClient(self._logging_http, base_url=logging_url)
         self.log_groups = LogGroupsClient(self._logging_http, base_url=logging_url)
+        # Lazily imported to avoid a circular reference while management
+        # types are still loading the runtime audit module for shared
+        # dataclasses.
+        from smplkit.management.audit import AuditClient as _MgmtAuditClient
+
+        self.audit = _MgmtAuditClient(auth_client=self._audit_http)
 
     def close(self) -> None:
         """Release HTTP resources held by this client."""
-        for http in (self._app_http, self._config_http, self._flags_http, self._logging_http):
+        for http in (
+            self._app_http,
+            self._config_http,
+            self._flags_http,
+            self._logging_http,
+            self._audit_http,
+        ):
             client = http._client
             if client is not None:
                 client.close()
@@ -2126,6 +2153,7 @@ class AsyncSmplManagementClient:
     flags: AsyncFlagsClient
     loggers: AsyncLoggersClient
     log_groups: AsyncLogGroupsClient
+    audit: "_MgmtAsyncAuditClient"
 
     def __init__(
         self,
@@ -2165,12 +2193,18 @@ class AsyncSmplManagementClient:
         app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
         flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
         logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
+        audit_url = _service_url(cfg.scheme, "audit", cfg.base_domain)
 
         _extra = {**(cfg.extra_headers or {})}
         self._app_http = _AppAuthClient(base_url=app_url, token=cfg.api_key, headers=_extra)
         self._config_http = _ConfigAuthClient(base_url=config_url, token=cfg.api_key, headers=_extra)
         self._flags_http = _FlagsAuthClient(base_url=flags_url, token=cfg.api_key, headers=_extra)
         self._logging_http = _LoggingAuthClient(base_url=logging_url, token=cfg.api_key, headers=_extra)
+        self._audit_http = _AuditAuthClient(
+            base_url=audit_url,
+            token=cfg.api_key,
+            headers={**_extra, "Accept": "application/vnd.api+json"},
+        )
 
         from smplkit.management._buffer import _ContextRegistrationBuffer
 
@@ -2184,10 +2218,19 @@ class AsyncSmplManagementClient:
         self.flags = AsyncFlagsClient(self._flags_http)
         self.loggers = AsyncLoggersClient(self._logging_http, base_url=logging_url)
         self.log_groups = AsyncLogGroupsClient(self._logging_http, base_url=logging_url)
+        from smplkit.management.audit import AsyncAuditClient as _MgmtAsyncAuditClient
+
+        self.audit = _MgmtAsyncAuditClient(auth_client=self._audit_http)
 
     async def close(self) -> None:
         """Release HTTP resources held by this client."""
-        for http in (self._app_http, self._config_http, self._flags_http, self._logging_http):
+        for http in (
+            self._app_http,
+            self._config_http,
+            self._flags_http,
+            self._logging_http,
+            self._audit_http,
+        ):
             ac = http._async_client
             if ac is not None:
                 await ac.aclose()

@@ -11,17 +11,14 @@ from __future__ import annotations
 import time
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
-from uuid import UUID
 
 import httpx
-import pytest
 
 from smplkit.audit._buffer import (
     AuditEventBuffer,
     MAX_ATTEMPTS_PER_ITEM,
     _PendingEvent,
 )
-from smplkit._generated.audit.errors import UnexpectedStatus
 from smplkit.audit.client import AsyncAuditClient, AuditClient
 
 
@@ -186,65 +183,6 @@ def test_post_wrapper_returns_httpx_error_on_connection_failure() -> None:
         client._close()
 
 
-def test_list_threads_filter_and_pagination_params() -> None:
-    seen_urls: list[str] = []
-
-    def handler(req: httpx.Request) -> httpx.Response:
-        seen_urls.append(str(req.url))
-        return httpx.Response(200, json={"data": [], "links": {}, "meta": {"page_size": 50}})
-
-    transport = httpx.MockTransport(handler)
-    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
-    try:
-        client.events.list(
-            action="user.created",
-            resource_type="user",
-            resource_id="u-1",
-            actor_type="USER",
-            actor_id=UUID("11111111-2222-3333-4444-555555555555"),
-            occurred_at_range="[2026-04-01T00:00:00Z,*)",
-            page_size=25,
-            page_after="abc",
-        )
-        u = seen_urls[0]
-        for needle in [
-            "filter%5Baction%5D=user.created",
-            "filter%5Bresource_type%5D=user",
-            "filter%5Bresource_id%5D=u-1",
-            "filter%5Bactor_type%5D=USER",
-            "filter%5Boccurred_at%5D=",
-            "page%5Bsize%5D=25",
-            "page%5Bafter%5D=abc",
-        ]:
-            assert needle in u
-    finally:
-        client._close()
-
-
-def test_list_raises_unexpected_status_on_5xx() -> None:
-    """Cover the list path's UnexpectedStatus raise."""
-    transport = httpx.MockTransport(lambda req: httpx.Response(503, json={}))
-    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
-    try:
-        with pytest.raises(UnexpectedStatus):
-            client.events.list()
-    finally:
-        client._close()
-
-
-def test_get_raises_for_404() -> None:
-    transport = httpx.MockTransport(lambda req: httpx.Response(404, json={}))
-    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
-    try:
-        with pytest.raises(UnexpectedStatus):
-            client.events.get(UUID("00000000-0000-0000-0000-000000000099"))
-    finally:
-        client._close()
-
-
 def test_async_client_delegates_to_sync() -> None:
     """The current placeholder ``AsyncAuditClient`` re-exports the sync surface."""
     client = AsyncAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
@@ -253,45 +191,6 @@ def test_async_client_delegates_to_sync() -> None:
     import asyncio
 
     asyncio.run(client._close())
-
-
-def test_event_list_page_iter_and_len() -> None:
-    """The list-page object is iterable and supports len()."""
-    transport = httpx.MockTransport(
-        lambda req: httpx.Response(
-            200,
-            json={
-                "data": [
-                    {
-                        "id": "11111111-2222-3333-4444-555555555555",
-                        "type": "event",
-                        "attributes": {
-                            "action": "user.created",
-                            "resource_type": "user",
-                            "resource_id": "u-1",
-                            "occurred_at": "2026-05-06T12:00:00+00:00",
-                            "created_at": "2026-05-06T12:00:01+00:00",
-                            "actor_type": "API_KEY",
-                            "actor_id": None,
-                            "actor_label": "",
-                            "data": {},
-                            "idempotency_key": "k",
-                        },
-                    }
-                ],
-                "meta": {"page_size": 1},
-            },
-        )
-    )
-    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
-    try:
-        page = client.events.list()
-        assert len(page) == 1
-        ids = [e.id for e in page]
-        assert ids[0] == UUID("11111111-2222-3333-4444-555555555555")
-    finally:
-        client._close()
 
 
 def test_audit_client_extra_headers_reach_transport() -> None:

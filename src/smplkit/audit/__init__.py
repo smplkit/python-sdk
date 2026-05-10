@@ -1,32 +1,26 @@
-"""Smpl Audit SDK namespace — fire-and-forget event recording plus
-SIEM-streaming forwarder management.
+"""Smpl Audit SDK runtime namespace — fire-and-forget event recording.
 
 ADR-047. The audit subsystem records who did what to which resource and
-when; the SDK exposes:
+when; this module exposes the runtime surface only:
 
-* ``client.audit.events.*`` — record / list / get audit events.
-* ``client.audit.forwarders.*`` — manage SIEM forwarders, list and
-  retry deliveries (Pro tier only — lower tiers get 402).
-* ``client.audit.functions.test_forwarder.actions.execute(...)`` — a
-  server-side proxy for previewing a destination configuration without
-  the browser hitting CORS. SSRF-guarded.
+* ``client.audit.events.record(..., flush=False)`` — enqueue an audit
+  event for asynchronous delivery; pass ``flush=True`` to block until
+  the buffer drains.
+* ``client.audit.events.flush(timeout=...)`` — drain the buffer.
 
-Writes via ``events.record(...)`` default to fire-and-forget — the call
-enqueues the event onto an in-memory bounded buffer and returns
-immediately. A background worker thread flushes the buffer on a
-periodic tick or whenever the buffer exceeds its high-water mark. Reads
-and forwarder management are synchronous.
+Every other audit operation (query, listings, forwarder CRUD,
+test_forwarder, wipe) lives on :class:`smplkit.SmplManagementClient`
+under ``mgmt.audit.*``. See ``smplkit.management.audit``.
+
+The shared dataclasses (``Event``, ``Forwarder``, ``ForwarderHttp``,
+``HttpHeader``, ``ForwarderDelivery``, ``ResourceType``, ``Action``,
+``WipeResult``, ``RetryFailedDeliveriesSummary``,
+``TestForwarderResult``) live in :mod:`smplkit.audit.models` and are
+re-exported here for convenience — both the runtime and the management
+clients return them.
 """
 
-from smplkit.audit.client import (
-    ActionListPage,
-    AsyncAuditClient,
-    AuditClient,
-    DeliveryListPage,
-    EventListPage,
-    ForwarderListPage,
-    ResourceTypeListPage,
-)
+from smplkit.audit.client import AsyncAuditClient, AuditClient
 from smplkit.audit.models import (
     Action,
     Event,
@@ -42,19 +36,14 @@ from smplkit.audit.models import (
 
 __all__ = [
     "Action",
-    "ActionListPage",
     "AsyncAuditClient",
     "AuditClient",
-    "DeliveryListPage",
     "Event",
-    "EventListPage",
     "Forwarder",
     "ForwarderDelivery",
     "ForwarderHttp",
-    "ForwarderListPage",
     "HttpHeader",
     "ResourceType",
-    "ResourceTypeListPage",
     "RetryFailedDeliveriesSummary",
     "TestForwarderResult",
     "WipeResult",

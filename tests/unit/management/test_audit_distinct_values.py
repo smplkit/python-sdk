@@ -1,8 +1,8 @@
-"""Tests for the audit resource_types / actions / wipe wrapper surface.
+"""Tests for the audit resource_types / actions / wipe management surface.
 
 httpx.MockTransport is used to drive the wrapper without touching the
-network. Coverage target is 100% on every new line in
-``smplkit.audit.client`` and ``smplkit.audit.models`` for these paths.
+network. Coverage target is 100% on every line in
+``smplkit.management.audit`` for these paths.
 """
 from __future__ import annotations
 
@@ -11,24 +11,27 @@ from typing import Any
 import httpx
 import pytest
 
+from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 from smplkit._generated.audit.errors import UnexpectedStatus
-from smplkit.audit import (
-    Action,
+from smplkit.audit import Action, ResourceType, WipeResult
+from smplkit.management.audit import (
     ActionListPage,
     AuditClient,
-    ResourceType,
     ResourceTypeListPage,
-    WipeResult,
 )
 
 
 def _client_with_handler(handler) -> AuditClient:
-    transport = httpx.MockTransport(handler)
-    c = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    c._auth.set_httpx_client(
-        httpx.Client(transport=transport, base_url="https://audit.example.com")
+    auth = _AuditAuthClient(
+        base_url="https://audit.example.com", token="sk_api_test"
     )
-    return c
+    auth.set_httpx_client(
+        httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://audit.example.com",
+        )
+    )
+    return AuditClient(auth_client=auth)
 
 
 def _resource_type_resource(*, key: str, created_at: str = "2026-04-12T15:23:01Z") -> dict[str, Any]:
@@ -128,10 +131,7 @@ class TestResourceTypesList:
             )
 
         c = _client_with_handler(handler)
-        try:
-            page = c.resource_types.list()
-        finally:
-            c._close()
+        page = c.resource_types.list()
         assert isinstance(page, ResourceTypeListPage)
         assert len(page) == 2
         assert [r.id for r in page] == ["account", "user"]
@@ -154,10 +154,7 @@ class TestResourceTypesList:
             )
 
         c = _client_with_handler(handler)
-        try:
-            page = c.resource_types.list(page_size=1, page_after="tok-1")
-        finally:
-            c._close()
+        page = c.resource_types.list(page_size=1, page_after="tok-1")
 
         # Wrapper sent the page params on the wire.
         url = captured[0]
@@ -172,10 +169,7 @@ class TestResourceTypesList:
             )
 
         c = _client_with_handler(handler)
-        try:
-            page = c.resource_types.list()
-        finally:
-            c._close()
+        page = c.resource_types.list()
         assert len(page) == 0
         assert page.next_cursor is None
         assert list(page) == []
@@ -189,7 +183,7 @@ class TestResourceTypesList:
             with pytest.raises(UnexpectedStatus):
                 c.resource_types.list()
         finally:
-            c._close()
+            pass            
 
 
 # ---------------------------------------------------------------------------
@@ -216,10 +210,7 @@ class TestActionsList:
             )
 
         c = _client_with_handler(handler)
-        try:
-            page = c.actions.list()
-        finally:
-            c._close()
+        page = c.actions.list()
         assert isinstance(page, ActionListPage)
         assert [a.id for a in page] == ["account.updated", "user.login"]
 
@@ -237,10 +228,7 @@ class TestActionsList:
             )
 
         c = _client_with_handler(handler)
-        try:
-            page = c.actions.list(filter_resource_type="user")
-        finally:
-            c._close()
+        page = c.actions.list(filter_resource_type="user")
         # Wrapper must have sent the filter on the wire — it's the entire
         # point of the cascading-filter feature.
         url = captured_url[0]
@@ -268,10 +256,7 @@ class TestActionsList:
             )
 
         c = _client_with_handler(handler)
-        try:
-            page = c.actions.list(page_size=1, filter_resource_type="user")
-        finally:
-            c._close()
+        page = c.actions.list(page_size=1, filter_resource_type="user")
         # The cursor token is sliced at the next ``&`` so trailing query
         # params don't leak into ``next_cursor``.
         assert page.next_cursor == "tok-2"
@@ -284,10 +269,7 @@ class TestActionsList:
             )
 
         c = _client_with_handler(handler)
-        try:
-            page = c.actions.list()
-        finally:
-            c._close()
+        page = c.actions.list()
         assert page.next_cursor is None
 
     def test_action_list_page_len_and_iter(self):
@@ -333,10 +315,7 @@ class TestWipeAction:
             )
 
         c = _client_with_handler(handler)
-        try:
-            result = c.functions.wipe.actions.execute()
-        finally:
-            c._close()
+        result = c.functions.wipe.actions.execute()
         assert captured["method"] == "POST"
         assert "/api/v1/functions/wipe/actions/execute" in captured["url"]
         # Body is empty per the action contract.
@@ -353,7 +332,7 @@ class TestWipeAction:
             with pytest.raises(UnexpectedStatus):
                 c.functions.wipe.actions.execute()
         finally:
-            c._close()
+            pass            
 
 
 # ---------------------------------------------------------------------------
@@ -361,19 +340,22 @@ class TestWipeAction:
 # ---------------------------------------------------------------------------
 
 
-def test_async_client_exposes_new_namespaces():
-    """The AsyncAuditClient placeholder delegates to AuditClient, so the
-    new resource_types / actions / functions.wipe surfaces must appear on
-    it too. Without this, async callers couldn't reach the new endpoints
-    until full async support lands."""
-    from smplkit.audit import AsyncAuditClient
+def test_async_client_exposes_management_namespaces():
+    """The management ``AsyncAuditClient`` mirrors the sync one — the same
+    resource_types / actions / functions / forwarders surfaces must reach
+    async callers. Without this, an ``AsyncSmplManagementClient`` user
+    can't see anything under ``mgmt.audit.*``."""
+    from smplkit.management.audit import AsyncAuditClient
 
-    c = AsyncAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    try:
-        assert c.resource_types is not None
-        assert c.actions is not None
-        assert c.functions.wipe is not None
-        assert c.functions.wipe.actions is not None
-    finally:
-        # _close is async; we don't need to await for this synchronous check.
-        pass
+    auth = _AuditAuthClient(
+        base_url="https://audit.example.com", token="sk_api_test"
+    )
+    c = AsyncAuditClient(auth_client=auth)
+    assert c.resource_types is not None
+    assert c.actions is not None
+    assert c.events is not None
+    assert c.forwarders is not None
+    assert c.functions is not None
+    assert c.functions.test_forwarder is not None
+    assert c.functions.wipe is not None
+    assert c.functions.wipe.actions is not None

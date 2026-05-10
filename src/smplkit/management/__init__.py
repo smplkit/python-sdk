@@ -3,7 +3,8 @@
 The :class:`SmplManagementClient` (and its async variant) is the single
 entry point for every management/CRUD operation in the SDK. It is the
 counterpart to the runtime :class:`smplkit.SmplClient`, which is now
-strictly for instrumentation: flag evaluation, config reads, log emission.
+strictly for instrumentation: flag evaluation, config reads, log emission,
+and audit-event recording.
 
 Exposed namespaces:
 
@@ -15,10 +16,25 @@ Exposed namespaces:
 - ``mgmt.flags.*``
 - ``mgmt.loggers.*``
 - ``mgmt.log_groups.*``
+- ``mgmt.audit.*``
 """
 
 from __future__ import annotations
 
+from smplkit.management.audit import (
+    ActionListPage as AuditActionListPage,
+    ActionsClient as AuditActionsClient,
+    AsyncAuditClient as AsyncMgmtAuditClient,
+    AuditClient as MgmtAuditClient,
+    DeliveryListPage as AuditDeliveryListPage,
+    EventListPage as AuditEventListPage,
+    EventsClient as AuditEventsClient,
+    ForwarderListPage as AuditForwarderListPage,
+    ForwardersClient as AuditForwardersClient,
+    ResourceTypeListPage as AuditResourceTypeListPage,
+    ResourceTypesClient as AuditResourceTypesClient,
+    VALID_FORWARDER_TYPES,
+)
 from smplkit.management.client import (
     AccountSettingsClient,
     AsyncAccountSettingsClient,
@@ -63,7 +79,17 @@ __all__ = [
     "AsyncFlagsClient",
     "AsyncLogGroupsClient",
     "AsyncLoggersClient",
+    "AsyncMgmtAuditClient",
     "AsyncSmplManagementClient",
+    "AuditActionListPage",
+    "AuditActionsClient",
+    "AuditDeliveryListPage",
+    "AuditEventListPage",
+    "AuditEventsClient",
+    "AuditForwarderListPage",
+    "AuditForwardersClient",
+    "AuditResourceTypeListPage",
+    "AuditResourceTypesClient",
     "ConfigClient",
     "ContextType",
     "ContextTypesClient",
@@ -74,5 +100,7 @@ __all__ = [
     "FlagsClient",
     "LogGroupsClient",
     "LoggersClient",
+    "MgmtAuditClient",
     "SmplManagementClient",
+    "VALID_FORWARDER_TYPES",
 ]

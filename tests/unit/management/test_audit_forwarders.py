@@ -1,9 +1,8 @@
-"""Tests for the audit forwarders / functions wrapper surface.
+"""Tests for the audit forwarders / functions management surface.
 
-The httpx.MockTransport pattern from test_audit.py is reused here — none
-of these tests touch the network. Coverage target is 100% on every line
-in the new wrapper code (smplkit.audit.client + smplkit.audit.models for
-the forwarder paths).
+The httpx.MockTransport pattern is reused here — none of these tests
+touch the network. Coverage target is 100% on every line in
+``smplkit.management.audit`` for the forwarder + functions paths.
 """
 
 from __future__ import annotations
@@ -14,9 +13,9 @@ from uuid import UUID
 import httpx
 import pytest
 
+from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 from smplkit._generated.audit.errors import UnexpectedStatus
 from smplkit.audit import (
-    AuditClient,
     Forwarder,
     ForwarderDelivery,
     ForwarderHttp,
@@ -24,6 +23,7 @@ from smplkit.audit import (
     RetryFailedDeliveriesSummary,
     TestForwarderResult,
 )
+from smplkit.management.audit import AuditClient
 
 
 JSONAPI = "application/vnd.api+json"
@@ -93,10 +93,16 @@ def _delivery_resource(*, status: str = "succeeded") -> dict[str, Any]:
 
 
 def _client_with_handler(handler) -> AuditClient:
-    transport = httpx.MockTransport(handler)
-    c = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    c._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
-    return c
+    auth = _AuditAuthClient(
+        base_url="https://audit.example.com", token="sk_api_test"
+    )
+    auth.set_httpx_client(
+        httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://audit.example.com",
+        )
+    )
+    return AuditClient(auth_client=auth)
 
 
 # ---------------------------------------------------------------------------
@@ -172,7 +178,7 @@ class TestForwardersCrud:
                 data={"team": "platform"},
             )
         finally:
-            c._close()
+            pass            
         assert fwd.slug == "datadog_production"
         assert captured["method"] == "POST"
         assert "/api/v1/forwarders" in captured["url"]
@@ -198,7 +204,7 @@ class TestForwardersCrud:
                 },
             )
         finally:
-            c._close()
+            pass            
         assert fwd.id == FWD_ID
 
     def test_create_unexpected_status_raises(self):
@@ -214,7 +220,7 @@ class TestForwardersCrud:
                     http=ForwarderHttp(url="https://x"),
                 )
         finally:
-            c._close()
+            pass            
 
     def test_list_paginates(self):
         pages = [
@@ -246,7 +252,7 @@ class TestForwardersCrud:
             second = c.forwarders.list(page_size=1, page_after=first.next_cursor)
             assert second.next_cursor is None
         finally:
-            c._close()
+            pass            
 
     def test_get(self):
         def handler(req):
@@ -261,7 +267,7 @@ class TestForwardersCrud:
             fwd2 = c.forwarders.get(str(FWD_ID))
             assert fwd2.id == FWD_ID
         finally:
-            c._close()
+            pass            
 
     def test_update(self):
         def handler(req):
@@ -281,7 +287,7 @@ class TestForwardersCrud:
                 data={"k": "v"},
             )
         finally:
-            c._close()
+            pass            
         assert fwd.name == "Renamed"
 
     def test_delete(self):
@@ -297,7 +303,7 @@ class TestForwardersCrud:
             # str id also accepted.
             c.forwarders.delete(str(FWD_ID))
         finally:
-            c._close()
+            pass            
         assert captured["method"] == "DELETE"
 
     def test_delete_unexpected_status_raises(self):
@@ -309,7 +315,7 @@ class TestForwardersCrud:
             with pytest.raises(UnexpectedStatus):
                 c.forwarders.delete(FWD_ID)
         finally:
-            c._close()
+            pass            
 
 
 # ---------------------------------------------------------------------------
@@ -352,7 +358,7 @@ class TestDeliveries:
             second = c.forwarders.deliveries.list(FWD_ID, page_after=first.next_cursor)
             assert second.next_cursor is None
         finally:
-            c._close()
+            pass            
 
     def test_retry_returns_new_row(self):
         def handler(req):
@@ -368,7 +374,7 @@ class TestDeliveries:
             row2 = c.forwarders.deliveries.actions.retry(str(FWD_ID), str(DELIVERY_ID))
             assert row2.status == "succeeded"
         finally:
-            c._close()
+            pass            
 
     def test_bulk_retry_summary(self):
         def handler(req):
@@ -378,7 +384,7 @@ class TestDeliveries:
         try:
             summary = c.forwarders.actions.retry_failed_deliveries(FWD_ID)
         finally:
-            c._close()
+            pass            
         assert summary == RetryFailedDeliveriesSummary(attempted=3, succeeded=2, failed=1)
 
 
@@ -417,7 +423,7 @@ class TestExecuteTestForwarder:
                 timeout_ms=5000,
             )
         finally:
-            c._close()
+            pass            
         assert result == TestForwarderResult(
             succeeded=True,
             response_status=202,
@@ -449,7 +455,7 @@ class TestExecuteTestForwarder:
                 headers=[{"name": "h", "value": "v"}],
             )
         finally:
-            c._close()
+            pass            
         assert r.succeeded is True
 
     def test_no_headers_no_timeout(self):
@@ -471,61 +477,19 @@ class TestExecuteTestForwarder:
         try:
             r = c.functions.test_forwarder.actions.execute(url="https://x")
         finally:
-            c._close()
+            pass            
         assert r.succeeded is False
         assert r.error == "5xx"
 
 
 # ---------------------------------------------------------------------------
-# Event create — do_not_forward kwarg
+# Event Model
 # ---------------------------------------------------------------------------
 
 
-def test_event_record_passes_do_not_forward():
-    posts: list[dict[str, Any]] = []
-
-    def handler(req):
-        posts.append({"body": req.content.decode()})
-        return httpx.Response(
-            201,
-            json={
-                "data": {
-                    "id": str(EVENT_ID),
-                    "type": "event",
-                    "attributes": {
-                        "action": "user.created",
-                        "resource_type": "user",
-                        "resource_id": "u-1",
-                        "occurred_at": "2026-05-07T12:00:00+00:00",
-                        "created_at": "2026-05-07T12:00:01+00:00",
-                        "actor_type": "API_KEY",
-                        "actor_id": None,
-                        "actor_label": "",
-                        "data": {},
-                        "idempotency_key": "auto-abc",
-                        "do_not_forward": True,
-                    },
-                }
-            },
-        )
-
-    c = _client_with_handler(handler)
-    try:
-        c.events.record(
-            action="user.created",
-            resource_type="user",
-            resource_id="u-1",
-            do_not_forward=True,
-        )
-        c.events.flush(timeout=2.0)
-    finally:
-        c._close()
-    # Generated client serializes JSON without spaces; match either.
-    assert any('"do_not_forward":true' in p["body"].replace(" ", "") for p in posts)
-
-
 def test_event_resource_round_trips_do_not_forward():
-    """Event._from_resource preserves the do_not_forward flag."""
+    """Event._from_resource preserves the do_not_forward flag — the
+    forwarder filter logic relies on it surfacing intact through reads."""
     from smplkit.audit.models import Event
 
     res = {
@@ -544,22 +508,3 @@ def test_event_resource_round_trips_do_not_forward():
     }
     ev = Event._from_resource(res)
     assert ev.do_not_forward is True
-
-
-# ---------------------------------------------------------------------------
-# Async client surface
-# ---------------------------------------------------------------------------
-
-
-def test_async_client_exposes_same_namespaces():
-    """The async client today is a pass-through to sync — confirm wiring."""
-    from smplkit.audit import AsyncAuditClient
-
-    a = AsyncAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    try:
-        assert a.forwarders is a._inner.forwarders
-        assert a.functions is a._inner.functions
-        assert a.events is a._inner.events
-    finally:
-        # _close is async — the sync inner close happens via the inner client.
-        a._inner._close()

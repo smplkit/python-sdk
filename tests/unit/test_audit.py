@@ -5,7 +5,6 @@ from __future__ import annotations
 import time
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
-from uuid import UUID
 
 import httpx
 import pytest
@@ -151,79 +150,108 @@ def test_create_returns_immediately(monkeypatch):
     client._close()
 
 
-def test_get_round_trips_a_single_event(monkeypatch):
-    event_id = UUID("11111111-2222-3333-4444-555555555555")
+def test_record_do_not_forward_serialized_on_wire():
+    """``do_not_forward=True`` survives the wrapper into the JSON body —
+    the audit service uses the flag to decide whether to fan out to
+    SIEM forwarders even though the event itself is recorded."""
+    posts: list[dict] = []
+    success_body = {
+        "data": {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "type": "event",
+            "attributes": {
+                "action": "user.created",
+                "resource_type": "user",
+                "resource_id": "u-1",
+                "occurred_at": "2026-05-06T12:00:00+00:00",
+                "created_at": "2026-05-06T12:00:01+00:00",
+                "actor_type": "API_KEY",
+                "actor_id": None,
+                "actor_label": "",
+                "data": {},
+                "idempotency_key": "auto",
+                "do_not_forward": True,
+            },
+        }
+    }
 
     def handler(req: httpx.Request) -> httpx.Response:
-        assert str(event_id) in req.url.path
-        return httpx.Response(
-            200,
-            json={
-                "data": {
-                    "id": str(event_id),
-                    "type": "event",
-                    "attributes": {
-                        "action": "invoice.created",
-                        "resource_type": "invoice",
-                        "resource_id": "inv-1",
-                        "occurred_at": "2026-05-06T12:00:00+00:00",
-                        "created_at": "2026-05-06T12:00:01+00:00",
-                        "actor_type": "API_KEY",
-                        "actor_id": None,
-                        "actor_label": "",
-                        "data": {},
-                        "idempotency_key": "auto-abc",
-                    },
-                }
-            },
-        )
+        posts.append({"body": req.content.decode()})
+        return httpx.Response(201, json=success_body)
 
     transport = httpx.MockTransport(handler)
     client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
+    client._auth.set_httpx_client(
+        httpx.Client(transport=transport, base_url="https://audit.example.com")
+    )
     try:
-        ev = client.events.get(event_id)
-        assert ev.id == event_id
-        assert ev.action == "invoice.created"
-        assert ev.actor_type == "API_KEY"
-        assert ev.data == {}
-        assert ev.data == {}
+        client.events.record(
+            action="user.created",
+            resource_type="user",
+            resource_id="u-1",
+            do_not_forward=True,
+            flush=True,
+        )
+        # Generated client serializes JSON without spaces; match either.
+        assert any('"do_not_forward":true' in p["body"].replace(" ", "") for p in posts)
     finally:
         client._close()
 
 
-def test_list_paginates(monkeypatch):
-    pages = [
-        {
-            "data": [
-                _make_resource("11111111-1111-1111-1111-111111111111"),
-            ],
-            "links": {"next": "/api/v1/events?page[size]=1&page[after]=tok-2"},
-            "meta": {"page_size": 1},
-        },
-        {
-            "data": [_make_resource("22222222-2222-2222-2222-222222222222")],
-            "meta": {"page_size": 1},
-        },
-    ]
-    call_count = [0]
+def test_record_flush_true_blocks_until_drained():
+    """``flush=True`` is the one-call equivalent of ``record(...)`` followed
+    by ``flush()`` — useful for CLI tools and tests that need the event
+    durable before continuing."""
+    posted: list[_PendingEvent] = []
+    success_body = {
+        "data": {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "type": "event",
+            "attributes": {
+                "action": "invoice.created",
+                "resource_type": "invoice",
+                "resource_id": "inv-x",
+                "occurred_at": "2026-05-06T12:00:00+00:00",
+                "created_at": "2026-05-06T12:00:01+00:00",
+                "actor_type": "API_KEY",
+                "actor_id": None,
+                "actor_label": "",
+                "data": {},
+                "idempotency_key": "auto",
+            },
+        }
+    }
 
     def handler(req: httpx.Request) -> httpx.Response:
-        page = pages[call_count[0]]
-        call_count[0] += 1
-        return httpx.Response(200, json=page)
+        return httpx.Response(201, json=success_body)
 
     transport = httpx.MockTransport(handler)
     client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
-    try:
-        first = client.events.list(page_size=1)
-        assert len(first.events) == 1
-        assert first.next_cursor == "tok-2"
+    client._auth.set_httpx_client(
+        httpx.Client(transport=transport, base_url="https://audit.example.com")
+    )
 
-        second = client.events.list(page_size=1, page_after=first.next_cursor)
-        assert len(second.events) == 1
-        assert second.next_cursor is None
+    # Stub the post_fn so the test can observe the in-flight item.
+    original_post = client.events._buffer._post_fn
+
+    def observed_post(item):
+        posted.append(item)
+        return original_post(item)
+
+    client.events._buffer._post_fn = observed_post  # type: ignore[method-assign]
+
+    try:
+        # flush=True drains synchronously — by the time the call returns,
+        # the buffer has either succeeded or exhausted retries.
+        client.events.record(
+            action="invoice.created",
+            resource_type="invoice",
+            resource_id="inv-flush-1",
+            flush=True,
+        )
+        # The post must have been observed. Without flush=True there's a
+        # window where this could race with the worker thread.
+        assert len(posted) == 1
     finally:
         client._close()
 
