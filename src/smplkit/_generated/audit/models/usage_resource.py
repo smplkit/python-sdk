@@ -10,7 +10,7 @@ from ..types import UNSET, Unset
 
 
 if TYPE_CHECKING:
-    from ..models.usage_resource_attributes import UsageResourceAttributes
+    from ..models.usage_attributes import UsageAttributes
 
 
 T = TypeVar("T", bound="UsageResource")
@@ -20,17 +20,22 @@ T = TypeVar("T", bound="UsageResource")
 class UsageResource:
     """
     Example:
-        {'attributes': {'current': 42, 'limit': 1000, 'limit_key': 'audit.customer_events_per_month', 'period':
-            'current', 'year_month': '2026-05'}, 'id': 'audit.customer_events_per_month', 'type': 'usage'}
+        {'attributes': {'limit_key': 'audit.customer_events_per_month', 'period': 'current', 'value': 42}, 'id':
+            'audit.customer_events_per_month', 'type': 'usage'}
 
     Attributes:
         id (str):
-        attributes (UsageResourceAttributes):
+        attributes (UsageAttributes): Attribute set for a usage resource.
+
+            The shape mirrors the ``/api/v1/usage`` contract used by config, flags,
+            and logging — three fields, no per-product extras. Per-period limits
+            live in the product catalog (``GET /api/v1/products``); the usage
+            endpoint reports counts only.
         type_ (str | Unset):  Default: 'usage'.
     """
 
     id: str
-    attributes: UsageResourceAttributes
+    attributes: UsageAttributes
     type_: str | Unset = "usage"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -56,12 +61,12 @@ class UsageResource:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.usage_resource_attributes import UsageResourceAttributes
+        from ..models.usage_attributes import UsageAttributes
 
         d = dict(src_dict)
         id = d.pop("id")
 
-        attributes = UsageResourceAttributes.from_dict(d.pop("attributes"))
+        attributes = UsageAttributes.from_dict(d.pop("attributes"))
 
         type_ = d.pop("type", UNSET)
 
