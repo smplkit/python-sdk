@@ -212,6 +212,100 @@ class RetryFailedDeliveriesSummary:
     failed: int
 
 
+@dataclass(frozen=True, slots=True)
+class ResourceType:
+    """A distinct resource_type slug seen for the account.
+
+    The ``id`` and ``resource_type`` are the same value — JSON:API surfaces
+    the customer-facing key as the resource id (ADR-014 "key as id"). The
+    duplication keeps SDK consumers from having to dig into the id field
+    when filtering UI controls; pick whichever name reads better in
+    context.
+    """
+
+    id: str
+    resource_type: str
+    created_at: datetime
+
+    @classmethod
+    def _from_resource(cls, resource: dict[str, Any]) -> "ResourceType":
+        attrs = resource.get("attributes", {})
+        return cls(
+            id=resource["id"],
+            resource_type=attrs.get("resource_type") or resource["id"],
+            created_at=_parse_iso(attrs["created_at"]),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class Action:
+    """A distinct action slug seen for the account.
+
+    Same shape as :class:`ResourceType` — ``id`` and ``action`` are the
+    same value. ``created_at`` is the earliest sighting; when the parent
+    list call filtered by ``resource_type``, this is the first sighting
+    of that specific (action, resource_type) triple, not the action
+    overall.
+    """
+
+    id: str
+    action: str
+    created_at: datetime
+
+    @classmethod
+    def _from_resource(cls, resource: dict[str, Any]) -> "Action":
+        attrs = resource.get("attributes", {})
+        return cls(
+            id=resource["id"],
+            action=attrs.get("action") or resource["id"],
+            created_at=_parse_iso(attrs["created_at"]),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class WipeResult:
+    """Per-table row counts and completion timestamp from
+    ``client.audit.functions.wipe.actions.execute()``.
+
+    ``total_rows_deleted`` is the convenience sum across all tables for
+    callers that just want a single number for logging or UX. The
+    per-table breakdown is preserved so post-wipe assertions can verify
+    the right tables were affected.
+    """
+
+    audit_event: int
+    audit_event_quota: int
+    forwarder: int
+    forwarder_delivery: int
+    resource_type: int
+    action: int
+    completed_at: datetime
+
+    @property
+    def total_rows_deleted(self) -> int:
+        return (
+            self.audit_event
+            + self.audit_event_quota
+            + self.forwarder
+            + self.forwarder_delivery
+            + self.resource_type
+            + self.action
+        )
+
+    @classmethod
+    def _from_response(cls, body: dict[str, Any]) -> "WipeResult":
+        tables = body.get("tables") or {}
+        return cls(
+            audit_event=int(tables.get("audit_event") or 0),
+            audit_event_quota=int(tables.get("audit_event_quota") or 0),
+            forwarder=int(tables.get("forwarder") or 0),
+            forwarder_delivery=int(tables.get("forwarder_delivery") or 0),
+            resource_type=int(tables.get("resource_type") or 0),
+            action=int(tables.get("action") or 0),
+            completed_at=_parse_iso(body["completed_at"]),
+        )
+
+
 def _parse_iso(value: str) -> datetime:
     # Python's fromisoformat accepts an optional trailing 'Z' (treated as UTC)
     # in 3.11+. The audit service emits +00:00 anyway, but customers may pass

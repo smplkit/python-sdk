@@ -6,6 +6,9 @@ Public surface:
     client.audit.events.list(...)
     client.audit.events.get(event_id)
 
+    client.audit.resource_types.list(...)
+    client.audit.actions.list(filter_resource_type=None, ...)
+
     client.audit.forwarders.create(name, forwarder_type, http, ...)
     client.audit.forwarders.list(...)
     client.audit.forwarders.get(forwarder_id)
@@ -15,8 +18,9 @@ Public surface:
     client.audit.forwarders.deliveries.actions.retry(forwarder_id, delivery_id)
     client.audit.forwarders.actions.retry_failed_deliveries(forwarder_id)
     client.audit.functions.test_forwarder.actions.execute(...)
+    client.audit.functions.wipe.actions.execute()
 
-ADR-047 §2.6. ``record`` is fire-and-forget by default — it enqueues
+ADR-047 §2.7. ``record`` is fire-and-forget by default — it enqueues
 the event onto an in-memory bounded buffer (``smplkit.audit._buffer``)
 and returns immediately; the buffer's worker thread retries with
 exponential backoff on transient failures and drops oldest under back
@@ -41,6 +45,13 @@ from smplkit._generated.audit.api.events import (
     get_event as _gen_get_event,
     list_events as _gen_list_events,
     record_event as _gen_record_event,
+)
+from smplkit._generated.audit.api.functions import (
+    execute_wipe as _gen_execute_wipe,
+)
+from smplkit._generated.audit.api.resource_types import (
+    list_actions as _gen_list_actions,
+    list_resource_types as _gen_list_resource_types,
 )
 from smplkit._generated.audit.api.forwarders import (
     create_forwarder as _gen_create_forwarder,
@@ -75,16 +86,22 @@ from smplkit._generated.audit.models.http_header import HttpHeader as _GenHttpHe
 from smplkit._generated.audit.models.test_forwarder_request import (
     TestForwarderRequest as _GenTestForwarderRequest,
 )
+from smplkit._generated.audit.models.wipe_request import (
+    WipeRequest as _GenWipeRequest,
+)
 from smplkit._generated.audit.types import UNSET
 from smplkit.audit._buffer import AuditEventBuffer, _PendingEvent
 from smplkit.audit.models import (
+    Action,
     Event,
     Forwarder,
     ForwarderDelivery,
     ForwarderHttp,
     HttpHeader,
+    ResourceType,
     RetryFailedDeliveriesSummary,
     TestForwarderResult,
+    WipeResult,
 )
 
 logger = logging.getLogger("smplkit.audit")
@@ -622,13 +639,166 @@ class _TestForwarderClient:
         self.actions = _TestForwarderActionsClient(auth_client=auth_client)
 
 
+class _WipeActionsClient:
+    """Surface for ``client.audit.functions.wipe.actions.*``."""
+
+    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+        self._auth = auth_client
+
+    def execute(self) -> WipeResult:
+        """Wipe every audit-database row scoped to the authenticated account.
+
+        Atomic within the audit database — either every account-scoped row
+        is gone, or none is. Returns the per-table delete counts so callers
+        can surface the breakdown in logs or UX. ADR-047 §2.14.
+
+        v1 RBAC posture: any valid credential (customer API key or browser
+        JWT) may call this. Future RBAC ADRs may narrow the surface.
+        """
+        body = _GenWipeRequest()
+        resp = _gen_execute_wipe.sync_detailed(client=self._auth, body=body)
+        _expect_status(resp, 200)
+        return WipeResult._from_response(resp.parsed.to_dict())
+
+
+class _WipeClient:
+    """Surface for ``client.audit.functions.wipe.*``."""
+
+    actions: _WipeActionsClient
+
+    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+        self.actions = _WipeActionsClient(auth_client=auth_client)
+
+
 class _FunctionsClient:
     """Surface for ``client.audit.functions.*``."""
 
     test_forwarder: _TestForwarderClient
+    wipe: _WipeClient
 
     def __init__(self, *, auth_client: AuthenticatedClient) -> None:
         self.test_forwarder = _TestForwarderClient(auth_client=auth_client)
+        self.wipe = _WipeClient(auth_client=auth_client)
+
+
+# ---------------------------------------------------------------------------
+# resource_types and actions — distinct-value side tables backing the
+# Activity tab filter dropdowns. ADR-047 §2.5.
+# ---------------------------------------------------------------------------
+
+
+class ResourceTypeListPage:
+    """A single page from ``client.audit.resource_types.list(...)``."""
+
+    __slots__ = ("resource_types", "next_cursor")
+
+    def __init__(self, *, resource_types: list[ResourceType], next_cursor: str | None) -> None:
+        self.resource_types = resource_types
+        self.next_cursor = next_cursor
+
+    def __iter__(self):
+        return iter(self.resource_types)
+
+    def __len__(self) -> int:
+        return len(self.resource_types)
+
+
+class ActionListPage:
+    """A single page from ``client.audit.actions.list(...)``."""
+
+    __slots__ = ("actions", "next_cursor")
+
+    def __init__(self, *, actions: list[Action], next_cursor: str | None) -> None:
+        self.actions = actions
+        self.next_cursor = next_cursor
+
+    def __iter__(self):
+        return iter(self.actions)
+
+    def __len__(self) -> int:
+        return len(self.actions)
+
+
+def _extract_next_cursor(body_dict: dict[str, Any]) -> str | None:
+    next_link = (body_dict.get("links") or {}).get("next")
+    if next_link and "page[after]=" in next_link:
+        # The link may include other query params after the cursor; the
+        # cursor token is base64-url-safe so we slice at the next ``&``.
+        after = next_link.split("page[after]=", 1)[1]
+        return after.split("&", 1)[0]
+    return None
+
+
+class _ResourceTypesClient:
+    """Surface for ``client.audit.resource_types.*``."""
+
+    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+        self._auth = auth_client
+
+    def list(
+        self,
+        *,
+        page_size: int | None = None,
+        page_after: str | None = None,
+    ) -> ResourceTypeListPage:
+        """List the distinct ``resource_type`` slugs seen in the account.
+
+        Backed by a maintain-by-write side table (ADR-047 §2.5), so the
+        response time is independent of how many years of events the
+        account has accumulated. Sorted alphabetically; cursor pagination
+        via ``page_after``.
+        """
+        resp = _gen_list_resource_types.sync_detailed(
+            client=self._auth,
+            pagesize=page_size if page_size is not None else UNSET,
+            pageafter=page_after if page_after is not None else UNSET,
+        )
+        _expect_status(resp, 200)
+        body_dict = resp.parsed.to_dict()
+        rows = [ResourceType._from_resource(r) for r in body_dict.get("data", [])]
+        return ResourceTypeListPage(
+            resource_types=rows, next_cursor=_extract_next_cursor(body_dict)
+        )
+
+
+class _ActionsClient:
+    """Surface for ``client.audit.actions.*``."""
+
+    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+        self._auth = auth_client
+
+    def list(
+        self,
+        *,
+        filter_resource_type: str | None = None,
+        page_size: int | None = None,
+        page_after: str | None = None,
+    ) -> ActionListPage:
+        """List the distinct ``action`` slugs seen in the account.
+
+        Without ``filter_resource_type``, returns one row per distinct
+        action — an action recorded with multiple resource_types appears
+        once. With the filter, returns the actions seen with that
+        specific resource_type, powering the cascading-filter behavior
+        on the Activity tab.
+
+        ADR-047 §2.5. Sorted alphabetically; cursor pagination via
+        ``page_after``.
+        """
+        resp = _gen_list_actions.sync_detailed(
+            client=self._auth,
+            filterresource_type=(
+                filter_resource_type if filter_resource_type is not None else UNSET
+            ),
+            pagesize=page_size if page_size is not None else UNSET,
+            pageafter=page_after if page_after is not None else UNSET,
+        )
+        _expect_status(resp, 200)
+        body_dict = resp.parsed.to_dict()
+        rows = [Action._from_resource(r) for r in body_dict.get("data", [])]
+        return ActionListPage(
+            actions=rows, next_cursor=_extract_next_cursor(body_dict)
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -640,6 +810,8 @@ class AuditClient:
     """``client.audit.*`` synchronous surface."""
 
     events: _EventsClient
+    resource_types: _ResourceTypesClient
+    actions: _ActionsClient
     forwarders: _ForwardersClient
     functions: _FunctionsClient
 
@@ -653,6 +825,8 @@ class AuditClient:
             headers={**(extra_headers or {}), "Accept": "application/vnd.api+json"},
         )
         self.events = _EventsClient(auth_client=self._auth)
+        self.resource_types = _ResourceTypesClient(auth_client=self._auth)
+        self.actions = _ActionsClient(auth_client=self._auth)
         self.forwarders = _ForwardersClient(auth_client=self._auth)
         self.functions = _FunctionsClient(auth_client=self._auth)
 
@@ -676,12 +850,16 @@ class AsyncAuditClient:
     """
 
     events: _EventsClient
+    resource_types: _ResourceTypesClient
+    actions: _ActionsClient
     forwarders: _ForwardersClient
     functions: _FunctionsClient
 
     def __init__(self, *, api_key: str, base_url: str, extra_headers: dict[str, str] | None = None) -> None:
         self._inner = AuditClient(api_key=api_key, base_url=base_url, extra_headers=extra_headers)
         self.events = self._inner.events
+        self.resource_types = self._inner.resource_types
+        self.actions = self._inner.actions
         self.forwarders = self._inner.forwarders
         self.functions = self._inner.functions
 

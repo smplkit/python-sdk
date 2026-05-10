@@ -19,23 +19,30 @@ and forwarder management are synchronous.
 """
 
 from smplkit.audit.client import (
+    ActionListPage,
     AsyncAuditClient,
     AuditClient,
     DeliveryListPage,
     EventListPage,
     ForwarderListPage,
+    ResourceTypeListPage,
 )
 from smplkit.audit.models import (
+    Action,
     Event,
     Forwarder,
     ForwarderDelivery,
     ForwarderHttp,
     HttpHeader,
+    ResourceType,
     RetryFailedDeliveriesSummary,
     TestForwarderResult,
+    WipeResult,
 )
 
 __all__ = [
+    "Action",
+    "ActionListPage",
     "AsyncAuditClient",
     "AuditClient",
     "DeliveryListPage",
@@ -46,6 +53,9 @@ __all__ = [
     "ForwarderHttp",
     "ForwarderListPage",
     "HttpHeader",
+    "ResourceType",
+    "ResourceTypeListPage",
     "RetryFailedDeliveriesSummary",
     "TestForwarderResult",
+    "WipeResult",
 ]
