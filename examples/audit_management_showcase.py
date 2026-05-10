@@ -32,15 +32,16 @@ import uuid
 
 from smplkit import SmplClient
 from smplkit._generated.audit.errors import UnexpectedStatus
-from smplkit.audit import ForwarderHttp, HttpHeader
-from smplkit.management import VALID_FORWARDER_TYPES
+from smplkit.audit import ForwarderHttp, ForwarderType, HttpHeader
 
 
 def main() -> None:
     # SmplClient exposes a ``manage`` attribute that resolves to the same
     # SmplManagementClient an admin tool would construct directly. Pick
     # whichever entry point is more convenient for the calling code.
-    with SmplClient(environment="production", service="showcase-service") as client:
+    with SmplClient(
+        environment="production", service="showcase-service"
+    ) as client:
         mgmt = client.manage
 
         # --------------------------------------------------------------
@@ -98,23 +99,29 @@ def main() -> None:
 
         # With ``filter_resource_type``, narrows to actions seen with
         # that specific resource type — the cascading-filter behavior.
-        invoice_actions = mgmt.audit.actions.list(filter_resource_type="invoice")
+        invoice_actions = mgmt.audit.actions.list(
+            filter_resource_type="invoice"
+        )
         print(f"Actions for resource_type=invoice ({len(invoice_actions)}):")
         for a in invoice_actions:
             print(f"  {a.id}")
 
         # --------------------------------------------------------------
         # Forwarders (Pro tier — gracefully skip on 402).
-        # The published constant ``VALID_FORWARDER_TYPES`` is a useful
-        # reference: a typo there becomes a NameError, not a 400 at
-        # runtime.
+        # ``ForwarderType`` is a string-valued Enum: members type-check
+        # like normal enum values AND compare equal to the underlying
+        # string (``ForwarderType.HTTP == "http"``), so passing literal
+        # strings still works for callers who prefer that style.
         # --------------------------------------------------------------
-        print(f"Supported forwarder types: {', '.join(VALID_FORWARDER_TYPES)}")
+        print(
+            "Supported forwarder types: "
+            + ", ".join(t.value for t in ForwarderType)
+        )
 
         try:
             fwd = mgmt.audit.forwarders.create(
                 name=f"showcase-{uuid.uuid4().hex[:6]}",
-                forwarder_type="http",  # ∈ VALID_FORWARDER_TYPES
+                forwarder_type=ForwarderType.HTTP,
                 http=ForwarderHttp(
                     method="POST",
                     url="https://httpbin.org/post",

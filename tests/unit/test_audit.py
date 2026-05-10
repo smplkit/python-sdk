@@ -181,9 +181,7 @@ def test_record_do_not_forward_serialized_on_wire():
 
     transport = httpx.MockTransport(handler)
     client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    client._auth.set_httpx_client(
-        httpx.Client(transport=transport, base_url="https://audit.example.com")
-    )
+    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         client.events.record(
             action="user.created",
@@ -227,9 +225,7 @@ def test_record_flush_true_blocks_until_drained():
 
     transport = httpx.MockTransport(handler)
     client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    client._auth.set_httpx_client(
-        httpx.Client(transport=transport, base_url="https://audit.example.com")
-    )
+    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
 
     # Stub the post_fn so the test can observe the in-flight item.
     original_post = client.events._buffer._post_fn

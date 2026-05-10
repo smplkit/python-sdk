@@ -4,6 +4,7 @@ httpx.MockTransport is used to drive the wrapper without touching the
 network. Coverage target is 100% on every line in
 ``smplkit.management.audit`` for these paths.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -22,9 +23,7 @@ from smplkit.management.audit import (
 
 
 def _client_with_handler(handler) -> AuditClient:
-    auth = _AuditAuthClient(
-        base_url="https://audit.example.com", token="sk_api_test"
-    )
+    auth = _AuditAuthClient(base_url="https://audit.example.com", token="sk_api_test")
     auth.set_httpx_client(
         httpx.Client(
             transport=httpx.MockTransport(handler),
@@ -146,9 +145,7 @@ class TestResourceTypesList:
                 200,
                 json={
                     "data": [_resource_type_resource(key="alpha")],
-                    "links": {
-                        "next": "/api/v1/resource_types?page[size]=1&page[after]=tok-2"
-                    },
+                    "links": {"next": "/api/v1/resource_types?page[size]=1&page[after]=tok-2"},
                     "meta": {"page_size": 1},
                 },
             )
@@ -164,9 +161,7 @@ class TestResourceTypesList:
 
     def test_empty_response(self):
         def handler(req):
-            return httpx.Response(
-                200, json={"data": [], "meta": {"page_size": 50}}
-            )
+            return httpx.Response(200, json={"data": [], "meta": {"page_size": 50}})
 
         c = _client_with_handler(handler)
         page = c.resource_types.list()
@@ -183,7 +178,7 @@ class TestResourceTypesList:
             with pytest.raises(UnexpectedStatus):
                 c.resource_types.list()
         finally:
-            pass            
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -233,10 +228,7 @@ class TestActionsList:
         # point of the cascading-filter feature.
         url = captured_url[0]
         assert "user" in url
-        assert (
-            "filter%5Bresource_type%5D=user" in url
-            or "filter[resource_type]=user" in url
-        )
+        assert "filter%5Bresource_type%5D=user" in url or "filter[resource_type]=user" in url
         assert [a.id for a in page] == ["user.login"]
 
     def test_pagination_cursor_with_filter_in_next_link(self):
@@ -245,12 +237,7 @@ class TestActionsList:
                 200,
                 json={
                     "data": [_action_resource(key="a.x")],
-                    "links": {
-                        "next": (
-                            "/api/v1/actions?page[size]=1&page[after]=tok-2"
-                            "&filter[resource_type]=user"
-                        )
-                    },
+                    "links": {"next": ("/api/v1/actions?page[size]=1&page[after]=tok-2&filter[resource_type]=user")},
                     "meta": {"page_size": 1},
                 },
             )
@@ -332,7 +319,7 @@ class TestWipeAction:
             with pytest.raises(UnexpectedStatus):
                 c.functions.wipe.actions.execute()
         finally:
-            pass            
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -347,9 +334,7 @@ def test_async_client_exposes_management_namespaces():
     can't see anything under ``mgmt.audit.*``."""
     from smplkit.management.audit import AsyncAuditClient
 
-    auth = _AuditAuthClient(
-        base_url="https://audit.example.com", token="sk_api_test"
-    )
+    auth = _AuditAuthClient(base_url="https://audit.example.com", token="sk_api_test")
     c = AsyncAuditClient(auth_client=auth)
     assert c.resource_types is not None
     assert c.actions is not None

@@ -5,6 +5,7 @@ covered in ``tests/unit/test_audit.py`` and
 ``tests/unit/test_audit_coverage.py``. This file covers the
 management-side ``list`` and ``get`` reads.
 """
+
 from __future__ import annotations
 
 from uuid import UUID
@@ -19,9 +20,7 @@ from smplkit.management.audit import AuditClient, EventListPage
 
 
 def _client_with_handler(handler) -> AuditClient:
-    auth = _AuditAuthClient(
-        base_url="https://audit.example.com", token="sk_api_test"
-    )
+    auth = _AuditAuthClient(base_url="https://audit.example.com", token="sk_api_test")
     auth.set_httpx_client(
         httpx.Client(
             transport=httpx.MockTransport(handler),
@@ -126,9 +125,7 @@ class TestList:
         page = client.events.list()
         assert isinstance(page, EventListPage)
         assert len(page) == 1
-        assert [e.id for e in page] == [
-            UUID("11111111-2222-3333-4444-555555555555")
-        ]
+        assert [e.id for e in page] == [UUID("11111111-2222-3333-4444-555555555555")]
 
 
 class TestGet:
@@ -146,11 +143,7 @@ class TestGet:
 
     def test_get_string_id_accepts_str(self):
         event_id = "11111111-2222-3333-4444-555555555555"
-        client = _client_with_handler(
-            lambda req: httpx.Response(
-                200, json={"data": _event_resource(event_id)}
-            )
-        )
+        client = _client_with_handler(lambda req: httpx.Response(200, json={"data": _event_resource(event_id)}))
         ev = client.events.get(event_id)
         assert ev.id == UUID(event_id)
 

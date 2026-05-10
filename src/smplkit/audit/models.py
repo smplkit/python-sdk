@@ -9,10 +9,38 @@ SDK surface stable across regenerations.
 
 from __future__ import annotations
 
+import enum
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 from uuid import UUID
+
+
+class ForwarderType(str, enum.Enum):
+    """Supported SIEM forwarder destination types.
+
+    The audit service's OpenAPI spec declares ``forwarder_type`` as a
+    string-with-enum-constraint (per ADR-047 §2.12); this Python-side
+    Enum mirrors that constraint so customers get autocomplete and
+    type-checked values instead of stringly-typed inputs. ``str``
+    subclassing keeps interop with the auto-generated client transparent
+    — a ``ForwarderType`` member compares equal to its string literal
+    (``ForwarderType.HTTP == "http"``).
+
+    The available types are real-time HTTP destinations sharing one
+    outbound plumbing path. Object-storage archival (S3, GCS, etc.) has
+    different operational shape (batching, IAM, lifecycle policies) and
+    will get its own type if customer demand warrants — see ADR-047
+    §2.12.
+    """
+
+    HTTP = "http"
+    DATADOG = "datadog"
+    SPLUNK_HEC = "splunk_hec"
+    SUMO_LOGIC = "sumo_logic"
+    NEW_RELIC = "new_relic"
+    HONEYCOMB = "honeycomb"
+    ELASTIC = "elastic"
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,7 +142,7 @@ class Forwarder:
     id: UUID
     name: str
     slug: str
-    forwarder_type: str
+    forwarder_type: ForwarderType
     enabled: bool
     http: ForwarderHttp
     filter: dict[str, Any] | None = None
@@ -132,7 +160,10 @@ class Forwarder:
             id=UUID(resource["id"]),
             name=attrs.get("name") or "",
             slug=attrs.get("slug") or "",
-            forwarder_type=attrs.get("forwarder_type") or "",
+            # Server-side validation already enforces enum membership;
+            # we still pass through ForwarderType() so callers get a
+            # typed value (and identity-equality with enum members).
+            forwarder_type=ForwarderType(attrs["forwarder_type"]),
             enabled=bool(attrs.get("enabled", True)),
             filter=attrs.get("filter"),
             transform=attrs.get("transform"),
