@@ -28,6 +28,7 @@ sibling-service shape (config, flags, logging) generalizes cleanly. New
 audit-management capabilities should add classes here, not in
 ``smplkit.audit.client``.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -81,26 +82,12 @@ from smplkit.audit.models import (
     Forwarder,
     ForwarderDelivery,
     ForwarderHttp,
+    ForwarderType,
     HttpHeader,
     ResourceType,
     RetryFailedDeliveriesSummary,
     TestForwarderResult,
     WipeResult,
-)
-
-
-# Forwarder type slugs accepted by the audit service. The set is the
-# authoritative list — ADR-047 §2.12 must match. Customer SDK callers
-# can use these constants for type-safety in static checks (a typo in
-# ``"datdog"`` becomes a NameError, not a 400 at runtime).
-VALID_FORWARDER_TYPES = (
-    "http",
-    "datadog",
-    "splunk_hec",
-    "sumo_logic",
-    "new_relic",
-    "honeycomb",
-    "elastic",
 )
 
 
@@ -188,9 +175,7 @@ class EventsClient:
 
         body_dict = resp.parsed.to_dict()
         events = [Event._from_resource(r) for r in body_dict.get("data", [])]
-        return EventListPage(
-            events=events, next_cursor=_extract_next_cursor(body_dict)
-        )
+        return EventListPage(events=events, next_cursor=_extract_next_cursor(body_dict))
 
     def get(self, event_id: UUID | str) -> Event:
         """Retrieve a single audit event by id.
@@ -270,9 +255,7 @@ class ResourceTypesClient:
         _expect_status(resp, 200)
         body_dict = resp.parsed.to_dict()
         rows = [ResourceType._from_resource(r) for r in body_dict.get("data", [])]
-        return ResourceTypeListPage(
-            resource_types=rows, next_cursor=_extract_next_cursor(body_dict)
-        )
+        return ResourceTypeListPage(resource_types=rows, next_cursor=_extract_next_cursor(body_dict))
 
 
 class ActionsClient:
@@ -301,18 +284,14 @@ class ActionsClient:
         """
         resp = _gen_list_actions.sync_detailed(
             client=self._auth,
-            filterresource_type=(
-                filter_resource_type if filter_resource_type is not None else UNSET
-            ),
+            filterresource_type=(filter_resource_type if filter_resource_type is not None else UNSET),
             pagesize=page_size if page_size is not None else UNSET,
             pageafter=page_after if page_after is not None else UNSET,
         )
         _expect_status(resp, 200)
         body_dict = resp.parsed.to_dict()
         rows = [Action._from_resource(r) for r in body_dict.get("data", [])]
-        return ActionListPage(
-            actions=rows, next_cursor=_extract_next_cursor(body_dict)
-        )
+        return ActionListPage(actions=rows, next_cursor=_extract_next_cursor(body_dict))
 
 
 # ---------------------------------------------------------------------------
@@ -371,16 +350,19 @@ def _http_to_gen(http: ForwarderHttp | dict[str, Any]) -> _GenForwarderHttp:
 def _build_forwarder_attrs(
     *,
     name: str,
-    forwarder_type: str,
+    forwarder_type: ForwarderType,
     http: ForwarderHttp | dict[str, Any],
     enabled: bool,
     filter: dict[str, Any] | None,
     transform: str | None,
     data: dict[str, Any] | None,
 ) -> _GenForwarder:
+    # ``ForwarderType`` is a ``str`` subclass — passing the enum directly
+    # gives the generated model a string that matches its Literal type
+    # constraint, while keeping enum identity for callers reading back.
     attrs = _GenForwarder(
         name=name,
-        forwarder_type=forwarder_type,
+        forwarder_type=ForwarderType(forwarder_type).value,
         http=_http_to_gen(http),
         enabled=enabled,
     )
@@ -454,9 +436,7 @@ class _DeliveriesClient:
         _expect_status(resp, 200)
         body_dict = resp.parsed.to_dict()
         deliveries = [ForwarderDelivery._from_resource(r) for r in body_dict.get("data", [])]
-        return DeliveryListPage(
-            deliveries=deliveries, next_cursor=_extract_next_cursor(body_dict)
-        )
+        return DeliveryListPage(deliveries=deliveries, next_cursor=_extract_next_cursor(body_dict))
 
 
 class _ForwarderActionsClient:
@@ -497,7 +477,7 @@ class ForwardersClient:
         self,
         *,
         name: str,
-        forwarder_type: str,
+        forwarder_type: ForwarderType,
         http: ForwarderHttp | dict[str, Any],
         enabled: bool = True,
         filter: dict[str, Any] | None = None,
@@ -508,10 +488,12 @@ class ForwardersClient:
 
         Args:
             name: Display name. The slug is derived server-side.
-            forwarder_type: One of :data:`VALID_FORWARDER_TYPES`. The
-                wrapper does not enforce membership client-side — the
-                server returns 400 on an unknown value — but the
-                published constant is a useful reference for callers.
+            forwarder_type: A :class:`ForwarderType` enum member
+                (e.g. ``ForwarderType.HTTP``, ``ForwarderType.DATADOG``).
+                The constant is a ``str`` subclass, so callers passing
+                the literal string (``"http"``) still type-check
+                cleanly; the enum is the recommended form for IDE
+                autocomplete and grep-ability.
             http: Destination configuration. Headers carry credentials
                 and are encrypted at rest server-side; reads return them
                 redacted.
@@ -539,15 +521,16 @@ class ForwardersClient:
     def list(
         self,
         *,
-        forwarder_type: str | None = None,
+        forwarder_type: ForwarderType | None = None,
         enabled: bool | None = None,
         page_size: int | None = None,
         page_after: str | None = None,
     ) -> ForwarderListPage:
         """List forwarders for the authenticated account."""
+        ft = ForwarderType(forwarder_type).value if forwarder_type is not None else UNSET
         resp = _gen_list_forwarders.sync_detailed(
             client=self._auth,
-            filterforwarder_type=forwarder_type if forwarder_type is not None else UNSET,
+            filterforwarder_type=ft,
             filterenabled=enabled if enabled is not None else UNSET,
             pagesize=page_size if page_size is not None else UNSET,
             pageafter=page_after if page_after is not None else UNSET,
@@ -555,9 +538,7 @@ class ForwardersClient:
         _expect_status(resp, 200)
         body_dict = resp.parsed.to_dict()
         forwarders = [Forwarder._from_resource(r) for r in body_dict.get("data", [])]
-        return ForwarderListPage(
-            forwarders=forwarders, next_cursor=_extract_next_cursor(body_dict)
-        )
+        return ForwarderListPage(forwarders=forwarders, next_cursor=_extract_next_cursor(body_dict))
 
     def get(self, forwarder_id: UUID | str) -> Forwarder:
         fid = forwarder_id if isinstance(forwarder_id, UUID) else UUID(str(forwarder_id))
@@ -570,7 +551,7 @@ class ForwardersClient:
         forwarder_id: UUID | str,
         *,
         name: str,
-        forwarder_type: str,
+        forwarder_type: ForwarderType,
         http: ForwarderHttp | dict[str, Any],
         enabled: bool = True,
         filter: dict[str, Any] | None = None,
@@ -777,7 +758,7 @@ __all__ = [
     "EventsClient",
     "ForwarderListPage",
     "ForwardersClient",
+    "ForwarderType",
     "ResourceTypeListPage",
     "ResourceTypesClient",
-    "VALID_FORWARDER_TYPES",
 ]

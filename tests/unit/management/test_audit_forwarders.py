@@ -93,9 +93,7 @@ def _delivery_resource(*, status: str = "succeeded") -> dict[str, Any]:
 
 
 def _client_with_handler(handler) -> AuditClient:
-    auth = _AuditAuthClient(
-        base_url="https://audit.example.com", token="sk_api_test"
-    )
+    auth = _AuditAuthClient(base_url="https://audit.example.com", token="sk_api_test")
     auth.set_httpx_client(
         httpx.Client(
             transport=httpx.MockTransport(handler),
@@ -178,7 +176,7 @@ class TestForwardersCrud:
                 data={"team": "platform"},
             )
         finally:
-            pass            
+            pass
         assert fwd.slug == "datadog_production"
         assert captured["method"] == "POST"
         assert "/api/v1/forwarders" in captured["url"]
@@ -204,7 +202,7 @@ class TestForwardersCrud:
                 },
             )
         finally:
-            pass            
+            pass
         assert fwd.id == FWD_ID
 
     def test_create_unexpected_status_raises(self):
@@ -220,7 +218,7 @@ class TestForwardersCrud:
                     http=ForwarderHttp(url="https://x"),
                 )
         finally:
-            pass            
+            pass
 
     def test_list_paginates(self):
         pages = [
@@ -252,7 +250,7 @@ class TestForwardersCrud:
             second = c.forwarders.list(page_size=1, page_after=first.next_cursor)
             assert second.next_cursor is None
         finally:
-            pass            
+            pass
 
     def test_get(self):
         def handler(req):
@@ -267,7 +265,7 @@ class TestForwardersCrud:
             fwd2 = c.forwarders.get(str(FWD_ID))
             assert fwd2.id == FWD_ID
         finally:
-            pass            
+            pass
 
     def test_update(self):
         def handler(req):
@@ -287,7 +285,7 @@ class TestForwardersCrud:
                 data={"k": "v"},
             )
         finally:
-            pass            
+            pass
         assert fwd.name == "Renamed"
 
     def test_delete(self):
@@ -303,7 +301,7 @@ class TestForwardersCrud:
             # str id also accepted.
             c.forwarders.delete(str(FWD_ID))
         finally:
-            pass            
+            pass
         assert captured["method"] == "DELETE"
 
     def test_delete_unexpected_status_raises(self):
@@ -315,7 +313,7 @@ class TestForwardersCrud:
             with pytest.raises(UnexpectedStatus):
                 c.forwarders.delete(FWD_ID)
         finally:
-            pass            
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -358,7 +356,7 @@ class TestDeliveries:
             second = c.forwarders.deliveries.list(FWD_ID, page_after=first.next_cursor)
             assert second.next_cursor is None
         finally:
-            pass            
+            pass
 
     def test_retry_returns_new_row(self):
         def handler(req):
@@ -374,7 +372,7 @@ class TestDeliveries:
             row2 = c.forwarders.deliveries.actions.retry(str(FWD_ID), str(DELIVERY_ID))
             assert row2.status == "succeeded"
         finally:
-            pass            
+            pass
 
     def test_bulk_retry_summary(self):
         def handler(req):
@@ -384,7 +382,7 @@ class TestDeliveries:
         try:
             summary = c.forwarders.actions.retry_failed_deliveries(FWD_ID)
         finally:
-            pass            
+            pass
         assert summary == RetryFailedDeliveriesSummary(attempted=3, succeeded=2, failed=1)
 
 
@@ -423,7 +421,7 @@ class TestExecuteTestForwarder:
                 timeout_ms=5000,
             )
         finally:
-            pass            
+            pass
         assert result == TestForwarderResult(
             succeeded=True,
             response_status=202,
@@ -455,7 +453,7 @@ class TestExecuteTestForwarder:
                 headers=[{"name": "h", "value": "v"}],
             )
         finally:
-            pass            
+            pass
         assert r.succeeded is True
 
     def test_no_headers_no_timeout(self):
@@ -477,7 +475,7 @@ class TestExecuteTestForwarder:
         try:
             r = c.functions.test_forwarder.actions.execute(url="https://x")
         finally:
-            pass            
+            pass
         assert r.succeeded is False
         assert r.error == "5xx"
 

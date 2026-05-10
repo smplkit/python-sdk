@@ -8,6 +8,8 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.forwarder_type import check_forwarder_type
+from ..models.forwarder_type import ForwarderType
 from dateutil.parser import isoparse
 from typing import cast
 import datetime
@@ -38,7 +40,18 @@ class Forwarder:
 
         Attributes:
             name (str):
-            forwarder_type (str):
+            forwarder_type (ForwarderType): Supported forwarder destination types.
+
+                Carried as a typed enum so the OpenAPI spec emits an ``enum``
+                constraint and the auto-generated SDK clients (in all 6 languages)
+                surface a typed enum to customers rather than free-form strings.
+                Subclassing ``str`` keeps JSON serialization byte-identical to the
+                prior ``str`` field — no migration of stored ``forwarder.type``
+                values needed.
+
+                Adding a new destination here requires a corresponding implementation
+                in ``app.services.forwarding`` and a regeneration of the OpenAPI
+                spec so the SDK clients pick up the new variant.
             http (ForwarderHttp): The destination HTTP request shape stored encrypted on a forwarder.
 
                 ``success_status`` is a string: either a single status code (e.g.
@@ -59,7 +72,7 @@ class Forwarder:
     """
 
     name: str
-    forwarder_type: str
+    forwarder_type: ForwarderType
     http: ForwarderHttp
     enabled: bool | Unset = True
     filter_: ForwarderFilterType0 | None | Unset = UNSET
@@ -77,7 +90,7 @@ class Forwarder:
 
         name = self.name
 
-        forwarder_type = self.forwarder_type
+        forwarder_type: str = self.forwarder_type
 
         http = self.http.to_dict()
 
@@ -176,7 +189,7 @@ class Forwarder:
         d = dict(src_dict)
         name = d.pop("name")
 
-        forwarder_type = d.pop("forwarder_type")
+        forwarder_type = check_forwarder_type(d.pop("forwarder_type"))
 
         http = ForwarderHttp.from_dict(d.pop("http"))
 

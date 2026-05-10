@@ -21,6 +21,7 @@ Exposed namespaces:
 
 from __future__ import annotations
 
+from smplkit.audit.models import ForwarderType
 from smplkit.management.audit import (
     ActionListPage as AuditActionListPage,
     ActionsClient as AuditActionsClient,
@@ -33,7 +34,6 @@ from smplkit.management.audit import (
     ForwardersClient as AuditForwardersClient,
     ResourceTypeListPage as AuditResourceTypeListPage,
     ResourceTypesClient as AuditResourceTypesClient,
-    VALID_FORWARDER_TYPES,
 )
 from smplkit.management.client import (
     AccountSettingsClient,
@@ -98,9 +98,9 @@ __all__ = [
     "EnvironmentClassification",
     "EnvironmentsClient",
     "FlagsClient",
+    "ForwarderType",
     "LogGroupsClient",
     "LoggersClient",
     "MgmtAuditClient",
     "SmplManagementClient",
-    "VALID_FORWARDER_TYPES",
 ]
