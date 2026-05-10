@@ -27,8 +27,8 @@ from .retry_failed_deliveries_summary import RetryFailedDeliveriesSummary
 from .test_forwarder_request import TestForwarderRequest
 from .test_forwarder_response import TestForwarderResponse
 from .test_forwarder_response_response_headers import TestForwarderResponseResponseHeaders
+from .usage_attributes import UsageAttributes
 from .usage_resource import UsageResource
-from .usage_resource_attributes import UsageResourceAttributes
 from .usage_response import UsageResponse
 
 __all__ = (
@@ -59,7 +59,7 @@ __all__ = (
     "TestForwarderRequest",
     "TestForwarderResponse",
     "TestForwarderResponseResponseHeaders",
+    "UsageAttributes",
     "UsageResource",
-    "UsageResourceAttributes",
     "UsageResponse",
 )
