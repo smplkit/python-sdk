@@ -1,9 +1,11 @@
 """
 Demonstrates the smplkit runtime SDK for Smpl Audit.
 
-Covers: event record / list / get, plus the SIEM forwarders surface
-(create / list / delete + the test_forwarder/execute proxy + a
-do_not_forward event flow).
+Covers: event record / list / get, the resource_types and actions
+distinct-value listings (which back the Activity tab filter dropdowns),
+the SIEM forwarders surface (create / list / delete + the
+test_forwarder/execute proxy + a do_not_forward event flow), and the
+account-wide wipe action.
 
 Prerequisites:
     - ``pip install smplkit-sdk``
@@ -13,13 +15,18 @@ Prerequisites:
     - The Pro tier is required for the forwarders portion. The showcase
       gracefully skips those steps on a 402 (free/standard tier) so it
       stays runnable in any environment.
+    - ``SHOWCASE_RUN_WIPE=yes`` in the environment to actually run the
+      wipe action at the end. Wipe is account-wide and irreversible —
+      the showcase only demonstrates the syntax by default.
 
 Usage::
 
     python examples/audit_runtime_showcase.py
+    SHOWCASE_RUN_WIPE=yes python examples/audit_runtime_showcase.py
 """
 
 import asyncio
+import os
 import uuid
 from datetime import datetime, timezone
 
@@ -70,6 +77,34 @@ async def main() -> None:
         print(f"Round-tripped: {first.action} at {first.occurred_at}")
 
         # ----------------------------------------------------------------
+        # Distinct-value listings — the Activity tab filter dropdowns
+        # are populated from these. Both endpoints are paginated and
+        # sorted alphabetically; ``id`` on each row is the slug itself
+        # (ADR-014 "key as id"), so ``row.id == row.resource_type`` /
+        # ``row.id == row.action`` is intentional.
+        # ----------------------------------------------------------------
+        rt_page = client.audit.resource_types.list(page_size=10)
+        print(f"Distinct resource_types ({len(rt_page)}):")
+        for rt in rt_page:
+            print(f"  {rt.id}  first_seen={rt.created_at.date()}")
+
+        # Without a filter, an action recorded under multiple
+        # resource_types appears once — collapsed by the API.
+        action_page = client.audit.actions.list(page_size=10)
+        print(f"Distinct actions ({len(action_page)}):")
+        for a in action_page:
+            print(f"  {a.id}")
+
+        # With ``filter_resource_type``, narrows to actions seen with
+        # that specific resource type — the cascading filter behavior.
+        invoice_actions = client.audit.actions.list(
+            filter_resource_type="invoice"
+        )
+        print(f"Actions for resource_type=invoice ({len(invoice_actions)}):")
+        for a in invoice_actions:
+            print(f"  {a.id}")
+
+        # ----------------------------------------------------------------
         # Forwarders (Pro tier — gracefully skip on 402)
         # ----------------------------------------------------------------
         try:
@@ -118,6 +153,27 @@ async def main() -> None:
         finally:
             client.audit.forwarders.delete(fwd.id)
             print(f"Deleted forwarder: {fwd.slug}")
+
+        # ----------------------------------------------------------------
+        # Wipe — atomic, account-wide deletion across every audit table.
+        # Only runs when ``SHOWCASE_RUN_WIPE=yes`` because the action is
+        # destructive and irreversible. Customers calling this from
+        # their own integrations should pair it with explicit consent
+        # (a confirmation dialog, an admin-only CLI flag, etc.).
+        # ----------------------------------------------------------------
+        if os.environ.get("SHOWCASE_RUN_WIPE") == "yes":
+            wipe = client.audit.functions.wipe.actions.execute()
+            print(
+                f"Wiped {wipe.total_rows_deleted} rows "
+                f"(events={wipe.audit_event}, "
+                f"resource_types={wipe.resource_type}, "
+                f"actions={wipe.action})"
+            )
+        else:
+            print(
+                "Skipping wipe — set SHOWCASE_RUN_WIPE=yes to actually "
+                "delete this account's audit data"
+            )
 
         print("Done!")
 
