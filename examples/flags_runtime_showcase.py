@@ -181,8 +181,10 @@ async def main() -> None:
         # simulate someone making changes to a flag to trigger listeners
         await _update_rules(client)
 
-        # wait a moment for the event to be delivered
-        await asyncio.sleep(0.2)
+        # wait a moment for the event to be delivered (typical WS
+        # round-trip is well under 200ms; 400ms is plenty of headroom
+        # and anything past that is a real signal, not noise to absorb).
+        await asyncio.sleep(0.4)
 
         # verify both listeners fired
         assert len(all_changes) >= 1, (
