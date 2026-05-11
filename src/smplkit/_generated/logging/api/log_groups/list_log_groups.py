@@ -72,7 +72,7 @@ def sync_detailed(
 ) -> Response[ErrorResponse | LogGroupListResponse]:
     """List Log Groups
 
-     List all log groups for the authenticated account.
+     List log groups for this account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -97,7 +97,7 @@ def sync(
 ) -> ErrorResponse | LogGroupListResponse | None:
     """List Log Groups
 
-     List all log groups for the authenticated account.
+     List log groups for this account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,7 +118,7 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | LogGroupListResponse]:
     """List Log Groups
 
-     List all log groups for the authenticated account.
+     List log groups for this account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -141,7 +141,7 @@ async def asyncio(
 ) -> ErrorResponse | LogGroupListResponse | None:
     """List Log Groups
 
-     List all log groups for the authenticated account.
+     List log groups for this account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

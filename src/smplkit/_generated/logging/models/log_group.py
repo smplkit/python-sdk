@@ -8,6 +8,8 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.log_group_level_type_0 import check_log_group_level_type_0
+from ..models.log_group_level_type_0 import LogGroupLevelType0
 from dateutil.parser import isoparse
 from typing import cast
 import datetime
@@ -21,22 +23,31 @@ T = TypeVar("T", bound="LogGroup")
 
 @_attrs_define
 class LogGroup:
-    """
-    Example:
-        {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'ERROR'}}, 'level': 'WARN',
-            'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}
+    """A named collection of loggers that share a level configuration.
 
-    Attributes:
-        name (str):
-        level (None | str | Unset):
-        parent_id (None | str | Unset):
-        environments (LogGroupEnvironmentsType0 | None | Unset):
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
+    Assigning a logger to a group ties the logger's effective level to
+    the group's level (and per-environment overrides). Loggers can move
+    between groups or be detached from a group entirely.
+
+        Example:
+            {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'ERROR'}}, 'level': 'WARN',
+                'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}
+
+        Attributes:
+            name (str): Human-readable label for the group.
+            level (LogGroupLevelType0 | None | Unset): Default level applied to every logger in the group. `null` leaves
+                member loggers to inherit from elsewhere.
+            parent_id (None | str | Unset): Reserved for nested groups. Must be `null` in this version; nested groups are
+                not yet supported.
+            environments (LogGroupEnvironmentsType0 | None | Unset): Per-environment level overrides keyed by environment
+                name. Each value is an object with an optional `level` field, e.g. `{"production": {"level": "ERROR"}}`. Member
+                loggers inherit the per-environment level unless they set their own override.
+            created_at (datetime.datetime | None | Unset): When the group was created.
+            updated_at (datetime.datetime | None | Unset): When the group was last modified.
     """
 
     name: str
-    level: None | str | Unset = UNSET
+    level: LogGroupLevelType0 | None | Unset = UNSET
     parent_id: None | str | Unset = UNSET
     environments: LogGroupEnvironmentsType0 | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
@@ -51,6 +62,8 @@ class LogGroup:
         level: None | str | Unset
         if isinstance(self.level, Unset):
             level = UNSET
+        elif isinstance(self.level, str):
+            level = self.level
         else:
             level = self.level
 
@@ -111,12 +124,20 @@ class LogGroup:
         d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_level(data: object) -> None | str | Unset:
+        def _parse_level(data: object) -> LogGroupLevelType0 | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                level_type_0 = check_log_group_level_type_0(data)
+
+                return level_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(LogGroupLevelType0 | None | Unset, data)
 
         level = _parse_level(d.pop("level", UNSET))
 

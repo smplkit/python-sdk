@@ -72,7 +72,7 @@ def sync_detailed(
 ) -> Response[Any | ErrorResponse]:
     """Delete Logger
 
-     Delete a logger by its key.
+     Delete a logger.
 
     Args:
         id (str):
@@ -103,7 +103,7 @@ def sync(
 ) -> Any | ErrorResponse | None:
     """Delete Logger
 
-     Delete a logger by its key.
+     Delete a logger.
 
     Args:
         id (str):
@@ -129,7 +129,7 @@ async def asyncio_detailed(
 ) -> Response[Any | ErrorResponse]:
     """Delete Logger
 
-     Delete a logger by its key.
+     Delete a logger.
 
     Args:
         id (str):
@@ -158,7 +158,7 @@ async def asyncio(
 ) -> Any | ErrorResponse | None:
     """Delete Logger
 
-     Delete a logger by its key.
+     Delete a logger.
 
     Args:
         id (str):

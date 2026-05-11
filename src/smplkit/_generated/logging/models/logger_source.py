@@ -18,21 +18,29 @@ T = TypeVar("T", bound="LoggerSource")
 
 @_attrs_define
 class LoggerSource:
-    """
-    Example:
-        {'created_at': '2026-04-01T10:00:00Z', 'environment': 'production', 'first_observed': '2026-04-01T10:00:00Z',
-            'last_seen': '2026-04-11T15:30:00Z', 'resolved_level': 'WARN', 'service': 'api-gateway', 'updated_at':
-            '2026-04-11T15:30:00Z'}
+    """A single service / environment observation of a logger.
 
-    Attributes:
-        service (str | Unset):
-        environment (str | Unset):
-        level (None | str | Unset):
-        resolved_level (str | Unset):
-        first_observed (datetime.datetime | None | Unset):
-        last_seen (datetime.datetime | None | Unset):
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
+    A source row exists for every (service, environment) pair that has
+    reported the logger via the bulk registration endpoint. The row's
+    levels reflect what the SDK saw on the most recent report.
+
+        Example:
+            {'created_at': '2026-04-01T10:00:00Z', 'environment': 'production', 'first_observed': '2026-04-01T10:00:00Z',
+                'last_seen': '2026-04-11T15:30:00Z', 'resolved_level': 'WARN', 'service': 'api-gateway', 'updated_at':
+                '2026-04-11T15:30:00Z'}
+
+        Attributes:
+            service (str | Unset): Service that reported the logger.
+            environment (str | Unset): Environment the service was running in when it reported the logger.
+            level (None | str | Unset): Level explicitly set on the logger in the source runtime. `null` when the runtime
+                inherits its level.
+            resolved_level (str | Unset): Effective level the runtime resolved for the logger.
+            first_observed (datetime.datetime | None | Unset): When this service / environment combination first reported
+                the logger.
+            last_seen (datetime.datetime | None | Unset): Most recent report received for this service / environment
+                combination.
+            created_at (datetime.datetime | None | Unset): When the source row was created.
+            updated_at (datetime.datetime | None | Unset): When the source row was last refreshed.
     """
 
     service: str | Unset = UNSET

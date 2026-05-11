@@ -16,12 +16,17 @@ T = TypeVar("T", bound="LoggerResponse")
 
 @_attrs_define
 class LoggerResponse:
-    """
+    """JSON:API single-resource response envelope for a logger.
+
     Attributes:
-        data (LoggerResource):  Example: {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments':
-            {'production': {'level': 'WARN'}, 'staging': {'level': 'DEBUG'}}, 'group': 'database-loggers', 'level': 'DEBUG',
-            'managed': True, 'name': 'SQL Logger', 'updated_at': '2026-04-01T10:00:00Z'}, 'id': 'com.example.sql', 'type':
-            'logger'}.
+        data (LoggerResource): JSON:API resource envelope for a logger.
+
+            `id` is the logger's dot-separated key (e.g. `sqlalchemy.engine`).
+            On a `PUT /api/v1/loggers/{id}` create, the id is taken from the URL
+            path; on update, an `id` in the body renames the logger. Example: {'attributes': {'created_at':
+            '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'WARN'}, 'staging': {'level': 'DEBUG'}},
+            'group': 'database-loggers', 'level': 'DEBUG', 'managed': True, 'name': 'SQL Logger', 'updated_at':
+            '2026-04-01T10:00:00Z'}, 'id': 'com.example.sql', 'type': 'logger'}.
     """
 
     data: LoggerResource

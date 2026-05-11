@@ -12,7 +12,7 @@ T = TypeVar("T", bound="ServiceAttributes")
 
 @_attrs_define
 class ServiceAttributes:
-    """ """
+    """A discovered service has no attributes beyond its name (the `id`)."""
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 

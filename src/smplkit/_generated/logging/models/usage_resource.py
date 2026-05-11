@@ -19,7 +19,8 @@ T = TypeVar("T", bound="UsageResource")
 
 @_attrs_define
 class UsageResource:
-    """
+    """JSON:API resource envelope for a single usage counter.
+
     Example:
         {'attributes': {'limit_key': 'logging.managed_loggers', 'period': 'current', 'value': 8}, 'id':
             'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type': 'usage'}
@@ -27,7 +28,7 @@ class UsageResource:
     Attributes:
         id (str):
         type_ (Literal['usage']):
-        attributes (UsageAttributes):
+        attributes (UsageAttributes): Usage counter for a single metered limit.
     """
 
     id: str

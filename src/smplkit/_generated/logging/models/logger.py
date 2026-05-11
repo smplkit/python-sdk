@@ -8,6 +8,8 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.logger_level_type_0 import check_logger_level_type_0
+from ..models.logger_level_type_0 import LoggerLevelType0
 from dateutil.parser import isoparse
 from typing import cast
 import datetime
@@ -23,26 +25,46 @@ T = TypeVar("T", bound="Logger")
 
 @_attrs_define
 class Logger:
-    """
-    Example:
-        {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'WARN'}, 'staging': {'level':
-            'DEBUG'}}, 'group': 'database-loggers', 'level': 'DEBUG', 'managed': True, 'name': 'SQL Logger', 'updated_at':
-            '2026-04-01T10:00:00Z'}
+    """A logger configured for the account.
 
-    Attributes:
-        name (str):
-        level (None | str | Unset):
-        group (None | str | Unset):
-        managed (bool | None | Unset):
-        sources (list[LoggerSourcesType0Item] | None | Unset):
-        environments (LoggerEnvironmentsType0 | None | Unset):
-        effective_levels (LoggerEffectiveLevelsType0 | None | Unset):
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
+    Loggers are organized by dot-separated key (for example, `sqlalchemy.engine`),
+    matching the hierarchical naming convention used by most logging
+    frameworks. A managed logger applies the configured level to every
+    runtime where the logger appears; unmanaged loggers are tracked only
+    as observations from SDKs.
+
+        Example:
+            {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'WARN'}, 'staging': {'level':
+                'DEBUG'}}, 'group': 'database-loggers', 'level': 'DEBUG', 'managed': True, 'name': 'SQL Logger', 'updated_at':
+                '2026-04-01T10:00:00Z'}
+
+        Attributes:
+            name (str): Human-readable label for the logger.
+            level (LoggerLevelType0 | None | Unset): Account-wide log level applied to this logger. `null` means no override
+                at the logger level — the level is inherited from the logger's group or the framework default.
+            group (None | str | Unset): Key of the log group this logger belongs to, or `null` if the logger is not grouped.
+                Assigning a logger to a group promotes it to managed; assigning a group cascades to unmanaged descendants by
+                clearing their group reference.
+            managed (bool | None | Unset): When `true`, the logger is part of the account's managed configuration and counts
+                toward the managed-loggers usage counter. Setting `level`, `group`, or `environments` on an unmanaged logger
+                promotes it to managed automatically.
+            sources (list[LoggerSourcesType0Item] | None | Unset): Service / environment observations reported by SDKs for
+                this logger. Each entry carries the service name, environment, the level the SDK saw, the resolved level after
+                framework inheritance, and timestamps for the first and most recent sighting.
+            environments (LoggerEnvironmentsType0 | None | Unset): Per-environment level overrides keyed by environment
+                name. Each value is an object with an optional `level` field, e.g. `{"production": {"level": "WARN"}}`. An
+                environment may be present with no `level` to record that the logger applies there without changing the resolved
+                level.
+            effective_levels (LoggerEffectiveLevelsType0 | None | Unset): Per-environment summary of what runtimes are
+                reporting for this logger. Keyed by environment name; each entry is one of `{"status": "none"}`, `{"status":
+                "agrees", "level": "<LEVEL>"}`, or `{"status": "varies"}`. `agrees` means every observed source in that
+                environment reports the same resolved level; `varies` means at least two sources disagree.
+            created_at (datetime.datetime | None | Unset): When the logger was first created or discovered.
+            updated_at (datetime.datetime | None | Unset): When the logger was last modified.
     """
 
     name: str
-    level: None | str | Unset = UNSET
+    level: LoggerLevelType0 | None | Unset = UNSET
     group: None | str | Unset = UNSET
     managed: bool | None | Unset = UNSET
     sources: list[LoggerSourcesType0Item] | None | Unset = UNSET
@@ -61,6 +83,8 @@ class Logger:
         level: None | str | Unset
         if isinstance(self.level, Unset):
             level = UNSET
+        elif isinstance(self.level, str):
+            level = self.level
         else:
             level = self.level
 
@@ -155,12 +179,20 @@ class Logger:
         d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_level(data: object) -> None | str | Unset:
+        def _parse_level(data: object) -> LoggerLevelType0 | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                level_type_0 = check_logger_level_type_0(data)
+
+                return level_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(LoggerLevelType0 | None | Unset, data)
 
         level = _parse_level(d.pop("level", UNSET))
 

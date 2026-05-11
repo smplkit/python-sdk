@@ -78,7 +78,7 @@ def sync_detailed(
 ) -> Response[ErrorResponse | LogGroupResponse]:
     """Get Log Group
 
-     Return a log group by its key.
+     Retrieve a log group by its key.
 
     Args:
         id (str):
@@ -109,7 +109,7 @@ def sync(
 ) -> ErrorResponse | LogGroupResponse | None:
     """Get Log Group
 
-     Return a log group by its key.
+     Retrieve a log group by its key.
 
     Args:
         id (str):
@@ -135,7 +135,7 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | LogGroupResponse]:
     """Get Log Group
 
-     Return a log group by its key.
+     Retrieve a log group by its key.
 
     Args:
         id (str):
@@ -164,7 +164,7 @@ async def asyncio(
 ) -> ErrorResponse | LogGroupResponse | None:
     """Get Log Group
 
-     Return a log group by its key.
+     Retrieve a log group by its key.
 
     Args:
         id (str):

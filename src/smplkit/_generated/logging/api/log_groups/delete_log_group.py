@@ -72,7 +72,10 @@ def sync_detailed(
 ) -> Response[Any | ErrorResponse]:
     """Delete Log Group
 
-     Delete a log group by its key.
+     Delete a log group.
+
+    Loggers that referenced this group are detached; they remain in the
+    account with no group assignment.
 
     Args:
         id (str):
@@ -103,7 +106,10 @@ def sync(
 ) -> Any | ErrorResponse | None:
     """Delete Log Group
 
-     Delete a log group by its key.
+     Delete a log group.
+
+    Loggers that referenced this group are detached; they remain in the
+    account with no group assignment.
 
     Args:
         id (str):
@@ -129,7 +135,10 @@ async def asyncio_detailed(
 ) -> Response[Any | ErrorResponse]:
     """Delete Log Group
 
-     Delete a log group by its key.
+     Delete a log group.
+
+    Loggers that referenced this group are detached; they remain in the
+    account with no group assignment.
 
     Args:
         id (str):
@@ -158,7 +167,10 @@ async def asyncio(
 ) -> Any | ErrorResponse | None:
     """Delete Log Group
 
-     Delete a log group by its key.
+     Delete a log group.
+
+    Loggers that referenced this group are detached; they remain in the
+    account with no group assignment.
 
     Args:
         id (str):

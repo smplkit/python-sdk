@@ -8,38 +8,38 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.logger_bulk_item import LoggerBulkItem
+    from ..models.logger_resource import LoggerResource
 
 
-T = TypeVar("T", bound="LoggerBulkRequest")
+T = TypeVar("T", bound="LoggerRequest")
 
 
 @_attrs_define
-class LoggerBulkRequest:
-    """Payload for bulk registration of loggers discovered by an SDK.
-
-    Example:
-        {'loggers': [{'environment': 'production', 'id': 'sqlalchemy.engine', 'level': 'WARN', 'service': 'api-
-            gateway'}, {'environment': 'production', 'id': 'stripe', 'level': 'INFO', 'service': 'api-gateway'}]}
+class LoggerRequest:
+    """JSON:API request envelope for creating or updating a logger.
 
     Attributes:
-        loggers (list[LoggerBulkItem]): Loggers to register or refresh observations for.
+        data (LoggerResource): JSON:API resource envelope for a logger.
+
+            `id` is the logger's dot-separated key (e.g. `sqlalchemy.engine`).
+            On a `PUT /api/v1/loggers/{id}` create, the id is taken from the URL
+            path; on update, an `id` in the body renames the logger. Example: {'attributes': {'created_at':
+            '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'WARN'}, 'staging': {'level': 'DEBUG'}},
+            'group': 'database-loggers', 'level': 'DEBUG', 'managed': True, 'name': 'SQL Logger', 'updated_at':
+            '2026-04-01T10:00:00Z'}, 'id': 'com.example.sql', 'type': 'logger'}.
     """
 
-    loggers: list[LoggerBulkItem]
+    data: LoggerResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        loggers = []
-        for loggers_item_data in self.loggers:
-            loggers_item = loggers_item_data.to_dict()
-            loggers.append(loggers_item)
+        data = self.data.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "loggers": loggers,
+                "data": data,
             }
         )
 
@@ -47,22 +47,17 @@ class LoggerBulkRequest:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.logger_bulk_item import LoggerBulkItem
+        from ..models.logger_resource import LoggerResource
 
         d = dict(src_dict)
-        loggers = []
-        _loggers = d.pop("loggers")
-        for loggers_item_data in _loggers:
-            loggers_item = LoggerBulkItem.from_dict(loggers_item_data)
+        data = LoggerResource.from_dict(d.pop("data"))
 
-            loggers.append(loggers_item)
-
-        logger_bulk_request = cls(
-            loggers=loggers,
+        logger_request = cls(
+            data=data,
         )
 
-        logger_bulk_request.additional_properties = d
-        return logger_bulk_request
+        logger_request.additional_properties = d
+        return logger_request
 
     @property
     def additional_keys(self) -> list[str]:

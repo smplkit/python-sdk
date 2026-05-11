@@ -16,11 +16,16 @@ T = TypeVar("T", bound="LogGroupResponse")
 
 @_attrs_define
 class LogGroupResponse:
-    """
+    """JSON:API single-resource response envelope for a log group.
+
     Attributes:
-        data (LogGroupResource):  Example: {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments':
-            {'production': {'level': 'ERROR'}}, 'level': 'WARN', 'name': 'Database Loggers', 'updated_at':
-            '2026-04-01T10:00:00Z'}, 'id': 'database-loggers', 'type': 'log_group'}.
+        data (LogGroupResource): JSON:API resource envelope for a log group.
+
+            `id` is the group's key (e.g. `database-loggers`). On a create
+            request the id may be supplied; if omitted, the server generates
+            one from `name`. Example: {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production':
+            {'level': 'ERROR'}}, 'level': 'WARN', 'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}, 'id':
+            'database-loggers', 'type': 'log_group'}.
     """
 
     data: LogGroupResource

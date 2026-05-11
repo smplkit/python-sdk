@@ -12,12 +12,13 @@ T = TypeVar("T", bound="LoggerBulkResponse")
 
 @_attrs_define
 class LoggerBulkResponse:
-    """
+    """Result of a bulk registration call.
+
     Example:
         {'registered': 5}
 
     Attributes:
-        registered (int):
+        registered (int): Number of loggers that were created or had a source observation refreshed.
     """
 
     registered: int

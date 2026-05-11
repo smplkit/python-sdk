@@ -89,7 +89,7 @@ def sync_detailed(
 ) -> Response[ErrorResponse | UsageListResponse]:
     """List Logging Usage
 
-     Return current resource usage counts for the authenticated account.
+     Report the current-period usage counters for this account.
 
     Args:
         filterperiod (None | str | Unset):
@@ -120,7 +120,7 @@ def sync(
 ) -> ErrorResponse | UsageListResponse | None:
     """List Logging Usage
 
-     Return current resource usage counts for the authenticated account.
+     Report the current-period usage counters for this account.
 
     Args:
         filterperiod (None | str | Unset):
@@ -146,7 +146,7 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | UsageListResponse]:
     """List Logging Usage
 
-     Return current resource usage counts for the authenticated account.
+     Report the current-period usage counters for this account.
 
     Args:
         filterperiod (None | str | Unset):
@@ -175,7 +175,7 @@ async def asyncio(
 ) -> ErrorResponse | UsageListResponse | None:
     """List Logging Usage
 
-     Return current resource usage counts for the authenticated account.
+     Report the current-period usage counters for this account.
 
     Args:
         filterperiod (None | str | Unset):

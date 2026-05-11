@@ -16,7 +16,8 @@ T = TypeVar("T", bound="LoggerSourceListResponse")
 
 @_attrs_define
 class LoggerSourceListResponse:
-    """
+    """JSON:API collection response for logger sources.
+
     Attributes:
         data (list[LoggerSourceResource]):
     """

@@ -83,13 +83,17 @@ def sync_detailed(
 ) -> Response[ErrorResponse | LoggerBulkResponse]:
     """Bulk Register Loggers
 
-     Register loggers discovered by an SDK. Creates new loggers or updates source observations on
-    existing ones.
+     Register loggers discovered by an SDK.
+
+    Creates new logger entries for previously unseen keys and refreshes
+    the per-(service, environment) observation for keys already known.
+    Returns the number of items processed.
 
     Args:
-        body (LoggerBulkRequest):  Example: {'loggers': [{'environment': 'production', 'id':
-            'sqlalchemy.engine', 'level': 'WARN', 'service': 'api-gateway'}, {'environment':
-            'production', 'id': 'stripe', 'level': 'INFO', 'service': 'api-gateway'}]}.
+        body (LoggerBulkRequest): Payload for bulk registration of loggers discovered by an SDK.
+            Example: {'loggers': [{'environment': 'production', 'id': 'sqlalchemy.engine', 'level':
+            'WARN', 'service': 'api-gateway'}, {'environment': 'production', 'id': 'stripe', 'level':
+            'INFO', 'service': 'api-gateway'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -117,13 +121,17 @@ def sync(
 ) -> ErrorResponse | LoggerBulkResponse | None:
     """Bulk Register Loggers
 
-     Register loggers discovered by an SDK. Creates new loggers or updates source observations on
-    existing ones.
+     Register loggers discovered by an SDK.
+
+    Creates new logger entries for previously unseen keys and refreshes
+    the per-(service, environment) observation for keys already known.
+    Returns the number of items processed.
 
     Args:
-        body (LoggerBulkRequest):  Example: {'loggers': [{'environment': 'production', 'id':
-            'sqlalchemy.engine', 'level': 'WARN', 'service': 'api-gateway'}, {'environment':
-            'production', 'id': 'stripe', 'level': 'INFO', 'service': 'api-gateway'}]}.
+        body (LoggerBulkRequest): Payload for bulk registration of loggers discovered by an SDK.
+            Example: {'loggers': [{'environment': 'production', 'id': 'sqlalchemy.engine', 'level':
+            'WARN', 'service': 'api-gateway'}, {'environment': 'production', 'id': 'stripe', 'level':
+            'INFO', 'service': 'api-gateway'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -146,13 +154,17 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | LoggerBulkResponse]:
     """Bulk Register Loggers
 
-     Register loggers discovered by an SDK. Creates new loggers or updates source observations on
-    existing ones.
+     Register loggers discovered by an SDK.
+
+    Creates new logger entries for previously unseen keys and refreshes
+    the per-(service, environment) observation for keys already known.
+    Returns the number of items processed.
 
     Args:
-        body (LoggerBulkRequest):  Example: {'loggers': [{'environment': 'production', 'id':
-            'sqlalchemy.engine', 'level': 'WARN', 'service': 'api-gateway'}, {'environment':
-            'production', 'id': 'stripe', 'level': 'INFO', 'service': 'api-gateway'}]}.
+        body (LoggerBulkRequest): Payload for bulk registration of loggers discovered by an SDK.
+            Example: {'loggers': [{'environment': 'production', 'id': 'sqlalchemy.engine', 'level':
+            'WARN', 'service': 'api-gateway'}, {'environment': 'production', 'id': 'stripe', 'level':
+            'INFO', 'service': 'api-gateway'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -178,13 +190,17 @@ async def asyncio(
 ) -> ErrorResponse | LoggerBulkResponse | None:
     """Bulk Register Loggers
 
-     Register loggers discovered by an SDK. Creates new loggers or updates source observations on
-    existing ones.
+     Register loggers discovered by an SDK.
+
+    Creates new logger entries for previously unseen keys and refreshes
+    the per-(service, environment) observation for keys already known.
+    Returns the number of items processed.
 
     Args:
-        body (LoggerBulkRequest):  Example: {'loggers': [{'environment': 'production', 'id':
-            'sqlalchemy.engine', 'level': 'WARN', 'service': 'api-gateway'}, {'environment':
-            'production', 'id': 'stripe', 'level': 'INFO', 'service': 'api-gateway'}]}.
+        body (LoggerBulkRequest): Payload for bulk registration of loggers discovered by an SDK.
+            Example: {'loggers': [{'environment': 'production', 'id': 'sqlalchemy.engine', 'level':
+            'WARN', 'service': 'api-gateway'}, {'environment': 'production', 'id': 'stripe', 'level':
+            'INFO', 'service': 'api-gateway'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
