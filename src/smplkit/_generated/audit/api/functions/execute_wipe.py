@@ -58,15 +58,14 @@ def sync_detailed(
 ) -> Response[WipeResponse]:
     """Execute Wipe
 
-     Delete every audit-database row scoped to the authenticated account.
+     Delete every audit record this account has stored.
 
-    Returns the per-table row counts that were deleted along with the
-    completion timestamp. The action is atomic within the audit
-    database — either every account-scoped row is gone, or none is.
-    The body is required to be ``{}``; no parameters are accepted.
+    Atomic: either every record is deleted, or none is. Returns the
+    per-table counts and the completion timestamp. The request body
+    must be `{}`.
 
     Args:
-        body (WipeRequest): Empty body — the action requires no parameters.
+        body (WipeRequest): Empty body — the action takes no parameters.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -94,15 +93,14 @@ def sync(
 ) -> WipeResponse | None:
     """Execute Wipe
 
-     Delete every audit-database row scoped to the authenticated account.
+     Delete every audit record this account has stored.
 
-    Returns the per-table row counts that were deleted along with the
-    completion timestamp. The action is atomic within the audit
-    database — either every account-scoped row is gone, or none is.
-    The body is required to be ``{}``; no parameters are accepted.
+    Atomic: either every record is deleted, or none is. Returns the
+    per-table counts and the completion timestamp. The request body
+    must be `{}`.
 
     Args:
-        body (WipeRequest): Empty body — the action requires no parameters.
+        body (WipeRequest): Empty body — the action takes no parameters.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -125,15 +123,14 @@ async def asyncio_detailed(
 ) -> Response[WipeResponse]:
     """Execute Wipe
 
-     Delete every audit-database row scoped to the authenticated account.
+     Delete every audit record this account has stored.
 
-    Returns the per-table row counts that were deleted along with the
-    completion timestamp. The action is atomic within the audit
-    database — either every account-scoped row is gone, or none is.
-    The body is required to be ``{}``; no parameters are accepted.
+    Atomic: either every record is deleted, or none is. Returns the
+    per-table counts and the completion timestamp. The request body
+    must be `{}`.
 
     Args:
-        body (WipeRequest): Empty body — the action requires no parameters.
+        body (WipeRequest): Empty body — the action takes no parameters.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -159,15 +156,14 @@ async def asyncio(
 ) -> WipeResponse | None:
     """Execute Wipe
 
-     Delete every audit-database row scoped to the authenticated account.
+     Delete every audit record this account has stored.
 
-    Returns the per-table row counts that were deleted along with the
-    completion timestamp. The action is atomic within the audit
-    database — either every account-scoped row is gone, or none is.
-    The body is required to be ``{}``; no parameters are accepted.
+    Atomic: either every record is deleted, or none is. Returns the
+    per-table counts and the completion timestamp. The request body
+    must be `{}`.
 
     Args:
-        body (WipeRequest): Empty body — the action requires no parameters.
+        body (WipeRequest): Empty body — the action takes no parameters.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

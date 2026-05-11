@@ -24,22 +24,22 @@ T = TypeVar("T", bound="ForwarderDelivery")
 
 @_attrs_define
 class ForwarderDelivery:
-    """Read-only delivery log row.
+    """A log entry for one attempt to deliver an event to a forwarder.
 
-    All fields are server-populated. Headers in ``request`` always show
-    redacted values, regardless of who configured them.
-
-        Attributes:
-            forwarder_id (UUID):
-            event_id (UUID):
-            attempt_number (int):
-            status (ForwarderDeliveryStatus):
-            request (ForwarderDeliveryRequestType0 | None | Unset):
-            response_status (int | None | Unset):
-            response_body (None | str | Unset):
-            latency_ms (int | None | Unset):
-            error (None | str | Unset):
-            created_at (datetime.datetime | None | Unset):
+    Attributes:
+        forwarder_id (UUID): Forwarder the delivery belongs to.
+        event_id (UUID): Event that was being delivered.
+        attempt_number (int): 1 for the initial delivery, incremented for each retry.
+        status (ForwarderDeliveryStatus): Delivery outcome. `SUCCEEDED` and `FAILED` are the live-delivery outcomes;
+            `FILTERED_OUT` is recorded when the forwarder's filter rejected the event; `SKIPPED_DO_NOT_FORWARD` is recorded
+            when the event was emitted with `do_not_forward=true`.
+        request (ForwarderDeliveryRequestType0 | None | Unset): The HTTP request as it was sent to the destination.
+            Header values are redacted.
+        response_status (int | None | Unset): HTTP status code returned by the destination.
+        response_body (None | str | Unset): Response body returned by the destination.
+        latency_ms (int | None | Unset): Elapsed time of the delivery attempt in milliseconds.
+        error (None | str | Unset): Error message if the delivery did not complete.
+        created_at (datetime.datetime | None | Unset): When the delivery attempt was recorded.
     """
 
     forwarder_id: UUID

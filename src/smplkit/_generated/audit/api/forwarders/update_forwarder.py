@@ -8,6 +8,7 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
+from ...models.forwarder_request import ForwarderRequest
 from ...models.forwarder_response import ForwarderResponse
 from uuid import UUID
 
@@ -15,7 +16,7 @@ from uuid import UUID
 def _get_kwargs(
     forwarder_id: UUID,
     *,
-    body: ForwarderResponse,
+    body: ForwarderRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -59,19 +60,15 @@ def sync_detailed(
     forwarder_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: ForwarderResponse,
+    body: ForwarderRequest,
 ) -> Response[ForwarderResponse]:
     """Update Forwarder
 
-     Full-replace update. PUT semantics — every field is overwritten.
-
-    The GET path returns plaintext header values, so the standard
-    get-mutate-put round-trip (ADR-014) preserves secrets without any
-    extra work from the caller: GET, change one field, PUT the result.
+     Replace an existing forwarder. Every writable field is overwritten.
 
     Args:
         forwarder_id (UUID):
-        body (ForwarderResponse):
+        body (ForwarderRequest): JSON:API request envelope for creating or updating a forwarder.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -97,19 +94,15 @@ def sync(
     forwarder_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: ForwarderResponse,
+    body: ForwarderRequest,
 ) -> ForwarderResponse | None:
     """Update Forwarder
 
-     Full-replace update. PUT semantics — every field is overwritten.
-
-    The GET path returns plaintext header values, so the standard
-    get-mutate-put round-trip (ADR-014) preserves secrets without any
-    extra work from the caller: GET, change one field, PUT the result.
+     Replace an existing forwarder. Every writable field is overwritten.
 
     Args:
         forwarder_id (UUID):
-        body (ForwarderResponse):
+        body (ForwarderRequest): JSON:API request envelope for creating or updating a forwarder.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -130,19 +123,15 @@ async def asyncio_detailed(
     forwarder_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: ForwarderResponse,
+    body: ForwarderRequest,
 ) -> Response[ForwarderResponse]:
     """Update Forwarder
 
-     Full-replace update. PUT semantics — every field is overwritten.
-
-    The GET path returns plaintext header values, so the standard
-    get-mutate-put round-trip (ADR-014) preserves secrets without any
-    extra work from the caller: GET, change one field, PUT the result.
+     Replace an existing forwarder. Every writable field is overwritten.
 
     Args:
         forwarder_id (UUID):
-        body (ForwarderResponse):
+        body (ForwarderRequest): JSON:API request envelope for creating or updating a forwarder.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -166,19 +155,15 @@ async def asyncio(
     forwarder_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: ForwarderResponse,
+    body: ForwarderRequest,
 ) -> ForwarderResponse | None:
     """Update Forwarder
 
-     Full-replace update. PUT semantics — every field is overwritten.
-
-    The GET path returns plaintext header values, so the standard
-    get-mutate-put round-trip (ADR-014) preserves secrets without any
-    extra work from the caller: GET, change one field, PUT the result.
+     Replace an existing forwarder. Every writable field is overwritten.
 
     Args:
         forwarder_id (UUID):
-        body (ForwarderResponse):
+        body (ForwarderRequest): JSON:API request envelope for creating or updating a forwarder.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

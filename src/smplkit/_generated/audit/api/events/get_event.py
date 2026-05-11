@@ -56,10 +56,6 @@ def sync_detailed(
 
      Retrieve a single audit event by id.
 
-    Returns 404 if no event with that id exists in the caller's account —
-    RLS enforces tenant isolation; this endpoint never leaks the existence
-    of another tenant's event.
-
     Args:
         event_id (UUID):
 
@@ -91,10 +87,6 @@ def sync(
 
      Retrieve a single audit event by id.
 
-    Returns 404 if no event with that id exists in the caller's account —
-    RLS enforces tenant isolation; this endpoint never leaks the existence
-    of another tenant's event.
-
     Args:
         event_id (UUID):
 
@@ -120,10 +112,6 @@ async def asyncio_detailed(
     """Get Event
 
      Retrieve a single audit event by id.
-
-    Returns 404 if no event with that id exists in the caller's account —
-    RLS enforces tenant isolation; this endpoint never leaks the existence
-    of another tenant's event.
 
     Args:
         event_id (UUID):
@@ -153,10 +141,6 @@ async def asyncio(
     """Get Event
 
      Retrieve a single audit event by id.
-
-    Returns 404 if no event with that id exists in the caller's account —
-    RLS enforces tenant isolation; this endpoint never leaks the existence
-    of another tenant's event.
 
     Args:
         event_id (UUID):

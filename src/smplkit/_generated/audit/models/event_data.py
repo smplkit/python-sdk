@@ -12,7 +12,10 @@ T = TypeVar("T", bound="EventData")
 
 @_attrs_define
 class EventData:
-    """ """
+    """Free-form payload attached to the event. Use it for resource snapshots (by convention under `data.snapshot`),
+    request identifiers, or any other context the event needs to carry.
+
+    """
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 

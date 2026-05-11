@@ -15,7 +15,6 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
-    from ..models.forwarder_data import ForwarderData
     from ..models.forwarder_filter_type_0 import ForwarderFilterType0
     from ..models.forwarder_http import ForwarderHttp
 
@@ -25,53 +24,30 @@ T = TypeVar("T", bound="Forwarder")
 
 @_attrs_define
 class Forwarder:
-    """Public-facing forwarder resource.
+    """A destination that receives audit events recorded for the account.
 
-    Attribute set on POST /api/v1/forwarders:
-        - name (required)
-        - forwarder_type (required)
-        - http (required)
-        - enabled (optional, defaults true)
-        - filter (optional, JSON Logic)
-        - transform (optional, JSONata)
-
-    The slug is server-derived from name on create; it is immutable on
-    update because consumers (UI, observability) key off it.
+    Each event recorded for the account is evaluated against every enabled
+    forwarder. If the filter expression evaluates truthy — or is absent —
+    the event is delivered to the destination using the configured HTTP
+    request. The slug, derived from `name` at create time, is the stable
+    identifier used by the console and other tooling.
 
         Attributes:
-            name (str):
+            name (str): Human-readable name for the forwarder.
             forwarder_type (ForwarderType): Supported forwarder destination types.
-
-                Carried as a typed enum so the OpenAPI spec emits an ``enum``
-                constraint and the auto-generated SDK clients (in all 6 languages)
-                surface a typed enum to customers rather than free-form strings.
-                Subclassing ``str`` keeps JSON serialization byte-identical to the
-                prior ``str`` field — no migration of stored ``forwarder.type``
-                values needed.
-
-                Values are SCREAMING_SNAKE_CASE per ADR-014. The Forwarder schema
-                accepts any casing on input via _normalize_forwarder_type.
-
-                Adding a new destination here requires a corresponding implementation
-                in ``app.services.forwarding`` and a regeneration of the OpenAPI
-                spec so the SDK clients pick up the new variant.
-            http (ForwarderHttp): The destination HTTP request shape stored encrypted on a forwarder.
-
-                ``success_status`` is a string: either a single status code (e.g.
-                ``"200"``, ``"204"``) or a class (e.g. ``"2xx"``, ``"3xx"``). The
-                string-only contract is intentional — a Pydantic ``int | str`` union
-                confused several SDK code generators (Java in particular wrote the
-                default ``"2xx"`` unquoted into a typed enum). String covers both
-                shapes universally with a single wire type.
-            enabled (bool | Unset):  Default: True.
-            filter_ (ForwarderFilterType0 | None | Unset):
-            transform (None | str | Unset):
-            slug (None | str | Unset):
-            created_at (datetime.datetime | None | Unset):
-            updated_at (datetime.datetime | None | Unset):
-            deleted_at (datetime.datetime | None | Unset):
-            version (int | None | Unset):
-            data (ForwarderData | Unset):
+            http (ForwarderHttp): HTTP request configuration used to deliver an event to the destination.
+            enabled (bool | Unset): Whether the forwarder is currently delivering events. Set to `false` to pause deliveries
+                without deleting the forwarder. Default: True.
+            filter_ (ForwarderFilterType0 | None | Unset): JSON Logic expression evaluated against each event. The event is
+                delivered only if the expression returns truthy. Omit to deliver every event.
+            transform (None | str | Unset): JSONata template applied to each event before delivery. Omit to deliver the
+                event unchanged.
+            slug (None | str | Unset): URL-safe identifier derived from `name` at create time. Stable for the lifetime of
+                the forwarder.
+            created_at (datetime.datetime | None | Unset): When the forwarder was created.
+            updated_at (datetime.datetime | None | Unset): When the forwarder was last modified.
+            deleted_at (datetime.datetime | None | Unset): When the forwarder was deleted. `null` for active forwarders.
+            version (int | None | Unset): Monotonic counter incremented on every update, starting at 1.
     """
 
     name: str
@@ -85,7 +61,6 @@ class Forwarder:
     updated_at: datetime.datetime | None | Unset = UNSET
     deleted_at: datetime.datetime | None | Unset = UNSET
     version: int | None | Unset = UNSET
-    data: ForwarderData | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -149,10 +124,6 @@ class Forwarder:
         else:
             version = self.version
 
-        data: dict[str, Any] | Unset = UNSET
-        if not isinstance(self.data, Unset):
-            data = self.data.to_dict()
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -178,14 +149,11 @@ class Forwarder:
             field_dict["deleted_at"] = deleted_at
         if version is not UNSET:
             field_dict["version"] = version
-        if data is not UNSET:
-            field_dict["data"] = data
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.forwarder_data import ForwarderData
         from ..models.forwarder_filter_type_0 import ForwarderFilterType0
         from ..models.forwarder_http import ForwarderHttp
 
@@ -293,13 +261,6 @@ class Forwarder:
 
         version = _parse_version(d.pop("version", UNSET))
 
-        _data = d.pop("data", UNSET)
-        data: ForwarderData | Unset
-        if isinstance(_data, Unset):
-            data = UNSET
-        else:
-            data = ForwarderData.from_dict(_data)
-
         forwarder = cls(
             name=name,
             forwarder_type=forwarder_type,
@@ -312,7 +273,6 @@ class Forwarder:
             updated_at=updated_at,
             deleted_at=deleted_at,
             version=version,
-            data=data,
         )
 
         forwarder.additional_properties = d

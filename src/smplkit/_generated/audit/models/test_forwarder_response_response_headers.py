@@ -12,7 +12,7 @@ T = TypeVar("T", bound="TestForwarderResponseResponseHeaders")
 
 @_attrs_define
 class TestForwarderResponseResponseHeaders:
-    """ """
+    """Headers returned by the destination."""
 
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 

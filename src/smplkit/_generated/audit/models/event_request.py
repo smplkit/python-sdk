@@ -8,28 +8,28 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.forwarder_resource import ForwarderResource
+    from ..models.event_resource import EventResource
 
 
-T = TypeVar("T", bound="ForwarderResponse")
+T = TypeVar("T", bound="EventRequest")
 
 
 @_attrs_define
-class ForwarderResponse:
-    """JSON:API single-resource response envelope for a forwarder.
+class EventRequest:
+    """JSON:API request envelope for recording an audit event.
 
     Attributes:
-        data (ForwarderResource): JSON:API resource envelope for a forwarder.
+        data (EventResource): JSON:API resource envelope for an audit event.
 
-            `id` must not be specified for create requests (the server assigns it). Example: {'attributes': {'created_at':
-            '2026-05-07T12:00:00Z', 'enabled': True, 'filter': {'==': [{'var': 'action'}, 'user.created']},
-            'forwarder_type': 'DATADOG', 'http': {'headers': [{'name': 'DD-API-KEY', 'value': 'dd-api-key-plaintext'}],
-            'method': 'POST', 'success_status': '2xx', 'url': 'https://http-intake.logs.datadoghq.com/api/v2/logs'}, 'name':
-            'Datadog production', 'slug': 'datadog_production', 'updated_at': '2026-05-07T12:00:00Z', 'version': 1}, 'id':
-            '11111111-2222-3333-4444-555555555555', 'type': 'forwarder'}.
+            `id` must not be specified for create requests (the server assigns it). Example: {'attributes': {'action':
+            'user.created', 'actor_id': 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'actor_label': 'alice@example.com',
+            'actor_type': 'USER', 'created_at': '2026-05-06T20:00:00.123Z', 'data': {'request_id': 'req-abc', 'snapshot':
+            {'email': 'alice@example.com'}}, 'do_not_forward': False, 'idempotency_key': 'auto-1234abcd', 'occurred_at':
+            '2026-05-06T20:00:00Z', 'resource_id': 'u-1', 'resource_type': 'user'}, 'id':
+            '11111111-2222-3333-4444-555555555555', 'type': 'event'}.
     """
 
-    data: ForwarderResource
+    data: EventResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -47,17 +47,17 @@ class ForwarderResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.forwarder_resource import ForwarderResource
+        from ..models.event_resource import EventResource
 
         d = dict(src_dict)
-        data = ForwarderResource.from_dict(d.pop("data"))
+        data = EventResource.from_dict(d.pop("data"))
 
-        forwarder_response = cls(
+        event_request = cls(
             data=data,
         )
 
-        forwarder_response.additional_properties = d
-        return forwarder_response
+        event_request.additional_properties = d
+        return event_request
 
     @property
     def additional_keys(self) -> list[str]:

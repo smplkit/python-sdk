@@ -93,10 +93,7 @@ def sync_detailed(
 ) -> Response[ForwarderListResponse]:
     """List Forwarders
 
-     List forwarders for the authenticated account.
-
-    Reads do not require the entitlement — a downgraded account can still
-    inspect what they configured, they just can't create new ones.
+     List forwarders for this account.
 
     Args:
         filterforwarder_type (None | str | Unset):
@@ -136,10 +133,7 @@ def sync(
 ) -> ForwarderListResponse | None:
     """List Forwarders
 
-     List forwarders for the authenticated account.
-
-    Reads do not require the entitlement — a downgraded account can still
-    inspect what they configured, they just can't create new ones.
+     List forwarders for this account.
 
     Args:
         filterforwarder_type (None | str | Unset):
@@ -174,10 +168,7 @@ async def asyncio_detailed(
 ) -> Response[ForwarderListResponse]:
     """List Forwarders
 
-     List forwarders for the authenticated account.
-
-    Reads do not require the entitlement — a downgraded account can still
-    inspect what they configured, they just can't create new ones.
+     List forwarders for this account.
 
     Args:
         filterforwarder_type (None | str | Unset):
@@ -215,10 +206,7 @@ async def asyncio(
 ) -> ForwarderListResponse | None:
     """List Forwarders
 
-     List forwarders for the authenticated account.
-
-    Reads do not require the entitlement — a downgraded account can still
-    inspect what they configured, they just can't create new ones.
+     List forwarders for this account.
 
     Args:
         filterforwarder_type (None | str | Unset):

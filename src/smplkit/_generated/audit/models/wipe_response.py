@@ -20,15 +20,16 @@ T = TypeVar("T", bound="WipeResponse")
 
 @_attrs_define
 class WipeResponse:
-    """
+    """Summary of a completed wipe action.
+
     Example:
         {'completed_at': '2026-05-08T19:31:24Z', 'tables': {'action': 11, 'audit_event': 1432, 'audit_event_quota': 5,
             'forwarder': 2, 'forwarder_delivery': 312, 'resource_type': 4}, 'wiped': True}
 
     Attributes:
-        tables (WipeTablesSummary):
-        completed_at (datetime.datetime):
-        wiped (bool | Unset):  Default: True.
+        tables (WipeTablesSummary): Counts of records deleted, broken down by record kind.
+        completed_at (datetime.datetime): When the wipe completed.
+        wiped (bool | Unset): Always `true` for a successful wipe. Default: True.
     """
 
     tables: WipeTablesSummary

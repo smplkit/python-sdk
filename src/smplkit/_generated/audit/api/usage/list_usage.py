@@ -58,13 +58,10 @@ def sync_detailed(
 ) -> Response[UsageResponse]:
     """List Usage
 
-     Current-period usage and quota for the audit product.
-
-    Only ``filter[period]=current`` is supported; historical usage is a
-    follow-up.
+     Report the current-period usage counters for this account.
 
     Args:
-        filterperiod (str):
+        filterperiod (str): Period to report. `current` is the only supported value.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -92,13 +89,10 @@ def sync(
 ) -> UsageResponse | None:
     """List Usage
 
-     Current-period usage and quota for the audit product.
-
-    Only ``filter[period]=current`` is supported; historical usage is a
-    follow-up.
+     Report the current-period usage counters for this account.
 
     Args:
-        filterperiod (str):
+        filterperiod (str): Period to report. `current` is the only supported value.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -121,13 +115,10 @@ async def asyncio_detailed(
 ) -> Response[UsageResponse]:
     """List Usage
 
-     Current-period usage and quota for the audit product.
-
-    Only ``filter[period]=current`` is supported; historical usage is a
-    follow-up.
+     Report the current-period usage counters for this account.
 
     Args:
-        filterperiod (str):
+        filterperiod (str): Period to report. `current` is the only supported value.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -153,13 +144,10 @@ async def asyncio(
 ) -> UsageResponse | None:
     """List Usage
 
-     Current-period usage and quota for the audit product.
-
-    Only ``filter[period]=current`` is supported; historical usage is a
-    follow-up.
+     Report the current-period usage counters for this account.
 
     Args:
-        filterperiod (str):
+        filterperiod (str): Period to report. `current` is the only supported value.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

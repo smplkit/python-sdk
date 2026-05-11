@@ -110,14 +110,12 @@ def sync_detailed(
 ) -> Response[ForwarderDeliveryListResponse]:
     """List Forwarder Deliveries
 
-     List delivery rows for a forwarder.
+     List delivery log entries for a forwarder.
 
-    Default sort is ``-created_at``. Cursor pagination via ``page[after]``.
-    Filter by status (``SUCCEEDED`` / ``FAILED`` / ``FILTERED_OUT`` /
-    ``SKIPPED_DO_NOT_FORWARD``, case-insensitive) or by a ``created_at`` range using the
-    platform's interval notation (``[2026-01-01T00:00:00Z,*)``). Reads do
-    not require the entitlement — a downgraded account can still inspect
-    historical deliveries from when the forwarder was active.
+    Default sort is newest first. Filter by `status` (one of `SUCCEEDED`,
+    `FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` — case-insensitive),
+    by `event_id`, or by a `created_at` range using interval notation
+    (e.g. `[2026-01-01T00:00:00Z,*)`).
 
     Args:
         forwarder_id (UUID):
@@ -163,14 +161,12 @@ def sync(
 ) -> ForwarderDeliveryListResponse | None:
     """List Forwarder Deliveries
 
-     List delivery rows for a forwarder.
+     List delivery log entries for a forwarder.
 
-    Default sort is ``-created_at``. Cursor pagination via ``page[after]``.
-    Filter by status (``SUCCEEDED`` / ``FAILED`` / ``FILTERED_OUT`` /
-    ``SKIPPED_DO_NOT_FORWARD``, case-insensitive) or by a ``created_at`` range using the
-    platform's interval notation (``[2026-01-01T00:00:00Z,*)``). Reads do
-    not require the entitlement — a downgraded account can still inspect
-    historical deliveries from when the forwarder was active.
+    Default sort is newest first. Filter by `status` (one of `SUCCEEDED`,
+    `FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` — case-insensitive),
+    by `event_id`, or by a `created_at` range using interval notation
+    (e.g. `[2026-01-01T00:00:00Z,*)`).
 
     Args:
         forwarder_id (UUID):
@@ -211,14 +207,12 @@ async def asyncio_detailed(
 ) -> Response[ForwarderDeliveryListResponse]:
     """List Forwarder Deliveries
 
-     List delivery rows for a forwarder.
+     List delivery log entries for a forwarder.
 
-    Default sort is ``-created_at``. Cursor pagination via ``page[after]``.
-    Filter by status (``SUCCEEDED`` / ``FAILED`` / ``FILTERED_OUT`` /
-    ``SKIPPED_DO_NOT_FORWARD``, case-insensitive) or by a ``created_at`` range using the
-    platform's interval notation (``[2026-01-01T00:00:00Z,*)``). Reads do
-    not require the entitlement — a downgraded account can still inspect
-    historical deliveries from when the forwarder was active.
+    Default sort is newest first. Filter by `status` (one of `SUCCEEDED`,
+    `FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` — case-insensitive),
+    by `event_id`, or by a `created_at` range using interval notation
+    (e.g. `[2026-01-01T00:00:00Z,*)`).
 
     Args:
         forwarder_id (UUID):
@@ -262,14 +256,12 @@ async def asyncio(
 ) -> ForwarderDeliveryListResponse | None:
     """List Forwarder Deliveries
 
-     List delivery rows for a forwarder.
+     List delivery log entries for a forwarder.
 
-    Default sort is ``-created_at``. Cursor pagination via ``page[after]``.
-    Filter by status (``SUCCEEDED`` / ``FAILED`` / ``FILTERED_OUT`` /
-    ``SKIPPED_DO_NOT_FORWARD``, case-insensitive) or by a ``created_at`` range using the
-    platform's interval notation (``[2026-01-01T00:00:00Z,*)``). Reads do
-    not require the entitlement — a downgraded account can still inspect
-    historical deliveries from when the forwarder was active.
+    Default sort is newest first. Filter by `status` (one of `SUCCEEDED`,
+    `FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` — case-insensitive),
+    by `event_id`, or by a `created_at` range using interval notation
+    (e.g. `[2026-01-01T00:00:00Z,*)`).
 
     Args:
         forwarder_id (UUID):
