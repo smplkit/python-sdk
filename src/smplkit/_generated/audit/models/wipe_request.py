@@ -11,7 +11,7 @@ T = TypeVar("T", bound="WipeRequest")
 
 @_attrs_define
 class WipeRequest:
-    """Empty body — the action requires no parameters."""
+    """Empty body — the action takes no parameters."""
 
     def to_dict(self) -> dict[str, Any]:
 

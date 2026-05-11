@@ -16,10 +16,12 @@ T = TypeVar("T", bound="EventResponse")
 
 @_attrs_define
 class EventResponse:
-    """JSON:API single-resource response.
+    """JSON:API single-resource response for an audit event.
 
     Attributes:
-        data (EventResource): JSON:API resource envelope for an audit event. Example: {'attributes': {'action':
+        data (EventResource): JSON:API resource envelope for an audit event.
+
+            `id` must not be specified for create requests (the server assigns it). Example: {'attributes': {'action':
             'user.created', 'actor_id': 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'actor_label': 'alice@example.com',
             'actor_type': 'USER', 'created_at': '2026-05-06T20:00:00.123Z', 'data': {'request_id': 'req-abc', 'snapshot':
             {'email': 'alice@example.com'}}, 'do_not_forward': False, 'idempotency_key': 'auto-1234abcd', 'occurred_at':

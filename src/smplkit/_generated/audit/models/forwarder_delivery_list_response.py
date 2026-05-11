@@ -21,7 +21,8 @@ T = TypeVar("T", bound="ForwarderDeliveryListResponse")
 
 @_attrs_define
 class ForwarderDeliveryListResponse:
-    """
+    """JSON:API collection response for forwarder deliveries.
+
     Attributes:
         data (list[ForwarderDeliveryResource]):
         meta (ForwarderListMeta):

@@ -56,12 +56,8 @@ def sync_detailed(
 
      Retrieve a single forwarder by id.
 
-    Returns 404 if no forwarder with that id exists in the caller's
-    account, including if the forwarder is soft-deleted. Header values
-    in the response are returned in plaintext so callers can perform a
-    GET-modify-PUT round-trip without re-entering secrets (ADR-014).
-    The persisted ``forwarder_delivery.request`` log column is what
-    keeps redaction; that read path is unaffected by this route.
+    Header values are returned in plaintext so the resource can be
+    round-tripped with `GET`, mutate, `PUT` without re-entering secrets.
 
     Args:
         forwarder_id (UUID):
@@ -94,12 +90,8 @@ def sync(
 
      Retrieve a single forwarder by id.
 
-    Returns 404 if no forwarder with that id exists in the caller's
-    account, including if the forwarder is soft-deleted. Header values
-    in the response are returned in plaintext so callers can perform a
-    GET-modify-PUT round-trip without re-entering secrets (ADR-014).
-    The persisted ``forwarder_delivery.request`` log column is what
-    keeps redaction; that read path is unaffected by this route.
+    Header values are returned in plaintext so the resource can be
+    round-tripped with `GET`, mutate, `PUT` without re-entering secrets.
 
     Args:
         forwarder_id (UUID):
@@ -127,12 +119,8 @@ async def asyncio_detailed(
 
      Retrieve a single forwarder by id.
 
-    Returns 404 if no forwarder with that id exists in the caller's
-    account, including if the forwarder is soft-deleted. Header values
-    in the response are returned in plaintext so callers can perform a
-    GET-modify-PUT round-trip without re-entering secrets (ADR-014).
-    The persisted ``forwarder_delivery.request`` log column is what
-    keeps redaction; that read path is unaffected by this route.
+    Header values are returned in plaintext so the resource can be
+    round-tripped with `GET`, mutate, `PUT` without re-entering secrets.
 
     Args:
         forwarder_id (UUID):
@@ -163,12 +151,8 @@ async def asyncio(
 
      Retrieve a single forwarder by id.
 
-    Returns 404 if no forwarder with that id exists in the caller's
-    account, including if the forwarder is soft-deleted. Header values
-    in the response are returned in plaintext so callers can perform a
-    GET-modify-PUT round-trip without re-entering secrets (ADR-014).
-    The persisted ``forwarder_delivery.request`` log column is what
-    keeps redaction; that read path is unaffected by this route.
+    Header values are returned in plaintext so the resource can be
+    round-tripped with `GET`, mutate, `PUT` without re-entering secrets.
 
     Args:
         forwarder_id (UUID):

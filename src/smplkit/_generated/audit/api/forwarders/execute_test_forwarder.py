@@ -60,18 +60,18 @@ def sync_detailed(
 ) -> Response[TestForwarderResponse]:
     """Execute Test Forwarder
 
-     Execute a prepared HTTP request server-side and return the response.
+     Send a test HTTP request to a forwarder destination and return the result.
 
-    The same SSRF guard that gates the in-line forwarder loop is applied
-    here — internal/private addresses, link-local IPs (including the EC2
-    metadata service at 169.254.169.254), unique-local IPv6, and ports
-    outside the configured allowlist are all rejected.
+    Useful for verifying a destination URL, credentials, or transform
+    before saving the forwarder. The same network-safety rules that
+    apply to live deliveries (private/internal address blocking, port
+    allowlist) apply here.
 
     Args:
-        body (TestForwarderRequest): Plain-JSON body for the test_forwarder execute action.
+        body (TestForwarderRequest): Inputs to the test-forwarder action.
 
-            Mirrors the encrypted ``ForwarderHttp`` shape with one addition —
-            ``timeout_ms``, capped server-side.
+            Mirrors a forwarder's HTTP destination configuration with one
+            addition: `timeout_ms`, applied per-request and capped server-side.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -99,18 +99,18 @@ def sync(
 ) -> TestForwarderResponse | None:
     """Execute Test Forwarder
 
-     Execute a prepared HTTP request server-side and return the response.
+     Send a test HTTP request to a forwarder destination and return the result.
 
-    The same SSRF guard that gates the in-line forwarder loop is applied
-    here — internal/private addresses, link-local IPs (including the EC2
-    metadata service at 169.254.169.254), unique-local IPv6, and ports
-    outside the configured allowlist are all rejected.
+    Useful for verifying a destination URL, credentials, or transform
+    before saving the forwarder. The same network-safety rules that
+    apply to live deliveries (private/internal address blocking, port
+    allowlist) apply here.
 
     Args:
-        body (TestForwarderRequest): Plain-JSON body for the test_forwarder execute action.
+        body (TestForwarderRequest): Inputs to the test-forwarder action.
 
-            Mirrors the encrypted ``ForwarderHttp`` shape with one addition —
-            ``timeout_ms``, capped server-side.
+            Mirrors a forwarder's HTTP destination configuration with one
+            addition: `timeout_ms`, applied per-request and capped server-side.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -133,18 +133,18 @@ async def asyncio_detailed(
 ) -> Response[TestForwarderResponse]:
     """Execute Test Forwarder
 
-     Execute a prepared HTTP request server-side and return the response.
+     Send a test HTTP request to a forwarder destination and return the result.
 
-    The same SSRF guard that gates the in-line forwarder loop is applied
-    here — internal/private addresses, link-local IPs (including the EC2
-    metadata service at 169.254.169.254), unique-local IPv6, and ports
-    outside the configured allowlist are all rejected.
+    Useful for verifying a destination URL, credentials, or transform
+    before saving the forwarder. The same network-safety rules that
+    apply to live deliveries (private/internal address blocking, port
+    allowlist) apply here.
 
     Args:
-        body (TestForwarderRequest): Plain-JSON body for the test_forwarder execute action.
+        body (TestForwarderRequest): Inputs to the test-forwarder action.
 
-            Mirrors the encrypted ``ForwarderHttp`` shape with one addition —
-            ``timeout_ms``, capped server-side.
+            Mirrors a forwarder's HTTP destination configuration with one
+            addition: `timeout_ms`, applied per-request and capped server-side.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -170,18 +170,18 @@ async def asyncio(
 ) -> TestForwarderResponse | None:
     """Execute Test Forwarder
 
-     Execute a prepared HTTP request server-side and return the response.
+     Send a test HTTP request to a forwarder destination and return the result.
 
-    The same SSRF guard that gates the in-line forwarder loop is applied
-    here — internal/private addresses, link-local IPs (including the EC2
-    metadata service at 169.254.169.254), unique-local IPv6, and ports
-    outside the configured allowlist are all rejected.
+    Useful for verifying a destination URL, credentials, or transform
+    before saving the forwarder. The same network-safety rules that
+    apply to live deliveries (private/internal address blocking, port
+    allowlist) apply here.
 
     Args:
-        body (TestForwarderRequest): Plain-JSON body for the test_forwarder execute action.
+        body (TestForwarderRequest): Inputs to the test-forwarder action.
 
-            Mirrors the encrypted ``ForwarderHttp`` shape with one addition —
-            ``timeout_ms``, capped server-side.
+            Mirrors a forwarder's HTTP destination configuration with one
+            addition: `timeout_ms`, applied per-request and capped server-side.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

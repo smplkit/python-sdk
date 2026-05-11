@@ -82,15 +82,11 @@ def sync_detailed(
 ) -> Response[ActionListResponse]:
     """List Actions
 
-     List the distinct ``action`` slugs seen in the account.
+     List the distinct `action` slugs recorded for this account.
 
-    Without ``filter[resource_type]``, returns one row per distinct
-    action — the same action may have been recorded with multiple
-    resource types and the unfiltered dropdown shows it once.
-
-    With ``filter[resource_type]``, returns the actions seen with
-    that specific resource type, powering the Activity tab's
-    cascading filter behavior.
+    Without `filter[resource_type]`, returns one row per distinct
+    action. With `filter[resource_type]`, returns the actions recorded
+    for that specific resource type.
 
     Args:
         filterresource_type (None | str | Unset):
@@ -127,15 +123,11 @@ def sync(
 ) -> ActionListResponse | None:
     """List Actions
 
-     List the distinct ``action`` slugs seen in the account.
+     List the distinct `action` slugs recorded for this account.
 
-    Without ``filter[resource_type]``, returns one row per distinct
-    action — the same action may have been recorded with multiple
-    resource types and the unfiltered dropdown shows it once.
-
-    With ``filter[resource_type]``, returns the actions seen with
-    that specific resource type, powering the Activity tab's
-    cascading filter behavior.
+    Without `filter[resource_type]`, returns one row per distinct
+    action. With `filter[resource_type]`, returns the actions recorded
+    for that specific resource type.
 
     Args:
         filterresource_type (None | str | Unset):
@@ -167,15 +159,11 @@ async def asyncio_detailed(
 ) -> Response[ActionListResponse]:
     """List Actions
 
-     List the distinct ``action`` slugs seen in the account.
+     List the distinct `action` slugs recorded for this account.
 
-    Without ``filter[resource_type]``, returns one row per distinct
-    action — the same action may have been recorded with multiple
-    resource types and the unfiltered dropdown shows it once.
-
-    With ``filter[resource_type]``, returns the actions seen with
-    that specific resource type, powering the Activity tab's
-    cascading filter behavior.
+    Without `filter[resource_type]`, returns one row per distinct
+    action. With `filter[resource_type]`, returns the actions recorded
+    for that specific resource type.
 
     Args:
         filterresource_type (None | str | Unset):
@@ -210,15 +198,11 @@ async def asyncio(
 ) -> ActionListResponse | None:
     """List Actions
 
-     List the distinct ``action`` slugs seen in the account.
+     List the distinct `action` slugs recorded for this account.
 
-    Without ``filter[resource_type]``, returns one row per distinct
-    action — the same action may have been recorded with multiple
-    resource types and the unfiltered dropdown shows it once.
-
-    With ``filter[resource_type]``, returns the actions seen with
-    that specific resource type, powering the Activity tab's
-    cascading filter behavior.
+    Without `filter[resource_type]`, returns one row per distinct
+    action. With `filter[resource_type]`, returns the actions recorded
+    for that specific resource type.
 
     Args:
         filterresource_type (None | str | Unset):

@@ -61,8 +61,9 @@ def sync_detailed(
 ) -> Response[ForwarderDeliveryResponse]:
     """Retry Forwarder Delivery
 
-     Retry a single failed delivery. Returns the new delivery row with
-    its outcome. Prior delivery rows are not modified.
+     Retry a single failed delivery.
+
+    Returns the new delivery log entry. The prior entry is left in place.
 
     Args:
         forwarder_id (UUID):
@@ -96,8 +97,9 @@ def sync(
 ) -> ForwarderDeliveryResponse | None:
     """Retry Forwarder Delivery
 
-     Retry a single failed delivery. Returns the new delivery row with
-    its outcome. Prior delivery rows are not modified.
+     Retry a single failed delivery.
+
+    Returns the new delivery log entry. The prior entry is left in place.
 
     Args:
         forwarder_id (UUID):
@@ -126,8 +128,9 @@ async def asyncio_detailed(
 ) -> Response[ForwarderDeliveryResponse]:
     """Retry Forwarder Delivery
 
-     Retry a single failed delivery. Returns the new delivery row with
-    its outcome. Prior delivery rows are not modified.
+     Retry a single failed delivery.
+
+    Returns the new delivery log entry. The prior entry is left in place.
 
     Args:
         forwarder_id (UUID):
@@ -159,8 +162,9 @@ async def asyncio(
 ) -> ForwarderDeliveryResponse | None:
     """Retry Forwarder Delivery
 
-     Retry a single failed delivery. Returns the new delivery row with
-    its outcome. Prior delivery rows are not modified.
+     Retry a single failed delivery.
+
+    Returns the new delivery log entry. The prior entry is left in place.
 
     Args:
         forwarder_id (UUID):

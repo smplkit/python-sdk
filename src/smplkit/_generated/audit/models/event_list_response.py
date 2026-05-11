@@ -21,7 +21,7 @@ T = TypeVar("T", bound="EventListResponse")
 
 @_attrs_define
 class EventListResponse:
-    """JSON:API collection response with cursor pagination metadata.
+    """JSON:API collection response for audit events.
 
     Attributes:
         data (list[EventResource]):

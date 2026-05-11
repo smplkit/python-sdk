@@ -58,10 +58,10 @@ def sync_detailed(
 ) -> Response[RetryFailedDeliveriesSummary]:
     """Retry Failed Forwarder Deliveries
 
-     Retry every failed delivery for the forwarder.
+     Retry every failed delivery for this forwarder.
 
-    For each failed delivery row, re-attempt with the latest forwarder
-    configuration and the original event payload. Returns counts.
+    Each failed delivery is re-attempted using the forwarder's current
+    configuration and the original event. Returns the counts.
 
     Args:
         forwarder_id (UUID):
@@ -92,10 +92,10 @@ def sync(
 ) -> RetryFailedDeliveriesSummary | None:
     """Retry Failed Forwarder Deliveries
 
-     Retry every failed delivery for the forwarder.
+     Retry every failed delivery for this forwarder.
 
-    For each failed delivery row, re-attempt with the latest forwarder
-    configuration and the original event payload. Returns counts.
+    Each failed delivery is re-attempted using the forwarder's current
+    configuration and the original event. Returns the counts.
 
     Args:
         forwarder_id (UUID):
@@ -121,10 +121,10 @@ async def asyncio_detailed(
 ) -> Response[RetryFailedDeliveriesSummary]:
     """Retry Failed Forwarder Deliveries
 
-     Retry every failed delivery for the forwarder.
+     Retry every failed delivery for this forwarder.
 
-    For each failed delivery row, re-attempt with the latest forwarder
-    configuration and the original event payload. Returns counts.
+    Each failed delivery is re-attempted using the forwarder's current
+    configuration and the original event. Returns the counts.
 
     Args:
         forwarder_id (UUID):
@@ -153,10 +153,10 @@ async def asyncio(
 ) -> RetryFailedDeliveriesSummary | None:
     """Retry Failed Forwarder Deliveries
 
-     Retry every failed delivery for the forwarder.
+     Retry every failed delivery for this forwarder.
 
-    For each failed delivery row, re-attempt with the latest forwarder
-    configuration and the original event payload. Returns counts.
+    Each failed delivery is re-attempted using the forwarder's current
+    configuration and the original event. Returns the counts.
 
     Args:
         forwarder_id (UUID):

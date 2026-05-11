@@ -12,11 +12,11 @@ T = TypeVar("T", bound="HttpHeader")
 
 @_attrs_define
 class HttpHeader:
-    """A single header on a forwarder's HTTP destination.
+    """A single HTTP header attached to a forwarder delivery request.
 
     Attributes:
-        name (str):
-        value (str):
+        name (str): Header name.
+        value (str): Header value.
     """
 
     name: str

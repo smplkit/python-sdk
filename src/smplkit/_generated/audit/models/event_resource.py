@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from typing import cast
 
 if TYPE_CHECKING:
     from ..models.event import Event
@@ -20,44 +21,39 @@ T = TypeVar("T", bound="EventResource")
 class EventResource:
     """JSON:API resource envelope for an audit event.
 
-    Example:
-        {'attributes': {'action': 'user.created', 'actor_id': 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'actor_label':
-            'alice@example.com', 'actor_type': 'USER', 'created_at': '2026-05-06T20:00:00.123Z', 'data': {'request_id':
-            'req-abc', 'snapshot': {'email': 'alice@example.com'}}, 'do_not_forward': False, 'idempotency_key':
-            'auto-1234abcd', 'occurred_at': '2026-05-06T20:00:00Z', 'resource_id': 'u-1', 'resource_type': 'user'}, 'id':
-            '11111111-2222-3333-4444-555555555555', 'type': 'event'}
+    `id` must not be specified for create requests (the server assigns it).
 
-    Attributes:
-        id (str):
-        attributes (Event): Public-facing event resource.
+        Example:
+            {'attributes': {'action': 'user.created', 'actor_id': 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'actor_label':
+                'alice@example.com', 'actor_type': 'USER', 'created_at': '2026-05-06T20:00:00.123Z', 'data': {'request_id':
+                'req-abc', 'snapshot': {'email': 'alice@example.com'}}, 'do_not_forward': False, 'idempotency_key':
+                'auto-1234abcd', 'occurred_at': '2026-05-06T20:00:00Z', 'resource_id': 'u-1', 'resource_type': 'user'}, 'id':
+                '11111111-2222-3333-4444-555555555555', 'type': 'event'}
 
-            Attribute set on POST /api/v1/events:
-                - action (required)
-                - resource_type (required)
-                - resource_id (required)
-                - occurred_at (optional; defaults to ``created_at``)
-                - data (optional; defaults to ``{}``)
+        Attributes:
+            attributes (Event): An audit event — a record that something happened, attributed to
+                an actor and a resource.
 
-            There is no top-level ``snapshot`` attribute. Customers wishing to
-            record a resource snapshot place it inside ``data`` -- smplkit's
-            internal convention nests it at ``data.snapshot``, but customers may
-            follow their own convention.
-
-            Attribute set on GET responses includes everything above plus the
-            server-populated fields: ``created_at``, ``actor_type``, ``actor_id``,
-            ``actor_label``, ``idempotency_key``.
-        type_ (str | Unset):  Default: 'event'.
+                When recording a snapshot of the resource at the time of the event,
+                place it inside `data`. smplkit's own integrations nest it under
+                `data.snapshot`, but the slot is yours to use however you like.
+            id (None | str | Unset):
+            type_ (str | Unset):  Default: 'event'.
     """
 
-    id: str
     attributes: Event
+    id: None | str | Unset = UNSET
     type_: str | Unset = "event"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        id = self.id
-
         attributes = self.attributes.to_dict()
+
+        id: None | str | Unset
+        if isinstance(self.id, Unset):
+            id = UNSET
+        else:
+            id = self.id
 
         type_ = self.type_
 
@@ -65,10 +61,11 @@ class EventResource:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "id": id,
                 "attributes": attributes,
             }
         )
+        if id is not UNSET:
+            field_dict["id"] = id
         if type_ is not UNSET:
             field_dict["type"] = type_
 
@@ -79,15 +76,22 @@ class EventResource:
         from ..models.event import Event
 
         d = dict(src_dict)
-        id = d.pop("id")
-
         attributes = Event.from_dict(d.pop("attributes"))
+
+        def _parse_id(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        id = _parse_id(d.pop("id", UNSET))
 
         type_ = d.pop("type", UNSET)
 
         event_resource = cls(
-            id=id,
             attributes=attributes,
+            id=id,
             type_=type_,
         )
 

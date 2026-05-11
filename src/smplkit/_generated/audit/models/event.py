@@ -22,38 +22,32 @@ T = TypeVar("T", bound="Event")
 
 @_attrs_define
 class Event:
-    """Public-facing event resource.
+    """An audit event — a record that something happened, attributed to
+    an actor and a resource.
 
-    Attribute set on POST /api/v1/events:
-        - action (required)
-        - resource_type (required)
-        - resource_id (required)
-        - occurred_at (optional; defaults to ``created_at``)
-        - data (optional; defaults to ``{}``)
-
-    There is no top-level ``snapshot`` attribute. Customers wishing to
-    record a resource snapshot place it inside ``data`` -- smplkit's
-    internal convention nests it at ``data.snapshot``, but customers may
-    follow their own convention.
-
-    Attribute set on GET responses includes everything above plus the
-    server-populated fields: ``created_at``, ``actor_type``, ``actor_id``,
-    ``actor_label``, ``idempotency_key``.
+    When recording a snapshot of the resource at the time of the event,
+    place it inside `data`. smplkit's own integrations nest it under
+    `data.snapshot`, but the slot is yours to use however you like.
 
         Attributes:
-            action (str):
-            resource_type (str):
-            resource_id (str):
-            occurred_at (datetime.datetime | None | Unset):
-            data (EventData | Unset):
-            do_not_forward (bool | Unset): When true, this event is recorded normally but is not forwarded to any configured
-                SIEM forwarder. A forwarder_delivery row with status=skipped_do_not_forward is recorded for each enabled
-                forwarder so the skip is visible in the delivery log. Default: False.
-            created_at (datetime.datetime | None | Unset):
-            actor_type (None | str | Unset):
-            actor_id (None | Unset | UUID):
-            actor_label (None | str | Unset):
-            idempotency_key (None | str | Unset):
+            action (str): Slug for what happened, e.g. `user.created`. Lowercase, dot-separated.
+            resource_type (str): Slug for the kind of resource the event is about, e.g. `user`. Lowercase, dot-separated.
+            resource_id (str): Identifier of the specific resource the event is about.
+            occurred_at (datetime.datetime | None | Unset): When the event actually happened. Defaults to the server receipt
+                time (`created_at`).
+            data (EventData | Unset): Free-form payload attached to the event. Use it for resource snapshots (by convention
+                under `data.snapshot`), request identifiers, or any other context the event needs to carry.
+            do_not_forward (bool | Unset): When `true`, the event is recorded but not delivered to any forwarder. A delivery
+                log entry with status `SKIPPED_DO_NOT_FORWARD` is written for each enabled forwarder so the skip is visible in
+                the delivery log. Default: False.
+            created_at (datetime.datetime | None | Unset): When the event was received and recorded.
+            actor_type (None | str | Unset): Kind of credential that emitted the event, e.g. `USER` or `API_KEY`. Resolved
+                server-side from the request credential.
+            actor_id (None | Unset | UUID): Identifier of the actor that emitted the event.
+            actor_label (None | str | Unset): Human-readable label for the actor (e.g. the user's email address or the API
+                key name) at the time the event was recorded.
+            idempotency_key (None | str | Unset): The idempotency key used to deduplicate the record. Echoes the
+                `Idempotency-Key` header if one was supplied, otherwise a key derived from the event's content.
     """
 
     action: str
