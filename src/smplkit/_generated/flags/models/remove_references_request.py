@@ -16,10 +16,14 @@ T = TypeVar("T", bound="RemoveReferencesRequest")
 
 @_attrs_define
 class RemoveReferencesRequest:
-    """
-    Attributes:
-        context (None | str | Unset):
-        context_type (None | str | Unset):
+    """Inputs to the remove-references action.
+
+    Exactly one of `context` or `context_type` must be provided.
+
+        Attributes:
+            context (None | str | Unset): Identifier of the context instance to remove references to, formatted as
+                `{type}:{key}` (e.g. `customer:c-123`).
+            context_type (None | str | Unset): Context type to remove all references to (any attribute of this type).
     """
 
     context: None | str | Unset = UNSET

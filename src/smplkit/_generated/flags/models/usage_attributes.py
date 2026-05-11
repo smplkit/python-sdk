@@ -12,11 +12,12 @@ T = TypeVar("T", bound="UsageAttributes")
 
 @_attrs_define
 class UsageAttributes:
-    """
+    """Usage counter for a single metered limit.
+
     Attributes:
-        limit_key (str):
-        period (str):
-        value (int):
+        limit_key (str): Identifier of the metered limit, e.g. `flags.items`.
+        period (str): Period the counter covers. `current` is the only supported value.
+        value (int): Count for the period.
     """
 
     limit_key: str

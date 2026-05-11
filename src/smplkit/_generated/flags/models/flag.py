@@ -8,13 +8,15 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.flag_type import check_flag_type
+from ..models.flag_type import FlagType
 from dateutil.parser import isoparse
 from typing import cast
 import datetime
 
 if TYPE_CHECKING:
     from ..models.flag_environments import FlagEnvironments
-    from ..models.flag_sources_type_0_item import FlagSourcesType0Item
+    from ..models.flag_source import FlagSource
     from ..models.flag_value import FlagValue
 
 
@@ -23,37 +25,52 @@ T = TypeVar("T", bound="Flag")
 
 @_attrs_define
 class Flag:
-    """
-    Example:
-        {'created_at': '2026-03-27T10:00:00Z', 'default': False, 'description': 'Enable dark mode for the application
-            UI', 'environments': {'production': {'default': False, 'enabled': True, 'rules': [{'description': 'Beta users
-            get dark mode', 'logic': {'attribute': 'beta', 'op': 'eq', 'value': True}, 'value': True}]}, 'staging':
-            {'default': True, 'enabled': True, 'rules': []}}, 'managed': True, 'name': 'Dark Mode', 'type': 'BOOLEAN',
-            'updated_at': '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value':
-            False}]}
+    """A feature flag whose value is resolved at runtime from environment
+    rules and a default.
 
-    Attributes:
-        name (str): Human-readable display name
-        type_ (str): Value type: STRING, BOOLEAN, NUMERIC, or JSON
-        default (Any): Default value; must reference a value in the values array (constrained) or match the flag type
-            (unconstrained)
-        description (None | str | Unset):
-        values (list[FlagValue] | None | Unset): Ordered set of allowed values (constrained), or null (unconstrained)
-        environments (FlagEnvironments | Unset):
-        managed (bool | None | Unset): True if admin-managed, false if auto-discovered
-        sources (list[FlagSourcesType0Item] | None | Unset):
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
+    A flag has a value type (`BOOLEAN`, `STRING`, `NUMERIC`, or `JSON`)
+    and either a fixed set of allowed values (constrained) or accepts
+    any value matching the type (unconstrained). Each environment can
+    enable or disable the flag, set its own default, and define
+    targeting rules that override the default for specific evaluation
+    contexts.
+
+        Example:
+            {'created_at': '2026-03-27T10:00:00Z', 'default': False, 'description': 'Enable dark mode for the application
+                UI', 'environments': {'production': {'default': False, 'enabled': True, 'rules': [{'description': 'Beta users
+                get dark mode', 'logic': {'==': [{'var': 'customer.beta'}, True]}, 'value': True}]}, 'staging': {'default':
+                True, 'enabled': True, 'rules': []}}, 'managed': True, 'name': 'Dark Mode', 'type': 'BOOLEAN', 'updated_at':
+                '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value': False}]}
+
+        Attributes:
+            name (str): Human-readable display name for the flag.
+            type_ (FlagType): Value type of the flag. Accepted case-insensitively. Changing the type cascades to `values`,
+                `default`, and every environment's rules and default.
+            default (Any): Default value returned when no environment rule fires and the environment has no `default`. For
+                constrained flags (non-null `values`), must equal one of the entries in the `values` array. For unconstrained
+                flags, must match `type`.
+            description (None | str | Unset): Human-readable description of the flag's purpose.
+            values (list[FlagValue] | None | Unset): Ordered set of allowed values for a constrained flag, or `null` for an
+                unconstrained flag. `BOOLEAN` flags, if constrained, must declare exactly two values.
+            environments (FlagEnvironments | Unset): Per-environment configuration keyed by environment name (`production`,
+                `staging`, etc.). Environments not listed fall back to the flag's global `default`.
+            managed (bool | None | Unset): `true` when the flag was created through the API, `false` when it was auto-
+                discovered from a bulk-register call. Auto-discovered flags can be edited and converted to managed by setting
+                this to `true`.
+            sources (list[FlagSource] | None | Unset): SDK-reported observations of this flag, grouped by service and
+                environment. Populated automatically by the bulk-register endpoint.
+            created_at (datetime.datetime | None | Unset): When the flag was created.
+            updated_at (datetime.datetime | None | Unset): When the flag was last modified.
     """
 
     name: str
-    type_: str
+    type_: FlagType
     default: Any
     description: None | str | Unset = UNSET
     values: list[FlagValue] | None | Unset = UNSET
     environments: FlagEnvironments | Unset = UNSET
     managed: bool | None | Unset = UNSET
-    sources: list[FlagSourcesType0Item] | None | Unset = UNSET
+    sources: list[FlagSource] | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -61,7 +78,7 @@ class Flag:
     def to_dict(self) -> dict[str, Any]:
         name = self.name
 
-        type_ = self.type_
+        type_: str = self.type_
 
         default = self.default
 
@@ -150,13 +167,13 @@ class Flag:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.flag_environments import FlagEnvironments
-        from ..models.flag_sources_type_0_item import FlagSourcesType0Item
+        from ..models.flag_source import FlagSource
         from ..models.flag_value import FlagValue
 
         d = dict(src_dict)
         name = d.pop("name")
 
-        type_ = d.pop("type")
+        type_ = check_flag_type(d.pop("type"))
 
         default = d.pop("default")
 
@@ -207,7 +224,7 @@ class Flag:
 
         managed = _parse_managed(d.pop("managed", UNSET))
 
-        def _parse_sources(data: object) -> list[FlagSourcesType0Item] | None | Unset:
+        def _parse_sources(data: object) -> list[FlagSource] | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -218,14 +235,14 @@ class Flag:
                 sources_type_0 = []
                 _sources_type_0 = data
                 for sources_type_0_item_data in _sources_type_0:
-                    sources_type_0_item = FlagSourcesType0Item.from_dict(sources_type_0_item_data)
+                    sources_type_0_item = FlagSource.from_dict(sources_type_0_item_data)
 
                     sources_type_0.append(sources_type_0_item)
 
                 return sources_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(list[FlagSourcesType0Item] | None | Unset, data)
+            return cast(list[FlagSource] | None | Unset, data)
 
         sources = _parse_sources(d.pop("sources", UNSET))
 

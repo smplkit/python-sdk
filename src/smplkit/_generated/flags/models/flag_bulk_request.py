@@ -16,14 +16,15 @@ T = TypeVar("T", bound="FlagBulkRequest")
 
 @_attrs_define
 class FlagBulkRequest:
-    """
+    """Inputs to the bulk-register-flags action.
+
     Example:
         {'flags': [{'default': False, 'environment': 'production', 'id': 'dark-mode', 'service': 'api-gateway', 'type':
             'BOOLEAN'}, {'default': 3, 'environment': 'production', 'id': 'max-retries', 'service': 'api-gateway', 'type':
             'NUMERIC'}]}
 
     Attributes:
-        flags (list[FlagBulkItem]):
+        flags (list[FlagBulkItem]): Flags reported by the SDK in this batch.
     """
 
     flags: list[FlagBulkItem]

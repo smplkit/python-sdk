@@ -91,7 +91,7 @@ def sync_detailed(
 ) -> Response[FlagListResponse]:
     """List Flags
 
-     List all feature flags for the authenticated account.
+     List feature flags for this account.
 
     Args:
         filtertype (None | str | Unset):
@@ -133,7 +133,7 @@ def sync(
 ) -> FlagListResponse | None:
     """List Flags
 
-     List all feature flags for the authenticated account.
+     List feature flags for this account.
 
     Args:
         filtertype (None | str | Unset):
@@ -170,7 +170,7 @@ async def asyncio_detailed(
 ) -> Response[FlagListResponse]:
     """List Flags
 
-     List all feature flags for the authenticated account.
+     List feature flags for this account.
 
     Args:
         filtertype (None | str | Unset):
@@ -210,7 +210,7 @@ async def asyncio(
 ) -> FlagListResponse | None:
     """List Flags
 
-     List all feature flags for the authenticated account.
+     List feature flags for this account.
 
     Args:
         filtertype (None | str | Unset):

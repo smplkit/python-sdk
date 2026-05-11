@@ -12,12 +12,14 @@ T = TypeVar("T", bound="ManualReviewItem")
 
 @_attrs_define
 class ManualReviewItem:
-    """
-    Attributes:
-        flag (str):
-        environment (str):
-        rule_index (int):
-        reason (str):
+    """A flag rule that could not be safely modified by the bulk
+    remove-references action.
+
+        Attributes:
+            flag (str): Key of the flag containing the rule.
+            environment (str): Environment containing the rule.
+            rule_index (int): Position of the rule within the environment's `rules` array.
+            reason (str): Why the rule needs manual review.
     """
 
     flag: str

@@ -12,12 +12,13 @@ T = TypeVar("T", bound="FlagBulkResponse")
 
 @_attrs_define
 class FlagBulkResponse:
-    """
+    """Result of a bulk-register-flags action.
+
     Example:
         {'registered': 5}
 
     Attributes:
-        registered (int):
+        registered (int): Number of items in the batch that were registered or refreshed.
     """
 
     registered: int

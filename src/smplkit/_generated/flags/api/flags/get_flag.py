@@ -53,7 +53,7 @@ def sync_detailed(
 ) -> Response[FlagResponse]:
     """Get Flag
 
-     Return a feature flag by its key.
+     Retrieve a feature flag by its key.
 
     Args:
         id (str):
@@ -84,7 +84,7 @@ def sync(
 ) -> FlagResponse | None:
     """Get Flag
 
-     Return a feature flag by its key.
+     Retrieve a feature flag by its key.
 
     Args:
         id (str):
@@ -110,7 +110,7 @@ async def asyncio_detailed(
 ) -> Response[FlagResponse]:
     """Get Flag
 
-     Return a feature flag by its key.
+     Retrieve a feature flag by its key.
 
     Args:
         id (str):
@@ -139,7 +139,7 @@ async def asyncio(
 ) -> FlagResponse | None:
     """Get Flag
 
-     Return a feature flag by its key.
+     Retrieve a feature flag by its key.
 
     Args:
         id (str):

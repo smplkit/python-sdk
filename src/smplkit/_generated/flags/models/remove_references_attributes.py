@@ -18,11 +18,14 @@ T = TypeVar("T", bound="RemoveReferencesAttributes")
 
 @_attrs_define
 class RemoveReferencesAttributes:
-    """
+    """Counts and follow-ups returned by the remove-references action.
+
     Attributes:
-        flags_modified (list[str]):
-        rules_removed (int):
-        rules_needing_manual_review (list[ManualReviewItem]):
+        flags_modified (list[str]): Keys of flags whose rules were modified.
+        rules_removed (int): Total number of rules removed across all flags.
+        rules_needing_manual_review (list[ManualReviewItem]): Rules that referenced the context but could not be removed
+            automatically (typically because the reference is inside an `and` expression where removal would broaden the
+            rule).
     """
 
     flags_modified: list[str]

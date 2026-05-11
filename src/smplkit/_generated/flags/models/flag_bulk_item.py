@@ -8,6 +8,8 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.flag_bulk_item_type import check_flag_bulk_item_type
+from ..models.flag_bulk_item_type import FlagBulkItemType
 from typing import cast
 
 
@@ -16,20 +18,22 @@ T = TypeVar("T", bound="FlagBulkItem")
 
 @_attrs_define
 class FlagBulkItem:
-    """
+    """One flag declaration reported by an SDK during bulk registration.
+
     Example:
         {'default': False, 'environment': 'production', 'id': 'dark-mode', 'service': 'api-gateway', 'type': 'BOOLEAN'}
 
     Attributes:
-        id (str): Flag key as declared in code
-        type_ (str): Flag type: BOOLEAN, STRING, NUMERIC, or JSON
-        default (Any): Default value declared in code
-        service (None | str | Unset): Service that declared this flag
-        environment (None | str | Unset): Environment where observed
+        id (str): Flag key as declared in code. URL-safe and stable for the lifetime of the flag.
+        type_ (FlagBulkItemType): Value type the SDK declared for the flag. Accepted case-insensitively.
+        default (Any): Default value the SDK declared for the flag. Used to create the flag if it does not already
+            exist.
+        service (None | str | Unset): Service reporting the declaration. Defaults to `unknown`.
+        environment (None | str | Unset): Environment reporting the declaration. Defaults to `unknown`.
     """
 
     id: str
-    type_: str
+    type_: FlagBulkItemType
     default: Any
     service: None | str | Unset = UNSET
     environment: None | str | Unset = UNSET
@@ -38,7 +42,7 @@ class FlagBulkItem:
     def to_dict(self) -> dict[str, Any]:
         id = self.id
 
-        type_ = self.type_
+        type_: str = self.type_
 
         default = self.default
 
@@ -75,7 +79,7 @@ class FlagBulkItem:
         d = dict(src_dict)
         id = d.pop("id")
 
-        type_ = d.pop("type")
+        type_ = check_flag_bulk_item_type(d.pop("type"))
 
         default = d.pop("default")
 

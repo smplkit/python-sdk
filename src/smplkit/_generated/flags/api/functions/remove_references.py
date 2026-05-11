@@ -62,13 +62,18 @@ def sync_detailed(
 ) -> Response[RemoveReferencesResultEnvelope]:
     """Execute Remove References
 
-     Bulk-remove context references from flag rules.
+     Remove every rule that references a specific context across every flag.
 
-    Traverses every flag in the account, removes rules that reference the
-    specified context, and emits a single flags_changed event when done.
+    Provide exactly one of `context` (matches a single instance,
+    formatted as `{type}:{key}`) or `context_type` (matches any
+    attribute of that context type). Rules whose reference sits inside
+    an AND expression are not removed automatically; they are returned
+    in `rules_needing_manual_review` for the caller to handle.
 
     Args:
-        body (RemoveReferencesRequest):
+        body (RemoveReferencesRequest): Inputs to the remove-references action.
+
+            Exactly one of `context` or `context_type` must be provided.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -96,13 +101,18 @@ def sync(
 ) -> RemoveReferencesResultEnvelope | None:
     """Execute Remove References
 
-     Bulk-remove context references from flag rules.
+     Remove every rule that references a specific context across every flag.
 
-    Traverses every flag in the account, removes rules that reference the
-    specified context, and emits a single flags_changed event when done.
+    Provide exactly one of `context` (matches a single instance,
+    formatted as `{type}:{key}`) or `context_type` (matches any
+    attribute of that context type). Rules whose reference sits inside
+    an AND expression are not removed automatically; they are returned
+    in `rules_needing_manual_review` for the caller to handle.
 
     Args:
-        body (RemoveReferencesRequest):
+        body (RemoveReferencesRequest): Inputs to the remove-references action.
+
+            Exactly one of `context` or `context_type` must be provided.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -125,13 +135,18 @@ async def asyncio_detailed(
 ) -> Response[RemoveReferencesResultEnvelope]:
     """Execute Remove References
 
-     Bulk-remove context references from flag rules.
+     Remove every rule that references a specific context across every flag.
 
-    Traverses every flag in the account, removes rules that reference the
-    specified context, and emits a single flags_changed event when done.
+    Provide exactly one of `context` (matches a single instance,
+    formatted as `{type}:{key}`) or `context_type` (matches any
+    attribute of that context type). Rules whose reference sits inside
+    an AND expression are not removed automatically; they are returned
+    in `rules_needing_manual_review` for the caller to handle.
 
     Args:
-        body (RemoveReferencesRequest):
+        body (RemoveReferencesRequest): Inputs to the remove-references action.
+
+            Exactly one of `context` or `context_type` must be provided.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -157,13 +172,18 @@ async def asyncio(
 ) -> RemoveReferencesResultEnvelope | None:
     """Execute Remove References
 
-     Bulk-remove context references from flag rules.
+     Remove every rule that references a specific context across every flag.
 
-    Traverses every flag in the account, removes rules that reference the
-    specified context, and emits a single flags_changed event when done.
+    Provide exactly one of `context` (matches a single instance,
+    formatted as `{type}:{key}`) or `context_type` (matches any
+    attribute of that context type). Rules whose reference sits inside
+    an AND expression are not removed automatically; they are returned
+    in `rules_needing_manual_review` for the caller to handle.
 
     Args:
-        body (RemoveReferencesRequest):
+        body (RemoveReferencesRequest): Inputs to the remove-references action.
+
+            Exactly one of `context` or `context_type` must be provided.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

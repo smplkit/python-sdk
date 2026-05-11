@@ -11,12 +11,12 @@ if TYPE_CHECKING:
     from ..models.flag_resource import FlagResource
 
 
-T = TypeVar("T", bound="FlagResponse")
+T = TypeVar("T", bound="FlagRequest")
 
 
 @_attrs_define
-class FlagResponse:
-    """JSON:API single-resource response envelope for a flag.
+class FlagRequest:
+    """JSON:API request envelope for creating or updating a flag.
 
     Attributes:
         data (FlagResource): JSON:API resource envelope for a flag.
@@ -54,12 +54,12 @@ class FlagResponse:
         d = dict(src_dict)
         data = FlagResource.from_dict(d.pop("data"))
 
-        flag_response = cls(
+        flag_request = cls(
             data=data,
         )
 
-        flag_response.additional_properties = d
-        return flag_response
+        flag_request.additional_properties = d
+        return flag_request
 
     @property
     def additional_keys(self) -> list[str]:

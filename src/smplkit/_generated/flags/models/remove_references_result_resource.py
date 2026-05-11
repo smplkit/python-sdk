@@ -20,14 +20,15 @@ T = TypeVar("T", bound="RemoveReferencesResultResource")
 
 @_attrs_define
 class RemoveReferencesResultResource:
-    """
+    """JSON:API resource envelope for the remove-references result.
+
     Example:
         {'attributes': {'flags_modified': ['checkout-v2', 'banner-color'], 'rules_needing_manual_review':
             [{'environment': 'production', 'flag': 'pricing-tier', 'reason': 'Context reference inside an AND expression —
             removing would broaden the rule', 'rule_index': 2}], 'rules_removed': 3}, 'type': 'remove_references_result'}
 
     Attributes:
-        attributes (RemoveReferencesAttributes):
+        attributes (RemoveReferencesAttributes): Counts and follow-ups returned by the remove-references action.
         type_ (Literal['remove_references_result'] | Unset):  Default: 'remove_references_result'.
     """
 

@@ -7,12 +7,13 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
+from ...models.flag_request import FlagRequest
 from ...models.flag_response import FlagResponse
 
 
 def _get_kwargs(
     *,
-    body: FlagResponse,
+    body: FlagRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -53,14 +54,14 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: FlagResponse,
+    body: FlagRequest,
 ) -> Response[FlagResponse]:
     """Create Flag
 
-     Create a new feature flag. The caller provides the id (key) in the request body.
+     Create a new feature flag. The caller provides the id (the flag key) in the request body.
 
     Args:
-        body (FlagResponse):
+        body (FlagRequest): JSON:API request envelope for creating or updating a flag.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -84,14 +85,14 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: FlagResponse,
+    body: FlagRequest,
 ) -> FlagResponse | None:
     """Create Flag
 
-     Create a new feature flag. The caller provides the id (key) in the request body.
+     Create a new feature flag. The caller provides the id (the flag key) in the request body.
 
     Args:
-        body (FlagResponse):
+        body (FlagRequest): JSON:API request envelope for creating or updating a flag.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -110,14 +111,14 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: FlagResponse,
+    body: FlagRequest,
 ) -> Response[FlagResponse]:
     """Create Flag
 
-     Create a new feature flag. The caller provides the id (key) in the request body.
+     Create a new feature flag. The caller provides the id (the flag key) in the request body.
 
     Args:
-        body (FlagResponse):
+        body (FlagRequest): JSON:API request envelope for creating or updating a flag.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -139,14 +140,14 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: FlagResponse,
+    body: FlagRequest,
 ) -> FlagResponse | None:
     """Create Flag
 
-     Create a new feature flag. The caller provides the id (key) in the request body.
+     Create a new feature flag. The caller provides the id (the flag key) in the request body.
 
     Args:
-        body (FlagResponse):
+        body (FlagRequest): JSON:API request envelope for creating or updating a flag.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

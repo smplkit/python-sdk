@@ -16,7 +16,10 @@ T = TypeVar("T", bound="FlagEnvironments")
 
 @_attrs_define
 class FlagEnvironments:
-    """ """
+    """Per-environment configuration keyed by environment name (`production`, `staging`, etc.). Environments not listed
+    fall back to the flag's global `default`.
+
+    """
 
     additional_properties: dict[str, FlagEnvironment] = _attrs_field(init=False, factory=dict)
 

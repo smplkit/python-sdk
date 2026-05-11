@@ -75,7 +75,9 @@ def sync_detailed(
 ) -> Response[FlagSourceListResponse]:
     """List All Flag Sources
 
-     List all flag sources across all flags. Optionally filter by environment or service.
+     List service/environment observations across all flags for this account.
+
+    Filter by `environment` or `service` (or both) to narrow the result.
 
     Args:
         filterenvironment (None | str | Unset):
@@ -109,7 +111,9 @@ def sync(
 ) -> FlagSourceListResponse | None:
     """List All Flag Sources
 
-     List all flag sources across all flags. Optionally filter by environment or service.
+     List service/environment observations across all flags for this account.
+
+    Filter by `environment` or `service` (or both) to narrow the result.
 
     Args:
         filterenvironment (None | str | Unset):
@@ -138,7 +142,9 @@ async def asyncio_detailed(
 ) -> Response[FlagSourceListResponse]:
     """List All Flag Sources
 
-     List all flag sources across all flags. Optionally filter by environment or service.
+     List service/environment observations across all flags for this account.
+
+    Filter by `environment` or `service` (or both) to narrow the result.
 
     Args:
         filterenvironment (None | str | Unset):
@@ -170,7 +176,9 @@ async def asyncio(
 ) -> FlagSourceListResponse | None:
     """List All Flag Sources
 
-     List all flag sources across all flags. Optionally filter by environment or service.
+     List service/environment observations across all flags for this account.
+
+    Filter by `environment` or `service` (or both) to narrow the result.
 
     Args:
         filterenvironment (None | str | Unset):

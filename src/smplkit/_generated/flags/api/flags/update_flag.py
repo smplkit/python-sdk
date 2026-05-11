@@ -8,13 +8,14 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
+from ...models.flag_request import FlagRequest
 from ...models.flag_response import FlagResponse
 
 
 def _get_kwargs(
     id: str,
     *,
-    body: FlagResponse,
+    body: FlagRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -58,15 +59,15 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: FlagResponse,
+    body: FlagRequest,
 ) -> Response[FlagResponse]:
     """Update Flag
 
-     Replace a feature flag entirely.
+     Replace a feature flag entirely. Every writable field is overwritten.
 
     Args:
         id (str):
-        body (FlagResponse):
+        body (FlagRequest): JSON:API request envelope for creating or updating a flag.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -92,15 +93,15 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: FlagResponse,
+    body: FlagRequest,
 ) -> FlagResponse | None:
     """Update Flag
 
-     Replace a feature flag entirely.
+     Replace a feature flag entirely. Every writable field is overwritten.
 
     Args:
         id (str):
-        body (FlagResponse):
+        body (FlagRequest): JSON:API request envelope for creating or updating a flag.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -121,15 +122,15 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: FlagResponse,
+    body: FlagRequest,
 ) -> Response[FlagResponse]:
     """Update Flag
 
-     Replace a feature flag entirely.
+     Replace a feature flag entirely. Every writable field is overwritten.
 
     Args:
         id (str):
-        body (FlagResponse):
+        body (FlagRequest): JSON:API request envelope for creating or updating a flag.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -153,15 +154,15 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: FlagResponse,
+    body: FlagRequest,
 ) -> FlagResponse | None:
     """Update Flag
 
-     Replace a feature flag entirely.
+     Replace a feature flag entirely. Every writable field is overwritten.
 
     Args:
         id (str):
-        body (FlagResponse):
+        body (FlagRequest): JSON:API request envelope for creating or updating a flag.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
