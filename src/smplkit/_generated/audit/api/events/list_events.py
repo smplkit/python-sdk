@@ -20,6 +20,7 @@ def _get_kwargs(
     filteraction: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -69,6 +70,13 @@ def _get_kwargs(
     else:
         json_filterresource_id = filterresource_id
     params["filter[resource_id]"] = json_filterresource_id
+
+    json_filtersearch: None | str | Unset
+    if isinstance(filtersearch, Unset):
+        json_filtersearch = UNSET
+    else:
+        json_filtersearch = filtersearch
+    params["filter[search]"] = json_filtersearch
 
     json_pagesize: int | None | Unset
     if isinstance(pagesize, Unset):
@@ -125,6 +133,7 @@ def sync_detailed(
     filteraction: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
 ) -> Response[EventListResponse]:
@@ -135,7 +144,9 @@ def sync_detailed(
     Default sort is ``-created_at``; cursor pagination via ``page[after]``
     (the opaque cursor returned in ``links.next``). Filters are exact-match
     except ``filter[occurred_at]`` which uses the platform's range
-    notation (``[2026-01-01T00:00:00Z,*)``).
+    notation (``[2026-01-01T00:00:00Z,*)``) and ``filter[search]`` which
+    is a case-insensitive substring match (per ADR-014; targets
+    ``resource_id`` only at this revision).
 
     Args:
         filteroccurred_at (None | str | Unset):
@@ -144,6 +155,9 @@ def sync_detailed(
         filteraction (None | str | Unset):
         filterresource_type (None | str | Unset):
         filterresource_id (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match. Searches against
+            ``resource_id`` only — see ADR-014 for the platform-wide ``filter[search]`` convention.
+            Use ``filter[resource_id]`` for an exact match.
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
 
@@ -162,6 +176,7 @@ def sync_detailed(
         filteraction=filteraction,
         filterresource_type=filterresource_type,
         filterresource_id=filterresource_id,
+        filtersearch=filtersearch,
         pagesize=pagesize,
         pageafter=pageafter,
     )
@@ -182,6 +197,7 @@ def sync(
     filteraction: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
 ) -> EventListResponse | None:
@@ -192,7 +208,9 @@ def sync(
     Default sort is ``-created_at``; cursor pagination via ``page[after]``
     (the opaque cursor returned in ``links.next``). Filters are exact-match
     except ``filter[occurred_at]`` which uses the platform's range
-    notation (``[2026-01-01T00:00:00Z,*)``).
+    notation (``[2026-01-01T00:00:00Z,*)``) and ``filter[search]`` which
+    is a case-insensitive substring match (per ADR-014; targets
+    ``resource_id`` only at this revision).
 
     Args:
         filteroccurred_at (None | str | Unset):
@@ -201,6 +219,9 @@ def sync(
         filteraction (None | str | Unset):
         filterresource_type (None | str | Unset):
         filterresource_id (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match. Searches against
+            ``resource_id`` only — see ADR-014 for the platform-wide ``filter[search]`` convention.
+            Use ``filter[resource_id]`` for an exact match.
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
 
@@ -220,6 +241,7 @@ def sync(
         filteraction=filteraction,
         filterresource_type=filterresource_type,
         filterresource_id=filterresource_id,
+        filtersearch=filtersearch,
         pagesize=pagesize,
         pageafter=pageafter,
     ).parsed
@@ -234,6 +256,7 @@ async def asyncio_detailed(
     filteraction: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
 ) -> Response[EventListResponse]:
@@ -244,7 +267,9 @@ async def asyncio_detailed(
     Default sort is ``-created_at``; cursor pagination via ``page[after]``
     (the opaque cursor returned in ``links.next``). Filters are exact-match
     except ``filter[occurred_at]`` which uses the platform's range
-    notation (``[2026-01-01T00:00:00Z,*)``).
+    notation (``[2026-01-01T00:00:00Z,*)``) and ``filter[search]`` which
+    is a case-insensitive substring match (per ADR-014; targets
+    ``resource_id`` only at this revision).
 
     Args:
         filteroccurred_at (None | str | Unset):
@@ -253,6 +278,9 @@ async def asyncio_detailed(
         filteraction (None | str | Unset):
         filterresource_type (None | str | Unset):
         filterresource_id (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match. Searches against
+            ``resource_id`` only — see ADR-014 for the platform-wide ``filter[search]`` convention.
+            Use ``filter[resource_id]`` for an exact match.
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
 
@@ -271,6 +299,7 @@ async def asyncio_detailed(
         filteraction=filteraction,
         filterresource_type=filterresource_type,
         filterresource_id=filterresource_id,
+        filtersearch=filtersearch,
         pagesize=pagesize,
         pageafter=pageafter,
     )
@@ -289,6 +318,7 @@ async def asyncio(
     filteraction: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
 ) -> EventListResponse | None:
@@ -299,7 +329,9 @@ async def asyncio(
     Default sort is ``-created_at``; cursor pagination via ``page[after]``
     (the opaque cursor returned in ``links.next``). Filters are exact-match
     except ``filter[occurred_at]`` which uses the platform's range
-    notation (``[2026-01-01T00:00:00Z,*)``).
+    notation (``[2026-01-01T00:00:00Z,*)``) and ``filter[search]`` which
+    is a case-insensitive substring match (per ADR-014; targets
+    ``resource_id`` only at this revision).
 
     Args:
         filteroccurred_at (None | str | Unset):
@@ -308,6 +340,9 @@ async def asyncio(
         filteraction (None | str | Unset):
         filterresource_type (None | str | Unset):
         filterresource_id (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match. Searches against
+            ``resource_id`` only — see ADR-014 for the platform-wide ``filter[search]`` convention.
+            Use ``filter[resource_id]`` for an exact match.
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
 
@@ -328,6 +363,7 @@ async def asyncio(
             filteraction=filteraction,
             filterresource_type=filterresource_type,
             filterresource_id=filterresource_id,
+            filtersearch=filtersearch,
             pagesize=pagesize,
             pageafter=pageafter,
         )
