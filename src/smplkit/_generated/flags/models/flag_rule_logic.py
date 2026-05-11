@@ -12,7 +12,7 @@ T = TypeVar("T", bound="FlagRuleLogic")
 
 @_attrs_define
 class FlagRuleLogic:
-    """ """
+    """JSON Logic expression evaluated against the evaluation context. The rule fires when the expression is truthy."""
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 

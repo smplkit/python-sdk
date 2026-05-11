@@ -20,23 +20,36 @@ T = TypeVar("T", bound="FlagResource")
 
 @_attrs_define
 class FlagResource:
-    """
-    Example:
-        {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'default': False, 'description': 'Enable dark mode for the
-            application UI', 'environments': {'production': {'default': False, 'enabled': True, 'rules': [{'description':
-            'Beta users get dark mode', 'logic': {'attribute': 'beta', 'op': 'eq', 'value': True}, 'value': True}]}},
-            'managed': True, 'name': 'Dark Mode', 'type': 'BOOLEAN', 'updated_at': '2026-03-27T10:00:00Z', 'values':
-            [{'name': 'on', 'value': True}, {'name': 'off', 'value': False}]}, 'id': 'dark-mode', 'type': 'flag'}
+    """JSON:API resource envelope for a flag.
 
-    Attributes:
-        type_ (Literal['flag']):
-        attributes (Flag):  Example: {'created_at': '2026-03-27T10:00:00Z', 'default': False, 'description': 'Enable
-            dark mode for the application UI', 'environments': {'production': {'default': False, 'enabled': True, 'rules':
-            [{'description': 'Beta users get dark mode', 'logic': {'attribute': 'beta', 'op': 'eq', 'value': True}, 'value':
-            True}]}, 'staging': {'default': True, 'enabled': True, 'rules': []}}, 'managed': True, 'name': 'Dark Mode',
-            'type': 'BOOLEAN', 'updated_at': '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name':
-            'off', 'value': False}]}.
-        id (None | str | Unset):
+    `id` is the flag key. For create requests, `id` is required and is
+    chosen by the caller. For update requests, `id` may be omitted (the
+    server reads the key from the URL) or supplied to rename the flag.
+
+        Example:
+            {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'default': False, 'description': 'Enable dark mode for the
+                application UI', 'environments': {'production': {'default': False, 'enabled': True, 'rules': [{'description':
+                'Beta users get dark mode', 'logic': {'==': [{'var': 'customer.beta'}, True]}, 'value': True}]}}, 'managed':
+                True, 'name': 'Dark Mode', 'type': 'BOOLEAN', 'updated_at': '2026-03-27T10:00:00Z', 'values': [{'name': 'on',
+                'value': True}, {'name': 'off', 'value': False}]}, 'id': 'dark-mode', 'type': 'flag'}
+
+        Attributes:
+            type_ (Literal['flag']):
+            attributes (Flag): A feature flag whose value is resolved at runtime from environment
+                rules and a default.
+
+                A flag has a value type (`BOOLEAN`, `STRING`, `NUMERIC`, or `JSON`)
+                and either a fixed set of allowed values (constrained) or accepts
+                any value matching the type (unconstrained). Each environment can
+                enable or disable the flag, set its own default, and define
+                targeting rules that override the default for specific evaluation
+                contexts. Example: {'created_at': '2026-03-27T10:00:00Z', 'default': False, 'description': 'Enable dark mode for
+                the application UI', 'environments': {'production': {'default': False, 'enabled': True, 'rules':
+                [{'description': 'Beta users get dark mode', 'logic': {'==': [{'var': 'customer.beta'}, True]}, 'value':
+                True}]}, 'staging': {'default': True, 'enabled': True, 'rules': []}}, 'managed': True, 'name': 'Dark Mode',
+                'type': 'BOOLEAN', 'updated_at': '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name':
+                'off', 'value': False}]}.
+            id (None | str | Unset):
     """
 
     type_: Literal["flag"]

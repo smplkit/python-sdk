@@ -58,14 +58,16 @@ def sync_detailed(
 ) -> Response[FlagBulkResponse]:
     """Bulk Register Flags
 
-     Register flags discovered by an SDK. Creates new flags or updates source observations on existing
-    ones.
+     Register flags discovered by an SDK.
+
+    Creates a new flag for each unreported key and refreshes the
+    service/environment source observation on each already-known key.
 
     Args:
-        body (FlagBulkRequest):  Example: {'flags': [{'default': False, 'environment':
-            'production', 'id': 'dark-mode', 'service': 'api-gateway', 'type': 'BOOLEAN'}, {'default':
-            3, 'environment': 'production', 'id': 'max-retries', 'service': 'api-gateway', 'type':
-            'NUMERIC'}]}.
+        body (FlagBulkRequest): Inputs to the bulk-register-flags action. Example: {'flags':
+            [{'default': False, 'environment': 'production', 'id': 'dark-mode', 'service': 'api-
+            gateway', 'type': 'BOOLEAN'}, {'default': 3, 'environment': 'production', 'id': 'max-
+            retries', 'service': 'api-gateway', 'type': 'NUMERIC'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -93,14 +95,16 @@ def sync(
 ) -> FlagBulkResponse | None:
     """Bulk Register Flags
 
-     Register flags discovered by an SDK. Creates new flags or updates source observations on existing
-    ones.
+     Register flags discovered by an SDK.
+
+    Creates a new flag for each unreported key and refreshes the
+    service/environment source observation on each already-known key.
 
     Args:
-        body (FlagBulkRequest):  Example: {'flags': [{'default': False, 'environment':
-            'production', 'id': 'dark-mode', 'service': 'api-gateway', 'type': 'BOOLEAN'}, {'default':
-            3, 'environment': 'production', 'id': 'max-retries', 'service': 'api-gateway', 'type':
-            'NUMERIC'}]}.
+        body (FlagBulkRequest): Inputs to the bulk-register-flags action. Example: {'flags':
+            [{'default': False, 'environment': 'production', 'id': 'dark-mode', 'service': 'api-
+            gateway', 'type': 'BOOLEAN'}, {'default': 3, 'environment': 'production', 'id': 'max-
+            retries', 'service': 'api-gateway', 'type': 'NUMERIC'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -123,14 +127,16 @@ async def asyncio_detailed(
 ) -> Response[FlagBulkResponse]:
     """Bulk Register Flags
 
-     Register flags discovered by an SDK. Creates new flags or updates source observations on existing
-    ones.
+     Register flags discovered by an SDK.
+
+    Creates a new flag for each unreported key and refreshes the
+    service/environment source observation on each already-known key.
 
     Args:
-        body (FlagBulkRequest):  Example: {'flags': [{'default': False, 'environment':
-            'production', 'id': 'dark-mode', 'service': 'api-gateway', 'type': 'BOOLEAN'}, {'default':
-            3, 'environment': 'production', 'id': 'max-retries', 'service': 'api-gateway', 'type':
-            'NUMERIC'}]}.
+        body (FlagBulkRequest): Inputs to the bulk-register-flags action. Example: {'flags':
+            [{'default': False, 'environment': 'production', 'id': 'dark-mode', 'service': 'api-
+            gateway', 'type': 'BOOLEAN'}, {'default': 3, 'environment': 'production', 'id': 'max-
+            retries', 'service': 'api-gateway', 'type': 'NUMERIC'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -156,14 +162,16 @@ async def asyncio(
 ) -> FlagBulkResponse | None:
     """Bulk Register Flags
 
-     Register flags discovered by an SDK. Creates new flags or updates source observations on existing
-    ones.
+     Register flags discovered by an SDK.
+
+    Creates a new flag for each unreported key and refreshes the
+    service/environment source observation on each already-known key.
 
     Args:
-        body (FlagBulkRequest):  Example: {'flags': [{'default': False, 'environment':
-            'production', 'id': 'dark-mode', 'service': 'api-gateway', 'type': 'BOOLEAN'}, {'default':
-            3, 'environment': 'production', 'id': 'max-retries', 'service': 'api-gateway', 'type':
-            'NUMERIC'}]}.
+        body (FlagBulkRequest): Inputs to the bulk-register-flags action. Example: {'flags':
+            [{'default': False, 'environment': 'production', 'id': 'dark-mode', 'service': 'api-
+            gateway', 'type': 'BOOLEAN'}, {'default': 3, 'environment': 'production', 'id': 'max-
+            retries', 'service': 'api-gateway', 'type': 'NUMERIC'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

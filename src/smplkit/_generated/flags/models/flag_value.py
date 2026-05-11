@@ -12,10 +12,11 @@ T = TypeVar("T", bound="FlagValue")
 
 @_attrs_define
 class FlagValue:
-    """
+    """A named value in a constrained flag's value set.
+
     Attributes:
-        name (str):
-        value (Any):
+        name (str): Human-readable label for the value.
+        value (Any): The value itself. Must match the flag's `type`.
     """
 
     name: str

@@ -55,7 +55,7 @@ def sync_detailed(
 ) -> Response[FlagSourceListResponse]:
     """List Flag Sources
 
-     List all sources (service/environment observations) for a specific flag.
+     List the service/environment observations recorded for a single flag.
 
     Args:
         id (str):
@@ -86,7 +86,7 @@ def sync(
 ) -> FlagSourceListResponse | None:
     """List Flag Sources
 
-     List all sources (service/environment observations) for a specific flag.
+     List the service/environment observations recorded for a single flag.
 
     Args:
         id (str):
@@ -112,7 +112,7 @@ async def asyncio_detailed(
 ) -> Response[FlagSourceListResponse]:
     """List Flag Sources
 
-     List all sources (service/environment observations) for a specific flag.
+     List the service/environment observations recorded for a single flag.
 
     Args:
         id (str):
@@ -141,7 +141,7 @@ async def asyncio(
 ) -> FlagSourceListResponse | None:
     """List Flag Sources
 
-     List all sources (service/environment observations) for a specific flag.
+     List the service/environment observations recorded for a single flag.
 
     Args:
         id (str):

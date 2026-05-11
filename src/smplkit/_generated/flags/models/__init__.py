@@ -2,20 +2,22 @@
 
 from .flag import Flag
 from .flag_bulk_item import FlagBulkItem
+from .flag_bulk_item_type import FlagBulkItemType
 from .flag_bulk_request import FlagBulkRequest
 from .flag_bulk_response import FlagBulkResponse
 from .flag_environment import FlagEnvironment
 from .flag_environments import FlagEnvironments
 from .flag_list_response import FlagListResponse
+from .flag_request import FlagRequest
 from .flag_resource import FlagResource
 from .flag_response import FlagResponse
 from .flag_rule import FlagRule
 from .flag_rule_logic import FlagRuleLogic
 from .flag_source import FlagSource
-from .flag_source_data_type_0 import FlagSourceDataType0
+from .flag_source_declared_type_type_0 import FlagSourceDeclaredTypeType0
 from .flag_source_list_response import FlagSourceListResponse
 from .flag_source_resource import FlagSourceResource
-from .flag_sources_type_0_item import FlagSourcesType0Item
+from .flag_type import FlagType
 from .flag_value import FlagValue
 from .manual_review_item import ManualReviewItem
 from .remove_references_attributes import RemoveReferencesAttributes
@@ -29,20 +31,22 @@ from .usage_resource import UsageResource
 __all__ = (
     "Flag",
     "FlagBulkItem",
+    "FlagBulkItemType",
     "FlagBulkRequest",
     "FlagBulkResponse",
     "FlagEnvironment",
     "FlagEnvironments",
     "FlagListResponse",
+    "FlagRequest",
     "FlagResource",
     "FlagResponse",
     "FlagRule",
     "FlagRuleLogic",
     "FlagSource",
-    "FlagSourceDataType0",
+    "FlagSourceDeclaredTypeType0",
     "FlagSourceListResponse",
     "FlagSourceResource",
-    "FlagSourcesType0Item",
+    "FlagType",
     "FlagValue",
     "ManualReviewItem",
     "RemoveReferencesAttributes",

@@ -16,7 +16,8 @@ T = TypeVar("T", bound="FlagListResponse")
 
 @_attrs_define
 class FlagListResponse:
-    """
+    """JSON:API collection response envelope for flags.
+
     Attributes:
         data (list[FlagResource]):
     """

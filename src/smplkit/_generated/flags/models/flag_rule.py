@@ -19,11 +19,14 @@ T = TypeVar("T", bound="FlagRule")
 
 @_attrs_define
 class FlagRule:
-    """
+    """A targeting rule that overrides the default within an environment.
+
     Attributes:
-        logic (FlagRuleLogic):
-        value (Any):
-        description (None | str | Unset):
+        logic (FlagRuleLogic): JSON Logic expression evaluated against the evaluation context. The rule fires when the
+            expression is truthy.
+        value (Any): Value returned when the rule fires. Must reference a value from the flag's `values` array
+            (constrained flags) or match the flag's `type` (unconstrained flags).
+        description (None | str | Unset): Human-readable description of the rule.
     """
 
     logic: FlagRuleLogic

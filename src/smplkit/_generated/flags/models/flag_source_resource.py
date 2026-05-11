@@ -20,19 +20,30 @@ T = TypeVar("T", bound="FlagSourceResource")
 
 @_attrs_define
 class FlagSourceResource:
-    """
-    Example:
-        {'attributes': {'created_at': '2026-04-17T10:00:00Z', 'data': {'default': True, 'type': 'BOOLEAN'},
-            'environment': 'production', 'first_observed': '2026-04-17T10:00:00Z', 'last_seen': '2026-04-17T15:30:00Z',
-            'service': 'api-gateway', 'updated_at': '2026-04-17T15:30:00Z'}, 'id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-            'type': 'flag_source'}
+    """JSON:API resource envelope for a flag source.
 
-    Attributes:
-        type_ (Literal['flag_source']):
-        attributes (FlagSource):  Example: {'created_at': '2026-04-17T10:00:00Z', 'data': {'default': True, 'type':
-            'BOOLEAN'}, 'environment': 'production', 'first_observed': '2026-04-17T10:00:00Z', 'last_seen':
-            '2026-04-17T15:30:00Z', 'service': 'api-gateway', 'updated_at': '2026-04-17T15:30:00Z'}.
-        id (None | str | Unset):
+    `id` is the source record's UUID. Sources are not created or
+    modified directly — the flags service registers and refreshes them
+    in response to SDK bulk-register requests.
+
+        Example:
+            {'attributes': {'created_at': '2026-04-17T10:00:00Z', 'declared_default': True, 'declared_type': 'BOOLEAN',
+                'environment': 'production', 'first_observed': '2026-04-17T10:00:00Z', 'last_seen': '2026-04-17T15:30:00Z',
+                'service': 'api-gateway', 'updated_at': '2026-04-17T15:30:00Z'}, 'id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                'type': 'flag_source'}
+
+        Attributes:
+            type_ (Literal['flag_source']):
+            attributes (FlagSource): A record of an SDK observing a feature flag from a particular
+                service and environment.
+
+                The flags service auto-registers a source the first time an SDK
+                reports a flag from a given service/environment pair and refreshes
+                `last_seen` on every subsequent report. Each source captures the
+                value type and default value the SDK declared in source code at
+                that location, which makes it possible to detect when service code
+                has drifted from the flag's authoritative configuration.
+            id (None | str | Unset):
     """
 
     type_: Literal["flag_source"]

@@ -19,11 +19,15 @@ T = TypeVar("T", bound="FlagEnvironment")
 
 @_attrs_define
 class FlagEnvironment:
-    """
+    """Per-environment evaluation configuration for a flag.
+
     Attributes:
-        enabled (bool | Unset):  Default: True.
-        default (Any | None | Unset):
-        rules (list[FlagRule] | Unset):
+        enabled (bool | Unset): Whether the flag is active in this environment. When `false`, evaluation skips rules and
+            returns the flag's global `default`. Default: True.
+        default (Any | None | Unset): Environment-level default returned when no rule fires. If `null`, evaluation falls
+            back to the flag's global `default`.
+        rules (list[FlagRule] | Unset): Targeting rules evaluated top-down. The first rule whose logic returns truthy
+            provides the result.
     """
 
     enabled: bool | Unset = True

@@ -1,19 +1,18 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.flag_source_declared_type_type_0 import check_flag_source_declared_type_type_0
+from ..models.flag_source_declared_type_type_0 import FlagSourceDeclaredTypeType0
 from dateutil.parser import isoparse
 from typing import cast
 import datetime
-
-if TYPE_CHECKING:
-    from ..models.flag_source_data_type_0 import FlagSourceDataType0
 
 
 T = TypeVar("T", bound="FlagSource")
@@ -21,37 +20,62 @@ T = TypeVar("T", bound="FlagSource")
 
 @_attrs_define
 class FlagSource:
-    """
-    Example:
-        {'created_at': '2026-04-17T10:00:00Z', 'data': {'default': True, 'type': 'BOOLEAN'}, 'environment':
-            'production', 'first_observed': '2026-04-17T10:00:00Z', 'last_seen': '2026-04-17T15:30:00Z', 'service': 'api-
-            gateway', 'updated_at': '2026-04-17T15:30:00Z'}
+    """A record of an SDK observing a feature flag from a particular
+    service and environment.
 
-    Attributes:
-        service (str | Unset):
-        environment (str | Unset):
-        first_observed (datetime.datetime | None | Unset):
-        last_seen (datetime.datetime | None | Unset):
-        data (FlagSourceDataType0 | None | Unset):
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
+    The flags service auto-registers a source the first time an SDK
+    reports a flag from a given service/environment pair and refreshes
+    `last_seen` on every subsequent report. Each source captures the
+    value type and default value the SDK declared in source code at
+    that location, which makes it possible to detect when service code
+    has drifted from the flag's authoritative configuration.
+
+        Attributes:
+            service (None | str | Unset): Service that declared the flag.
+            environment (None | str | Unset): Environment in which the service declared the flag.
+            declared_type (FlagSourceDeclaredTypeType0 | None | Unset): Value type the SDK reported when registering the
+                flag from this service/environment. May differ from the flag's authoritative `type` if the service is running
+                stale code.
+            declared_default (Any | Unset): Default value the SDK reported when registering the flag from this
+                service/environment. May differ from the flag's authoritative `default` if the service is running stale code.
+            first_observed (datetime.datetime | None | Unset): When this source was first observed.
+            last_seen (datetime.datetime | None | Unset): Most recent time the SDK re-registered this source.
+            created_at (datetime.datetime | None | Unset): When the source record was created.
+            updated_at (datetime.datetime | None | Unset): When the source record was last modified.
     """
 
-    service: str | Unset = UNSET
-    environment: str | Unset = UNSET
+    service: None | str | Unset = UNSET
+    environment: None | str | Unset = UNSET
+    declared_type: FlagSourceDeclaredTypeType0 | None | Unset = UNSET
+    declared_default: Any | Unset = UNSET
     first_observed: datetime.datetime | None | Unset = UNSET
     last_seen: datetime.datetime | None | Unset = UNSET
-    data: FlagSourceDataType0 | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.flag_source_data_type_0 import FlagSourceDataType0
+        service: None | str | Unset
+        if isinstance(self.service, Unset):
+            service = UNSET
+        else:
+            service = self.service
 
-        service = self.service
+        environment: None | str | Unset
+        if isinstance(self.environment, Unset):
+            environment = UNSET
+        else:
+            environment = self.environment
 
-        environment = self.environment
+        declared_type: None | str | Unset
+        if isinstance(self.declared_type, Unset):
+            declared_type = UNSET
+        elif isinstance(self.declared_type, str):
+            declared_type = self.declared_type
+        else:
+            declared_type = self.declared_type
+
+        declared_default = self.declared_default
 
         first_observed: None | str | Unset
         if isinstance(self.first_observed, Unset):
@@ -68,14 +92,6 @@ class FlagSource:
             last_seen = self.last_seen.isoformat()
         else:
             last_seen = self.last_seen
-
-        data: dict[str, Any] | None | Unset
-        if isinstance(self.data, Unset):
-            data = UNSET
-        elif isinstance(self.data, FlagSourceDataType0):
-            data = self.data.to_dict()
-        else:
-            data = self.data
 
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
@@ -100,12 +116,14 @@ class FlagSource:
             field_dict["service"] = service
         if environment is not UNSET:
             field_dict["environment"] = environment
+        if declared_type is not UNSET:
+            field_dict["declared_type"] = declared_type
+        if declared_default is not UNSET:
+            field_dict["declared_default"] = declared_default
         if first_observed is not UNSET:
             field_dict["first_observed"] = first_observed
         if last_seen is not UNSET:
             field_dict["last_seen"] = last_seen
-        if data is not UNSET:
-            field_dict["data"] = data
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
         if updated_at is not UNSET:
@@ -115,12 +133,44 @@ class FlagSource:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.flag_source_data_type_0 import FlagSourceDataType0
-
         d = dict(src_dict)
-        service = d.pop("service", UNSET)
 
-        environment = d.pop("environment", UNSET)
+        def _parse_service(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        service = _parse_service(d.pop("service", UNSET))
+
+        def _parse_environment(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        environment = _parse_environment(d.pop("environment", UNSET))
+
+        def _parse_declared_type(data: object) -> FlagSourceDeclaredTypeType0 | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                declared_type_type_0 = check_flag_source_declared_type_type_0(data)
+
+                return declared_type_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(FlagSourceDeclaredTypeType0 | None | Unset, data)
+
+        declared_type = _parse_declared_type(d.pop("declared_type", UNSET))
+
+        declared_default = d.pop("declared_default", UNSET)
 
         def _parse_first_observed(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -155,23 +205,6 @@ class FlagSource:
             return cast(datetime.datetime | None | Unset, data)
 
         last_seen = _parse_last_seen(d.pop("last_seen", UNSET))
-
-        def _parse_data(data: object) -> FlagSourceDataType0 | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                data_type_0 = FlagSourceDataType0.from_dict(data)
-
-                return data_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(FlagSourceDataType0 | None | Unset, data)
-
-        data = _parse_data(d.pop("data", UNSET))
 
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -210,9 +243,10 @@ class FlagSource:
         flag_source = cls(
             service=service,
             environment=environment,
+            declared_type=declared_type,
+            declared_default=declared_default,
             first_observed=first_observed,
             last_seen=last_seen,
-            data=data,
             created_at=created_at,
             updated_at=updated_at,
         )
