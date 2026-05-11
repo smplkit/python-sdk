@@ -24,7 +24,7 @@ class ForwarderDeliveryResource:
             '33333333-4444-5555-6666-777777777777', 'forwarder_id': '11111111-2222-3333-4444-555555555555', 'latency_ms':
             187, 'request': {'body': '{"action":"user.created","resource_id":"u-1"}', 'headers': [{'name': 'DD-API-KEY',
             'value': '<redacted>'}], 'method': 'POST', 'url': 'https://http-intake.logs.datadoghq.com/api/v2/logs'},
-            'response_body': '', 'response_status': 202, 'status': 'succeeded'}, 'id':
+            'response_body': '', 'response_status': 202, 'status': 'SUCCEEDED'}, 'id':
             '22222222-3333-4444-5555-666666666666', 'type': 'forwarder_delivery'}
 
     Attributes:

@@ -18,6 +18,7 @@ def _get_kwargs(
     *,
     filterstatus: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
+    filterevent_id: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -37,6 +38,13 @@ def _get_kwargs(
     else:
         json_filtercreated_at = filtercreated_at
     params["filter[created_at]"] = json_filtercreated_at
+
+    json_filterevent_id: None | str | Unset
+    if isinstance(filterevent_id, Unset):
+        json_filterevent_id = UNSET
+    else:
+        json_filterevent_id = filterevent_id
+    params["filter[event_id]"] = json_filterevent_id
 
     json_pagesize: int | None | Unset
     if isinstance(pagesize, Unset):
@@ -96,6 +104,7 @@ def sync_detailed(
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
+    filterevent_id: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
 ) -> Response[ForwarderDeliveryListResponse]:
@@ -104,8 +113,8 @@ def sync_detailed(
      List delivery rows for a forwarder.
 
     Default sort is ``-created_at``. Cursor pagination via ``page[after]``.
-    Filter by status (``succeeded`` / ``failed`` / ``filtered_out`` /
-    ``skipped_do_not_forward``) or by a ``created_at`` range using the
+    Filter by status (``SUCCEEDED`` / ``FAILED`` / ``FILTERED_OUT`` /
+    ``SKIPPED_DO_NOT_FORWARD``, case-insensitive) or by a ``created_at`` range using the
     platform's interval notation (``[2026-01-01T00:00:00Z,*)``). Reads do
     not require the entitlement — a downgraded account can still inspect
     historical deliveries from when the forwarder was active.
@@ -114,6 +123,7 @@ def sync_detailed(
         forwarder_id (UUID):
         filterstatus (None | str | Unset):
         filtercreated_at (None | str | Unset):
+        filterevent_id (None | str | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
 
@@ -129,6 +139,7 @@ def sync_detailed(
         forwarder_id=forwarder_id,
         filterstatus=filterstatus,
         filtercreated_at=filtercreated_at,
+        filterevent_id=filterevent_id,
         pagesize=pagesize,
         pageafter=pageafter,
     )
@@ -146,6 +157,7 @@ def sync(
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
+    filterevent_id: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
 ) -> ForwarderDeliveryListResponse | None:
@@ -154,8 +166,8 @@ def sync(
      List delivery rows for a forwarder.
 
     Default sort is ``-created_at``. Cursor pagination via ``page[after]``.
-    Filter by status (``succeeded`` / ``failed`` / ``filtered_out`` /
-    ``skipped_do_not_forward``) or by a ``created_at`` range using the
+    Filter by status (``SUCCEEDED`` / ``FAILED`` / ``FILTERED_OUT`` /
+    ``SKIPPED_DO_NOT_FORWARD``, case-insensitive) or by a ``created_at`` range using the
     platform's interval notation (``[2026-01-01T00:00:00Z,*)``). Reads do
     not require the entitlement — a downgraded account can still inspect
     historical deliveries from when the forwarder was active.
@@ -164,6 +176,7 @@ def sync(
         forwarder_id (UUID):
         filterstatus (None | str | Unset):
         filtercreated_at (None | str | Unset):
+        filterevent_id (None | str | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
 
@@ -180,6 +193,7 @@ def sync(
         client=client,
         filterstatus=filterstatus,
         filtercreated_at=filtercreated_at,
+        filterevent_id=filterevent_id,
         pagesize=pagesize,
         pageafter=pageafter,
     ).parsed
@@ -191,6 +205,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
+    filterevent_id: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
 ) -> Response[ForwarderDeliveryListResponse]:
@@ -199,8 +214,8 @@ async def asyncio_detailed(
      List delivery rows for a forwarder.
 
     Default sort is ``-created_at``. Cursor pagination via ``page[after]``.
-    Filter by status (``succeeded`` / ``failed`` / ``filtered_out`` /
-    ``skipped_do_not_forward``) or by a ``created_at`` range using the
+    Filter by status (``SUCCEEDED`` / ``FAILED`` / ``FILTERED_OUT`` /
+    ``SKIPPED_DO_NOT_FORWARD``, case-insensitive) or by a ``created_at`` range using the
     platform's interval notation (``[2026-01-01T00:00:00Z,*)``). Reads do
     not require the entitlement — a downgraded account can still inspect
     historical deliveries from when the forwarder was active.
@@ -209,6 +224,7 @@ async def asyncio_detailed(
         forwarder_id (UUID):
         filterstatus (None | str | Unset):
         filtercreated_at (None | str | Unset):
+        filterevent_id (None | str | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
 
@@ -224,6 +240,7 @@ async def asyncio_detailed(
         forwarder_id=forwarder_id,
         filterstatus=filterstatus,
         filtercreated_at=filtercreated_at,
+        filterevent_id=filterevent_id,
         pagesize=pagesize,
         pageafter=pageafter,
     )
@@ -239,6 +256,7 @@ async def asyncio(
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
+    filterevent_id: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
 ) -> ForwarderDeliveryListResponse | None:
@@ -247,8 +265,8 @@ async def asyncio(
      List delivery rows for a forwarder.
 
     Default sort is ``-created_at``. Cursor pagination via ``page[after]``.
-    Filter by status (``succeeded`` / ``failed`` / ``filtered_out`` /
-    ``skipped_do_not_forward``) or by a ``created_at`` range using the
+    Filter by status (``SUCCEEDED`` / ``FAILED`` / ``FILTERED_OUT`` /
+    ``SKIPPED_DO_NOT_FORWARD``, case-insensitive) or by a ``created_at`` range using the
     platform's interval notation (``[2026-01-01T00:00:00Z,*)``). Reads do
     not require the entitlement — a downgraded account can still inspect
     historical deliveries from when the forwarder was active.
@@ -257,6 +275,7 @@ async def asyncio(
         forwarder_id (UUID):
         filterstatus (None | str | Unset):
         filtercreated_at (None | str | Unset):
+        filterevent_id (None | str | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
 
@@ -274,6 +293,7 @@ async def asyncio(
             client=client,
             filterstatus=filterstatus,
             filtercreated_at=filtercreated_at,
+            filterevent_id=filterevent_id,
             pagesize=pagesize,
             pageafter=pageafter,
         )
