@@ -70,9 +70,11 @@ from smplkit._generated.app.models import (
     ContextResponse as _GenContextResponse,
     ContextType as _GenContextType,
     ContextTypeAttributes as _GenContextTypeAttributes,
+    ContextTypeRequest as _GenContextTypeRequest,
     ContextTypeResource as _GenContextTypeResource,
     ContextTypeResponse as _GenContextTypeResponse,
     Environment as _GenEnvironment,
+    EnvironmentRequest as _GenEnvironmentRequest,
     EnvironmentResource as _GenEnvironmentResource,
     EnvironmentResponse as _GenEnvironmentResponse,
 )
@@ -195,7 +197,7 @@ def _split_context_id(id_or_type: str, key: str | None) -> tuple[str, str]:
     return id_or_type, key
 
 
-def _env_to_resource(env: Environment | AsyncEnvironment) -> _GenEnvironmentResponse:
+def _env_to_resource(env: Environment | AsyncEnvironment) -> _GenEnvironmentRequest:
     attrs = _GenEnvironment(
         name=env.name,
         color=env.color.hex if env.color is not None else None,
@@ -206,7 +208,7 @@ def _env_to_resource(env: Environment | AsyncEnvironment) -> _GenEnvironmentResp
         attributes=attrs,
         id=env.id,
     )
-    return _GenEnvironmentResponse(data=resource)
+    return _GenEnvironmentRequest(data=resource)
 
 
 def _env_from_parsed(
@@ -244,7 +246,7 @@ def _env_from_parsed(
     )
 
 
-def _ct_to_resource(ct: ContextType | AsyncContextType) -> _GenContextTypeResponse:
+def _ct_to_resource(ct: ContextType | AsyncContextType) -> _GenContextTypeRequest:
     attr_meta = _GenContextTypeAttributes()
     attr_meta.additional_properties = dict(ct.attributes)
     attrs = _GenContextType(name=ct.name, attributes=attr_meta)
@@ -253,7 +255,7 @@ def _ct_to_resource(ct: ContextType | AsyncContextType) -> _GenContextTypeRespon
         attributes=attrs,
         id=ct.id,
     )
-    return _GenContextTypeResponse(data=resource)
+    return _GenContextTypeRequest(data=resource)
 
 
 def _ct_from_parsed(
