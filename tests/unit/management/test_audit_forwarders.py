@@ -1,8 +1,8 @@
-"""Tests for the audit forwarders / functions management surface.
+"""Tests for the audit forwarders management surface.
 
 The httpx.MockTransport pattern is reused here — none of these tests
 touch the network. Coverage target is 100% on every line in
-``smplkit.management.audit`` for the forwarder + functions paths.
+``smplkit.management.audit``.
 """
 
 from __future__ import annotations
@@ -13,15 +13,12 @@ from uuid import UUID
 import httpx
 import pytest
 
+from smplkit import Error, NotFoundError, PaymentRequiredError
 from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
-from smplkit._generated.audit.errors import UnexpectedStatus
 from smplkit.audit import (
     Forwarder,
-    ForwarderDelivery,
     ForwarderHttp,
     HttpHeader,
-    RetryFailedDeliveriesSummary,
-    TestForwarderResult,
 )
 from smplkit.management.audit import AuditClient
 
@@ -29,8 +26,6 @@ from smplkit.management.audit import AuditClient
 JSONAPI = "application/vnd.api+json"
 
 FWD_ID = UUID("11111111-2222-3333-4444-555555555555")
-DELIVERY_ID = UUID("22222222-3333-4444-5555-666666666666")
-EVENT_ID = UUID("33333333-4444-5555-6666-777777777777")
 
 
 def _forwarder_resource(
@@ -59,35 +54,10 @@ def _forwarder_resource(
                 "body": None,
                 "success_status": "2xx",
             },
-            "data": {},
             "created_at": "2026-05-07T12:00:00+00:00",
             "updated_at": "2026-05-07T12:00:00+00:00",
             "deleted_at": None,
             "version": 1,
-        },
-    }
-
-
-def _delivery_resource(*, status: str = "SUCCEEDED") -> dict[str, Any]:
-    return {
-        "id": str(DELIVERY_ID),
-        "type": "forwarder_delivery",
-        "attributes": {
-            "forwarder_id": str(FWD_ID),
-            "event_id": str(EVENT_ID),
-            "attempt_number": 1,
-            "status": status,
-            "request": {
-                "method": "POST",
-                "url": "https://siem.example.com/in",
-                "headers": [{"name": "X-K", "value": "<redacted>"}],
-                "body": '{"action":"user.created"}',
-            },
-            "response_status": 202,
-            "response_body": "ok",
-            "latency_ms": 42,
-            "error": None,
-            "created_at": "2026-05-07T12:00:01+00:00",
         },
     }
 
@@ -140,12 +110,6 @@ class TestModels:
         assert f.version == 1
         assert f.deleted_at is None
 
-    def test_forwarder_delivery_from_resource(self):
-        d = ForwarderDelivery._from_resource(_delivery_resource(status="FAILED"))
-        assert d.status == "FAILED"
-        assert d.response_status == 202
-        assert d.attempt_number == 1
-
 
 # ---------------------------------------------------------------------------
 # Forwarders CRUD
@@ -163,20 +127,16 @@ class TestForwardersCrud:
             return httpx.Response(201, json={"data": _forwarder_resource()}, headers={"content-type": JSONAPI})
 
         c = _client_with_handler(handler)
-        try:
-            fwd = c.forwarders.create(
-                name="Datadog production",
-                forwarder_type="DATADOG",
-                http=ForwarderHttp(
-                    url="https://siem.example.com/in",
-                    headers=[HttpHeader(name="DD-API-KEY", value="real-secret")],
-                ),
-                filter={"==": [{"var": "action"}, "user.created"]},
-                transform="$",
-                data={"team": "platform"},
-            )
-        finally:
-            pass
+        fwd = c.forwarders.create(
+            name="Datadog production",
+            forwarder_type="DATADOG",
+            http=ForwarderHttp(
+                url="https://siem.example.com/in",
+                headers=[HttpHeader(name="DD-API-KEY", value="real-secret")],
+            ),
+            filter={"==": [{"var": "action"}, "user.created"]},
+            transform="$",
+        )
         assert fwd.slug == "datadog_production"
         assert captured["method"] == "POST"
         assert "/api/v1/forwarders" in captured["url"]
@@ -189,36 +149,34 @@ class TestForwardersCrud:
             return httpx.Response(201, json={"data": _forwarder_resource()})
 
         c = _client_with_handler(handler)
-        try:
-            fwd = c.forwarders.create(
-                name="x",
-                forwarder_type="HTTP",
-                http={
-                    "method": "POST",
-                    "url": "https://x",
-                    "headers": [{"name": "h", "value": "v"}],
-                    "body": None,
-                    "success_status": "2xx",
-                },
-            )
-        finally:
-            pass
+        fwd = c.forwarders.create(
+            name="x",
+            forwarder_type="HTTP",
+            http={
+                "method": "POST",
+                "url": "https://x",
+                "headers": [{"name": "h", "value": "v"}],
+                "body": None,
+                "success_status": "2xx",
+            },
+        )
         assert fwd.id == FWD_ID
 
-    def test_create_unexpected_status_raises(self):
+    def test_create_402_raises_payment_required(self):
+        # The audit service no longer returns 402 on forwarder creation
+        # (configuration is plan-agnostic — see ADR-047), but the
+        # wrapper's status-to-exception mapping should still surface
+        # 402 as PaymentRequiredError if any future endpoint does.
         def handler(req):
             return httpx.Response(402, json={"errors": [{"status": "402"}]})
 
         c = _client_with_handler(handler)
-        try:
-            with pytest.raises(UnexpectedStatus):
-                c.forwarders.create(
-                    name="x",
-                    forwarder_type="HTTP",
-                    http=ForwarderHttp(url="https://x"),
-                )
-        finally:
-            pass
+        with pytest.raises(PaymentRequiredError):
+            c.forwarders.create(
+                name="x",
+                forwarder_type="HTTP",
+                http=ForwarderHttp(url="https://x"),
+            )
 
     def test_list_paginates(self):
         pages = [
@@ -240,17 +198,14 @@ class TestForwardersCrud:
             return httpx.Response(200, json=page)
 
         c = _client_with_handler(handler)
-        try:
-            first = c.forwarders.list(page_size=1, forwarder_type="DATADOG", enabled=True)
-            assert len(first.forwarders) == 1
-            assert first.next_cursor == "tok-2"
-            iterated = list(first)
-            assert len(iterated) == 1
+        first = c.forwarders.list(page_size=1, forwarder_type="DATADOG", enabled=True)
+        assert len(first.forwarders) == 1
+        assert first.next_cursor == "tok-2"
+        iterated = list(first)
+        assert len(iterated) == 1
 
-            second = c.forwarders.list(page_size=1, page_after=first.next_cursor)
-            assert second.next_cursor is None
-        finally:
-            pass
+        second = c.forwarders.list(page_size=1, page_after=first.next_cursor)
+        assert second.next_cursor is None
 
     def test_get(self):
         def handler(req):
@@ -258,14 +213,11 @@ class TestForwardersCrud:
             return httpx.Response(200, json={"data": _forwarder_resource()})
 
         c = _client_with_handler(handler)
-        try:
-            fwd = c.forwarders.get(FWD_ID)
-            assert fwd.id == FWD_ID
-            # str id also accepted.
-            fwd2 = c.forwarders.get(str(FWD_ID))
-            assert fwd2.id == FWD_ID
-        finally:
-            pass
+        fwd = c.forwarders.get(FWD_ID)
+        assert fwd.id == FWD_ID
+        # str id also accepted.
+        fwd2 = c.forwarders.get(str(FWD_ID))
+        assert fwd2.id == FWD_ID
 
     def test_update(self):
         def handler(req):
@@ -273,19 +225,15 @@ class TestForwardersCrud:
             return httpx.Response(200, json={"data": _forwarder_resource(name="Renamed")})
 
         c = _client_with_handler(handler)
-        try:
-            fwd = c.forwarders.update(
-                FWD_ID,
-                name="Renamed",
-                forwarder_type="DATADOG",
-                http=ForwarderHttp(url="https://x"),
-                enabled=False,
-                filter={"==": [1, 1]},
-                transform="$",
-                data={"k": "v"},
-            )
-        finally:
-            pass
+        fwd = c.forwarders.update(
+            FWD_ID,
+            name="Renamed",
+            forwarder_type="DATADOG",
+            http=ForwarderHttp(url="https://x"),
+            enabled=False,
+            filter={"==": [1, 1]},
+            transform="$",
+        )
         assert fwd.name == "Renamed"
 
     def test_delete(self):
@@ -296,213 +244,47 @@ class TestForwardersCrud:
             return httpx.Response(204)
 
         c = _client_with_handler(handler)
-        try:
-            c.forwarders.delete(FWD_ID)
-            # str id also accepted.
-            c.forwarders.delete(str(FWD_ID))
-        finally:
-            pass
+        c.forwarders.delete(FWD_ID)
+        # str id also accepted.
+        c.forwarders.delete(str(FWD_ID))
         assert captured["method"] == "DELETE"
 
-    def test_delete_unexpected_status_raises(self):
+    def test_delete_404_raises_not_found(self):
         def handler(req):
             return httpx.Response(404, json={"errors": []})
 
         c = _client_with_handler(handler)
-        try:
-            with pytest.raises(UnexpectedStatus):
-                c.forwarders.delete(FWD_ID)
-        finally:
-            pass
+        with pytest.raises(NotFoundError):
+            c.forwarders.delete(FWD_ID)
 
-
-# ---------------------------------------------------------------------------
-# Deliveries
-# ---------------------------------------------------------------------------
-
-
-class TestDeliveries:
-    def test_list_with_filters(self):
-        pages = [
-            {
-                "data": [_delivery_resource(status="SUCCEEDED")],
-                "links": {"next": (f"/api/v1/forwarders/{FWD_ID}/deliveries?page[size]=1&page[after]=tok-2")},
-                "meta": {"page_size": 1},
-            },
-            {
-                "data": [_delivery_resource(status="FAILED")],
-                "meta": {"page_size": 1},
-            },
-        ]
-        call_count = [0]
-
+    def test_delete_unexpected_2xx_raises_error(self):
+        # Defensive: delete expects 204; a 200 response (server bug)
+        # surfaces as a generic Error rather than passing silently.
         def handler(req):
-            page = pages[call_count[0]]
-            call_count[0] += 1
-            return httpx.Response(200, json=page)
+            return httpx.Response(200, json={})
 
         c = _client_with_handler(handler)
-        try:
-            first = c.forwarders.deliveries.list(
-                FWD_ID,
-                status="SUCCEEDED",
-                created_at_range="[2020-01-01T00:00:00Z,*)",
-                page_size=1,
-            )
-            assert len(first.deliveries) == 1
-            assert list(first)[0].status == "SUCCEEDED"
-            assert first.next_cursor == "tok-2"
+        with pytest.raises(Error):
+            c.forwarders.delete(FWD_ID)
 
-            second = c.forwarders.deliveries.list(FWD_ID, page_after=first.next_cursor)
-            assert second.next_cursor is None
-        finally:
-            pass
-
-    def test_retry_returns_new_row(self):
+    def test_create_unexpected_2xx_status_raises_error(self):
         def handler(req):
-            assert req.method == "POST"
-            assert "actions/retry" in req.url.path
-            return httpx.Response(200, json={"data": _delivery_resource(status="SUCCEEDED")})
+            return httpx.Response(200, json={})
 
         c = _client_with_handler(handler)
-        try:
-            row = c.forwarders.deliveries.actions.retry(FWD_ID, DELIVERY_ID)
-            assert row.status == "SUCCEEDED"
-            # str ids also accepted.
-            row2 = c.forwarders.deliveries.actions.retry(str(FWD_ID), str(DELIVERY_ID))
-            assert row2.status == "SUCCEEDED"
-        finally:
-            pass
-
-    def test_bulk_retry_summary(self):
-        def handler(req):
-            return httpx.Response(200, json={"attempted": 3, "succeeded": 2, "failed": 1})
-
-        c = _client_with_handler(handler)
-        try:
-            summary = c.forwarders.actions.retry_failed_deliveries(FWD_ID)
-        finally:
-            pass
-        assert summary == RetryFailedDeliveriesSummary(attempted=3, succeeded=2, failed=1)
-
-
-# ---------------------------------------------------------------------------
-# functions.test_forwarder.actions.execute
-# ---------------------------------------------------------------------------
-
-
-class TestExecuteTestForwarder:
-    def test_success(self):
-        captured: dict[str, Any] = {}
-
-        def handler(req):
-            captured["method"] = req.method
-            captured["url"] = str(req.url)
-            captured["body"] = req.content.decode()
-            return httpx.Response(
-                200,
-                json={
-                    "succeeded": True,
-                    "response_status": 202,
-                    "response_headers": {"X-Echo": "y"},
-                    "response_body": "accepted",
-                    "latency_ms": 12,
-                    "error": None,
-                },
+        with pytest.raises(Error):
+            c.forwarders.create(
+                name="x",
+                forwarder_type="HTTP",
+                http=ForwarderHttp(url="https://x"),
             )
 
-        c = _client_with_handler(handler)
-        try:
-            result = c.functions.test_forwarder.actions.execute(
-                url="https://siem.example.com/in",
-                headers=[HttpHeader(name="X-K", value="v")],
-                body='{"hello":"world"}',
-                success_status="2xx",
-                timeout_ms=5000,
-            )
-        finally:
-            pass
-        assert result == TestForwarderResult(
-            succeeded=True,
-            response_status=202,
-            response_headers={"X-Echo": "y"},
-            response_body="accepted",
-            latency_ms=12,
-            error=None,
-        )
-        assert "test_forwarder/actions/execute" in captured["url"]
 
-    def test_accepts_dict_headers(self):
-        def handler(req):
-            return httpx.Response(
-                200,
-                json={
-                    "succeeded": True,
-                    "response_status": 200,
-                    "response_headers": {},
-                    "response_body": "",
-                    "latency_ms": 1,
-                    "error": None,
-                },
-            )
+def test_async_client_exposes_forwarders():
+    """The management ``AsyncAuditClient`` mirrors the sync one — the
+    forwarders surface must reach async callers."""
+    from smplkit.management.audit import AsyncAuditClient
 
-        c = _client_with_handler(handler)
-        try:
-            r = c.functions.test_forwarder.actions.execute(
-                url="https://x",
-                headers=[{"name": "h", "value": "v"}],
-            )
-        finally:
-            pass
-        assert r.succeeded is True
-
-    def test_no_headers_no_timeout(self):
-        # Exercises the headers=None branch and the timeout_ms unset branch.
-        def handler(req):
-            return httpx.Response(
-                200,
-                json={
-                    "succeeded": False,
-                    "response_status": 500,
-                    "response_headers": {},
-                    "response_body": "",
-                    "latency_ms": None,
-                    "error": "5xx",
-                },
-            )
-
-        c = _client_with_handler(handler)
-        try:
-            r = c.functions.test_forwarder.actions.execute(url="https://x")
-        finally:
-            pass
-        assert r.succeeded is False
-        assert r.error == "5xx"
-
-
-# ---------------------------------------------------------------------------
-# Event Model
-# ---------------------------------------------------------------------------
-
-
-def test_event_resource_round_trips_do_not_forward():
-    """Event._from_resource preserves the do_not_forward flag — the
-    forwarder filter logic relies on it surfacing intact through reads."""
-    from smplkit.audit.models import Event
-
-    res = {
-        "id": str(EVENT_ID),
-        "type": "event",
-        "attributes": {
-            "action": "x",
-            "resource_type": "y",
-            "resource_id": "z",
-            "occurred_at": "2026-05-07T12:00:00+00:00",
-            "created_at": "2026-05-07T12:00:01+00:00",
-            "actor_type": "API_KEY",
-            "actor_label": "",
-            "do_not_forward": True,
-        },
-    }
-    ev = Event._from_resource(res)
-    assert ev.do_not_forward is True
+    auth = _AuditAuthClient(base_url="https://audit.example.com", token="sk_api_test")
+    c = AsyncAuditClient(auth_client=auth)
+    assert c.forwarders is not None

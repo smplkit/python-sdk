@@ -1,19 +1,5 @@
 """
-Demonstrates the smplkit RUNTIME SDK for Smpl Audit.
-
-The runtime client is for fire-and-forget event recording in app code.
-Every other audit-service operation (query, distinct-value listings,
-forwarder CRUD, the test_forwarder action, the wipe action) lives on
-the management client — see ``audit_management_showcase.py``.
-
-What this showcases:
-
-- ``client.audit.events.record(...)`` — enqueue events asynchronously.
-- ``client.audit.events.record(..., flush=True)`` — record and flush
-  in a single call when the caller needs the event durable before
-  continuing (CLI tools, in-test assertions, processes about to exit).
-- ``client.audit.events.flush(timeout=...)`` — drain the buffer when
-  several fire-and-forget records need to land before the next step.
+Demonstrates the smplkit runtime SDK for Smpl Audit.
 
 Prerequisites:
     - ``pip install smplkit-sdk``
@@ -34,15 +20,14 @@ from smplkit import AsyncSmplClient
 
 
 async def main() -> None:
+
+    # create the client (use SmplClient for synchronous use)
     async with AsyncSmplClient(
         environment="production", service="showcase-service"
     ) as client:
         some_resource_id = f"showcase-{uuid.uuid4().hex[:8]}"
 
-        # 1) Default fire-and-forget — record returns immediately and the
-        #    buffer's worker thread retries with exponential backoff in the
-        #    background. This is the right choice on a request-handling
-        #    hot path where the calling thread shouldn't wait on the POST.
+        # record an event
         client.audit.events.record(
             action="invoice.created",
             resource_type="invoice",
@@ -52,33 +37,33 @@ async def main() -> None:
                 "snapshot": {"total_cents": 4900, "currency": "USD"},
                 "request_id": "req-abc",
             },
+            flush=True # or omit to have events flushed asynchronously
         )
-
-        # 2) Several fire-and-forget records, then a single flush at the
-        #    end. Useful when you have a small batch and want them all
-        #    durable before continuing to the next step.
-        for i in range(3):
-            client.audit.events.record(
-                action="invoice.line_added",
-                resource_type="invoice",
-                resource_id=some_resource_id,
-                data={"line": {"sku": f"sku-{i}", "qty": 1}},
-            )
-        client.audit.events.flush(timeout=2.0)
-
-        # 3) ``flush=True`` is the single-call equivalent — record AND
-        #    flush in one go. Useful for CLI tools, end-of-process events,
-        #    and any flow where the next line shouldn't run until the
-        #    record has been confirmed durable.
-        client.audit.events.record(
-            action="invoice.finalized",
-            resource_type="invoice",
-            resource_id=some_resource_id,
-            data={"snapshot": {"status": "finalized"}},
-            flush=True,
-        )
-
         print(f"Recorded events for invoice {some_resource_id}")
+
+        # list events
+        page = client.audit.events.list(resource_id=some_resource_id)
+        assert some_resource_id in {e.resource_id for e in page.events}
+        recorded_event_id = page.events[0].id
+        print(f"Listed {len(page)} event(s) for invoice {some_resource_id}")
+
+        # fetch an event
+        event = client.audit.events.get(recorded_event_id)
+        assert event.id == recorded_event_id
+        assert event.resource_id == some_resource_id
+        assert event.action == "invoice.created"
+        print(f"Fetched event {event.id}: {event.action}")
+
+        # list resource types observed
+        resource_types = client.audit.resource_types.list()
+        assert "invoice" in {rt.id for rt in resource_types}
+        print(f"Observed resource types: {[rt.id for rt in resource_types]}")
+
+        # list actions observed
+        actions = client.audit.actions.list()
+        assert "invoice.created" in {a.id for a in actions}
+        print(f"Observed actions: {[a.id for a in actions]}")
+
         print("Done!")
 
 

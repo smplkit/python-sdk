@@ -1,23 +1,25 @@
-"""Smpl Audit SDK runtime namespace — fire-and-forget event recording.
+"""Smpl Audit SDK runtime namespace.
 
 ADR-047. The audit subsystem records who did what to which resource and
-when; this module exposes the runtime surface only:
+when. The runtime client owns event recording and read-side queries:
 
 * ``client.audit.events.record(..., flush=False)`` — enqueue an audit
   event for asynchronous delivery; pass ``flush=True`` to block until
   the buffer drains.
 * ``client.audit.events.flush(timeout=...)`` — drain the buffer.
+* ``client.audit.events.list(...)`` / ``client.audit.events.get(id)`` —
+  query the audit log.
+* ``client.audit.resource_types.list(...)`` and
+  ``client.audit.actions.list(...)`` — distinct-value listings that
+  back the Activity tab filter dropdowns.
 
-Every other audit operation (query, listings, forwarder CRUD,
-test_forwarder, wipe) lives on :class:`smplkit.SmplManagementClient`
-under ``mgmt.audit.*``. See ``smplkit.management.audit``.
+SIEM forwarder CRUD lives on :class:`smplkit.SmplManagementClient`
+under ``mgmt.audit.forwarders.*``. See ``smplkit.management.audit``.
 
 The shared dataclasses (``Event``, ``Forwarder``, ``ForwarderHttp``,
-``HttpHeader``, ``ForwarderDelivery``, ``ResourceType``, ``Action``,
-``WipeResult``, ``RetryFailedDeliveriesSummary``,
-``TestForwarderResult``) live in :mod:`smplkit.audit.models` and are
-re-exported here for convenience — both the runtime and the management
-clients return them.
+``HttpHeader``, ``ResourceType``, ``Action``) live in
+:mod:`smplkit.audit.models` and are re-exported here for convenience —
+both the runtime and the management clients return them.
 """
 
 from smplkit.audit.client import AsyncAuditClient, AuditClient
@@ -25,14 +27,10 @@ from smplkit.audit.models import (
     Action,
     Event,
     Forwarder,
-    ForwarderDelivery,
     ForwarderHttp,
     ForwarderType,
     HttpHeader,
     ResourceType,
-    RetryFailedDeliveriesSummary,
-    TestForwarderResult,
-    WipeResult,
 )
 
 __all__ = [
@@ -41,12 +39,8 @@ __all__ = [
     "AuditClient",
     "Event",
     "Forwarder",
-    "ForwarderDelivery",
     "ForwarderHttp",
     "ForwarderType",
     "HttpHeader",
     "ResourceType",
-    "RetryFailedDeliveriesSummary",
-    "TestForwarderResult",
-    "WipeResult",
 ]

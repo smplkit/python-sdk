@@ -118,6 +118,11 @@ class ValidationError(Error):
     """Raised when the server rejects a request due to validation errors."""
 
 
+class PaymentRequiredError(Error):
+    """Raised when the server rejects a request because the account's
+    subscription plan does not include the required entitlement."""
+
+
 def _raise_for_status(status_code: int, content: bytes) -> None:
     """Parse a non-2xx response and raise the appropriate SDK exception.
 
@@ -130,7 +135,9 @@ def _raise_for_status(status_code: int, content: bytes) -> None:
     message = _derive_message(errors) if errors else f"HTTP {status_code}"
 
     exc_cls: type[Error]
-    if status_code == 404:
+    if status_code == 402:
+        exc_cls = PaymentRequiredError
+    elif status_code == 404:
         exc_cls = NotFoundError
     elif status_code == 409:
         exc_cls = ConflictError

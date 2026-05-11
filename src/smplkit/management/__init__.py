@@ -23,17 +23,10 @@ from __future__ import annotations
 
 from smplkit.audit.models import ForwarderType
 from smplkit.management.audit import (
-    ActionListPage as AuditActionListPage,
-    ActionsClient as AuditActionsClient,
     AsyncAuditClient as AsyncMgmtAuditClient,
     AuditClient as MgmtAuditClient,
-    DeliveryListPage as AuditDeliveryListPage,
-    EventListPage as AuditEventListPage,
-    EventsClient as AuditEventsClient,
     ForwarderListPage as AuditForwarderListPage,
     ForwardersClient as AuditForwardersClient,
-    ResourceTypeListPage as AuditResourceTypeListPage,
-    ResourceTypesClient as AuditResourceTypesClient,
 )
 from smplkit.management.client import (
     AccountSettingsClient,
@@ -81,15 +74,8 @@ __all__ = [
     "AsyncLoggersClient",
     "AsyncMgmtAuditClient",
     "AsyncSmplManagementClient",
-    "AuditActionListPage",
-    "AuditActionsClient",
-    "AuditDeliveryListPage",
-    "AuditEventListPage",
-    "AuditEventsClient",
     "AuditForwarderListPage",
     "AuditForwardersClient",
-    "AuditResourceTypeListPage",
-    "AuditResourceTypesClient",
     "ConfigClient",
     "ContextType",
     "ContextTypesClient",

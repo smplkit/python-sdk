@@ -9,6 +9,7 @@ from smplkit._errors import (
     ConnectionError,
     ConflictError,
     NotFoundError,
+    PaymentRequiredError,
     TimeoutError,
     ValidationError,
 )
@@ -57,6 +58,7 @@ __all__ = [
     "ConflictError",
     "SmplManagementClient",
     "NotFoundError",
+    "PaymentRequiredError",
     "TimeoutError",
     "ValidationError",
 ]

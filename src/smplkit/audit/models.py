@@ -1,10 +1,9 @@
 """Audit resource models exposed by the SDK.
 
 The wrapper layer's domain types — ``Event``, ``Forwarder``,
-``ForwarderHttp``, ``HttpHeader``, ``ForwarderDelivery``, plus the
-plain-JSON ``TestForwarderResult`` — sit on top of the auto-generated
-``smplkit._generated.audit.models``. The split keeps the public-facing
-SDK surface stable across regenerations.
+``ForwarderHttp``, ``HttpHeader``, ``ResourceType``, ``Action`` — sit
+on top of the auto-generated ``smplkit._generated.audit.models``. The
+split keeps the public-facing SDK surface stable across regenerations.
 """
 
 from __future__ import annotations
@@ -147,7 +146,6 @@ class Forwarder:
     http: ForwarderHttp
     filter: dict[str, Any] | None = None
     transform: str | None = None
-    data: dict[str, Any] = field(default_factory=dict)
     created_at: datetime | None = None
     updated_at: datetime | None = None
     deleted_at: datetime | None = None
@@ -168,79 +166,11 @@ class Forwarder:
             filter=attrs.get("filter"),
             transform=attrs.get("transform"),
             http=ForwarderHttp._from_dict(attrs.get("http") or {}),
-            data=attrs.get("data") or {},
             created_at=_parse_iso_or_none(attrs.get("created_at")),
             updated_at=_parse_iso_or_none(attrs.get("updated_at")),
             deleted_at=_parse_iso_or_none(attrs.get("deleted_at")),
             version=attrs.get("version"),
         )
-
-
-@dataclass(frozen=True, slots=True)
-class ForwarderDelivery:
-    """One delivery attempt recorded by the forwarder loop.
-
-    ``request.headers`` are stored redacted. ``status`` is one of
-    ``"SUCCEEDED"``, ``"FAILED"``, ``"FILTERED_OUT"``, or
-    ``"SKIPPED_DO_NOT_FORWARD"``.
-    """
-
-    id: UUID
-    forwarder_id: UUID
-    event_id: UUID
-    attempt_number: int
-    status: str
-    request: dict[str, Any] | None = None
-    response_status: int | None = None
-    response_body: str | None = None
-    latency_ms: int | None = None
-    error: str | None = None
-    created_at: datetime | None = None
-
-    @classmethod
-    def _from_resource(cls, resource: dict[str, Any]) -> "ForwarderDelivery":
-        attrs = resource.get("attributes", {})
-        return cls(
-            id=UUID(resource["id"]),
-            forwarder_id=UUID(attrs["forwarder_id"]),
-            event_id=UUID(attrs["event_id"]),
-            attempt_number=int(attrs.get("attempt_number") or 1),
-            status=attrs.get("status") or "",
-            request=attrs.get("request"),
-            response_status=attrs.get("response_status"),
-            response_body=attrs.get("response_body"),
-            latency_ms=attrs.get("latency_ms"),
-            error=attrs.get("error"),
-            created_at=_parse_iso_or_none(attrs.get("created_at")),
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class TestForwarderResult:
-    """Plain-JSON response from ``functions.test_forwarder.actions.execute``.
-
-    ``response_headers`` are echoed back unredacted — the caller already
-    supplied the destination headers and the response is for them, not
-    persisted to a delivery row.
-    """
-
-    # Pytest auto-collects classes whose name starts with "Test"; this
-    # marker tells the collector to skip the dataclass.
-    __test__ = False
-
-    succeeded: bool
-    response_status: int | None
-    response_headers: dict[str, str]
-    response_body: str
-    latency_ms: int | None
-    error: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class RetryFailedDeliveriesSummary:
-    attempted: int
-    succeeded: int
-    failed: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -290,50 +220,6 @@ class Action:
             id=resource["id"],
             action=attrs.get("action") or resource["id"],
             created_at=_parse_iso(attrs["created_at"]),
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class WipeResult:
-    """Per-table row counts and completion timestamp from
-    ``client.audit.functions.wipe.actions.execute()``.
-
-    ``total_rows_deleted`` is the convenience sum across all tables for
-    callers that just want a single number for logging or UX. The
-    per-table breakdown is preserved so post-wipe assertions can verify
-    the right tables were affected.
-    """
-
-    audit_event: int
-    audit_event_quota: int
-    forwarder: int
-    forwarder_delivery: int
-    resource_type: int
-    action: int
-    completed_at: datetime
-
-    @property
-    def total_rows_deleted(self) -> int:
-        return (
-            self.audit_event
-            + self.audit_event_quota
-            + self.forwarder
-            + self.forwarder_delivery
-            + self.resource_type
-            + self.action
-        )
-
-    @classmethod
-    def _from_response(cls, body: dict[str, Any]) -> "WipeResult":
-        tables = body.get("tables") or {}
-        return cls(
-            audit_event=int(tables.get("audit_event") or 0),
-            audit_event_quota=int(tables.get("audit_event_quota") or 0),
-            forwarder=int(tables.get("forwarder") or 0),
-            forwarder_delivery=int(tables.get("forwarder_delivery") or 0),
-            resource_type=int(tables.get("resource_type") or 0),
-            action=int(tables.get("action") or 0),
-            completed_at=_parse_iso(body["completed_at"]),
         )
 
 
