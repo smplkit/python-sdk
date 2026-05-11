@@ -8,6 +8,7 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
+from ...models.environment_request import EnvironmentRequest
 from ...models.environment_response import EnvironmentResponse
 from ...models.error_response import ErrorResponse
 
@@ -15,7 +16,7 @@ from ...models.error_response import ErrorResponse
 def _get_kwargs(
     id: str,
     *,
-    body: EnvironmentResponse,
+    body: EnvironmentRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -83,7 +84,7 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: EnvironmentResponse,
+    body: EnvironmentRequest,
 ) -> Response[EnvironmentResponse | ErrorResponse]:
     """Update Environment
 
@@ -91,7 +92,8 @@ def sync_detailed(
 
     Args:
         id (str):
-        body (EnvironmentResponse):
+        body (EnvironmentRequest): JSON:API request envelope for creating or updating an
+            environment.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -117,7 +119,7 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: EnvironmentResponse,
+    body: EnvironmentRequest,
 ) -> EnvironmentResponse | ErrorResponse | None:
     """Update Environment
 
@@ -125,7 +127,8 @@ def sync(
 
     Args:
         id (str):
-        body (EnvironmentResponse):
+        body (EnvironmentRequest): JSON:API request envelope for creating or updating an
+            environment.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -146,7 +149,7 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: EnvironmentResponse,
+    body: EnvironmentRequest,
 ) -> Response[EnvironmentResponse | ErrorResponse]:
     """Update Environment
 
@@ -154,7 +157,8 @@ async def asyncio_detailed(
 
     Args:
         id (str):
-        body (EnvironmentResponse):
+        body (EnvironmentRequest): JSON:API request envelope for creating or updating an
+            environment.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -178,7 +182,7 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: EnvironmentResponse,
+    body: EnvironmentRequest,
 ) -> EnvironmentResponse | ErrorResponse | None:
     """Update Environment
 
@@ -186,7 +190,8 @@ async def asyncio(
 
     Args:
         id (str):
-        body (EnvironmentResponse):
+        body (EnvironmentRequest): JSON:API request envelope for creating or updating an
+            environment.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

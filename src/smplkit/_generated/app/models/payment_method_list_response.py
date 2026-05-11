@@ -16,7 +16,8 @@ T = TypeVar("T", bound="PaymentMethodListResponse")
 
 @_attrs_define
 class PaymentMethodListResponse:
-    """
+    """JSON:API collection response for payment methods.
+
     Attributes:
         data (list[PaymentMethodResource]):
     """

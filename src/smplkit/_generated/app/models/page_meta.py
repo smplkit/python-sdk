@@ -12,12 +12,13 @@ T = TypeVar("T", bound="PageMeta")
 
 @_attrs_define
 class PageMeta:
-    """
+    """Pagination metadata returned with a collection response.
+
     Attributes:
-        size (int): Page size used for this response
-        number (int): 1-based page number returned
-        total_items (int): Total number of matching items across all pages
-        total_pages (int): Total number of pages at the current page size
+        size (int): Page size used for this response.
+        number (int): 1-based page number returned.
+        total_items (int): Total number of matching items across all pages.
+        total_pages (int): Total number of pages at the current page size.
     """
 
     size: int

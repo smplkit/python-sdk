@@ -72,10 +72,9 @@ def sync_detailed(
 ) -> Response[ErrorResponse | MetricNamesResponse]:
     """List Metric Names
 
-     Return distinct metric names (with a representative unit) for this account.
-
-    Used by the dashboard to discover which product sections to render.
-    Plain JSON response (not JSON:API) — this is metadata, not a metric resource.
+     Return distinct metric names recorded for the account, each with a
+    representative unit. Plain-JSON response (not JSON:API) — this is
+    metadata for discovery, not a metric resource.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -100,10 +99,9 @@ def sync(
 ) -> ErrorResponse | MetricNamesResponse | None:
     """List Metric Names
 
-     Return distinct metric names (with a representative unit) for this account.
-
-    Used by the dashboard to discover which product sections to render.
-    Plain JSON response (not JSON:API) — this is metadata, not a metric resource.
+     Return distinct metric names recorded for the account, each with a
+    representative unit. Plain-JSON response (not JSON:API) — this is
+    metadata for discovery, not a metric resource.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -124,10 +122,9 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | MetricNamesResponse]:
     """List Metric Names
 
-     Return distinct metric names (with a representative unit) for this account.
-
-    Used by the dashboard to discover which product sections to render.
-    Plain JSON response (not JSON:API) — this is metadata, not a metric resource.
+     Return distinct metric names recorded for the account, each with a
+    representative unit. Plain-JSON response (not JSON:API) — this is
+    metadata for discovery, not a metric resource.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -150,10 +147,9 @@ async def asyncio(
 ) -> ErrorResponse | MetricNamesResponse | None:
     """List Metric Names
 
-     Return distinct metric names (with a representative unit) for this account.
-
-    Used by the dashboard to discover which product sections to render.
-    Plain JSON response (not JSON:API) — this is metadata, not a metric resource.
+     Return distinct metric names recorded for the account, each with a
+    representative unit. Plain-JSON response (not JSON:API) — this is
+    metadata for discovery, not a metric resource.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

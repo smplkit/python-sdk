@@ -79,7 +79,8 @@ def sync_detailed(
 ) -> Response[ErrorResponse | PaymentMethodResponse]:
     """Set Default Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Mark this payment method as the account's default. Idempotent: returns 200 with no changes when the
+    payment method is already the default.
 
     Args:
         id (UUID):
@@ -110,7 +111,8 @@ def sync(
 ) -> ErrorResponse | PaymentMethodResponse | None:
     """Set Default Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Mark this payment method as the account's default. Idempotent: returns 200 with no changes when the
+    payment method is already the default.
 
     Args:
         id (UUID):
@@ -136,7 +138,8 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | PaymentMethodResponse]:
     """Set Default Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Mark this payment method as the account's default. Idempotent: returns 200 with no changes when the
+    payment method is already the default.
 
     Args:
         id (UUID):
@@ -165,7 +168,8 @@ async def asyncio(
 ) -> ErrorResponse | PaymentMethodResponse | None:
     """Set Default Payment Method
 
-     Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+     Mark this payment method as the account's default. Idempotent: returns 200 with no changes when the
+    payment method is already the default.
 
     Args:
         id (UUID):

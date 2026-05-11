@@ -16,11 +16,14 @@ T = TypeVar("T", bound="EmailResponse")
 
 @_attrs_define
 class EmailResponse:
-    """
+    """JSON:API single-resource response envelope for a contact-us message.
+
     Attributes:
-        data (EmailResource):  Example: {'attributes': {'body': 'Hi, I have a question about the pro plan pricing...',
-            'sent_at': '2026-04-22T14:32:01.234Z', 'topic': 'billing'}, 'id': 'd4e5f6a7-b8c9-0123-defa-234567890123',
-            'type': 'email'}.
+        data (EmailResource): JSON:API resource envelope for a contact-us submission.
+
+            `id` must not be specified for create requests (the server assigns it). Example: {'attributes': {'body': 'Hi, I
+            have a question about the pro plan pricing...', 'sent_at': '2026-04-22T14:32:01.234Z', 'topic': 'billing'},
+            'id': 'd4e5f6a7-b8c9-0123-defa-234567890123', 'type': 'email'}.
     """
 
     data: EmailResource

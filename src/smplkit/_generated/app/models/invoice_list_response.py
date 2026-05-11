@@ -16,7 +16,8 @@ T = TypeVar("T", bound="InvoiceListResponse")
 
 @_attrs_define
 class InvoiceListResponse:
-    """
+    """JSON:API collection response for invoices.
+
     Attributes:
         data (list[InvoiceResource]):
     """

@@ -16,10 +16,13 @@ T = TypeVar("T", bound="AccountResponse")
 
 @_attrs_define
 class AccountResponse:
-    """
+    """JSON:API single-resource response envelope for an account.
+
     Attributes:
-        data (AccountResource):  Example: {'attributes': {'created_at': '2026-03-20T11:02:16.616Z',
-            'has_stripe_customer': False, 'key': 'acme_corp', 'name': 'Acme Corp'}, 'id':
+        data (AccountResource): JSON:API resource envelope for an account.
+
+            `id` must not be specified for create requests (the server assigns it). Example: {'attributes': {'created_at':
+            '2026-03-20T11:02:16.616Z', 'has_stripe_customer': False, 'key': 'acme_corp', 'name': 'Acme Corp'}, 'id':
             'd290f1ee-6c54-4b01-90e6-d701748f0851', 'type': 'account'}.
     """
 

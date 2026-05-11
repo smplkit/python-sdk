@@ -16,12 +16,14 @@ T = TypeVar("T", bound="LimitDefinition")
 
 @_attrs_define
 class LimitDefinition:
-    """
+    """Description of a single metered limit on a product.
+
     Attributes:
-        display_name (str):
-        description (str):
-        unit (str):
-        display_format (None | str | Unset):
+        display_name (str): Human-readable name for the limit.
+        description (str): Long-form description of what the limit controls.
+        unit (str): Unit the limit is measured in, e.g. `flags`, `events`.
+        display_format (None | str | Unset): Optional formatter hint for rendering the limit value in customer-facing
+            UI.
     """
 
     display_name: str

@@ -21,17 +21,25 @@ T = TypeVar("T", bound="ContextTypeResource")
 
 @_attrs_define
 class ContextTypeResource:
-    """
-    Example:
-        {'attributes': {'attributes': {'beta_tester': {}, 'first_name': {}, 'plan': {}}, 'created_at':
-            '2026-03-31T10:00:00Z', 'name': 'User', 'updated_at': '2026-03-31T10:00:00Z'}, 'id': 'user', 'type':
-            'context_type'}
+    """JSON:API resource envelope for a context type.
 
-    Attributes:
-        type_ (ContextTypeResourceType):
-        attributes (ContextType):  Example: {'attributes': {'beta_tester': {}, 'first_name': {}, 'plan': {}},
-            'created_at': '2026-03-31T10:00:00Z', 'name': 'User', 'updated_at': '2026-03-31T10:00:00Z'}.
-        id (None | str | Unset):
+    `id` must not be specified for create requests (the server assigns it).
+
+        Example:
+            {'attributes': {'attributes': {'beta_tester': {}, 'first_name': {}, 'plan': {}}, 'created_at':
+                '2026-03-31T10:00:00Z', 'name': 'User', 'updated_at': '2026-03-31T10:00:00Z'}, 'id': 'user', 'type':
+                'context_type'}
+
+        Attributes:
+            type_ (ContextTypeResourceType):
+            attributes (ContextType): A kind of context — for example, `user`, `account`, or `device` — that
+                groups together context instances sharing a common set of attributes.
+
+                The known attribute keys for the type accumulate as instances are
+                registered; each key carries an optional metadata object describing it. Example: {'attributes': {'beta_tester':
+                {}, 'first_name': {}, 'plan': {}}, 'created_at': '2026-03-31T10:00:00Z', 'name': 'User', 'updated_at':
+                '2026-03-31T10:00:00Z'}.
+            id (None | str | Unset):
     """
 
     type_: ContextTypeResourceType

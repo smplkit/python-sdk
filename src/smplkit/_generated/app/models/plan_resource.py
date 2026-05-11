@@ -21,14 +21,15 @@ T = TypeVar("T", bound="PlanResource")
 
 @_attrs_define
 class PlanResource:
-    """
+    """JSON:API resource envelope for a plan tier.
+
     Example:
         {'attributes': {'description': 'Get started with essential features at no cost', 'display_name': 'Free',
             'sort_order': 0}, 'id': 'free', 'type': 'plan'}
 
     Attributes:
         type_ (PlanResourceType):
-        attributes (Plan):
+        attributes (Plan): A plan tier offered across smplkit products.
         id (None | str | Unset):
     """
 

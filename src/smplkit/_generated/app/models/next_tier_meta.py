@@ -12,11 +12,12 @@ T = TypeVar("T", bound="NextTierMeta")
 
 @_attrs_define
 class NextTierMeta:
-    """
+    """Information about the next volume-discount tier.
+
     Attributes:
-        products_needed (int):
-        discount_pct (int):
-        additional_savings_cents (int):
+        products_needed (int): Number of additional subscribed products needed to reach the next tier.
+        discount_pct (int): Discount percentage that would apply at the next tier.
+        additional_savings_cents (int): Additional monthly savings in cents at the next tier.
     """
 
     products_needed: int

@@ -19,7 +19,8 @@ T = TypeVar("T", bound="UserListResponse")
 
 @_attrs_define
 class UserListResponse:
-    """
+    """JSON:API collection response for users.
+
     Attributes:
         data (list[UserResource]):
         meta (UserListMeta | Unset):

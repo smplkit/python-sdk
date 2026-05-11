@@ -12,12 +12,13 @@ T = TypeVar("T", bound="VerifyEmailRequest")
 
 @_attrs_define
 class VerifyEmailRequest:
-    """
+    """Body for the email-verification endpoint.
+
     Example:
         {'token': 'eyJhbGciOiJIUzI1NiJ9...'}
 
     Attributes:
-        token (str):
+        token (str): Verification token previously delivered to the user's email.
     """
 
     token: str

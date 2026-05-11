@@ -21,16 +21,20 @@ T = TypeVar("T", bound="ServiceResource")
 
 @_attrs_define
 class ServiceResource:
-    """
-    Example:
-        {'attributes': {'created_at': '2026-03-20T11:02:16.616Z', 'name': 'User Service', 'updated_at':
-            '2026-03-20T11:02:16.616Z'}, 'id': 'user_service', 'type': 'service'}
+    """JSON:API resource envelope for a service.
 
-    Attributes:
-        type_ (ServiceResourceType):
-        attributes (Service):  Example: {'created_at': '2026-03-20T11:02:16.616Z', 'name': 'User Service', 'updated_at':
-            '2026-03-20T11:02:16.616Z'}.
-        id (None | str | Unset):
+    `id` must not be specified for create requests (the server assigns it).
+
+        Example:
+            {'attributes': {'created_at': '2026-03-20T11:02:16.616Z', 'name': 'User Service', 'updated_at':
+                '2026-03-20T11:02:16.616Z'}, 'id': 'user_service', 'type': 'service'}
+
+        Attributes:
+            type_ (ServiceResourceType):
+            attributes (Service): A service that contexts can be evaluated against — for example, a
+                backend application or microservice in the customer's stack. Example: {'created_at': '2026-03-20T11:02:16.616Z',
+                'name': 'User Service', 'updated_at': '2026-03-20T11:02:16.616Z'}.
+            id (None | str | Unset):
     """
 
     type_: ServiceResourceType

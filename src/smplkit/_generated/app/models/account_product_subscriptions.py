@@ -12,7 +12,10 @@ T = TypeVar("T", bound="AccountProductSubscriptions")
 
 @_attrs_define
 class AccountProductSubscriptions:
-    """ """
+    """Map of product key to the account's subscription summary for that product, including plan, status, and entitlement
+    limits.
+
+    """
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 

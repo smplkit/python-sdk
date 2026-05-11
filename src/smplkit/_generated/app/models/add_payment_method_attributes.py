@@ -14,18 +14,20 @@ T = TypeVar("T", bound="AddPaymentMethodAttributes")
 
 @_attrs_define
 class AddPaymentMethodAttributes:
-    """Attributes for POST /api/v1/payment_methods.
+    """Attributes accepted when registering a new payment method.
 
-    Distinct from ``PaymentMethod`` because this shape takes the Stripe
-    ``pm_...`` ID at registration time; the persistent resource does not
-    expose that ID.
+    The customer first creates a Stripe payment method client-side using
+    Stripe Elements, then submits its `pm_...` identifier here to persist
+    it on the account.
 
         Example:
             {'default': False, 'stripe_payment_method_id': 'pm_1234567890abcdef'}
 
         Attributes:
-            stripe_payment_method_id (str):
-            default (bool | Unset):  Default: False.
+            stripe_payment_method_id (str): Identifier of the Stripe payment method to register on the account, e.g.
+                `pm_1234567890abcdef`.
+            default (bool | Unset): When `true`, make the newly registered payment method the account's default. The first
+                payment method on an account is always set as default regardless of this field. Default: False.
     """
 
     stripe_payment_method_id: str

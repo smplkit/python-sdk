@@ -18,7 +18,7 @@ T = TypeVar("T", bound="UserListMeta")
 class UserListMeta:
     """
     Attributes:
-        page (PageMeta):
+        page (PageMeta): Pagination metadata returned with a collection response.
     """
 
     page: PageMeta

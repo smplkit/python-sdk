@@ -16,7 +16,8 @@ T = TypeVar("T", bound="SetupIntentResponse")
 
 @_attrs_define
 class SetupIntentResponse:
-    """
+    """JSON:API single-resource response envelope for a setup-intent result.
+
     Attributes:
         data (SetupIntentResource):  Example: {'attributes': {'client_secret': 'seti_1234567890abcdef_secret_xyz'},
             'type': 'setup_intent'}.

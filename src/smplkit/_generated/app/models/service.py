@@ -18,14 +18,16 @@ T = TypeVar("T", bound="Service")
 
 @_attrs_define
 class Service:
-    """
-    Example:
-        {'created_at': '2026-03-20T11:02:16.616Z', 'name': 'User Service', 'updated_at': '2026-03-20T11:02:16.616Z'}
+    """A service that contexts can be evaluated against — for example, a
+    backend application or microservice in the customer's stack.
 
-    Attributes:
-        name (str):
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
+        Example:
+            {'created_at': '2026-03-20T11:02:16.616Z', 'name': 'User Service', 'updated_at': '2026-03-20T11:02:16.616Z'}
+
+        Attributes:
+            name (str): Human-readable name for the service.
+            created_at (datetime.datetime | None | Unset): When the service was created.
+            updated_at (datetime.datetime | None | Unset): When the service was last modified.
     """
 
     name: str

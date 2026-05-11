@@ -15,20 +15,21 @@ T = TypeVar("T", bound="Invoice")
 
 @_attrs_define
 class Invoice:
-    """
+    """A billing invoice issued for the account.
+
     Attributes:
-        number (None | str):
-        status (str):
-        amount_due (int):
-        amount_paid (int):
-        currency (str):
-        description (None | str):
-        period_start (None | str):
-        period_end (None | str):
-        created_at (None | str):
-        paid_at (None | str):
-        hosted_invoice_url (None | str):
-        invoice_pdf (None | str):
+        number (None | str): Invoice number assigned by the billing provider.
+        status (str): Invoice lifecycle state, e.g. `draft`, `open`, `paid`, `uncollectible`, `void`.
+        amount_due (int): Amount owed on the invoice in the smallest currency unit (e.g. cents).
+        amount_paid (int): Amount paid against the invoice in the smallest currency unit.
+        currency (str): ISO 4217 currency code, e.g. `usd`.
+        description (None | str): Human-readable summary of the invoice's line items.
+        period_start (None | str): Start of the service period the invoice covers (ISO 8601).
+        period_end (None | str): End of the service period the invoice covers (ISO 8601).
+        created_at (None | str): When the invoice was created (ISO 8601).
+        paid_at (None | str): When the invoice was paid in full (ISO 8601), or `null` if unpaid.
+        hosted_invoice_url (None | str): Link to the hosted invoice page.
+        invoice_pdf (None | str): Link to the PDF rendering of the invoice.
     """
 
     number: None | str

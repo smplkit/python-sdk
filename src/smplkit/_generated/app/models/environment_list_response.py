@@ -16,7 +16,8 @@ T = TypeVar("T", bound="EnvironmentListResponse")
 
 @_attrs_define
 class EnvironmentListResponse:
-    """
+    """JSON:API collection response for environments.
+
     Attributes:
         data (list[EnvironmentResource]):
     """

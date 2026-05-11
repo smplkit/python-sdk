@@ -86,8 +86,9 @@ def sync_detailed(
      Send one or more invitations to join the account.
 
     Args:
-        body (InvitationBulkCreateRequest):  Example: {'invitations': [{'email':
-            'alice@example.com', 'role': 'MEMBER'}, {'email': 'bob@example.com', 'role': 'MEMBER'}]}.
+        body (InvitationBulkCreateRequest): Bulk-create request body for the invitations endpoint.
+            Example: {'invitations': [{'email': 'alice@example.com', 'role': 'MEMBER'}, {'email':
+            'bob@example.com', 'role': 'MEMBER'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,8 +119,9 @@ def sync(
      Send one or more invitations to join the account.
 
     Args:
-        body (InvitationBulkCreateRequest):  Example: {'invitations': [{'email':
-            'alice@example.com', 'role': 'MEMBER'}, {'email': 'bob@example.com', 'role': 'MEMBER'}]}.
+        body (InvitationBulkCreateRequest): Bulk-create request body for the invitations endpoint.
+            Example: {'invitations': [{'email': 'alice@example.com', 'role': 'MEMBER'}, {'email':
+            'bob@example.com', 'role': 'MEMBER'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -145,8 +147,9 @@ async def asyncio_detailed(
      Send one or more invitations to join the account.
 
     Args:
-        body (InvitationBulkCreateRequest):  Example: {'invitations': [{'email':
-            'alice@example.com', 'role': 'MEMBER'}, {'email': 'bob@example.com', 'role': 'MEMBER'}]}.
+        body (InvitationBulkCreateRequest): Bulk-create request body for the invitations endpoint.
+            Example: {'invitations': [{'email': 'alice@example.com', 'role': 'MEMBER'}, {'email':
+            'bob@example.com', 'role': 'MEMBER'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -175,8 +178,9 @@ async def asyncio(
      Send one or more invitations to join the account.
 
     Args:
-        body (InvitationBulkCreateRequest):  Example: {'invitations': [{'email':
-            'alice@example.com', 'role': 'MEMBER'}, {'email': 'bob@example.com', 'role': 'MEMBER'}]}.
+        body (InvitationBulkCreateRequest): Bulk-create request body for the invitations endpoint.
+            Example: {'invitations': [{'email': 'alice@example.com', 'role': 'MEMBER'}, {'email':
+            'bob@example.com', 'role': 'MEMBER'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

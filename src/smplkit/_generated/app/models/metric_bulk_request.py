@@ -16,14 +16,15 @@ T = TypeVar("T", bound="MetricBulkRequest")
 
 @_attrs_define
 class MetricBulkRequest:
-    """
+    """Bulk-ingest request envelope for metric data points.
+
     Example:
         {'data': [{'attributes': {'dimensions': {'environment': 'production'}, 'name': 'flags.evaluations',
             'period_seconds': 60, 'recorded_at': '2026-04-10T18:00:00Z', 'unit': 'evaluations', 'value': 1482}, 'type':
             'metric'}]}
 
     Attributes:
-        data (list[MetricResource]):
+        data (list[MetricResource]): Metric data points to ingest in a single request.
     """
 
     data: list[MetricResource]

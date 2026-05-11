@@ -16,7 +16,8 @@ T = TypeVar("T", bound="ContextTypeListResponse")
 
 @_attrs_define
 class ContextTypeListResponse:
-    """
+    """JSON:API collection response for context types.
+
     Attributes:
         data (list[ContextTypeResource]):
     """

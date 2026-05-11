@@ -18,13 +18,14 @@ T = TypeVar("T", bound="MetricRollupAttributes")
 
 @_attrs_define
 class MetricRollupAttributes:
-    """
+    """An aggregated metric value over a fixed-size time bucket.
+
     Attributes:
-        name (str):
-        value (str):
-        bucket (datetime.datetime):
-        rollup (str):
-        unit (None | str | Unset):
+        name (str): Metric series name the rollup is computed from.
+        value (str): Sum of the underlying metric values over the bucket.
+        bucket (datetime.datetime): Start of the time bucket this rollup covers.
+        rollup (str): Rollup interval. One of `1m`, `5m`, `15m`, `1h`, `6h`, `1d`.
+        unit (None | str | Unset): Unit the value is expressed in.
     """
 
     name: str

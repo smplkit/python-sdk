@@ -12,7 +12,7 @@ T = TypeVar("T", bound="PlanDefinitionLimits")
 
 @_attrs_define
 class PlanDefinitionLimits:
-    """ """
+    """Map of limit key to the cap that applies on this plan. `-1` indicates an unlimited cap."""
 
     additional_properties: dict[str, int] = _attrs_field(init=False, factory=dict)
 

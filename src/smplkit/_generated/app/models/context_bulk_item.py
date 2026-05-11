@@ -18,14 +18,15 @@ T = TypeVar("T", bound="ContextBulkItem")
 
 @_attrs_define
 class ContextBulkItem:
-    """
+    """One context instance in a bulk registration payload.
+
     Example:
         {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'}, 'key': 'user-123', 'type': 'user'}
 
     Attributes:
-        type_ (str): Context type key: 'user', 'account', 'device'
-        key (str): Entity identifier: 'user-123', 'acme-corp'
-        attributes (ContextBulkItemAttributes | Unset):
+        type_ (str): Key of the context type this instance belongs to (e.g. `user`, `account`, `device`).
+        key (str): Entity identifier within the context type, e.g. `user-123`.
+        attributes (ContextBulkItemAttributes | Unset): Observed attribute values for this context instance.
     """
 
     type_: str

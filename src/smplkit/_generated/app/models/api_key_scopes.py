@@ -12,7 +12,10 @@ T = TypeVar("T", bound="ApiKeyScopes")
 
 @_attrs_define
 class ApiKeyScopes:
-    """ """
+    """Scope restrictions applied to the key. Empty object grants full account access; populated forms are reserved for
+    future scope syntax.
+
+    """
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 

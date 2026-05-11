@@ -12,7 +12,10 @@ T = TypeVar("T", bound="MetricAttributesDimensions")
 
 @_attrs_define
 class MetricAttributesDimensions:
-    """ """
+    """Optional dimension keys that scope the data point, e.g. `environment`, `service`. Used as filter targets on the list
+    endpoint via `filter[dimensions.<key>]=...`.
+
+    """
 
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 

@@ -19,14 +19,15 @@ T = TypeVar("T", bound="AddPaymentMethodData")
 
 @_attrs_define
 class AddPaymentMethodData:
-    """
+    """Resource object for the add-payment-method request.
+
     Attributes:
         type_ (AddPaymentMethodDataType):
-        attributes (AddPaymentMethodAttributes): Attributes for POST /api/v1/payment_methods.
+        attributes (AddPaymentMethodAttributes): Attributes accepted when registering a new payment method.
 
-            Distinct from ``PaymentMethod`` because this shape takes the Stripe
-            ``pm_...`` ID at registration time; the persistent resource does not
-            expose that ID. Example: {'default': False, 'stripe_payment_method_id': 'pm_1234567890abcdef'}.
+            The customer first creates a Stripe payment method client-side using
+            Stripe Elements, then submits its `pm_...` identifier here to persist
+            it on the account. Example: {'default': False, 'stripe_payment_method_id': 'pm_1234567890abcdef'}.
     """
 
     type_: AddPaymentMethodDataType

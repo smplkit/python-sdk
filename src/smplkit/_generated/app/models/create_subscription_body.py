@@ -16,14 +16,16 @@ T = TypeVar("T", bound="CreateSubscriptionBody")
 
 @_attrs_define
 class CreateSubscriptionBody:
-    """
+    """JSON:API request envelope for creating a subscription.
+
     Example:
         {'data': {'attributes': {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'plan': 'pro', 'product':
             'flags'}, 'type': 'subscription'}}
 
     Attributes:
-        data (CreateSubscriptionData):  Example: {'attributes': {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-
-            ef1234567890', 'plan': 'pro', 'product': 'flags'}, 'type': 'subscription'}.
+        data (CreateSubscriptionData): Resource object for the create-subscription request. Example: {'attributes':
+            {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'plan': 'pro', 'product': 'flags'}, 'type':
+            'subscription'}.
     """
 
     data: CreateSubscriptionData

@@ -13,7 +13,6 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
-    from ..models.api_key_data import ApiKeyData
     from ..models.api_key_scopes import ApiKeyScopes
 
 
@@ -22,23 +21,32 @@ T = TypeVar("T", bound="ApiKey")
 
 @_attrs_define
 class ApiKey:
-    """
-    Example:
-        {'created_at': '2026-03-20T11:02:16.616Z', 'created_by': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'expires_at':
-            '2027-03-20T11:02:16.616Z', 'key': 'sk_api_a1b2c3d4e5f6g7h8i9j0', 'last_used_at': '2026-03-19T08:45:00.000Z',
-            'name': 'Production API Key', 'scopes': {}, 'status': 'ACTIVE', 'updated_at': '2026-03-20T11:02:16.616Z'}
+    """An API key used by SDKs, scripts, and other programmatic clients to
+    authenticate with the smplkit API on behalf of the account.
 
-    Attributes:
-        name (str):
-        status (None | str | Unset):
-        key (None | str | Unset):
-        scopes (ApiKeyScopes | Unset):
-        created_by (None | str | Unset):
-        expires_at (datetime.datetime | None | Unset):
-        last_used_at (datetime.datetime | None | Unset):
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
-        data (ApiKeyData | Unset):
+    The full key value is returned in plaintext on the create response and
+    is otherwise unavailable — record it somewhere safe immediately after
+    creation.
+
+        Example:
+            {'created_at': '2026-03-20T11:02:16.616Z', 'created_by': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'expires_at':
+                '2027-03-20T11:02:16.616Z', 'key': 'sk_api_a1b2c3d4e5f6g7h8i9j0', 'last_used_at': '2026-03-19T08:45:00.000Z',
+                'name': 'Production API Key', 'scopes': {}, 'status': 'ACTIVE', 'updated_at': '2026-03-20T11:02:16.616Z'}
+
+        Attributes:
+            name (str): Human-readable name for the key.
+            status (None | str | Unset): Lifecycle state of the key. `ACTIVE` keys may be used to authenticate; `REVOKED`
+                keys are rejected.
+            key (None | str | Unset): The bearer token value. Returned in plaintext on the create response so the caller can
+                capture it; subsequent reads return the same value for round-tripping.
+            scopes (ApiKeyScopes | Unset): Scope restrictions applied to the key. Empty object grants full account access;
+                populated forms are reserved for future scope syntax.
+            created_by (None | str | Unset): UUID of the user who created the key.
+            expires_at (datetime.datetime | None | Unset): Optional expiry timestamp. After this time, the key is rejected.
+                Omit for keys that do not expire.
+            last_used_at (datetime.datetime | None | Unset): When the key was most recently used to authenticate.
+            created_at (datetime.datetime | None | Unset): When the key was created.
+            updated_at (datetime.datetime | None | Unset): When the key was last modified.
     """
 
     name: str
@@ -50,7 +58,6 @@ class ApiKey:
     last_used_at: datetime.datetime | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
-    data: ApiKeyData | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -110,10 +117,6 @@ class ApiKey:
         else:
             updated_at = self.updated_at
 
-        data: dict[str, Any] | Unset = UNSET
-        if not isinstance(self.data, Unset):
-            data = self.data.to_dict()
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -137,14 +140,11 @@ class ApiKey:
             field_dict["created_at"] = created_at
         if updated_at is not UNSET:
             field_dict["updated_at"] = updated_at
-        if data is not UNSET:
-            field_dict["data"] = data
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.api_key_data import ApiKeyData
         from ..models.api_key_scopes import ApiKeyScopes
 
         d = dict(src_dict)
@@ -252,13 +252,6 @@ class ApiKey:
 
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 
-        _data = d.pop("data", UNSET)
-        data: ApiKeyData | Unset
-        if isinstance(_data, Unset):
-            data = UNSET
-        else:
-            data = ApiKeyData.from_dict(_data)
-
         api_key = cls(
             name=name,
             status=status,
@@ -269,7 +262,6 @@ class ApiKey:
             last_used_at=last_used_at,
             created_at=created_at,
             updated_at=updated_at,
-            data=data,
         )
 
         api_key.additional_properties = d

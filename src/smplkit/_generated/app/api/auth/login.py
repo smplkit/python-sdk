@@ -86,8 +86,8 @@ def sync_detailed(
      Authenticates with email and password and returns an authentication token.
 
     Args:
-        body (LoginRequest):  Example: {'email': 'jane@example.com', 'password': 'correct-horse-
-            battery-staple'}.
+        body (LoginRequest): Body for the email + password login endpoint. Example: {'email':
+            'jane@example.com', 'password': 'correct-horse-battery-staple'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,8 +118,8 @@ def sync(
      Authenticates with email and password and returns an authentication token.
 
     Args:
-        body (LoginRequest):  Example: {'email': 'jane@example.com', 'password': 'correct-horse-
-            battery-staple'}.
+        body (LoginRequest): Body for the email + password login endpoint. Example: {'email':
+            'jane@example.com', 'password': 'correct-horse-battery-staple'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -145,8 +145,8 @@ async def asyncio_detailed(
      Authenticates with email and password and returns an authentication token.
 
     Args:
-        body (LoginRequest):  Example: {'email': 'jane@example.com', 'password': 'correct-horse-
-            battery-staple'}.
+        body (LoginRequest): Body for the email + password login endpoint. Example: {'email':
+            'jane@example.com', 'password': 'correct-horse-battery-staple'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -175,8 +175,8 @@ async def asyncio(
      Authenticates with email and password and returns an authentication token.
 
     Args:
-        body (LoginRequest):  Example: {'email': 'jane@example.com', 'password': 'correct-horse-
-            battery-staple'}.
+        body (LoginRequest): Body for the email + password login endpoint. Example: {'email':
+            'jane@example.com', 'password': 'correct-horse-battery-staple'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

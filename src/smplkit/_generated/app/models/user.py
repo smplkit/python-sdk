@@ -18,27 +18,31 @@ T = TypeVar("T", bound="User")
 
 @_attrs_define
 class User:
-    """
+    """A person with access to one or more accounts in smplkit.
+
     Example:
         {'account': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'auth_provider': 'GOOGLE', 'created_at':
             '2026-03-20T11:02:16.616Z', 'display_name': 'Jane Smith', 'email': 'jane@example.com', 'email_verified': True,
             'profile_pic': 'https://lh3.googleusercontent.com/a/example', 'role': 'OWNER'}
 
     Attributes:
-        email (str): User's email address
-        display_name (str):
-        profile_pic (None | str | Unset):
-        avatar_url (None | str | Unset): Server-computed ``data:`` URL when an OIDC provider supplied a profile picture.
-            Null otherwise — callers should fall back to Gravatar or initials.
-        auth_provider (None | str | Unset):
-        email_verified (bool | Unset):  Default: False.
-        role (None | str | Unset): Role in current account context
-        account (None | str | Unset): Account UUID
-        created_at (datetime.datetime | None | Unset):
+        display_name (str): Human-readable display name shown in the console and on shared resources.
+        email (None | str | Unset): Email address used to sign in to the user account.
+        profile_pic (None | str | Unset): URL of an external profile picture (e.g. the value supplied by the user's
+            identity provider).
+        avatar_url (None | str | Unset): Server-generated `data:` URL containing the user's avatar image bytes when one
+            has been captured. `null` when no avatar is available — callers should fall back to Gravatar or initials.
+        auth_provider (None | str | Unset): Identity provider that authenticates the user, e.g. `google`, `microsoft`,
+            or `email`.
+        email_verified (bool | Unset): Whether the user has completed email verification. Default: False.
+        role (None | str | Unset): Role the user holds in the current account context. One of `OWNER`, `ADMIN`,
+            `MEMBER`, or `VIEWER`.
+        account (None | str | Unset): UUID of the account the user is acting within.
+        created_at (datetime.datetime | None | Unset): When the user record was created.
     """
 
-    email: str
     display_name: str
+    email: None | str | Unset = UNSET
     profile_pic: None | str | Unset = UNSET
     avatar_url: None | str | Unset = UNSET
     auth_provider: None | str | Unset = UNSET
@@ -49,9 +53,13 @@ class User:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        email = self.email
-
         display_name = self.display_name
+
+        email: None | str | Unset
+        if isinstance(self.email, Unset):
+            email = UNSET
+        else:
+            email = self.email
 
         profile_pic: None | str | Unset
         if isinstance(self.profile_pic, Unset):
@@ -97,10 +105,11 @@ class User:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "email": email,
                 "display_name": display_name,
             }
         )
+        if email is not UNSET:
+            field_dict["email"] = email
         if profile_pic is not UNSET:
             field_dict["profile_pic"] = profile_pic
         if avatar_url is not UNSET:
@@ -121,9 +130,16 @@ class User:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        email = d.pop("email")
-
         display_name = d.pop("display_name")
+
+        def _parse_email(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        email = _parse_email(d.pop("email", UNSET))
 
         def _parse_profile_pic(data: object) -> None | str | Unset:
             if data is None:
@@ -190,8 +206,8 @@ class User:
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
         user = cls(
-            email=email,
             display_name=display_name,
+            email=email,
             profile_pic=profile_pic,
             avatar_url=avatar_url,
             auth_provider=auth_provider,

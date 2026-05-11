@@ -86,7 +86,8 @@ def sync_detailed(
      Verifies a user's email address using the token from the verification email.
 
     Args:
-        body (VerifyEmailRequest):  Example: {'token': 'eyJhbGciOiJIUzI1NiJ9...'}.
+        body (VerifyEmailRequest): Body for the email-verification endpoint. Example: {'token':
+            'eyJhbGciOiJIUzI1NiJ9...'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -117,7 +118,8 @@ def sync(
      Verifies a user's email address using the token from the verification email.
 
     Args:
-        body (VerifyEmailRequest):  Example: {'token': 'eyJhbGciOiJIUzI1NiJ9...'}.
+        body (VerifyEmailRequest): Body for the email-verification endpoint. Example: {'token':
+            'eyJhbGciOiJIUzI1NiJ9...'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -143,7 +145,8 @@ async def asyncio_detailed(
      Verifies a user's email address using the token from the verification email.
 
     Args:
-        body (VerifyEmailRequest):  Example: {'token': 'eyJhbGciOiJIUzI1NiJ9...'}.
+        body (VerifyEmailRequest): Body for the email-verification endpoint. Example: {'token':
+            'eyJhbGciOiJIUzI1NiJ9...'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -172,7 +175,8 @@ async def asyncio(
      Verifies a user's email address using the token from the verification email.
 
     Args:
-        body (VerifyEmailRequest):  Example: {'token': 'eyJhbGciOiJIUzI1NiJ9...'}.
+        body (VerifyEmailRequest): Body for the email-verification endpoint. Example: {'token':
+            'eyJhbGciOiJIUzI1NiJ9...'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

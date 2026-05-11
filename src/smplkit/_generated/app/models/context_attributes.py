@@ -12,7 +12,10 @@ T = TypeVar("T", bound="ContextAttributes")
 
 @_attrs_define
 class ContextAttributes:
-    """Observed attributes"""
+    """Observed attribute values for this context instance. The key set is conventionally aligned with the parent context
+    type's known attribute keys, but additional keys are accepted.
+
+    """
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 

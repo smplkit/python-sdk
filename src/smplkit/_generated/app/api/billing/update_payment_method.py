@@ -9,6 +9,7 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
+from ...models.payment_method_request import PaymentMethodRequest
 from ...models.payment_method_response import PaymentMethodResponse
 from uuid import UUID
 
@@ -16,7 +17,7 @@ from uuid import UUID
 def _get_kwargs(
     id: UUID,
     *,
-    body: PaymentMethodResponse,
+    body: PaymentMethodRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -84,16 +85,16 @@ def sync_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
-    body: PaymentMethodResponse,
+    body: PaymentMethodRequest,
 ) -> Response[ErrorResponse | PaymentMethodResponse]:
     """Update Payment Method
 
-     Update the mutable fields (``billing_details``, ``exp_month``, ``exp_year``). The ``default`` field
-    is not mutable via PUT — see ADR-044 §5.2; use the ``set_default`` action instead.
+     Update the mutable fields of a payment method (`billing_details`, `exp_month`, `exp_year`). The
+    `default` flag is not mutable via PUT — use the `set_default` action instead.
 
     Args:
         id (UUID):
-        body (PaymentMethodResponse):
+        body (PaymentMethodRequest): JSON:API request envelope for updating a payment method.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -119,16 +120,16 @@ def sync(
     id: UUID,
     *,
     client: AuthenticatedClient,
-    body: PaymentMethodResponse,
+    body: PaymentMethodRequest,
 ) -> ErrorResponse | PaymentMethodResponse | None:
     """Update Payment Method
 
-     Update the mutable fields (``billing_details``, ``exp_month``, ``exp_year``). The ``default`` field
-    is not mutable via PUT — see ADR-044 §5.2; use the ``set_default`` action instead.
+     Update the mutable fields of a payment method (`billing_details`, `exp_month`, `exp_year`). The
+    `default` flag is not mutable via PUT — use the `set_default` action instead.
 
     Args:
         id (UUID):
-        body (PaymentMethodResponse):
+        body (PaymentMethodRequest): JSON:API request envelope for updating a payment method.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -149,16 +150,16 @@ async def asyncio_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
-    body: PaymentMethodResponse,
+    body: PaymentMethodRequest,
 ) -> Response[ErrorResponse | PaymentMethodResponse]:
     """Update Payment Method
 
-     Update the mutable fields (``billing_details``, ``exp_month``, ``exp_year``). The ``default`` field
-    is not mutable via PUT — see ADR-044 §5.2; use the ``set_default`` action instead.
+     Update the mutable fields of a payment method (`billing_details`, `exp_month`, `exp_year`). The
+    `default` flag is not mutable via PUT — use the `set_default` action instead.
 
     Args:
         id (UUID):
-        body (PaymentMethodResponse):
+        body (PaymentMethodRequest): JSON:API request envelope for updating a payment method.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -182,16 +183,16 @@ async def asyncio(
     id: UUID,
     *,
     client: AuthenticatedClient,
-    body: PaymentMethodResponse,
+    body: PaymentMethodRequest,
 ) -> ErrorResponse | PaymentMethodResponse | None:
     """Update Payment Method
 
-     Update the mutable fields (``billing_details``, ``exp_month``, ``exp_year``). The ``default`` field
-    is not mutable via PUT — see ADR-044 §5.2; use the ``set_default`` action instead.
+     Update the mutable fields of a payment method (`billing_details`, `exp_month`, `exp_year`). The
+    `default` flag is not mutable via PUT — use the `set_default` action instead.
 
     Args:
         id (UUID):
-        body (PaymentMethodResponse):
+        body (PaymentMethodRequest): JSON:API request envelope for updating a payment method.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

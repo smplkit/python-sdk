@@ -21,17 +21,23 @@ T = TypeVar("T", bound="Context")
 
 @_attrs_define
 class Context:
-    """
-    Example:
-        {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'}, 'context_type': 'user', 'created_at':
-            '2026-03-31T10:00:00Z', 'name': 'Alice Smith', 'updated_at': '2026-03-31T10:00:00Z'}
+    """A specific instance of a context type — for example, a particular
+    user, account, or device — together with the attributes observed on it.
 
-    Attributes:
-        context_type (str): Context type key (e.g., 'user', 'account')
-        name (None | str | Unset): Human-readable display name
-        attributes (ContextAttributes | Unset): Observed attributes
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
+    Context instances are addressed by a composite identifier of the form
+    `context_type:key` (e.g. `user:alice-123`).
+
+        Example:
+            {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'}, 'context_type': 'user', 'created_at':
+                '2026-03-31T10:00:00Z', 'name': 'Alice Smith', 'updated_at': '2026-03-31T10:00:00Z'}
+
+        Attributes:
+            context_type (str): Key of the context type this instance belongs to (e.g. `user`, `account`).
+            name (None | str | Unset): Human-readable display name for the context instance.
+            attributes (ContextAttributes | Unset): Observed attribute values for this context instance. The key set is
+                conventionally aligned with the parent context type's known attribute keys, but additional keys are accepted.
+            created_at (datetime.datetime | None | Unset): When the context instance was first registered.
+            updated_at (datetime.datetime | None | Unset): When the context instance was last modified.
     """
 
     context_type: str

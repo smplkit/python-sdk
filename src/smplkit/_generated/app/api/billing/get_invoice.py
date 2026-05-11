@@ -88,11 +88,13 @@ def sync_detailed(
 ) -> Response[ErrorResponse | InvoiceSingleResponse]:
     """Get Invoice
 
-     Return a single invoice by ID. Supports content negotiation via Accept header:
+     Return a single invoice by id. Supports content negotiation via the
+    `Accept` header:
 
-    - ``application/pdf`` — PDF bytes proxy-streamed from Stripe
-    - ``application/vnd.api+json`` / ``application/json`` / absent — JSON:API resource
-    - Any other value — 406 Not Acceptable
+    - `application/pdf` — streams the invoice PDF.
+    - `application/vnd.api+json`, `application/json`, or absent — returns
+      the JSON:API invoice resource.
+    - Any other value — `406 Not Acceptable`.
 
     Args:
         invoice_id (str):
@@ -123,11 +125,13 @@ def sync(
 ) -> ErrorResponse | InvoiceSingleResponse | None:
     """Get Invoice
 
-     Return a single invoice by ID. Supports content negotiation via Accept header:
+     Return a single invoice by id. Supports content negotiation via the
+    `Accept` header:
 
-    - ``application/pdf`` — PDF bytes proxy-streamed from Stripe
-    - ``application/vnd.api+json`` / ``application/json`` / absent — JSON:API resource
-    - Any other value — 406 Not Acceptable
+    - `application/pdf` — streams the invoice PDF.
+    - `application/vnd.api+json`, `application/json`, or absent — returns
+      the JSON:API invoice resource.
+    - Any other value — `406 Not Acceptable`.
 
     Args:
         invoice_id (str):
@@ -153,11 +157,13 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | InvoiceSingleResponse]:
     """Get Invoice
 
-     Return a single invoice by ID. Supports content negotiation via Accept header:
+     Return a single invoice by id. Supports content negotiation via the
+    `Accept` header:
 
-    - ``application/pdf`` — PDF bytes proxy-streamed from Stripe
-    - ``application/vnd.api+json`` / ``application/json`` / absent — JSON:API resource
-    - Any other value — 406 Not Acceptable
+    - `application/pdf` — streams the invoice PDF.
+    - `application/vnd.api+json`, `application/json`, or absent — returns
+      the JSON:API invoice resource.
+    - Any other value — `406 Not Acceptable`.
 
     Args:
         invoice_id (str):
@@ -186,11 +192,13 @@ async def asyncio(
 ) -> ErrorResponse | InvoiceSingleResponse | None:
     """Get Invoice
 
-     Return a single invoice by ID. Supports content negotiation via Accept header:
+     Return a single invoice by id. Supports content negotiation via the
+    `Accept` header:
 
-    - ``application/pdf`` — PDF bytes proxy-streamed from Stripe
-    - ``application/vnd.api+json`` / ``application/json`` / absent — JSON:API resource
-    - Any other value — 406 Not Acceptable
+    - `application/pdf` — streams the invoice PDF.
+    - `application/vnd.api+json`, `application/json`, or absent — returns
+      the JSON:API invoice resource.
+    - Any other value — `406 Not Acceptable`.
 
     Args:
         invoice_id (str):

@@ -21,7 +21,8 @@ T = TypeVar("T", bound="InvoiceResource")
 
 @_attrs_define
 class InvoiceResource:
-    """
+    """JSON:API resource envelope for an invoice.
+
     Example:
         {'attributes': {'amount_due': 2900, 'amount_paid': 2900, 'created_at': '2026-03-01T00:00:00Z', 'currency':
             'usd', 'description': 'Smpl Flags - Pro', 'hosted_invoice_url': 'https://invoice.stripe.com/i/acct_xxx/inv_xxx',
@@ -31,7 +32,7 @@ class InvoiceResource:
 
     Attributes:
         type_ (InvoiceResourceType):
-        attributes (Invoice):
+        attributes (Invoice): A billing invoice issued for the account.
         id (None | str | Unset):
     """
 

@@ -16,7 +16,7 @@ T = TypeVar("T", bound="ProductLimits")
 
 @_attrs_define
 class ProductLimits:
-    """ """
+    """Map of limit key to limit definition for this product."""
 
     additional_properties: dict[str, LimitDefinition] = _attrs_field(init=False, factory=dict)
 

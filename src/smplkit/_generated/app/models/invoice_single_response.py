@@ -16,11 +16,12 @@ T = TypeVar("T", bound="InvoiceSingleResponse")
 
 @_attrs_define
 class InvoiceSingleResponse:
-    """
+    """JSON:API single-resource response envelope for an invoice.
+
     Attributes:
-        data (InvoiceResource):  Example: {'attributes': {'amount_due': 2900, 'amount_paid': 2900, 'created_at':
-            '2026-03-01T00:00:00Z', 'currency': 'usd', 'description': 'Smpl Flags - Pro', 'hosted_invoice_url':
-            'https://invoice.stripe.com/i/acct_xxx/inv_xxx', 'invoice_pdf':
+        data (InvoiceResource): JSON:API resource envelope for an invoice. Example: {'attributes': {'amount_due': 2900,
+            'amount_paid': 2900, 'created_at': '2026-03-01T00:00:00Z', 'currency': 'usd', 'description': 'Smpl Flags - Pro',
+            'hosted_invoice_url': 'https://invoice.stripe.com/i/acct_xxx/inv_xxx', 'invoice_pdf':
             'https://pay.stripe.com/invoice/acct_xxx/inv_xxx/pdf', 'number': 'INV-0001', 'paid_at': '2026-03-01T12:00:00Z',
             'period_end': '2026-04-01T00:00:00Z', 'period_start': '2026-03-01T00:00:00Z', 'status': 'paid'}, 'id':
             'in_1234567890abcdef', 'type': 'invoice'}.

@@ -12,7 +12,7 @@ T = TypeVar("T", bound="PaymentMethodBillingDetails")
 
 @_attrs_define
 class PaymentMethodBillingDetails:
-    """ """
+    """Billing details (name, email, phone, address) associated with the card."""
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 

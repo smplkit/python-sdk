@@ -86,9 +86,9 @@ def sync_detailed(
      Create a new paid subscription for a product.
 
     Args:
-        body (CreateSubscriptionBody):  Example: {'data': {'attributes': {'payment_method':
-            'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'plan': 'pro', 'product': 'flags'}, 'type':
-            'subscription'}}.
+        body (CreateSubscriptionBody): JSON:API request envelope for creating a subscription.
+            Example: {'data': {'attributes': {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-
+            ef1234567890', 'plan': 'pro', 'product': 'flags'}, 'type': 'subscription'}}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -119,9 +119,9 @@ def sync(
      Create a new paid subscription for a product.
 
     Args:
-        body (CreateSubscriptionBody):  Example: {'data': {'attributes': {'payment_method':
-            'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'plan': 'pro', 'product': 'flags'}, 'type':
-            'subscription'}}.
+        body (CreateSubscriptionBody): JSON:API request envelope for creating a subscription.
+            Example: {'data': {'attributes': {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-
+            ef1234567890', 'plan': 'pro', 'product': 'flags'}, 'type': 'subscription'}}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -147,9 +147,9 @@ async def asyncio_detailed(
      Create a new paid subscription for a product.
 
     Args:
-        body (CreateSubscriptionBody):  Example: {'data': {'attributes': {'payment_method':
-            'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'plan': 'pro', 'product': 'flags'}, 'type':
-            'subscription'}}.
+        body (CreateSubscriptionBody): JSON:API request envelope for creating a subscription.
+            Example: {'data': {'attributes': {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-
+            ef1234567890', 'plan': 'pro', 'product': 'flags'}, 'type': 'subscription'}}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -178,9 +178,9 @@ async def asyncio(
      Create a new paid subscription for a product.
 
     Args:
-        body (CreateSubscriptionBody):  Example: {'data': {'attributes': {'payment_method':
-            'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'plan': 'pro', 'product': 'flags'}, 'type':
-            'subscription'}}.
+        body (CreateSubscriptionBody): JSON:API request envelope for creating a subscription.
+            Example: {'data': {'attributes': {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-
+            ef1234567890', 'plan': 'pro', 'product': 'flags'}, 'type': 'subscription'}}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

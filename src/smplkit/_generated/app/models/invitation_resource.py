@@ -21,19 +21,26 @@ T = TypeVar("T", bound="InvitationResource")
 
 @_attrs_define
 class InvitationResource:
-    """
-    Example:
-        {'attributes': {'created_at': '2026-03-20T11:02:16.616Z', 'email': 'mike@example.com', 'expires_at':
-            '2026-04-20T11:02:16.616Z', 'invited_by': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'role': 'MEMBER', 'status':
-            'PENDING', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id': 'd4e5f6a7-b8c9-0123-defa-234567890123', 'type':
-            'invitation'}
+    """JSON:API resource envelope for an invitation.
 
-    Attributes:
-        type_ (InvitationResourceType):
-        attributes (Invitation):  Example: {'created_at': '2026-03-20T11:02:16.616Z', 'email': 'mike@example.com',
-            'expires_at': '2026-04-20T11:02:16.616Z', 'invited_by': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'role':
-            'MEMBER', 'status': 'PENDING', 'updated_at': '2026-03-20T11:02:16.616Z'}.
-        id (None | str | Unset):
+    `id` must not be specified for create requests (the server assigns it).
+
+        Example:
+            {'attributes': {'created_at': '2026-03-20T11:02:16.616Z', 'email': 'mike@example.com', 'expires_at':
+                '2026-04-20T11:02:16.616Z', 'invited_by': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'role': 'MEMBER', 'status':
+                'PENDING', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id': 'd4e5f6a7-b8c9-0123-defa-234567890123', 'type':
+                'invitation'}
+
+        Attributes:
+            type_ (InvitationResourceType):
+            attributes (Invitation): An invitation for a person to join an account.
+
+                Invitations carry a time-limited token; the recipient redeems the
+                token to become a member of the inviting account at the assigned role. Example: {'created_at':
+                '2026-03-20T11:02:16.616Z', 'email': 'mike@example.com', 'expires_at': '2026-04-20T11:02:16.616Z', 'invited_by':
+                'd290f1ee-6c54-4b01-90e6-d701748f0851', 'role': 'MEMBER', 'status': 'PENDING', 'updated_at':
+                '2026-03-20T11:02:16.616Z'}.
+            id (None | str | Unset):
     """
 
     type_: InvitationResourceType

@@ -12,9 +12,11 @@ T = TypeVar("T", bound="SetupIntentAttributes")
 
 @_attrs_define
 class SetupIntentAttributes:
-    """
+    """Result of executing the setup-intent function.
+
     Attributes:
-        client_secret (str):
+        client_secret (str): Client secret to pass to Stripe Elements so the customer can complete payment-method setup
+            in the browser.
     """
 
     client_secret: str

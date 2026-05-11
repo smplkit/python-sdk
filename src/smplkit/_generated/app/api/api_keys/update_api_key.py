@@ -8,6 +8,7 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
+from ...models.api_key_request import ApiKeyRequest
 from ...models.api_key_response import ApiKeyResponse
 from ...models.error_response import ErrorResponse
 from uuid import UUID
@@ -16,7 +17,7 @@ from uuid import UUID
 def _get_kwargs(
     id: UUID,
     *,
-    body: ApiKeyResponse,
+    body: ApiKeyRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -84,7 +85,7 @@ def sync_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
-    body: ApiKeyResponse,
+    body: ApiKeyRequest,
 ) -> Response[ApiKeyResponse | ErrorResponse]:
     """Update API Key
 
@@ -92,7 +93,7 @@ def sync_detailed(
 
     Args:
         id (UUID):
-        body (ApiKeyResponse):
+        body (ApiKeyRequest): JSON:API request envelope for creating or updating an API key.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,7 +119,7 @@ def sync(
     id: UUID,
     *,
     client: AuthenticatedClient,
-    body: ApiKeyResponse,
+    body: ApiKeyRequest,
 ) -> ApiKeyResponse | ErrorResponse | None:
     """Update API Key
 
@@ -126,7 +127,7 @@ def sync(
 
     Args:
         id (UUID):
-        body (ApiKeyResponse):
+        body (ApiKeyRequest): JSON:API request envelope for creating or updating an API key.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -147,7 +148,7 @@ async def asyncio_detailed(
     id: UUID,
     *,
     client: AuthenticatedClient,
-    body: ApiKeyResponse,
+    body: ApiKeyRequest,
 ) -> Response[ApiKeyResponse | ErrorResponse]:
     """Update API Key
 
@@ -155,7 +156,7 @@ async def asyncio_detailed(
 
     Args:
         id (UUID):
-        body (ApiKeyResponse):
+        body (ApiKeyRequest): JSON:API request envelope for creating or updating an API key.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -179,7 +180,7 @@ async def asyncio(
     id: UUID,
     *,
     client: AuthenticatedClient,
-    body: ApiKeyResponse,
+    body: ApiKeyRequest,
 ) -> ApiKeyResponse | ErrorResponse | None:
     """Update API Key
 
@@ -187,7 +188,7 @@ async def asyncio(
 
     Args:
         id (UUID):
-        body (ApiKeyResponse):
+        body (ApiKeyRequest): JSON:API request envelope for creating or updating an API key.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

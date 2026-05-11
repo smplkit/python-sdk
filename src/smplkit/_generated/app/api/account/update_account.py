@@ -7,13 +7,14 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
+from ...models.account_request import AccountRequest
 from ...models.account_response import AccountResponse
 from ...models.error_response import ErrorResponse
 
 
 def _get_kwargs(
     *,
-    body: AccountResponse,
+    body: AccountRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -78,14 +79,14 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: AccountResponse,
+    body: AccountRequest,
 ) -> Response[AccountResponse | ErrorResponse]:
     """Update Current Account
 
      Update the current account's settings.
 
     Args:
-        body (AccountResponse):
+        body (AccountRequest): JSON:API request envelope for creating or updating an account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -109,14 +110,14 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: AccountResponse,
+    body: AccountRequest,
 ) -> AccountResponse | ErrorResponse | None:
     """Update Current Account
 
      Update the current account's settings.
 
     Args:
-        body (AccountResponse):
+        body (AccountRequest): JSON:API request envelope for creating or updating an account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -135,14 +136,14 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: AccountResponse,
+    body: AccountRequest,
 ) -> Response[AccountResponse | ErrorResponse]:
     """Update Current Account
 
      Update the current account's settings.
 
     Args:
-        body (AccountResponse):
+        body (AccountRequest): JSON:API request envelope for creating or updating an account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -164,14 +165,14 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: AccountResponse,
+    body: AccountRequest,
 ) -> AccountResponse | ErrorResponse | None:
     """Update Current Account
 
      Update the current account's settings.
 
     Args:
-        body (AccountResponse):
+        body (AccountRequest): JSON:API request envelope for creating or updating an account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

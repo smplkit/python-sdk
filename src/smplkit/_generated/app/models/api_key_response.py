@@ -16,12 +16,15 @@ T = TypeVar("T", bound="ApiKeyResponse")
 
 @_attrs_define
 class ApiKeyResponse:
-    """
+    """JSON:API single-resource response envelope for an API key.
+
     Attributes:
-        data (ApiKeyResource):  Example: {'attributes': {'created_at': '2026-03-20T11:02:16.616Z', 'created_by':
-            'd290f1ee-6c54-4b01-90e6-d701748f0851', 'expires_at': '2027-03-20T11:02:16.616Z', 'key':
-            'sk_api_a1b2c3d4e5f6g7h8i9j0', 'last_used_at': '2026-03-19T08:45:00.000Z', 'name': 'Production API Key',
-            'scopes': {}, 'status': 'ACTIVE', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id':
+        data (ApiKeyResource): JSON:API resource envelope for an API key.
+
+            `id` must not be specified for create requests (the server assigns it). Example: {'attributes': {'created_at':
+            '2026-03-20T11:02:16.616Z', 'created_by': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'expires_at':
+            '2027-03-20T11:02:16.616Z', 'key': 'sk_api_a1b2c3d4e5f6g7h8i9j0', 'last_used_at': '2026-03-19T08:45:00.000Z',
+            'name': 'Production API Key', 'scopes': {}, 'status': 'ACTIVE', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id':
             'b2c3d4e5-f6a7-8901-bcde-f12345678901', 'type': 'api_key'}.
     """
 

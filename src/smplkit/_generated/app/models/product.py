@@ -20,15 +20,17 @@ T = TypeVar("T", bound="Product")
 
 @_attrs_define
 class Product:
-    """
+    """A smplkit product, with its plans, metered limits, and marketing copy.
+
     Attributes:
-        display_name (str):
-        description (str):
-        limits (ProductLimits):
-        plans (ProductPlans):
-        tagline (None | str | Unset):
-        features (list[str] | Unset):
-        coming_soon (bool | Unset):  Default: False.
+        display_name (str): Human-readable product name.
+        description (str): Long-form product description.
+        limits (ProductLimits): Map of limit key to limit definition for this product.
+        plans (ProductPlans): Map of plan key to plan definition for this product.
+        tagline (None | str | Unset): Short marketing tagline shown on plan-selection surfaces.
+        features (list[str] | Unset): Bullet-list feature highlights for the product.
+        coming_soon (bool | Unset): When `true`, the product is listed but not yet available for subscription. Default:
+            False.
     """
 
     display_name: str

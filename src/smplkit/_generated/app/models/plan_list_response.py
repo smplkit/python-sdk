@@ -16,7 +16,8 @@ T = TypeVar("T", bound="PlanListResponse")
 
 @_attrs_define
 class PlanListResponse:
-    """
+    """JSON:API collection response for plan tiers.
+
     Attributes:
         data (list[PlanResource]):
     """

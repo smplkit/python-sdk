@@ -16,10 +16,13 @@ T = TypeVar("T", bound="InvitationResponse")
 
 @_attrs_define
 class InvitationResponse:
-    """
+    """JSON:API single-resource response envelope for an invitation.
+
     Attributes:
-        data (InvitationResource):  Example: {'attributes': {'created_at': '2026-03-20T11:02:16.616Z', 'email':
-            'mike@example.com', 'expires_at': '2026-04-20T11:02:16.616Z', 'invited_by':
+        data (InvitationResource): JSON:API resource envelope for an invitation.
+
+            `id` must not be specified for create requests (the server assigns it). Example: {'attributes': {'created_at':
+            '2026-03-20T11:02:16.616Z', 'email': 'mike@example.com', 'expires_at': '2026-04-20T11:02:16.616Z', 'invited_by':
             'd290f1ee-6c54-4b01-90e6-d701748f0851', 'role': 'MEMBER', 'status': 'PENDING', 'updated_at':
             '2026-03-20T11:02:16.616Z'}, 'id': 'd4e5f6a7-b8c9-0123-defa-234567890123', 'type': 'invitation'}.
     """

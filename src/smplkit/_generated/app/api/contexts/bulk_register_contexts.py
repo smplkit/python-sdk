@@ -86,7 +86,7 @@ def sync_detailed(
      Register context instances in bulk. Creates context types automatically if they don't exist.
 
     Args:
-        body (ContextBulkRegister):
+        body (ContextBulkRegister): Bulk registration request body for the contexts endpoint.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -117,7 +117,7 @@ def sync(
      Register context instances in bulk. Creates context types automatically if they don't exist.
 
     Args:
-        body (ContextBulkRegister):
+        body (ContextBulkRegister): Bulk registration request body for the contexts endpoint.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -143,7 +143,7 @@ async def asyncio_detailed(
      Register context instances in bulk. Creates context types automatically if they don't exist.
 
     Args:
-        body (ContextBulkRegister):
+        body (ContextBulkRegister): Bulk registration request body for the contexts endpoint.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -172,7 +172,7 @@ async def asyncio(
      Register context instances in bulk. Creates context types automatically if they don't exist.
 
     Args:
-        body (ContextBulkRegister):
+        body (ContextBulkRegister): Bulk registration request body for the contexts endpoint.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

@@ -25,7 +25,7 @@ class SetupIntentResource:
 
     Attributes:
         type_ (SetupIntentResourceType):
-        attributes (SetupIntentAttributes):
+        attributes (SetupIntentAttributes): Result of executing the setup-intent function.
     """
 
     type_: SetupIntentResourceType

@@ -16,13 +16,14 @@ T = TypeVar("T", bound="InvitationBulkCreateRequest")
 
 @_attrs_define
 class InvitationBulkCreateRequest:
-    """
+    """Bulk-create request body for the invitations endpoint.
+
     Example:
         {'invitations': [{'email': 'alice@example.com', 'role': 'MEMBER'}, {'email': 'bob@example.com', 'role':
             'MEMBER'}]}
 
     Attributes:
-        invitations (list[InvitationCreateItem]):
+        invitations (list[InvitationCreateItem]): One to fifty invitations to send in a single request.
     """
 
     invitations: list[InvitationCreateItem]

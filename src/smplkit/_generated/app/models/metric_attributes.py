@@ -21,15 +21,17 @@ T = TypeVar("T", bound="MetricAttributes")
 
 @_attrs_define
 class MetricAttributes:
-    """
+    """A pre-aggregated metric data point recorded for the account.
+
     Attributes:
-        name (str):
-        value (float | str):
-        period_seconds (int):
-        recorded_at (datetime.datetime):
-        unit (None | str | Unset):
-        dimensions (MetricAttributesDimensions | Unset):
-        created_at (datetime.datetime | None | Unset):
+        name (str): Metric series name, e.g. `flags.evaluations`. Dot-separated.
+        value (float | str): Aggregated value for this data point over `period_seconds`.
+        period_seconds (int): Length of the aggregation window in seconds (e.g. `60` for a one-minute roll-up).
+        recorded_at (datetime.datetime): Start of the aggregation window this data point covers.
+        unit (None | str | Unset): Unit the value is expressed in, e.g. `evaluations`, `ms`, `bytes`.
+        dimensions (MetricAttributesDimensions | Unset): Optional dimension keys that scope the data point, e.g.
+            `environment`, `service`. Used as filter targets on the list endpoint via `filter[dimensions.<key>]=...`.
+        created_at (datetime.datetime | None | Unset): When the data point was ingested.
     """
 
     name: str

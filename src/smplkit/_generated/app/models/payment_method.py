@@ -21,10 +21,11 @@ T = TypeVar("T", bound="PaymentMethod")
 
 @_attrs_define
 class PaymentMethod:
-    """Attributes for a saved card payment method.
+    """A saved card on file for the account, used to charge subscription
+    invoices.
 
-    ``default`` is the API-facing name; the underlying column is ``is_default``
-    per ADR-013 (reserved-word exception) and ADR-014 (unprefixed API fields).
+    The default payment method is changed via the `set_default` action
+    rather than by updating this field through PUT.
 
         Example:
             {'billing_details': {'address': {'city': 'Leesburg', 'country': 'US', 'line1': '123 Main St', 'postal_code':
@@ -33,14 +34,16 @@ class PaymentMethod:
                 '2026-04-23T12:34:56Z'}
 
         Attributes:
-            brand (None | str | Unset):
-            last4 (None | str | Unset):
-            exp_month (int | None | Unset):
-            exp_year (int | None | Unset):
-            default (bool | None | Unset):
-            billing_details (None | PaymentMethodBillingDetails | Unset):
-            created_at (datetime.datetime | None | Unset):
-            updated_at (datetime.datetime | None | Unset):
+            brand (None | str | Unset): Card network brand, e.g. `visa`, `mastercard`, `amex`.
+            last4 (None | str | Unset): Last four digits of the card number.
+            exp_month (int | None | Unset): Expiry month (1-12).
+            exp_year (int | None | Unset): Expiry year (four-digit).
+            default (bool | None | Unset): Whether this payment method is the account's default for subscription charges.
+                Use the `set_default` action to change which payment method is default — this field is not writable via PUT.
+            billing_details (None | PaymentMethodBillingDetails | Unset): Billing details (name, email, phone, address)
+                associated with the card.
+            created_at (datetime.datetime | None | Unset): When the payment method was registered.
+            updated_at (datetime.datetime | None | Unset): When the payment method was last modified.
     """
 
     brand: None | str | Unset = UNSET
