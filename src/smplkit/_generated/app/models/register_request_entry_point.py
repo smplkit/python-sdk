@@ -1,12 +1,12 @@
 from typing import Literal, cast
 
-RegisterRequestEntryPoint = Literal["get_started", "live_demo", "login", "unknown"]
+RegisterRequestEntryPoint = Literal["GET_STARTED", "LIVE_DEMO", "LOGIN", "UNKNOWN"]
 
 REGISTER_REQUEST_ENTRY_POINT_VALUES: set[RegisterRequestEntryPoint] = {
-    "get_started",
-    "live_demo",
-    "login",
-    "unknown",
+    "GET_STARTED",
+    "LIVE_DEMO",
+    "LOGIN",
+    "UNKNOWN",
 }
 
 

@@ -87,7 +87,7 @@ def sync_detailed(
 
     Args:
         body (RegisterRequest):  Example: {'email': 'jane@example.com', 'entry_point':
-            'get_started', 'password': 'correct-horse-battery-staple'}.
+            'GET_STARTED', 'password': 'correct-horse-battery-staple'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -119,7 +119,7 @@ def sync(
 
     Args:
         body (RegisterRequest):  Example: {'email': 'jane@example.com', 'entry_point':
-            'get_started', 'password': 'correct-horse-battery-staple'}.
+            'GET_STARTED', 'password': 'correct-horse-battery-staple'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -146,7 +146,7 @@ async def asyncio_detailed(
 
     Args:
         body (RegisterRequest):  Example: {'email': 'jane@example.com', 'entry_point':
-            'get_started', 'password': 'correct-horse-battery-staple'}.
+            'GET_STARTED', 'password': 'correct-horse-battery-staple'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -176,7 +176,7 @@ async def asyncio(
 
     Args:
         body (RegisterRequest):  Example: {'email': 'jane@example.com', 'entry_point':
-            'get_started', 'password': 'correct-horse-battery-staple'}.
+            'GET_STARTED', 'password': 'correct-horse-battery-staple'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

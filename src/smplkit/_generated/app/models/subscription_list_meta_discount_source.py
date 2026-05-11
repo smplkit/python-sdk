@@ -1,10 +1,10 @@
 from typing import Literal, cast
 
-SubscriptionListMetaDiscountSource = Literal["override", "volume"]
+SubscriptionListMetaDiscountSource = Literal["OVERRIDE", "VOLUME"]
 
 SUBSCRIPTION_LIST_META_DISCOUNT_SOURCE_VALUES: set[SubscriptionListMetaDiscountSource] = {
-    "override",
-    "volume",
+    "OVERRIDE",
+    "VOLUME",
 }
 
 
