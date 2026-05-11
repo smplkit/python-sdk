@@ -25,7 +25,7 @@ class ForwarderType(str, enum.Enum):
     type-checked values instead of stringly-typed inputs. ``str``
     subclassing keeps interop with the auto-generated client transparent
     — a ``ForwarderType`` member compares equal to its string literal
-    (``ForwarderType.HTTP == "http"``).
+    (``ForwarderType.HTTP == "HTTP"``).
 
     The available types are real-time HTTP destinations sharing one
     outbound plumbing path. Object-storage archival (S3, GCS, etc.) has
@@ -34,13 +34,13 @@ class ForwarderType(str, enum.Enum):
     §2.12.
     """
 
-    HTTP = "http"
-    DATADOG = "datadog"
-    SPLUNK_HEC = "splunk_hec"
-    SUMO_LOGIC = "sumo_logic"
-    NEW_RELIC = "new_relic"
-    HONEYCOMB = "honeycomb"
-    ELASTIC = "elastic"
+    HTTP = "HTTP"
+    DATADOG = "DATADOG"
+    SPLUNK_HEC = "SPLUNK_HEC"
+    SUMO_LOGIC = "SUMO_LOGIC"
+    NEW_RELIC = "NEW_RELIC"
+    HONEYCOMB = "HONEYCOMB"
+    ELASTIC = "ELASTIC"
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,8 +181,8 @@ class ForwarderDelivery:
     """One delivery attempt recorded by the forwarder loop.
 
     ``request.headers`` are stored redacted. ``status`` is one of
-    ``"succeeded"``, ``"failed"``, ``"filtered_out"``, or
-    ``"skipped_do_not_forward"``.
+    ``"SUCCEEDED"``, ``"FAILED"``, ``"FILTERED_OUT"``, or
+    ``"SKIPPED_DO_NOT_FORWARD"``.
     """
 
     id: UUID

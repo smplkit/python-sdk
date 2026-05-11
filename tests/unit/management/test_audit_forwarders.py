@@ -38,7 +38,7 @@ def _forwarder_resource(
     id_: UUID = FWD_ID,
     name: str = "Datadog production",
     enabled: bool = True,
-    forwarder_type: str = "datadog",
+    forwarder_type: str = "DATADOG",
     filter_: dict[str, Any] | None = None,
     transform: str | None = None,
 ) -> dict[str, Any]:
@@ -68,7 +68,7 @@ def _forwarder_resource(
     }
 
 
-def _delivery_resource(*, status: str = "succeeded") -> dict[str, Any]:
+def _delivery_resource(*, status: str = "SUCCEEDED") -> dict[str, Any]:
     return {
         "id": str(DELIVERY_ID),
         "type": "forwarder_delivery",
@@ -141,8 +141,8 @@ class TestModels:
         assert f.deleted_at is None
 
     def test_forwarder_delivery_from_resource(self):
-        d = ForwarderDelivery._from_resource(_delivery_resource(status="failed"))
-        assert d.status == "failed"
+        d = ForwarderDelivery._from_resource(_delivery_resource(status="FAILED"))
+        assert d.status == "FAILED"
         assert d.response_status == 202
         assert d.attempt_number == 1
 
@@ -166,7 +166,7 @@ class TestForwardersCrud:
         try:
             fwd = c.forwarders.create(
                 name="Datadog production",
-                forwarder_type="datadog",
+                forwarder_type="DATADOG",
                 http=ForwarderHttp(
                     url="https://siem.example.com/in",
                     headers=[HttpHeader(name="DD-API-KEY", value="real-secret")],
@@ -192,7 +192,7 @@ class TestForwardersCrud:
         try:
             fwd = c.forwarders.create(
                 name="x",
-                forwarder_type="http",
+                forwarder_type="HTTP",
                 http={
                     "method": "POST",
                     "url": "https://x",
@@ -214,7 +214,7 @@ class TestForwardersCrud:
             with pytest.raises(UnexpectedStatus):
                 c.forwarders.create(
                     name="x",
-                    forwarder_type="http",
+                    forwarder_type="HTTP",
                     http=ForwarderHttp(url="https://x"),
                 )
         finally:
@@ -241,7 +241,7 @@ class TestForwardersCrud:
 
         c = _client_with_handler(handler)
         try:
-            first = c.forwarders.list(page_size=1, forwarder_type="datadog", enabled=True)
+            first = c.forwarders.list(page_size=1, forwarder_type="DATADOG", enabled=True)
             assert len(first.forwarders) == 1
             assert first.next_cursor == "tok-2"
             iterated = list(first)
@@ -277,7 +277,7 @@ class TestForwardersCrud:
             fwd = c.forwarders.update(
                 FWD_ID,
                 name="Renamed",
-                forwarder_type="datadog",
+                forwarder_type="DATADOG",
                 http=ForwarderHttp(url="https://x"),
                 enabled=False,
                 filter={"==": [1, 1]},
@@ -325,12 +325,12 @@ class TestDeliveries:
     def test_list_with_filters(self):
         pages = [
             {
-                "data": [_delivery_resource(status="succeeded")],
+                "data": [_delivery_resource(status="SUCCEEDED")],
                 "links": {"next": (f"/api/v1/forwarders/{FWD_ID}/deliveries?page[size]=1&page[after]=tok-2")},
                 "meta": {"page_size": 1},
             },
             {
-                "data": [_delivery_resource(status="failed")],
+                "data": [_delivery_resource(status="FAILED")],
                 "meta": {"page_size": 1},
             },
         ]
@@ -345,12 +345,12 @@ class TestDeliveries:
         try:
             first = c.forwarders.deliveries.list(
                 FWD_ID,
-                status="succeeded",
+                status="SUCCEEDED",
                 created_at_range="[2020-01-01T00:00:00Z,*)",
                 page_size=1,
             )
             assert len(first.deliveries) == 1
-            assert list(first)[0].status == "succeeded"
+            assert list(first)[0].status == "SUCCEEDED"
             assert first.next_cursor == "tok-2"
 
             second = c.forwarders.deliveries.list(FWD_ID, page_after=first.next_cursor)
@@ -362,15 +362,15 @@ class TestDeliveries:
         def handler(req):
             assert req.method == "POST"
             assert "actions/retry" in req.url.path
-            return httpx.Response(200, json={"data": _delivery_resource(status="succeeded")})
+            return httpx.Response(200, json={"data": _delivery_resource(status="SUCCEEDED")})
 
         c = _client_with_handler(handler)
         try:
             row = c.forwarders.deliveries.actions.retry(FWD_ID, DELIVERY_ID)
-            assert row.status == "succeeded"
+            assert row.status == "SUCCEEDED"
             # str ids also accepted.
             row2 = c.forwarders.deliveries.actions.retry(str(FWD_ID), str(DELIVERY_ID))
-            assert row2.status == "succeeded"
+            assert row2.status == "SUCCEEDED"
         finally:
             pass
 

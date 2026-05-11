@@ -419,8 +419,8 @@ class _DeliveriesClient:
         """List delivery rows for a forwarder.
 
         Filters and pagination follow the same conventions as the events
-        list endpoint. ``status`` is one of ``succeeded`` / ``failed`` /
-        ``filtered_out`` / ``skipped_do_not_forward``;
+        list endpoint. ``status`` is one of ``SUCCEEDED`` / ``FAILED`` /
+        ``FILTERED_OUT`` / ``SKIPPED_DO_NOT_FORWARD`` (case-insensitive);
         ``created_at_range`` uses the platform's interval notation
         (``[2026-01-01T00:00:00Z,*)``).
         """
