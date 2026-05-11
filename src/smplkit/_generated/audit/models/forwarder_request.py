@@ -11,12 +11,12 @@ if TYPE_CHECKING:
     from ..models.forwarder_resource import ForwarderResource
 
 
-T = TypeVar("T", bound="ForwarderResponse")
+T = TypeVar("T", bound="ForwarderRequest")
 
 
 @_attrs_define
-class ForwarderResponse:
-    """JSON:API single-resource response envelope for a forwarder.
+class ForwarderRequest:
+    """JSON:API request envelope for creating or updating a forwarder.
 
     Attributes:
         data (ForwarderResource): JSON:API resource envelope for a forwarder.
@@ -52,12 +52,12 @@ class ForwarderResponse:
         d = dict(src_dict)
         data = ForwarderResource.from_dict(d.pop("data"))
 
-        forwarder_response = cls(
+        forwarder_request = cls(
             data=data,
         )
 
-        forwarder_response.additional_properties = d
-        return forwarder_response
+        forwarder_request.additional_properties = d
+        return forwarder_request
 
     @property
     def additional_keys(self) -> list[str]:

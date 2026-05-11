@@ -7,6 +7,8 @@ from attrs import define as _attrs_define
 
 from ..types import UNSET, Unset
 
+from ..models.test_forwarder_request_method import check_test_forwarder_request_method
+from ..models.test_forwarder_request_method import TestForwarderRequestMethod
 from typing import cast
 
 if TYPE_CHECKING:
@@ -18,22 +20,23 @@ T = TypeVar("T", bound="TestForwarderRequest")
 
 @_attrs_define
 class TestForwarderRequest:
-    """Plain-JSON body for the test_forwarder execute action.
+    """Inputs to the test-forwarder action.
 
-    Mirrors the encrypted ``ForwarderHttp`` shape with one addition —
-    ``timeout_ms``, capped server-side.
+    Mirrors a forwarder's HTTP destination configuration with one
+    addition: `timeout_ms`, applied per-request and capped server-side.
 
         Attributes:
-            url (str):
-            method (str | Unset):  Default: 'POST'.
-            headers (list[HttpHeader] | Unset):
-            body (None | str | Unset):
-            success_status (str | Unset):  Default: '2xx'.
-            timeout_ms (int | None | Unset):
+            url (str): Destination URL.
+            method (TestForwarderRequestMethod | Unset): HTTP method used for the test request. Default: 'POST'.
+            headers (list[HttpHeader] | Unset): HTTP headers attached to the test request.
+            body (None | str | Unset): Request body. If omitted, an empty body is sent.
+            success_status (str | Unset): HTTP response status that indicates success. Either a specific status code (e.g.
+                `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`). Default: '2xx'.
+            timeout_ms (int | None | Unset): Per-request timeout in milliseconds. Capped at 30 seconds.
     """
 
     url: str
-    method: str | Unset = "POST"
+    method: TestForwarderRequestMethod | Unset = "POST"
     headers: list[HttpHeader] | Unset = UNSET
     body: None | str | Unset = UNSET
     success_status: str | Unset = "2xx"
@@ -42,7 +45,9 @@ class TestForwarderRequest:
     def to_dict(self) -> dict[str, Any]:
         url = self.url
 
-        method = self.method
+        method: str | Unset = UNSET
+        if not isinstance(self.method, Unset):
+            method = self.method
 
         headers: list[dict[str, Any]] | Unset = UNSET
         if not isinstance(self.headers, Unset):
@@ -92,7 +97,12 @@ class TestForwarderRequest:
         d = dict(src_dict)
         url = d.pop("url")
 
-        method = d.pop("method", UNSET)
+        _method = d.pop("method", UNSET)
+        method: TestForwarderRequestMethod | Unset
+        if isinstance(_method, Unset):
+            method = UNSET
+        else:
+            method = check_test_forwarder_request_method(_method)
 
         _headers = d.pop("headers", UNSET)
         headers: list[HttpHeader] | Unset = UNSET

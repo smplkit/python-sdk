@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from typing import cast
 
 if TYPE_CHECKING:
     from ..models.forwarder import Forwarder
@@ -18,41 +19,43 @@ T = TypeVar("T", bound="ForwarderResource")
 
 @_attrs_define
 class ForwarderResource:
-    """
-    Example:
-        {'attributes': {'created_at': '2026-05-07T12:00:00Z', 'data': {}, 'enabled': True, 'filter': {'==': [{'var':
-            'action'}, 'user.created']}, 'forwarder_type': 'DATADOG', 'http': {'headers': [{'name': 'DD-API-KEY', 'value':
-            'dd-api-key-plaintext'}], 'method': 'POST', 'success_status': '2xx', 'url': 'https://http-
-            intake.logs.datadoghq.com/api/v2/logs'}, 'name': 'Datadog production', 'slug': 'datadog_production',
-            'updated_at': '2026-05-07T12:00:00Z', 'version': 1}, 'id': '11111111-2222-3333-4444-555555555555', 'type':
-            'forwarder'}
+    """JSON:API resource envelope for a forwarder.
 
-    Attributes:
-        id (str):
-        attributes (Forwarder): Public-facing forwarder resource.
+    `id` must not be specified for create requests (the server assigns it).
 
-            Attribute set on POST /api/v1/forwarders:
-                - name (required)
-                - forwarder_type (required)
-                - http (required)
-                - enabled (optional, defaults true)
-                - filter (optional, JSON Logic)
-                - transform (optional, JSONata)
+        Example:
+            {'attributes': {'created_at': '2026-05-07T12:00:00Z', 'enabled': True, 'filter': {'==': [{'var': 'action'},
+                'user.created']}, 'forwarder_type': 'DATADOG', 'http': {'headers': [{'name': 'DD-API-KEY', 'value': 'dd-api-key-
+                plaintext'}], 'method': 'POST', 'success_status': '2xx', 'url': 'https://http-
+                intake.logs.datadoghq.com/api/v2/logs'}, 'name': 'Datadog production', 'slug': 'datadog_production',
+                'updated_at': '2026-05-07T12:00:00Z', 'version': 1}, 'id': '11111111-2222-3333-4444-555555555555', 'type':
+                'forwarder'}
 
-            The slug is server-derived from name on create; it is immutable on
-            update because consumers (UI, observability) key off it.
-        type_ (str | Unset):  Default: 'forwarder'.
+        Attributes:
+            attributes (Forwarder): A destination that receives audit events recorded for the account.
+
+                Each event recorded for the account is evaluated against every enabled
+                forwarder. If the filter expression evaluates truthy — or is absent —
+                the event is delivered to the destination using the configured HTTP
+                request. The slug, derived from `name` at create time, is the stable
+                identifier used by the console and other tooling.
+            id (None | str | Unset):
+            type_ (str | Unset):  Default: 'forwarder'.
     """
 
-    id: str
     attributes: Forwarder
+    id: None | str | Unset = UNSET
     type_: str | Unset = "forwarder"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        id = self.id
-
         attributes = self.attributes.to_dict()
+
+        id: None | str | Unset
+        if isinstance(self.id, Unset):
+            id = UNSET
+        else:
+            id = self.id
 
         type_ = self.type_
 
@@ -60,10 +63,11 @@ class ForwarderResource:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "id": id,
                 "attributes": attributes,
             }
         )
+        if id is not UNSET:
+            field_dict["id"] = id
         if type_ is not UNSET:
             field_dict["type"] = type_
 
@@ -74,15 +78,22 @@ class ForwarderResource:
         from ..models.forwarder import Forwarder
 
         d = dict(src_dict)
-        id = d.pop("id")
-
         attributes = Forwarder.from_dict(d.pop("attributes"))
+
+        def _parse_id(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        id = _parse_id(d.pop("id", UNSET))
 
         type_ = d.pop("type", UNSET)
 
         forwarder_resource = cls(
-            id=id,
             attributes=attributes,
+            id=id,
             type_=type_,
         )
 

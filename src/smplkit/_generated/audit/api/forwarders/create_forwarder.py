@@ -7,12 +7,13 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
+from ...models.forwarder_request import ForwarderRequest
 from ...models.forwarder_response import ForwarderResponse
 
 
 def _get_kwargs(
     *,
-    body: ForwarderResponse,
+    body: ForwarderRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -53,15 +54,14 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: ForwarderResponse,
+    body: ForwarderRequest,
 ) -> Response[ForwarderResponse]:
     """Create Forwarder
 
-     Create a forwarder. Requires the ``audit.siem_streaming`` entitlement
-    on the account; lower-tier accounts get 402.
+     Create a forwarder for this account.
 
     Args:
-        body (ForwarderResponse):
+        body (ForwarderRequest): JSON:API request envelope for creating or updating a forwarder.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -85,15 +85,14 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: ForwarderResponse,
+    body: ForwarderRequest,
 ) -> ForwarderResponse | None:
     """Create Forwarder
 
-     Create a forwarder. Requires the ``audit.siem_streaming`` entitlement
-    on the account; lower-tier accounts get 402.
+     Create a forwarder for this account.
 
     Args:
-        body (ForwarderResponse):
+        body (ForwarderRequest): JSON:API request envelope for creating or updating a forwarder.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -112,15 +111,14 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: ForwarderResponse,
+    body: ForwarderRequest,
 ) -> Response[ForwarderResponse]:
     """Create Forwarder
 
-     Create a forwarder. Requires the ``audit.siem_streaming`` entitlement
-    on the account; lower-tier accounts get 402.
+     Create a forwarder for this account.
 
     Args:
-        body (ForwarderResponse):
+        body (ForwarderRequest): JSON:API request envelope for creating or updating a forwarder.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -142,15 +140,14 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: ForwarderResponse,
+    body: ForwarderRequest,
 ) -> ForwarderResponse | None:
     """Create Forwarder
 
-     Create a forwarder. Requires the ``audit.siem_streaming`` entitlement
-    on the account; lower-tier accounts get 402.
+     Create a forwarder for this account.
 
     Args:
-        body (ForwarderResponse):
+        body (ForwarderRequest): JSON:API request envelope for creating or updating a forwarder.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

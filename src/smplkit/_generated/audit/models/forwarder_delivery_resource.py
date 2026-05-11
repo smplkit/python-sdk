@@ -18,7 +18,8 @@ T = TypeVar("T", bound="ForwarderDeliveryResource")
 
 @_attrs_define
 class ForwarderDeliveryResource:
-    """
+    """JSON:API resource envelope for a forwarder delivery log entry.
+
     Example:
         {'attributes': {'attempt_number': 1, 'created_at': '2026-05-07T12:00:01.234Z', 'event_id':
             '33333333-4444-5555-6666-777777777777', 'forwarder_id': '11111111-2222-3333-4444-555555555555', 'latency_ms':
@@ -29,10 +30,7 @@ class ForwarderDeliveryResource:
 
     Attributes:
         id (str):
-        attributes (ForwarderDelivery): Read-only delivery log row.
-
-            All fields are server-populated. Headers in ``request`` always show
-            redacted values, regardless of who configured them.
+        attributes (ForwarderDelivery): A log entry for one attempt to deliver an event to a forwarder.
         type_ (str | Unset):  Default: 'forwarder_delivery'.
     """
 

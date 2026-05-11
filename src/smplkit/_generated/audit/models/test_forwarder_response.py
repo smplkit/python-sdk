@@ -19,17 +19,15 @@ T = TypeVar("T", bound="TestForwarderResponse")
 
 @_attrs_define
 class TestForwarderResponse:
-    """Plain-JSON response body. Headers are echoed back unredacted because
-    the caller already supplied them — the response is for the caller, not
-    persisted into the delivery log.
+    """Result of a test-forwarder execution.
 
-        Attributes:
-            succeeded (bool):
-            response_status (int | None):
-            latency_ms (int | None):
-            response_headers (TestForwarderResponseResponseHeaders | Unset):
-            response_body (None | str | Unset):
-            error (None | str | Unset):
+    Attributes:
+        succeeded (bool): True if the destination responded with a status matching `success_status`.
+        response_status (int | None): HTTP status code returned by the destination.
+        latency_ms (int | None): Elapsed time of the request in milliseconds.
+        response_headers (TestForwarderResponseResponseHeaders | Unset): Headers returned by the destination.
+        response_body (None | str | Unset): Response body returned by the destination.
+        error (None | str | Unset): Error message if the request did not complete.
     """
 
     succeeded: bool

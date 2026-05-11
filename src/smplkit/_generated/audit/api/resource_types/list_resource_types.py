@@ -77,11 +77,10 @@ def sync_detailed(
 ) -> Response[ResourceTypeListResponse]:
     """List Resource Types
 
-     List the distinct ``resource_type`` slugs seen in the account.
+     List the distinct `resource_type` slugs recorded for this account.
 
-    Each row's ``id`` is the slug itself, mirroring the smplkit
-    convention of using customer-provided identifiers as the
-    public-facing resource id (ADR-014).
+    The resource `id` is the slug itself. Useful for populating filter
+    dropdowns in a UI.
 
     Args:
         pagesize (int | None | Unset):
@@ -115,11 +114,10 @@ def sync(
 ) -> ResourceTypeListResponse | None:
     """List Resource Types
 
-     List the distinct ``resource_type`` slugs seen in the account.
+     List the distinct `resource_type` slugs recorded for this account.
 
-    Each row's ``id`` is the slug itself, mirroring the smplkit
-    convention of using customer-provided identifiers as the
-    public-facing resource id (ADR-014).
+    The resource `id` is the slug itself. Useful for populating filter
+    dropdowns in a UI.
 
     Args:
         pagesize (int | None | Unset):
@@ -148,11 +146,10 @@ async def asyncio_detailed(
 ) -> Response[ResourceTypeListResponse]:
     """List Resource Types
 
-     List the distinct ``resource_type`` slugs seen in the account.
+     List the distinct `resource_type` slugs recorded for this account.
 
-    Each row's ``id`` is the slug itself, mirroring the smplkit
-    convention of using customer-provided identifiers as the
-    public-facing resource id (ADR-014).
+    The resource `id` is the slug itself. Useful for populating filter
+    dropdowns in a UI.
 
     Args:
         pagesize (int | None | Unset):
@@ -184,11 +181,10 @@ async def asyncio(
 ) -> ResourceTypeListResponse | None:
     """List Resource Types
 
-     List the distinct ``resource_type`` slugs seen in the account.
+     List the distinct `resource_type` slugs recorded for this account.
 
-    Each row's ``id`` is the slug itself, mirroring the smplkit
-    convention of using customer-provided identifiers as the
-    public-facing resource id (ADR-014).
+    The resource `id` is the slug itself. Useful for populating filter
+    dropdowns in a UI.
 
     Args:
         pagesize (int | None | Unset):

@@ -12,11 +12,12 @@ T = TypeVar("T", bound="RetryFailedDeliveriesSummary")
 
 @_attrs_define
 class RetryFailedDeliveriesSummary:
-    """
+    """Counts returned by the retry-failed-deliveries action.
+
     Attributes:
-        attempted (int):
-        succeeded (int):
-        failed (int):
+        attempted (int): Number of failed deliveries that were re-attempted.
+        succeeded (int): Number of re-attempts that succeeded.
+        failed (int): Number of re-attempts that failed again.
     """
 
     attempted: int

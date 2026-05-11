@@ -12,14 +12,15 @@ T = TypeVar("T", bound="WipeTablesSummary")
 
 @_attrs_define
 class WipeTablesSummary:
-    """
+    """Counts of records deleted, broken down by record kind.
+
     Attributes:
-        audit_event (int):
-        audit_event_quota (int):
-        forwarder (int):
-        forwarder_delivery (int):
-        resource_type (int):
-        action (int):
+        audit_event (int): Number of audit events deleted.
+        audit_event_quota (int): Number of monthly usage-quota counters deleted.
+        forwarder (int): Number of forwarders deleted.
+        forwarder_delivery (int): Number of forwarder delivery log entries deleted.
+        resource_type (int): Number of distinct `resource_type` entries deleted.
+        action (int): Number of distinct `action` entries deleted.
     """
 
     audit_event: int

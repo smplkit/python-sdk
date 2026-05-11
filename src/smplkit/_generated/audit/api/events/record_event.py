@@ -7,13 +7,14 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
+from ...models.event_request import EventRequest
 from ...models.event_response import EventResponse
 from ...types import Unset
 
 
 def _get_kwargs(
     *,
-    body: EventResponse,
+    body: EventRequest,
     idempotency_key: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
@@ -62,23 +63,23 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: EventResponse,
+    body: EventRequest,
     idempotency_key: None | str | Unset = UNSET,
 ) -> Response[EventResponse]:
     """Record Event
 
-     Record an audit event for the authenticated account.
+     Record an audit event for this account.
 
-    Returns ``201 Created`` on first write, ``200 OK`` if the request was a
-    duplicate (matched by ``Idempotency-Key`` or auto-derived key).
+    Returns `201 Created` on first write, `200 OK` if the request was a
+    duplicate (matched by `Idempotency-Key` or a key derived from the
+    event's content).
 
-    Customers may not emit events whose ``resource_type`` starts with
-    ``smpl.`` — that namespace is reserved for smplkit-emitted events
-    about platform resources.
+    `resource_type` values beginning with `smpl.` are reserved for events
+    that smplkit emits about its own resources and cannot be used here.
 
     Args:
         idempotency_key (None | str | Unset):
-        body (EventResponse): JSON:API single-resource response.
+        body (EventRequest): JSON:API request envelope for recording an audit event.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -103,23 +104,23 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: EventResponse,
+    body: EventRequest,
     idempotency_key: None | str | Unset = UNSET,
 ) -> EventResponse | None:
     """Record Event
 
-     Record an audit event for the authenticated account.
+     Record an audit event for this account.
 
-    Returns ``201 Created`` on first write, ``200 OK`` if the request was a
-    duplicate (matched by ``Idempotency-Key`` or auto-derived key).
+    Returns `201 Created` on first write, `200 OK` if the request was a
+    duplicate (matched by `Idempotency-Key` or a key derived from the
+    event's content).
 
-    Customers may not emit events whose ``resource_type`` starts with
-    ``smpl.`` — that namespace is reserved for smplkit-emitted events
-    about platform resources.
+    `resource_type` values beginning with `smpl.` are reserved for events
+    that smplkit emits about its own resources and cannot be used here.
 
     Args:
         idempotency_key (None | str | Unset):
-        body (EventResponse): JSON:API single-resource response.
+        body (EventRequest): JSON:API request envelope for recording an audit event.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -139,23 +140,23 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: EventResponse,
+    body: EventRequest,
     idempotency_key: None | str | Unset = UNSET,
 ) -> Response[EventResponse]:
     """Record Event
 
-     Record an audit event for the authenticated account.
+     Record an audit event for this account.
 
-    Returns ``201 Created`` on first write, ``200 OK`` if the request was a
-    duplicate (matched by ``Idempotency-Key`` or auto-derived key).
+    Returns `201 Created` on first write, `200 OK` if the request was a
+    duplicate (matched by `Idempotency-Key` or a key derived from the
+    event's content).
 
-    Customers may not emit events whose ``resource_type`` starts with
-    ``smpl.`` — that namespace is reserved for smplkit-emitted events
-    about platform resources.
+    `resource_type` values beginning with `smpl.` are reserved for events
+    that smplkit emits about its own resources and cannot be used here.
 
     Args:
         idempotency_key (None | str | Unset):
-        body (EventResponse): JSON:API single-resource response.
+        body (EventRequest): JSON:API request envelope for recording an audit event.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -178,23 +179,23 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: EventResponse,
+    body: EventRequest,
     idempotency_key: None | str | Unset = UNSET,
 ) -> EventResponse | None:
     """Record Event
 
-     Record an audit event for the authenticated account.
+     Record an audit event for this account.
 
-    Returns ``201 Created`` on first write, ``200 OK`` if the request was a
-    duplicate (matched by ``Idempotency-Key`` or auto-derived key).
+    Returns `201 Created` on first write, `200 OK` if the request was a
+    duplicate (matched by `Idempotency-Key` or a key derived from the
+    event's content).
 
-    Customers may not emit events whose ``resource_type`` starts with
-    ``smpl.`` — that namespace is reserved for smplkit-emitted events
-    about platform resources.
+    `resource_type` values beginning with `smpl.` are reserved for events
+    that smplkit emits about its own resources and cannot be used here.
 
     Args:
         idempotency_key (None | str | Unset):
-        body (EventResponse): JSON:API single-resource response.
+        body (EventRequest): JSON:API request envelope for recording an audit event.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

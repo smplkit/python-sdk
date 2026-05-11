@@ -10,10 +10,10 @@ from .event_data import EventData
 from .event_list_links import EventListLinks
 from .event_list_meta import EventListMeta
 from .event_list_response import EventListResponse
+from .event_request import EventRequest
 from .event_resource import EventResource
 from .event_response import EventResponse
 from .forwarder import Forwarder
-from .forwarder_data import ForwarderData
 from .forwarder_delivery import ForwarderDelivery
 from .forwarder_delivery_list_response import ForwarderDeliveryListResponse
 from .forwarder_delivery_request_type_0 import ForwarderDeliveryRequestType0
@@ -22,9 +22,11 @@ from .forwarder_delivery_response import ForwarderDeliveryResponse
 from .forwarder_delivery_status import ForwarderDeliveryStatus
 from .forwarder_filter_type_0 import ForwarderFilterType0
 from .forwarder_http import ForwarderHttp
+from .forwarder_http_method import ForwarderHttpMethod
 from .forwarder_list_links import ForwarderListLinks
 from .forwarder_list_meta import ForwarderListMeta
 from .forwarder_list_response import ForwarderListResponse
+from .forwarder_request import ForwarderRequest
 from .forwarder_resource import ForwarderResource
 from .forwarder_response import ForwarderResponse
 from .forwarder_type import ForwarderType
@@ -36,6 +38,7 @@ from .resource_type_list_response import ResourceTypeListResponse
 from .resource_type_resource import ResourceTypeResource
 from .retry_failed_deliveries_summary import RetryFailedDeliveriesSummary
 from .test_forwarder_request import TestForwarderRequest
+from .test_forwarder_request_method import TestForwarderRequestMethod
 from .test_forwarder_response import TestForwarderResponse
 from .test_forwarder_response_response_headers import TestForwarderResponseResponseHeaders
 from .usage_attributes import UsageAttributes
@@ -56,10 +59,10 @@ __all__ = (
     "EventListLinks",
     "EventListMeta",
     "EventListResponse",
+    "EventRequest",
     "EventResource",
     "EventResponse",
     "Forwarder",
-    "ForwarderData",
     "ForwarderDelivery",
     "ForwarderDeliveryListResponse",
     "ForwarderDeliveryRequestType0",
@@ -68,9 +71,11 @@ __all__ = (
     "ForwarderDeliveryStatus",
     "ForwarderFilterType0",
     "ForwarderHttp",
+    "ForwarderHttpMethod",
     "ForwarderListLinks",
     "ForwarderListMeta",
     "ForwarderListResponse",
+    "ForwarderRequest",
     "ForwarderResource",
     "ForwarderResponse",
     "ForwarderType",
@@ -82,6 +87,7 @@ __all__ = (
     "ResourceTypeResource",
     "RetryFailedDeliveriesSummary",
     "TestForwarderRequest",
+    "TestForwarderRequestMethod",
     "TestForwarderResponse",
     "TestForwarderResponseResponseHeaders",
     "UsageAttributes",

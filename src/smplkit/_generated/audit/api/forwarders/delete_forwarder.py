@@ -51,9 +51,10 @@ def sync_detailed(
 ) -> Response[Any]:
     """Delete Forwarder
 
-     Soft-delete a forwarder. Delivery rows are retained per the normal
-    forwarder_delivery retention; a future create with the same slug is
-    allowed (the unique index is partial on deleted_at IS NULL).
+     Delete a forwarder.
+
+    Past delivery log entries are retained. A new forwarder may be
+    created later under the same name.
 
     Args:
         forwarder_id (UUID):
@@ -84,9 +85,10 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """Delete Forwarder
 
-     Soft-delete a forwarder. Delivery rows are retained per the normal
-    forwarder_delivery retention; a future create with the same slug is
-    allowed (the unique index is partial on deleted_at IS NULL).
+     Delete a forwarder.
+
+    Past delivery log entries are retained. A new forwarder may be
+    created later under the same name.
 
     Args:
         forwarder_id (UUID):
