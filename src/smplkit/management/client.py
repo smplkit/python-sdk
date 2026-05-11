@@ -72,11 +72,9 @@ from smplkit._generated.app.models import (
     ContextTypeAttributes as _GenContextTypeAttributes,
     ContextTypeRequest as _GenContextTypeRequest,
     ContextTypeResource as _GenContextTypeResource,
-    ContextTypeResponse as _GenContextTypeResponse,
     Environment as _GenEnvironment,
     EnvironmentRequest as _GenEnvironmentRequest,
     EnvironmentResource as _GenEnvironmentResource,
-    EnvironmentResponse as _GenEnvironmentResponse,
 )
 from smplkit._generated.config.api.configs import (
     create_config as _gen_create_config,
