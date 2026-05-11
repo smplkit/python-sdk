@@ -16,7 +16,6 @@ import httpx
 import pytest
 
 from smplkit import Error, NotFoundError
-from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 from smplkit.audit import Action, Event, ResourceType
 from smplkit.audit.client import (
     ActionListPage,
