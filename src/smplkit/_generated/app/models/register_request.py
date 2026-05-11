@@ -19,13 +19,13 @@ T = TypeVar("T", bound="RegisterRequest")
 class RegisterRequest:
     """
     Example:
-        {'email': 'jane@example.com', 'entry_point': 'get_started', 'password': 'correct-horse-battery-staple'}
+        {'email': 'jane@example.com', 'entry_point': 'GET_STARTED', 'password': 'correct-horse-battery-staple'}
 
     Attributes:
         email (str):
         password (str):
-        entry_point (RegisterRequestEntryPoint | Unset): Registration entry point. Allowed: login, get_started,
-            live_demo, unknown. Defaults to unknown when omitted.
+        entry_point (RegisterRequestEntryPoint | Unset): Registration entry point. Allowed: LOGIN, GET_STARTED,
+            LIVE_DEMO, UNKNOWN. Defaults to UNKNOWN when omitted. Case-insensitive.
     """
 
     email: str
