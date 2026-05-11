@@ -22,22 +22,34 @@ T = TypeVar("T", bound="Config")
 
 @_attrs_define
 class Config:
-    """
-    Example:
-        {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database configuration', 'environments': {'prod':
-            {'values': {'host': {'value': 'db-prod.internal'}, 'pool_size': {'value': 20}}}}, 'items': {'host':
-            {'description': 'Primary database hostname', 'type': 'STRING', 'value': 'db.internal'}, 'pool_size':
-            {'description': 'Connection pool size', 'type': 'NUMBER', 'value': 10}}, 'name': 'Database', 'updated_at':
-            '2026-03-27T10:00:00Z'}
+    """A named bag of configuration items, optionally inheriting from another config.
 
-    Attributes:
-        name (str):
-        description (None | str | Unset):
-        parent (None | str | Unset):
-        items (ConfigItemsType0 | None | Unset):
-        environments (ConfigEnvironmentsType0 | None | Unset):
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
+    Items are typed key/value pairs (`STRING`, `NUMBER`, `BOOLEAN`,
+    `JSON`). Configs may declare per-environment overrides for any item
+    declared on the config itself or anywhere in its inheritance chain;
+    resolving a config against an environment merges the chain top-down
+    and then applies the matching overrides.
+
+        Example:
+            {'created_at': '2026-05-11T12:00:00Z', 'description': 'Database connection settings.', 'environments': {'prod':
+                {'values': {'host': {'value': 'db-prod.internal'}, 'pool_size': {'value': 20}}}}, 'items': {'host':
+                {'description': 'Primary database hostname.', 'type': 'STRING', 'value': 'db.internal'}, 'pool_size':
+                {'description': 'Connection pool size.', 'type': 'NUMBER', 'value': 10}}, 'name': 'Database', 'parent':
+                'common', 'updated_at': '2026-05-11T12:00:00Z'}
+
+        Attributes:
+            name (str): Human-readable name for the config.
+            description (None | str | Unset): Optional human-readable description of what this config holds.
+            parent (None | str | Unset): Key of another config to inherit items from. Inherited items appear as if declared
+                on this config; locally declared items with the same key shadow them. Omit or set to `null` for a standalone
+                config with no parent.
+            items (ConfigItemsType0 | None | Unset): Map of item keys to item definitions declared on this config. Keys must
+                be unique within the config; declared types are immutable once set and must match any type declared for the same
+                key on an ancestor.
+            environments (ConfigEnvironmentsType0 | None | Unset): Map of environment keys to per-environment override sets.
+                An environment override applies when this config is resolved against that environment.
+            created_at (datetime.datetime | None | Unset): When the config was created.
+            updated_at (datetime.datetime | None | Unset): When the config was last modified.
     """
 
     name: str

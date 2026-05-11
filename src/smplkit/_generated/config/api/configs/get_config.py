@@ -53,7 +53,7 @@ def sync_detailed(
 ) -> Response[ConfigResponse]:
     """Get Config
 
-     Return a configuration by its key.
+     Retrieve a single config by its key.
 
     Args:
         id (str):
@@ -84,7 +84,7 @@ def sync(
 ) -> ConfigResponse | None:
     """Get Config
 
-     Return a configuration by its key.
+     Retrieve a single config by its key.
 
     Args:
         id (str):
@@ -110,7 +110,7 @@ async def asyncio_detailed(
 ) -> Response[ConfigResponse]:
     """Get Config
 
-     Return a configuration by its key.
+     Retrieve a single config by its key.
 
     Args:
         id (str):
@@ -139,7 +139,7 @@ async def asyncio(
 ) -> ConfigResponse | None:
     """Get Config
 
-     Return a configuration by its key.
+     Retrieve a single config by its key.
 
     Args:
         id (str):

@@ -16,7 +16,8 @@ T = TypeVar("T", bound="ConfigListResponse")
 
 @_attrs_define
 class ConfigListResponse:
-    """
+    """JSON:API collection response for configs.
+
     Attributes:
         data (list[ConfigResource]):
     """

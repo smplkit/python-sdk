@@ -72,10 +72,11 @@ def sync_detailed(
 ) -> Response[Any | UsageListResponse]:
     """List Config Usage
 
-     Return current resource usage counts for the authenticated account.
+     Report the current-period usage counters for this account.
 
     Args:
-        filterperiod (None | str | Unset):
+        filterperiod (None | str | Unset): Period to report. `current` is the only supported
+            value.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -103,10 +104,11 @@ def sync(
 ) -> Any | UsageListResponse | None:
     """List Config Usage
 
-     Return current resource usage counts for the authenticated account.
+     Report the current-period usage counters for this account.
 
     Args:
-        filterperiod (None | str | Unset):
+        filterperiod (None | str | Unset): Period to report. `current` is the only supported
+            value.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -129,10 +131,11 @@ async def asyncio_detailed(
 ) -> Response[Any | UsageListResponse]:
     """List Config Usage
 
-     Return current resource usage counts for the authenticated account.
+     Report the current-period usage counters for this account.
 
     Args:
-        filterperiod (None | str | Unset):
+        filterperiod (None | str | Unset): Period to report. `current` is the only supported
+            value.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -158,10 +161,11 @@ async def asyncio(
 ) -> Any | UsageListResponse | None:
     """List Config Usage
 
-     Return current resource usage counts for the authenticated account.
+     Report the current-period usage counters for this account.
 
     Args:
-        filterperiod (None | str | Unset):
+        filterperiod (None | str | Unset): Period to report. `current` is the only supported
+            value.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

@@ -19,10 +19,11 @@ T = TypeVar("T", bound="EnvironmentOverride")
 
 @_attrs_define
 class EnvironmentOverride:
-    """Schema for per-environment overrides.
+    """Per-environment override set for a config.
 
     Attributes:
-        values (EnvironmentOverrideValuesType0 | None | Unset):
+        values (EnvironmentOverrideValuesType0 | None | Unset): Map of item keys to override values that apply when this
+            environment is resolved. Each key must already be declared (with a type) on this config or one of its ancestors.
     """
 
     values: EnvironmentOverrideValuesType0 | None | Unset = UNSET

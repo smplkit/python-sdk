@@ -49,7 +49,11 @@ def sync_detailed(
 ) -> Response[Any]:
     """Delete Config
 
-     Delete a configuration by its key.
+     Delete a config by its key.
+
+    A config that is referenced as `parent` by another config cannot be
+    deleted; reparent or remove the parent reference on every child
+    first. The `common` config cannot be deleted.
 
     Args:
         id (str):
@@ -80,7 +84,11 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """Delete Config
 
-     Delete a configuration by its key.
+     Delete a config by its key.
+
+    A config that is referenced as `parent` by another config cannot be
+    deleted; reparent or remove the parent reference on every child
+    first. The `common` config cannot be deleted.
 
     Args:
         id (str):

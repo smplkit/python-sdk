@@ -18,16 +18,17 @@ T = TypeVar("T", bound="ConfigItemDefinition")
 
 @_attrs_define
 class ConfigItemDefinition:
-    """Schema for a single config item.
+    """Type-declared item within a config.
 
-    ``value`` may be ``None`` to represent a cleared (typed but unset)
-    slot — e.g. after a type change that could not coerce the previous
-    value. See ADR-024.
+    Each item carries a value plus a declared type that constrains the
+    value and any per-environment overrides for the same key.
 
         Attributes:
-            value (Any | Unset):
-            type_ (ConfigItemDefinitionTypeType0 | None | Unset):
-            description (None | str | Unset):
+            value (Any | Unset): Current value for the item. May be `null` to represent a cleared (typed but unset) slot —
+                for example, after a type change where the prior value could not be coerced.
+            type_ (ConfigItemDefinitionTypeType0 | None | Unset): Declared value type. Constrains the JSON shape of `value`
+                and of every override of this key in the `environments` map.
+            description (None | str | Unset): Optional human-readable explanation of what this item controls.
     """
 
     value: Any | Unset = UNSET

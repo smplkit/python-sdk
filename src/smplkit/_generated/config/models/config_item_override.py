@@ -14,10 +14,11 @@ T = TypeVar("T", bound="ConfigItemOverride")
 
 @_attrs_define
 class ConfigItemOverride:
-    """Schema for an environment override — value only, no type/description.
+    """Per-environment override of a single item value.
 
     Attributes:
-        value (Any | Unset):
+        value (Any | Unset): Override value for this environment. Must conform to the type declared for the item in the
+            inheritance chain.
     """
 
     value: Any | Unset = UNSET

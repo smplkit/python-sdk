@@ -8,13 +8,14 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
+from ...models.config_request import ConfigRequest
 from ...models.config_response import ConfigResponse
 
 
 def _get_kwargs(
     id: str,
     *,
-    body: ConfigResponse,
+    body: ConfigRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -58,15 +59,15 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: ConfigResponse,
+    body: ConfigRequest,
 ) -> Response[ConfigResponse]:
     """Update Config
 
-     Replace a configuration entirely.
+     Replace a config entirely. Every writable field is overwritten.
 
     Args:
         id (str):
-        body (ConfigResponse):
+        body (ConfigRequest): JSON:API request envelope for creating or updating a config.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -92,15 +93,15 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: ConfigResponse,
+    body: ConfigRequest,
 ) -> ConfigResponse | None:
     """Update Config
 
-     Replace a configuration entirely.
+     Replace a config entirely. Every writable field is overwritten.
 
     Args:
         id (str):
-        body (ConfigResponse):
+        body (ConfigRequest): JSON:API request envelope for creating or updating a config.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -121,15 +122,15 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: ConfigResponse,
+    body: ConfigRequest,
 ) -> Response[ConfigResponse]:
     """Update Config
 
-     Replace a configuration entirely.
+     Replace a config entirely. Every writable field is overwritten.
 
     Args:
         id (str):
-        body (ConfigResponse):
+        body (ConfigRequest): JSON:API request envelope for creating or updating a config.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -153,15 +154,15 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: ConfigResponse,
+    body: ConfigRequest,
 ) -> ConfigResponse | None:
     """Update Config
 
-     Replace a configuration entirely.
+     Replace a config entirely. Every writable field is overwritten.
 
     Args:
         id (str):
-        body (ConfigResponse):
+        body (ConfigRequest): JSON:API request envelope for creating or updating a config.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

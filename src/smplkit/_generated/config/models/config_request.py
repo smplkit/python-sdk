@@ -11,12 +11,12 @@ if TYPE_CHECKING:
     from ..models.config_resource import ConfigResource
 
 
-T = TypeVar("T", bound="ConfigResponse")
+T = TypeVar("T", bound="ConfigRequest")
 
 
 @_attrs_define
-class ConfigResponse:
-    """JSON:API single-resource response envelope for a config.
+class ConfigRequest:
+    """JSON:API request envelope for creating or updating a config.
 
     Attributes:
         data (ConfigResource): JSON:API resource envelope for a config.
@@ -52,12 +52,12 @@ class ConfigResponse:
         d = dict(src_dict)
         data = ConfigResource.from_dict(d.pop("data"))
 
-        config_response = cls(
+        config_request = cls(
             data=data,
         )
 
-        config_response.additional_properties = d
-        return config_response
+        config_request.additional_properties = d
+        return config_request
 
     @property
     def additional_keys(self) -> list[str]:

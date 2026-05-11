@@ -7,12 +7,13 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
+from ...models.config_request import ConfigRequest
 from ...models.config_response import ConfigResponse
 
 
 def _get_kwargs(
     *,
-    body: ConfigResponse,
+    body: ConfigRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -53,14 +54,17 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: ConfigResponse,
+    body: ConfigRequest,
 ) -> Response[ConfigResponse]:
     """Create Config
 
-     Create a new configuration. The caller provides the id (key) in the request body.
+     Create a config for this account.
+
+    The caller supplies the config's key as `data.id`. Keys are unique
+    within an account and immutable for the lifetime of the config.
 
     Args:
-        body (ConfigResponse):
+        body (ConfigRequest): JSON:API request envelope for creating or updating a config.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -84,14 +88,17 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: ConfigResponse,
+    body: ConfigRequest,
 ) -> ConfigResponse | None:
     """Create Config
 
-     Create a new configuration. The caller provides the id (key) in the request body.
+     Create a config for this account.
+
+    The caller supplies the config's key as `data.id`. Keys are unique
+    within an account and immutable for the lifetime of the config.
 
     Args:
-        body (ConfigResponse):
+        body (ConfigRequest): JSON:API request envelope for creating or updating a config.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -110,14 +117,17 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: ConfigResponse,
+    body: ConfigRequest,
 ) -> Response[ConfigResponse]:
     """Create Config
 
-     Create a new configuration. The caller provides the id (key) in the request body.
+     Create a config for this account.
+
+    The caller supplies the config's key as `data.id`. Keys are unique
+    within an account and immutable for the lifetime of the config.
 
     Args:
-        body (ConfigResponse):
+        body (ConfigRequest): JSON:API request envelope for creating or updating a config.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -139,14 +149,17 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: ConfigResponse,
+    body: ConfigRequest,
 ) -> ConfigResponse | None:
     """Create Config
 
-     Create a new configuration. The caller provides the id (key) in the request body.
+     Create a config for this account.
+
+    The caller supplies the config's key as `data.id`. Keys are unique
+    within an account and immutable for the lifetime of the config.
 
     Args:
-        body (ConfigResponse):
+        body (ConfigRequest): JSON:API request envelope for creating or updating a config.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

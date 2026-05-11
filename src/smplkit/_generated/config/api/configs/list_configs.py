@@ -64,7 +64,10 @@ def sync_detailed(
 ) -> Response[ConfigListResponse]:
     """List Configs
 
-     List all configurations for the authenticated account.
+     List configs for this account.
+
+    Pass `filter[parent]=<parent_key>` to return only the direct children
+    of a specific config.
 
     Args:
         filterparent (None | str | Unset):
@@ -95,7 +98,10 @@ def sync(
 ) -> ConfigListResponse | None:
     """List Configs
 
-     List all configurations for the authenticated account.
+     List configs for this account.
+
+    Pass `filter[parent]=<parent_key>` to return only the direct children
+    of a specific config.
 
     Args:
         filterparent (None | str | Unset):
@@ -121,7 +127,10 @@ async def asyncio_detailed(
 ) -> Response[ConfigListResponse]:
     """List Configs
 
-     List all configurations for the authenticated account.
+     List configs for this account.
+
+    Pass `filter[parent]=<parent_key>` to return only the direct children
+    of a specific config.
 
     Args:
         filterparent (None | str | Unset):
@@ -150,7 +159,10 @@ async def asyncio(
 ) -> ConfigListResponse | None:
     """List Configs
 
-     List all configurations for the authenticated account.
+     List configs for this account.
+
+    Pass `filter[parent]=<parent_key>` to return only the direct children
+    of a specific config.
 
     Args:
         filterparent (None | str | Unset):
