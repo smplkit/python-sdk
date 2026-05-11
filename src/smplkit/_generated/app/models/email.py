@@ -20,18 +20,17 @@ T = TypeVar("T", bound="Email")
 
 @_attrs_define
 class Email:
-    """Contact-us email resource attributes.
-
-    This resource is a pure action — it is not persisted. The id returned in
-    the response is a per-request uuid4 for correlation only.
+    """A contact-us submission. Sending the resource delivers a support
+    ticket and an auto-response email; nothing is persisted. The `id`
+    returned on the response is a per-request correlation identifier.
 
         Example:
             {'body': 'Hi, I have a question about the pro plan pricing...', 'topic': 'billing'}
 
         Attributes:
-            topic (ContactTopic): Server-validated contact-us topics. Frontend dropdown values must match.
-            body (str):
-            sent_at (datetime.datetime | None | Unset):
+            topic (ContactTopic): Topic options accepted on contact-us submissions.
+            body (str): Free-form text of the message. Trimmed before validation.
+            sent_at (datetime.datetime | None | Unset): When the message was accepted by the server.
     """
 
     topic: ContactTopic

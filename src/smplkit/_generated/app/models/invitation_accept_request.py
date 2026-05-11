@@ -12,12 +12,13 @@ T = TypeVar("T", bound="InvitationAcceptRequest")
 
 @_attrs_define
 class InvitationAcceptRequest:
-    """
+    """Body for the invitation-accept endpoint.
+
     Example:
         {'token': 'eyJhbGciOiJIUzI1NiJ9...'}
 
     Attributes:
-        token (str):
+        token (str): Invitation token from the email link.
     """
 
     token: str

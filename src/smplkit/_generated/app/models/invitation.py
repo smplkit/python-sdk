@@ -18,23 +18,29 @@ T = TypeVar("T", bound="Invitation")
 
 @_attrs_define
 class Invitation:
-    """
-    Example:
-        {'created_at': '2026-03-20T11:02:16.616Z', 'email': 'mike@example.com', 'expires_at':
-            '2026-04-20T11:02:16.616Z', 'invited_by': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'role': 'MEMBER', 'status':
-            'PENDING', 'updated_at': '2026-03-20T11:02:16.616Z'}
+    """An invitation for a person to join an account.
 
-    Attributes:
-        email (None | str | Unset):
-        role (None | str | Unset):
-        status (None | str | Unset):
-        invited_by (None | str | Unset):
-        account_name (None | str | Unset):
-        inviter_display_name (None | str | Unset):
-        token (None | str | Unset):
-        expires_at (datetime.datetime | None | Unset):
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
+    Invitations carry a time-limited token; the recipient redeems the
+    token to become a member of the inviting account at the assigned role.
+
+        Example:
+            {'created_at': '2026-03-20T11:02:16.616Z', 'email': 'mike@example.com', 'expires_at':
+                '2026-04-20T11:02:16.616Z', 'invited_by': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'role': 'MEMBER', 'status':
+                'PENDING', 'updated_at': '2026-03-20T11:02:16.616Z'}
+
+        Attributes:
+            email (None | str | Unset): Email address the invitation was sent to.
+            role (None | str | Unset): Role to assign on acceptance. One of `ADMIN`, `MEMBER`, or `VIEWER`.
+            status (None | str | Unset): Lifecycle state of the invitation. One of `PENDING`, `ACCEPTED`, `REVOKED`, or
+                `EXPIRED`.
+            invited_by (None | str | Unset): UUID of the user who sent the invitation.
+            account_name (None | str | Unset): Name of the account the recipient is being invited to join.
+            inviter_display_name (None | str | Unset): Display name of the user who sent the invitation.
+            token (None | str | Unset): Single-use token that the recipient redeems to accept the invitation. Echoed on
+                responses so the inviting client can construct the acceptance link.
+            expires_at (datetime.datetime | None | Unset): When the invitation token stops being redeemable.
+            created_at (datetime.datetime | None | Unset): When the invitation was issued.
+            updated_at (datetime.datetime | None | Unset): When the invitation record was last modified.
     """
 
     email: None | str | Unset = UNSET

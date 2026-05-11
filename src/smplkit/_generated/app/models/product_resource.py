@@ -21,7 +21,8 @@ T = TypeVar("T", bound="ProductResource")
 
 @_attrs_define
 class ProductResource:
-    """
+    """JSON:API resource envelope for a product catalog entry.
+
     Example:
         {'attributes': {'coming_soon': False, 'description': 'Feature flag management', 'display_name': 'Smpl Flags',
             'features': ['Targeted rollouts', 'Experiment toggles', 'Environment controls'], 'limits': {'flags':
@@ -32,7 +33,7 @@ class ProductResource:
 
     Attributes:
         type_ (ProductResourceType):
-        attributes (Product):
+        attributes (Product): A smplkit product, with its plans, metered limits, and marketing copy.
         id (None | str | Unset):
     """
 

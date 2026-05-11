@@ -72,11 +72,9 @@ def sync_detailed(
 ) -> Response[ErrorResponse | SetupIntentResponse]:
     """Execute Setup Intent
 
-     Create a Stripe SetupIntent for saving a payment method.
-
-    Returns a ``client_secret`` that the frontend passes to Stripe's
-    Payment Element so the customer can securely enter card details
-    without an immediate charge.
+     Create a Stripe SetupIntent for adding a payment method without an
+    immediate charge. Returns the `client_secret` to pass to Stripe Elements
+    in the browser.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -101,11 +99,9 @@ def sync(
 ) -> ErrorResponse | SetupIntentResponse | None:
     """Execute Setup Intent
 
-     Create a Stripe SetupIntent for saving a payment method.
-
-    Returns a ``client_secret`` that the frontend passes to Stripe's
-    Payment Element so the customer can securely enter card details
-    without an immediate charge.
+     Create a Stripe SetupIntent for adding a payment method without an
+    immediate charge. Returns the `client_secret` to pass to Stripe Elements
+    in the browser.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -126,11 +122,9 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | SetupIntentResponse]:
     """Execute Setup Intent
 
-     Create a Stripe SetupIntent for saving a payment method.
-
-    Returns a ``client_secret`` that the frontend passes to Stripe's
-    Payment Element so the customer can securely enter card details
-    without an immediate charge.
+     Create a Stripe SetupIntent for adding a payment method without an
+    immediate charge. Returns the `client_secret` to pass to Stripe Elements
+    in the browser.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -153,11 +147,9 @@ async def asyncio(
 ) -> ErrorResponse | SetupIntentResponse | None:
     """Execute Setup Intent
 
-     Create a Stripe SetupIntent for saving a payment method.
-
-    Returns a ``client_secret`` that the frontend passes to Stripe's
-    Payment Element so the customer can securely enter card details
-    without an immediate charge.
+     Create a Stripe SetupIntent for adding a payment method without an
+    immediate charge. Returns the `client_secret` to pass to Stripe Elements
+    in the browser.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

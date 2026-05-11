@@ -16,13 +16,14 @@ T = TypeVar("T", bound="AddPaymentMethodBody")
 
 @_attrs_define
 class AddPaymentMethodBody:
-    """
+    """JSON:API request envelope for registering a new payment method.
+
     Example:
         {'data': {'attributes': {'default': False, 'stripe_payment_method_id': 'pm_1234567890abcdef'}, 'type':
             'payment_method'}}
 
     Attributes:
-        data (AddPaymentMethodData):
+        data (AddPaymentMethodData): Resource object for the add-payment-method request.
     """
 
     data: AddPaymentMethodData

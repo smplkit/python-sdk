@@ -16,7 +16,8 @@ T = TypeVar("T", bound="InvitationListResponse")
 
 @_attrs_define
 class InvitationListResponse:
-    """
+    """JSON:API collection response for invitations.
+
     Attributes:
         data (list[InvitationResource]):
     """

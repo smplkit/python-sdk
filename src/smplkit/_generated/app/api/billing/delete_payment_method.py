@@ -73,9 +73,9 @@ def sync_detailed(
 ) -> Response[Any | ErrorResponse]:
     """Delete Payment Method
 
-     Detach the payment method from Stripe and soft-delete the local row. Returns 409 if this is the only
-    PM and the account has an active paid subscription. If the deleted row was default, the oldest
-    remaining row is promoted.
+     Delete a payment method. Returns 409 if this is the only payment method on file and the account has
+    an active paid subscription. If the deleted payment method was the default, the oldest remaining
+    payment method is promoted to default.
 
     Args:
         id (UUID):
@@ -106,9 +106,9 @@ def sync(
 ) -> Any | ErrorResponse | None:
     """Delete Payment Method
 
-     Detach the payment method from Stripe and soft-delete the local row. Returns 409 if this is the only
-    PM and the account has an active paid subscription. If the deleted row was default, the oldest
-    remaining row is promoted.
+     Delete a payment method. Returns 409 if this is the only payment method on file and the account has
+    an active paid subscription. If the deleted payment method was the default, the oldest remaining
+    payment method is promoted to default.
 
     Args:
         id (UUID):
@@ -134,9 +134,9 @@ async def asyncio_detailed(
 ) -> Response[Any | ErrorResponse]:
     """Delete Payment Method
 
-     Detach the payment method from Stripe and soft-delete the local row. Returns 409 if this is the only
-    PM and the account has an active paid subscription. If the deleted row was default, the oldest
-    remaining row is promoted.
+     Delete a payment method. Returns 409 if this is the only payment method on file and the account has
+    an active paid subscription. If the deleted payment method was the default, the oldest remaining
+    payment method is promoted to default.
 
     Args:
         id (UUID):
@@ -165,9 +165,9 @@ async def asyncio(
 ) -> Any | ErrorResponse | None:
     """Delete Payment Method
 
-     Detach the payment method from Stripe and soft-delete the local row. Returns 409 if this is the only
-    PM and the account has an active paid subscription. If the deleted row was default, the oldest
-    remaining row is promoted.
+     Delete a payment method. Returns 409 if this is the only payment method on file and the account has
+    an active paid subscription. If the deleted payment method was the default, the oldest remaining
+    payment method is promoted to default.
 
     Args:
         id (UUID):

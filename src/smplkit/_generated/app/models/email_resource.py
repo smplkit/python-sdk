@@ -21,19 +21,21 @@ T = TypeVar("T", bound="EmailResource")
 
 @_attrs_define
 class EmailResource:
-    """
-    Example:
-        {'attributes': {'body': 'Hi, I have a question about the pro plan pricing...', 'sent_at':
-            '2026-04-22T14:32:01.234Z', 'topic': 'billing'}, 'id': 'd4e5f6a7-b8c9-0123-defa-234567890123', 'type': 'email'}
+    """JSON:API resource envelope for a contact-us submission.
 
-    Attributes:
-        type_ (EmailResourceType):
-        attributes (Email): Contact-us email resource attributes.
+    `id` must not be specified for create requests (the server assigns it).
 
-            This resource is a pure action — it is not persisted. The id returned in
-            the response is a per-request uuid4 for correlation only. Example: {'body': 'Hi, I have a question about the pro
-            plan pricing...', 'topic': 'billing'}.
-        id (None | str | Unset):
+        Example:
+            {'attributes': {'body': 'Hi, I have a question about the pro plan pricing...', 'sent_at':
+                '2026-04-22T14:32:01.234Z', 'topic': 'billing'}, 'id': 'd4e5f6a7-b8c9-0123-defa-234567890123', 'type': 'email'}
+
+        Attributes:
+            type_ (EmailResourceType):
+            attributes (Email): A contact-us submission. Sending the resource delivers a support
+                ticket and an auto-response email; nothing is persisted. The `id`
+                returned on the response is a per-request correlation identifier. Example: {'body': 'Hi, I have a question about
+                the pro plan pricing...', 'topic': 'billing'}.
+            id (None | str | Unset):
     """
 
     type_: EmailResourceType

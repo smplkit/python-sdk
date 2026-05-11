@@ -16,7 +16,8 @@ T = TypeVar("T", bound="ServiceListResponse")
 
 @_attrs_define
 class ServiceListResponse:
-    """
+    """JSON:API collection response for services.
+
     Attributes:
         data (list[ServiceResource]):
     """

@@ -21,16 +21,19 @@ T = TypeVar("T", bound="SubscriptionResource")
 
 @_attrs_define
 class SubscriptionResource:
-    """
-    Example:
-        {'attributes': {'comped': False, 'current_period_end': '2026-05-01T00:00:00Z', 'plan': 'pro', 'product':
-            'flags', 'status': 'active', 'stripe_managed': True}, 'id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type':
-            'subscription'}
+    """JSON:API resource envelope for a subscription.
 
-    Attributes:
-        type_ (SubscriptionResourceType):
-        attributes (SubscriptionAttributes):
-        id (None | str | Unset):
+    `id` must not be specified for create requests (the server assigns it).
+
+        Example:
+            {'attributes': {'comped': False, 'current_period_end': '2026-05-01T00:00:00Z', 'plan': 'pro', 'product':
+                'flags', 'status': 'active', 'stripe_managed': True}, 'id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type':
+                'subscription'}
+
+        Attributes:
+            type_ (SubscriptionResourceType):
+            attributes (SubscriptionAttributes): A subscription that grants the account access to a product on a plan.
+            id (None | str | Unset):
     """
 
     type_: SubscriptionResourceType

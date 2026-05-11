@@ -19,10 +19,11 @@ T = TypeVar("T", bound="SubscriptionListResponse")
 
 @_attrs_define
 class SubscriptionListResponse:
-    """
+    """JSON:API collection response for subscriptions.
+
     Attributes:
         data (list[SubscriptionResource]):
-        meta (SubscriptionListMeta | Unset): Discount and totals summary attached to GET /api/v1/subscriptions.
+        meta (SubscriptionListMeta | Unset): Discount and totals summary attached to a subscription collection response.
     """
 
     data: list[SubscriptionResource]

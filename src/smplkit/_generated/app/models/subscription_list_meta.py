@@ -20,15 +20,16 @@ T = TypeVar("T", bound="SubscriptionListMeta")
 
 @_attrs_define
 class SubscriptionListMeta:
-    """Discount and totals summary attached to GET /api/v1/subscriptions.
+    """Discount and totals summary attached to a subscription collection response.
 
     Attributes:
-        subtotal_cents (int):
-        discount_pct (int):
-        discount_amount_cents (int):
-        discount_source (SubscriptionListMetaDiscountSource):
-        total_cents (int):
-        next_tier (NextTierMeta | Unset):
+        subtotal_cents (int): Sum of list prices across all subscriptions in cents.
+        discount_pct (int): Effective discount percentage applied.
+        discount_amount_cents (int): Discount amount in cents.
+        discount_source (SubscriptionListMetaDiscountSource): Source of the discount. `VOLUME` indicates the standard
+            volume-discount schedule; `OVERRIDE` indicates a custom discount set on the account.
+        total_cents (int): Final monthly total in cents after the discount.
+        next_tier (NextTierMeta | Unset): Information about the next volume-discount tier.
     """
 
     subtotal_cents: int

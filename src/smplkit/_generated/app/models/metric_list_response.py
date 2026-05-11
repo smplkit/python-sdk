@@ -16,7 +16,8 @@ T = TypeVar("T", bound="MetricListResponse")
 
 @_attrs_define
 class MetricListResponse:
-    """
+    """JSON:API collection response for metric data points.
+
     Attributes:
         data (list[MetricResource]):
     """

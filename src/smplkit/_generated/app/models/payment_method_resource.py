@@ -21,22 +21,26 @@ T = TypeVar("T", bound="PaymentMethodResource")
 
 @_attrs_define
 class PaymentMethodResource:
-    """
-    Example:
-        {'attributes': {'billing_details': {'email': 'jane@example.com', 'name': 'Jane Doe'}, 'brand': 'visa',
-            'created_at': '2026-04-23T12:34:56Z', 'default': True, 'exp_month': 8, 'exp_year': 2028, 'last4': '4242',
-            'updated_at': '2026-04-23T12:34:56Z'}, 'id': '0b8a9c9e-1111-2222-3333-444455556666', 'type': 'payment_method'}
+    """JSON:API resource envelope for a payment method.
 
-    Attributes:
-        type_ (PaymentMethodResourceType):
-        attributes (PaymentMethod): Attributes for a saved card payment method.
+    `id` must not be specified for create requests (the server assigns it).
 
-            ``default`` is the API-facing name; the underlying column is ``is_default``
-            per ADR-013 (reserved-word exception) and ADR-014 (unprefixed API fields). Example: {'billing_details':
-            {'address': {'city': 'Leesburg', 'country': 'US', 'line1': '123 Main St', 'postal_code': '20175', 'state':
-            'VA'}, 'email': 'jane@example.com', 'name': 'Jane Doe'}, 'brand': 'visa', 'created_at': '2026-04-23T12:34:56Z',
-            'default': True, 'exp_month': 8, 'exp_year': 2028, 'last4': '4242', 'updated_at': '2026-04-23T12:34:56Z'}.
-        id (None | str | Unset):
+        Example:
+            {'attributes': {'billing_details': {'email': 'jane@example.com', 'name': 'Jane Doe'}, 'brand': 'visa',
+                'created_at': '2026-04-23T12:34:56Z', 'default': True, 'exp_month': 8, 'exp_year': 2028, 'last4': '4242',
+                'updated_at': '2026-04-23T12:34:56Z'}, 'id': '0b8a9c9e-1111-2222-3333-444455556666', 'type': 'payment_method'}
+
+        Attributes:
+            type_ (PaymentMethodResourceType):
+            attributes (PaymentMethod): A saved card on file for the account, used to charge subscription
+                invoices.
+
+                The default payment method is changed via the `set_default` action
+                rather than by updating this field through PUT. Example: {'billing_details': {'address': {'city': 'Leesburg',
+                'country': 'US', 'line1': '123 Main St', 'postal_code': '20175', 'state': 'VA'}, 'email': 'jane@example.com',
+                'name': 'Jane Doe'}, 'brand': 'visa', 'created_at': '2026-04-23T12:34:56Z', 'default': True, 'exp_month': 8,
+                'exp_year': 2028, 'last4': '4242', 'updated_at': '2026-04-23T12:34:56Z'}.
+            id (None | str | Unset):
     """
 
     type_: PaymentMethodResourceType

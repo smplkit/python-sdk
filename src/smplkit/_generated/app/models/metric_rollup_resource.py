@@ -19,14 +19,15 @@ T = TypeVar("T", bound="MetricRollupResource")
 
 @_attrs_define
 class MetricRollupResource:
-    """
+    """JSON:API resource envelope for a metric rollup.
+
     Example:
         {'attributes': {'bucket': '2026-04-10T15:00:00Z', 'name': 'flags.evaluations', 'rollup': '1h', 'unit':
             'evaluations', 'value': 87420}, 'type': 'metric_rollup'}
 
     Attributes:
         type_ (MetricRollupResourceType):
-        attributes (MetricRollupAttributes):
+        attributes (MetricRollupAttributes): An aggregated metric value over a fixed-size time bucket.
     """
 
     type_: MetricRollupResourceType

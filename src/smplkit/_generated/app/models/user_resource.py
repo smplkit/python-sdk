@@ -21,19 +21,23 @@ T = TypeVar("T", bound="UserResource")
 
 @_attrs_define
 class UserResource:
-    """
-    Example:
-        {'attributes': {'account': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'auth_provider': 'GOOGLE', 'created_at':
-            '2026-03-20T11:02:16.616Z', 'display_name': 'Jane Smith', 'email': 'jane@example.com', 'email_verified': True,
-            'profile_pic': 'https://lh3.googleusercontent.com/a/example', 'role': 'OWNER'}, 'id': 'a1b2c3d4-e5f6-7890-abcd-
-            ef1234567890', 'type': 'user'}
+    """JSON:API resource envelope for a user.
 
-    Attributes:
-        type_ (UserResourceType):
-        attributes (User):  Example: {'account': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'auth_provider': 'GOOGLE',
-            'created_at': '2026-03-20T11:02:16.616Z', 'display_name': 'Jane Smith', 'email': 'jane@example.com',
-            'email_verified': True, 'profile_pic': 'https://lh3.googleusercontent.com/a/example', 'role': 'OWNER'}.
-        id (None | str | Unset):
+    `id` must not be specified for create requests (the server assigns it).
+
+        Example:
+            {'attributes': {'account': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'auth_provider': 'GOOGLE', 'created_at':
+                '2026-03-20T11:02:16.616Z', 'display_name': 'Jane Smith', 'email': 'jane@example.com', 'email_verified': True,
+                'profile_pic': 'https://lh3.googleusercontent.com/a/example', 'role': 'OWNER'}, 'id': 'a1b2c3d4-e5f6-7890-abcd-
+                ef1234567890', 'type': 'user'}
+
+        Attributes:
+            type_ (UserResourceType):
+            attributes (User): A person with access to one or more accounts in smplkit. Example: {'account':
+                'd290f1ee-6c54-4b01-90e6-d701748f0851', 'auth_provider': 'GOOGLE', 'created_at': '2026-03-20T11:02:16.616Z',
+                'display_name': 'Jane Smith', 'email': 'jane@example.com', 'email_verified': True, 'profile_pic':
+                'https://lh3.googleusercontent.com/a/example', 'role': 'OWNER'}.
+            id (None | str | Unset):
     """
 
     type_: UserResourceType

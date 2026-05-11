@@ -16,15 +16,19 @@ T = TypeVar("T", bound="SubscriptionAttributes")
 
 @_attrs_define
 class SubscriptionAttributes:
-    """
+    """A subscription that grants the account access to a product on a plan.
+
     Attributes:
-        product (str):
-        plan (str):
-        comped (bool):
-        stripe_managed (bool):
-        status (None | str | Unset):
-        current_period_end (None | str | Unset):
-        client_secret (None | str | Unset):
+        product (str): Product key the subscription is for, e.g. `flags`.
+        plan (str): Plan key the subscription is on, e.g. `pro`.
+        comped (bool): When `true`, the subscription is complimentary and is not billed through the billing provider.
+        stripe_managed (bool): When `true`, the subscription is billed through Stripe; otherwise it is a free or
+            complimentary subscription that does not produce invoices.
+        status (None | str | Unset): Lifecycle state of the subscription, e.g. `active`, `trialing`, `past_due`,
+            `canceled`.
+        current_period_end (None | str | Unset): End of the current billing period (ISO 8601 timestamp).
+        client_secret (None | str | Unset): Stripe payment intent client secret returned when a subscription create
+            requires additional authentication (3DS). Returned only on create.
     """
 
     product: str

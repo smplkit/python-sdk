@@ -12,13 +12,14 @@ T = TypeVar("T", bound="LoginRequest")
 
 @_attrs_define
 class LoginRequest:
-    """
+    """Body for the email + password login endpoint.
+
     Example:
         {'email': 'jane@example.com', 'password': 'correct-horse-battery-staple'}
 
     Attributes:
-        email (str):
-        password (str):
+        email (str): Email address of the user signing in.
+        password (str): Password supplied for authentication.
     """
 
     email: str

@@ -21,16 +21,23 @@ T = TypeVar("T", bound="ContextType")
 
 @_attrs_define
 class ContextType:
-    """
-    Example:
-        {'attributes': {'beta_tester': {}, 'first_name': {}, 'plan': {}}, 'created_at': '2026-03-31T10:00:00Z', 'name':
-            'User', 'updated_at': '2026-03-31T10:00:00Z'}
+    """A kind of context — for example, `user`, `account`, or `device` — that
+    groups together context instances sharing a common set of attributes.
 
-    Attributes:
-        name (str): Display label: User, Account, Device
-        attributes (ContextTypeAttributes | Unset): Known attribute keys with metadata objects
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
+    The known attribute keys for the type accumulate as instances are
+    registered; each key carries an optional metadata object describing it.
+
+        Example:
+            {'attributes': {'beta_tester': {}, 'first_name': {}, 'plan': {}}, 'created_at': '2026-03-31T10:00:00Z', 'name':
+                'User', 'updated_at': '2026-03-31T10:00:00Z'}
+
+        Attributes:
+            name (str): Display label for the context type, e.g. `User`, `Account`, or `Device`.
+            attributes (ContextTypeAttributes | Unset): Map of known attribute key to per-attribute metadata. The metadata
+                object is free-form and may be empty. Keys grow as new attributes are observed on context instances of this
+                type.
+            created_at (datetime.datetime | None | Unset): When the context type was created.
+            updated_at (datetime.datetime | None | Unset): When the context type was last modified.
     """
 
     name: str

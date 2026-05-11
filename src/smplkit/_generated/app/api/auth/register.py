@@ -86,8 +86,9 @@ def sync_detailed(
      Creates a new account with email and password and returns an authentication token.
 
     Args:
-        body (RegisterRequest):  Example: {'email': 'jane@example.com', 'entry_point':
-            'GET_STARTED', 'password': 'correct-horse-battery-staple'}.
+        body (RegisterRequest): Body for the email + password registration endpoint. Example:
+            {'email': 'jane@example.com', 'entry_point': 'GET_STARTED', 'password': 'correct-horse-
+            battery-staple'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,8 +119,9 @@ def sync(
      Creates a new account with email and password and returns an authentication token.
 
     Args:
-        body (RegisterRequest):  Example: {'email': 'jane@example.com', 'entry_point':
-            'GET_STARTED', 'password': 'correct-horse-battery-staple'}.
+        body (RegisterRequest): Body for the email + password registration endpoint. Example:
+            {'email': 'jane@example.com', 'entry_point': 'GET_STARTED', 'password': 'correct-horse-
+            battery-staple'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -145,8 +147,9 @@ async def asyncio_detailed(
      Creates a new account with email and password and returns an authentication token.
 
     Args:
-        body (RegisterRequest):  Example: {'email': 'jane@example.com', 'entry_point':
-            'GET_STARTED', 'password': 'correct-horse-battery-staple'}.
+        body (RegisterRequest): Body for the email + password registration endpoint. Example:
+            {'email': 'jane@example.com', 'entry_point': 'GET_STARTED', 'password': 'correct-horse-
+            battery-staple'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -175,8 +178,9 @@ async def asyncio(
      Creates a new account with email and password and returns an authentication token.
 
     Args:
-        body (RegisterRequest):  Example: {'email': 'jane@example.com', 'entry_point':
-            'GET_STARTED', 'password': 'correct-horse-battery-staple'}.
+        body (RegisterRequest): Body for the email + password registration endpoint. Example:
+            {'email': 'jane@example.com', 'entry_point': 'GET_STARTED', 'password': 'correct-horse-
+            battery-staple'}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

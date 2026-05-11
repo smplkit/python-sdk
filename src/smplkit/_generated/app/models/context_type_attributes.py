@@ -12,7 +12,10 @@ T = TypeVar("T", bound="ContextTypeAttributes")
 
 @_attrs_define
 class ContextTypeAttributes:
-    """Known attribute keys with metadata objects"""
+    """Map of known attribute key to per-attribute metadata. The metadata object is free-form and may be empty. Keys grow
+    as new attributes are observed on context instances of this type.
+
+    """
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 

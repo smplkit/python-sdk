@@ -16,7 +16,8 @@ T = TypeVar("T", bound="ProductListResponse")
 
 @_attrs_define
 class ProductListResponse:
-    """
+    """JSON:API collection response for products.
+
     Attributes:
         data (list[ProductResource]):
     """

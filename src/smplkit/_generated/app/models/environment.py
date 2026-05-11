@@ -20,17 +20,22 @@ T = TypeVar("T", bound="Environment")
 
 @_attrs_define
 class Environment:
-    """
-    Example:
-        {'classification': 'STANDARD', 'color': '#2ecc71', 'created_at': '2026-03-20T11:02:16.616Z', 'name':
-            'Production', 'updated_at': '2026-03-20T11:02:16.616Z'}
+    """A named deployment context — for example, `production`, `staging`, or
+    `development`. Resources scoped to an environment (such as config items
+    and feature flags) are evaluated against environment-specific values.
 
-    Attributes:
-        name (str):
-        color (None | str | Unset):
-        classification (EnvironmentClassification | Unset):  Default: 'AD_HOC'.
-        created_at (datetime.datetime | None | Unset):
-        updated_at (datetime.datetime | None | Unset):
+        Example:
+            {'classification': 'STANDARD', 'color': '#2ecc71', 'created_at': '2026-03-20T11:02:16.616Z', 'name':
+                'Production', 'updated_at': '2026-03-20T11:02:16.616Z'}
+
+        Attributes:
+            name (str): Human-readable name for the environment.
+            color (None | str | Unset): Display color used by the console to badge the environment. Accepts any CSS color
+                string.
+            classification (EnvironmentClassification | Unset): `STANDARD` for environments the customer explicitly manages;
+                `AD_HOC` for environments auto-created from SDK traffic. Case-insensitive on input. Default: 'AD_HOC'.
+            created_at (datetime.datetime | None | Unset): When the environment was created.
+            updated_at (datetime.datetime | None | Unset): When the environment was last modified.
     """
 
     name: str

@@ -16,12 +16,15 @@ T = TypeVar("T", bound="PaymentMethodResponse")
 
 @_attrs_define
 class PaymentMethodResponse:
-    """
+    """JSON:API single-resource response envelope for a payment method.
+
     Attributes:
-        data (PaymentMethodResource):  Example: {'attributes': {'billing_details': {'email': 'jane@example.com', 'name':
-            'Jane Doe'}, 'brand': 'visa', 'created_at': '2026-04-23T12:34:56Z', 'default': True, 'exp_month': 8, 'exp_year':
-            2028, 'last4': '4242', 'updated_at': '2026-04-23T12:34:56Z'}, 'id': '0b8a9c9e-1111-2222-3333-444455556666',
-            'type': 'payment_method'}.
+        data (PaymentMethodResource): JSON:API resource envelope for a payment method.
+
+            `id` must not be specified for create requests (the server assigns it). Example: {'attributes':
+            {'billing_details': {'email': 'jane@example.com', 'name': 'Jane Doe'}, 'brand': 'visa', 'created_at':
+            '2026-04-23T12:34:56Z', 'default': True, 'exp_month': 8, 'exp_year': 2028, 'last4': '4242', 'updated_at':
+            '2026-04-23T12:34:56Z'}, 'id': '0b8a9c9e-1111-2222-3333-444455556666', 'type': 'payment_method'}.
     """
 
     data: PaymentMethodResource

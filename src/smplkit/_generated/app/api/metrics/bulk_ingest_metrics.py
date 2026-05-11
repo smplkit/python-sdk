@@ -80,10 +80,10 @@ def sync_detailed(
      Ingest pre-aggregated metric data points. Returns 202 Accepted with no response body.
 
     Args:
-        body (MetricBulkRequest):  Example: {'data': [{'attributes': {'dimensions':
-            {'environment': 'production'}, 'name': 'flags.evaluations', 'period_seconds': 60,
-            'recorded_at': '2026-04-10T18:00:00Z', 'unit': 'evaluations', 'value': 1482}, 'type':
-            'metric'}]}.
+        body (MetricBulkRequest): Bulk-ingest request envelope for metric data points. Example:
+            {'data': [{'attributes': {'dimensions': {'environment': 'production'}, 'name':
+            'flags.evaluations', 'period_seconds': 60, 'recorded_at': '2026-04-10T18:00:00Z', 'unit':
+            'evaluations', 'value': 1482}, 'type': 'metric'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -114,10 +114,10 @@ def sync(
      Ingest pre-aggregated metric data points. Returns 202 Accepted with no response body.
 
     Args:
-        body (MetricBulkRequest):  Example: {'data': [{'attributes': {'dimensions':
-            {'environment': 'production'}, 'name': 'flags.evaluations', 'period_seconds': 60,
-            'recorded_at': '2026-04-10T18:00:00Z', 'unit': 'evaluations', 'value': 1482}, 'type':
-            'metric'}]}.
+        body (MetricBulkRequest): Bulk-ingest request envelope for metric data points. Example:
+            {'data': [{'attributes': {'dimensions': {'environment': 'production'}, 'name':
+            'flags.evaluations', 'period_seconds': 60, 'recorded_at': '2026-04-10T18:00:00Z', 'unit':
+            'evaluations', 'value': 1482}, 'type': 'metric'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -143,10 +143,10 @@ async def asyncio_detailed(
      Ingest pre-aggregated metric data points. Returns 202 Accepted with no response body.
 
     Args:
-        body (MetricBulkRequest):  Example: {'data': [{'attributes': {'dimensions':
-            {'environment': 'production'}, 'name': 'flags.evaluations', 'period_seconds': 60,
-            'recorded_at': '2026-04-10T18:00:00Z', 'unit': 'evaluations', 'value': 1482}, 'type':
-            'metric'}]}.
+        body (MetricBulkRequest): Bulk-ingest request envelope for metric data points. Example:
+            {'data': [{'attributes': {'dimensions': {'environment': 'production'}, 'name':
+            'flags.evaluations', 'period_seconds': 60, 'recorded_at': '2026-04-10T18:00:00Z', 'unit':
+            'evaluations', 'value': 1482}, 'type': 'metric'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -175,10 +175,10 @@ async def asyncio(
      Ingest pre-aggregated metric data points. Returns 202 Accepted with no response body.
 
     Args:
-        body (MetricBulkRequest):  Example: {'data': [{'attributes': {'dimensions':
-            {'environment': 'production'}, 'name': 'flags.evaluations', 'period_seconds': 60,
-            'recorded_at': '2026-04-10T18:00:00Z', 'unit': 'evaluations', 'value': 1482}, 'type':
-            'metric'}]}.
+        body (MetricBulkRequest): Bulk-ingest request envelope for metric data points. Example:
+            {'data': [{'attributes': {'dimensions': {'environment': 'production'}, 'name':
+            'flags.evaluations', 'period_seconds': 60, 'recorded_at': '2026-04-10T18:00:00Z', 'unit':
+            'evaluations', 'value': 1482}, 'type': 'metric'}]}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

@@ -12,10 +12,11 @@ T = TypeVar("T", bound="AuthTokenResponse")
 
 @_attrs_define
 class AuthTokenResponse:
-    """
+    """Authentication token issued on successful login or registration.
+
     Attributes:
-        token (str):
-        expires_in (int):
+        token (str): Bearer token to pass in the `Authorization` header.
+        expires_in (int): Seconds until the token expires.
     """
 
     token: str

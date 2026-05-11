@@ -16,7 +16,7 @@ T = TypeVar("T", bound="ProductPlans")
 
 @_attrs_define
 class ProductPlans:
-    """ """
+    """Map of plan key to plan definition for this product."""
 
     additional_properties: dict[str, PlanDefinition] = _attrs_field(init=False, factory=dict)
 

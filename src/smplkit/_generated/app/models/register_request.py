@@ -17,15 +17,17 @@ T = TypeVar("T", bound="RegisterRequest")
 
 @_attrs_define
 class RegisterRequest:
-    """
+    """Body for the email + password registration endpoint.
+
     Example:
         {'email': 'jane@example.com', 'entry_point': 'GET_STARTED', 'password': 'correct-horse-battery-staple'}
 
     Attributes:
-        email (str):
-        password (str):
-        entry_point (RegisterRequestEntryPoint | Unset): Registration entry point. Allowed: LOGIN, GET_STARTED,
-            LIVE_DEMO, UNKNOWN. Defaults to UNKNOWN when omitted. Case-insensitive.
+        email (str): Email address that becomes the new user's login identifier.
+        password (str): Password for the new account. Must be at least 8 characters.
+        entry_point (RegisterRequestEntryPoint | Unset): How the customer arrived at the registration page. Allowed
+            values: `LOGIN`, `GET_STARTED`, `LIVE_DEMO`, `UNKNOWN`. Defaults to `UNKNOWN` when omitted. Case-insensitive on
+            input.
     """
 
     email: str

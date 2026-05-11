@@ -83,13 +83,14 @@ def sync_detailed(
 ) -> Response[ErrorResponse | PaymentMethodResponse]:
     """Add Payment Method
 
-     Register a Stripe payment method (``pm_...``) as a persistent resource. The frontend obtains the
-    Stripe ID via SetupIntent + Stripe Elements, then POSTs it here. Body shape and server behavior per
-    ADR-044 §5.1.
+     Register a Stripe payment method (`pm_...`) on the account. The client first creates the Stripe
+    payment method using a SetupIntent and Stripe Elements, then submits its identifier here to persist
+    it.
 
     Args:
-        body (AddPaymentMethodBody):  Example: {'data': {'attributes': {'default': False,
-            'stripe_payment_method_id': 'pm_1234567890abcdef'}, 'type': 'payment_method'}}.
+        body (AddPaymentMethodBody): JSON:API request envelope for registering a new payment
+            method. Example: {'data': {'attributes': {'default': False, 'stripe_payment_method_id':
+            'pm_1234567890abcdef'}, 'type': 'payment_method'}}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -117,13 +118,14 @@ def sync(
 ) -> ErrorResponse | PaymentMethodResponse | None:
     """Add Payment Method
 
-     Register a Stripe payment method (``pm_...``) as a persistent resource. The frontend obtains the
-    Stripe ID via SetupIntent + Stripe Elements, then POSTs it here. Body shape and server behavior per
-    ADR-044 §5.1.
+     Register a Stripe payment method (`pm_...`) on the account. The client first creates the Stripe
+    payment method using a SetupIntent and Stripe Elements, then submits its identifier here to persist
+    it.
 
     Args:
-        body (AddPaymentMethodBody):  Example: {'data': {'attributes': {'default': False,
-            'stripe_payment_method_id': 'pm_1234567890abcdef'}, 'type': 'payment_method'}}.
+        body (AddPaymentMethodBody): JSON:API request envelope for registering a new payment
+            method. Example: {'data': {'attributes': {'default': False, 'stripe_payment_method_id':
+            'pm_1234567890abcdef'}, 'type': 'payment_method'}}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -146,13 +148,14 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | PaymentMethodResponse]:
     """Add Payment Method
 
-     Register a Stripe payment method (``pm_...``) as a persistent resource. The frontend obtains the
-    Stripe ID via SetupIntent + Stripe Elements, then POSTs it here. Body shape and server behavior per
-    ADR-044 §5.1.
+     Register a Stripe payment method (`pm_...`) on the account. The client first creates the Stripe
+    payment method using a SetupIntent and Stripe Elements, then submits its identifier here to persist
+    it.
 
     Args:
-        body (AddPaymentMethodBody):  Example: {'data': {'attributes': {'default': False,
-            'stripe_payment_method_id': 'pm_1234567890abcdef'}, 'type': 'payment_method'}}.
+        body (AddPaymentMethodBody): JSON:API request envelope for registering a new payment
+            method. Example: {'data': {'attributes': {'default': False, 'stripe_payment_method_id':
+            'pm_1234567890abcdef'}, 'type': 'payment_method'}}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -178,13 +181,14 @@ async def asyncio(
 ) -> ErrorResponse | PaymentMethodResponse | None:
     """Add Payment Method
 
-     Register a Stripe payment method (``pm_...``) as a persistent resource. The frontend obtains the
-    Stripe ID via SetupIntent + Stripe Elements, then POSTs it here. Body shape and server behavior per
-    ADR-044 §5.1.
+     Register a Stripe payment method (`pm_...`) on the account. The client first creates the Stripe
+    payment method using a SetupIntent and Stripe Elements, then submits its identifier here to persist
+    it.
 
     Args:
-        body (AddPaymentMethodBody):  Example: {'data': {'attributes': {'default': False,
-            'stripe_payment_method_id': 'pm_1234567890abcdef'}, 'type': 'payment_method'}}.
+        body (AddPaymentMethodBody): JSON:API request envelope for registering a new payment
+            method. Example: {'data': {'attributes': {'default': False, 'stripe_payment_method_id':
+            'pm_1234567890abcdef'}, 'type': 'payment_method'}}.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

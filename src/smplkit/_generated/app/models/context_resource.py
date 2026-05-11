@@ -21,17 +21,26 @@ T = TypeVar("T", bound="ContextResource")
 
 @_attrs_define
 class ContextResource:
-    """
-    Example:
-        {'attributes': {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'}, 'context_type': 'user',
-            'created_at': '2026-03-31T10:00:00Z', 'name': 'Alice Smith', 'updated_at': '2026-03-31T10:00:00Z'}, 'id':
-            'user:alice-123', 'type': 'context'}
+    """JSON:API resource envelope for a context instance.
 
-    Attributes:
-        type_ (ContextResourceType):
-        attributes (Context):  Example: {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'}, 'context_type':
-            'user', 'created_at': '2026-03-31T10:00:00Z', 'name': 'Alice Smith', 'updated_at': '2026-03-31T10:00:00Z'}.
-        id (None | str | Unset):
+    `id` is the composite identifier `context_type:key`. It must not be
+    specified for create requests (the server assigns it).
+
+        Example:
+            {'attributes': {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'}, 'context_type': 'user',
+                'created_at': '2026-03-31T10:00:00Z', 'name': 'Alice Smith', 'updated_at': '2026-03-31T10:00:00Z'}, 'id':
+                'user:alice-123', 'type': 'context'}
+
+        Attributes:
+            type_ (ContextResourceType):
+            attributes (Context): A specific instance of a context type — for example, a particular
+                user, account, or device — together with the attributes observed on it.
+
+                Context instances are addressed by a composite identifier of the form
+                `context_type:key` (e.g. `user:alice-123`). Example: {'attributes': {'first_name': 'Alice', 'plan':
+                'enterprise'}, 'context_type': 'user', 'created_at': '2026-03-31T10:00:00Z', 'name': 'Alice Smith',
+                'updated_at': '2026-03-31T10:00:00Z'}.
+            id (None | str | Unset):
     """
 
     type_: ContextResourceType

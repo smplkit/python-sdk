@@ -16,15 +16,16 @@ T = TypeVar("T", bound="CreateSubscriptionData")
 
 @_attrs_define
 class CreateSubscriptionData:
-    """
+    """Resource object for the create-subscription request.
+
     Example:
         {'attributes': {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'plan': 'pro', 'product': 'flags'},
             'type': 'subscription'}
 
     Attributes:
-        type_ (str):
-        attributes (CreateSubscriptionAttributes):  Example: {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-            'plan': 'pro', 'product': 'flags'}.
+        type_ (str): Resource type; must be `subscription`.
+        attributes (CreateSubscriptionAttributes): Attributes accepted when creating a new subscription. Example:
+            {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'plan': 'pro', 'product': 'flags'}.
     """
 
     type_: str

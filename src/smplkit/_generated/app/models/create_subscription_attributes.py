@@ -16,14 +16,16 @@ T = TypeVar("T", bound="CreateSubscriptionAttributes")
 
 @_attrs_define
 class CreateSubscriptionAttributes:
-    """
+    """Attributes accepted when creating a new subscription.
+
     Example:
         {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'plan': 'pro', 'product': 'flags'}
 
     Attributes:
-        product (str):
-        plan (str):
-        payment_method (None | str | Unset):
+        product (str): Product key to subscribe to, e.g. `flags`.
+        plan (str): Plan key to subscribe on, e.g. `pro`.
+        payment_method (None | str | Unset): UUID of a payment method on file to bill against. If omitted, the account's
+            default payment method is used.
     """
 
     product: str

@@ -16,7 +16,8 @@ T = TypeVar("T", bound="ApiKeyListResponse")
 
 @_attrs_define
 class ApiKeyListResponse:
-    """
+    """JSON:API collection response for API keys.
+
     Attributes:
         data (list[ApiKeyResource]):
     """

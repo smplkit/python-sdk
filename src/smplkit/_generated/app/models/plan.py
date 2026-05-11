@@ -12,11 +12,12 @@ T = TypeVar("T", bound="Plan")
 
 @_attrs_define
 class Plan:
-    """
+    """A plan tier offered across smplkit products.
+
     Attributes:
-        display_name (str):
-        description (str):
-        sort_order (int):
+        display_name (str): Human-readable plan name.
+        description (str): Long-form plan description.
+        sort_order (int): Order in which the plan should be shown in customer-facing lists. Lower values sort first.
     """
 
     display_name: str

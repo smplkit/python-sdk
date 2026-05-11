@@ -16,10 +16,12 @@ T = TypeVar("T", bound="PlanDefinition")
 
 @_attrs_define
 class PlanDefinition:
-    """
+    """Per-plan pricing and limits for a product.
+
     Attributes:
-        price_monthly_cents (int):
-        limits (PlanDefinitionLimits):
+        price_monthly_cents (int): Monthly list price in cents. `0` for free plans.
+        limits (PlanDefinitionLimits): Map of limit key to the cap that applies on this plan. `-1` indicates an
+            unlimited cap.
     """
 
     price_monthly_cents: int

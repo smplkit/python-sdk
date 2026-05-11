@@ -16,11 +16,15 @@ T = TypeVar("T", bound="ContextResponse")
 
 @_attrs_define
 class ContextResponse:
-    """
+    """JSON:API single-resource response envelope for a context instance.
+
     Attributes:
-        data (ContextResource):  Example: {'attributes': {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'},
-            'context_type': 'user', 'created_at': '2026-03-31T10:00:00Z', 'name': 'Alice Smith', 'updated_at':
-            '2026-03-31T10:00:00Z'}, 'id': 'user:alice-123', 'type': 'context'}.
+        data (ContextResource): JSON:API resource envelope for a context instance.
+
+            `id` is the composite identifier `context_type:key`. It must not be
+            specified for create requests (the server assigns it). Example: {'attributes': {'attributes': {'first_name':
+            'Alice', 'plan': 'enterprise'}, 'context_type': 'user', 'created_at': '2026-03-31T10:00:00Z', 'name': 'Alice
+            Smith', 'updated_at': '2026-03-31T10:00:00Z'}, 'id': 'user:alice-123', 'type': 'context'}.
     """
 
     data: ContextResource

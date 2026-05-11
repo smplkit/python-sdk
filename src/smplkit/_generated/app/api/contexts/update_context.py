@@ -8,6 +8,7 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
+from ...models.context_request import ContextRequest
 from ...models.context_response import ContextResponse
 from ...models.error_response import ErrorResponse
 
@@ -15,7 +16,7 @@ from ...models.error_response import ErrorResponse
 def _get_kwargs(
     id: str,
     *,
-    body: ContextResponse,
+    body: ContextRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -83,17 +84,18 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: ContextResponse,
+    body: ContextRequest,
 ) -> Response[ContextResponse | ErrorResponse]:
     """Update Context
 
      Update a context instance by composite id (type:key). Only the human-readable display name is
-    mutable through this endpoint; context_type and observed attributes are written by the SDK ingestion
-    path.
+    mutable here; `context_type` and observed `attributes` are written by SDK registration and ignored
+    on this endpoint.
 
     Args:
         id (str):
-        body (ContextResponse):
+        body (ContextRequest): JSON:API request envelope for creating or updating a context
+            instance.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -119,17 +121,18 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: ContextResponse,
+    body: ContextRequest,
 ) -> ContextResponse | ErrorResponse | None:
     """Update Context
 
      Update a context instance by composite id (type:key). Only the human-readable display name is
-    mutable through this endpoint; context_type and observed attributes are written by the SDK ingestion
-    path.
+    mutable here; `context_type` and observed `attributes` are written by SDK registration and ignored
+    on this endpoint.
 
     Args:
         id (str):
-        body (ContextResponse):
+        body (ContextRequest): JSON:API request envelope for creating or updating a context
+            instance.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -150,17 +153,18 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: ContextResponse,
+    body: ContextRequest,
 ) -> Response[ContextResponse | ErrorResponse]:
     """Update Context
 
      Update a context instance by composite id (type:key). Only the human-readable display name is
-    mutable through this endpoint; context_type and observed attributes are written by the SDK ingestion
-    path.
+    mutable here; `context_type` and observed `attributes` are written by SDK registration and ignored
+    on this endpoint.
 
     Args:
         id (str):
-        body (ContextResponse):
+        body (ContextRequest): JSON:API request envelope for creating or updating a context
+            instance.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -184,17 +188,18 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: ContextResponse,
+    body: ContextRequest,
 ) -> ContextResponse | ErrorResponse | None:
     """Update Context
 
      Update a context instance by composite id (type:key). Only the human-readable display name is
-    mutable through this endpoint; context_type and observed attributes are written by the SDK ingestion
-    path.
+    mutable here; `context_type` and observed `attributes` are written by SDK registration and ignored
+    on this endpoint.
 
     Args:
         id (str):
-        body (ContextResponse):
+        body (ContextRequest): JSON:API request envelope for creating or updating a context
+            instance.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

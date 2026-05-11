@@ -21,30 +21,38 @@ T = TypeVar("T", bound="Account")
 
 @_attrs_define
 class Account:
-    """
-    Example:
-        {'created_at': '2026-03-20T11:02:16.616Z', 'has_stripe_customer': False, 'key': 'acme_corp', 'name': 'Acme
-            Corp'}
+    """A tenant of smplkit — the unit of isolation that owns all of a
+    customer's resources (environments, contexts, API keys, and so on).
 
-    Attributes:
-        name (str):
-        key (str):
-        has_stripe_customer (bool | Unset):  Default: False.
-        expires_at (datetime.datetime | None | Unset):
-        created_at (datetime.datetime | None | Unset):
-        deleted_at (datetime.datetime | None | Unset):
-        product_subscriptions (AccountProductSubscriptions | None | Unset):
-        entry_point (None | str | Unset): Registration entry point (from account.data)
-        show_sample_data (bool | None | Unset): Whether sample data is active (from account.settings)
-        discount_override_pct (int | None | Unset): Custom discount percentage that overrides the volume schedule. Null
-            means the volume schedule applies.
-        discount_override_reason (None | str | Unset): Free-form note explaining why the override was set.
-        discount_override_set_by_user_id (None | str | Unset): UUID of the admin user who set the override.
-        discount_override_set_at (datetime.datetime | None | Unset): Timestamp when the override was last changed.
+        Example:
+            {'created_at': '2026-03-20T11:02:16.616Z', 'has_stripe_customer': False, 'key': 'acme_corp', 'name': 'Acme
+                Corp'}
+
+        Attributes:
+            name (str): Human-readable name for the account.
+            key (None | str | Unset): Stable URL-safe identifier for the account, derived from the account name at creation.
+                Used in console URLs and other places that prefer a human-readable handle.
+            has_stripe_customer (bool | Unset): `true` once the account has been linked to a billing provider customer
+                record. Default: False.
+            expires_at (datetime.datetime | None | Unset): When the account is scheduled to expire. `null` for accounts with
+                no expiry.
+            created_at (datetime.datetime | None | Unset): When the account was created.
+            deleted_at (datetime.datetime | None | Unset): When the account was deleted. `null` for active accounts.
+            product_subscriptions (AccountProductSubscriptions | None | Unset): Map of product key to the account's
+                subscription summary for that product, including plan, status, and entitlement limits.
+            entry_point (None | str | Unset): How the account first reached smplkit (e.g. `LOGIN`, `GET_STARTED`,
+                `LIVE_DEMO`).
+            show_sample_data (bool | None | Unset): Whether the account is currently configured to display the sample
+                dataset alongside the customer's own resources.
+            discount_override_pct (int | None | Unset): Custom discount percentage applied to the account in place of the
+                volume-based discount schedule. `null` means the volume schedule applies.
+            discount_override_reason (None | str | Unset): Free-form note explaining why the override was set.
+            discount_override_set_by_user_id (None | str | Unset): UUID of the user who set the override.
+            discount_override_set_at (datetime.datetime | None | Unset): When the override was last changed.
     """
 
     name: str
-    key: str
+    key: None | str | Unset = UNSET
     has_stripe_customer: bool | Unset = False
     expires_at: datetime.datetime | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
@@ -63,7 +71,11 @@ class Account:
 
         name = self.name
 
-        key = self.key
+        key: None | str | Unset
+        if isinstance(self.key, Unset):
+            key = UNSET
+        else:
+            key = self.key
 
         has_stripe_customer = self.has_stripe_customer
 
@@ -142,9 +154,10 @@ class Account:
         field_dict.update(
             {
                 "name": name,
-                "key": key,
             }
         )
+        if key is not UNSET:
+            field_dict["key"] = key
         if has_stripe_customer is not UNSET:
             field_dict["has_stripe_customer"] = has_stripe_customer
         if expires_at is not UNSET:
@@ -177,7 +190,14 @@ class Account:
         d = dict(src_dict)
         name = d.pop("name")
 
-        key = d.pop("key")
+        def _parse_key(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        key = _parse_key(d.pop("key", UNSET))
 
         has_stripe_customer = d.pop("has_stripe_customer", UNSET)
 

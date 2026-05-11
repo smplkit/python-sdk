@@ -12,9 +12,10 @@ T = TypeVar("T", bound="ContextBatchResponse")
 
 @_attrs_define
 class ContextBatchResponse:
-    """
+    """Summary returned by the bulk context registration endpoint.
+
     Attributes:
-        registered (int):
+        registered (int): Number of context instances that were created or updated.
     """
 
     registered: int

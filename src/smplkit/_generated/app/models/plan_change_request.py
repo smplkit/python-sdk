@@ -12,9 +12,10 @@ T = TypeVar("T", bound="PlanChangeRequest")
 
 @_attrs_define
 class PlanChangeRequest:
-    """
+    """Body for the subscription upgrade and downgrade actions.
+
     Attributes:
-        plan (str):
+        plan (str): Plan key to change the subscription to.
     """
 
     plan: str

@@ -16,10 +16,14 @@ T = TypeVar("T", bound="ServiceResponse")
 
 @_attrs_define
 class ServiceResponse:
-    """
+    """JSON:API single-resource response envelope for a service.
+
     Attributes:
-        data (ServiceResource):  Example: {'attributes': {'created_at': '2026-03-20T11:02:16.616Z', 'name': 'User
-            Service', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id': 'user_service', 'type': 'service'}.
+        data (ServiceResource): JSON:API resource envelope for a service.
+
+            `id` must not be specified for create requests (the server assigns it). Example: {'attributes': {'created_at':
+            '2026-03-20T11:02:16.616Z', 'name': 'User Service', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id':
+            'user_service', 'type': 'service'}.
     """
 
     data: ServiceResource

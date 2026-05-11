@@ -14,13 +14,15 @@ T = TypeVar("T", bound="InvitationCreateItem")
 
 @_attrs_define
 class InvitationCreateItem:
-    """
+    """One invitation in a bulk-create request.
+
     Example:
         {'email': 'alice@example.com', 'role': 'MEMBER'}
 
     Attributes:
-        email (str):
-        role (str | Unset):  Default: 'MEMBER'.
+        email (str): Email address to send the invitation to.
+        role (str | Unset): Role to assign on acceptance. One of `ADMIN`, `MEMBER`, or `VIEWER`. `OWNER` cannot be
+            assigned via invitation. Case-insensitive on input. Default: 'MEMBER'.
     """
 
     email: str

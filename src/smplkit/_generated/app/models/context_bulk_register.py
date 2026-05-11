@@ -16,9 +16,10 @@ T = TypeVar("T", bound="ContextBulkRegister")
 
 @_attrs_define
 class ContextBulkRegister:
-    """
+    """Bulk registration request body for the contexts endpoint.
+
     Attributes:
-        contexts (list[ContextBulkItem]):
+        contexts (list[ContextBulkItem]): One context instance per entry.
     """
 
     contexts: list[ContextBulkItem]

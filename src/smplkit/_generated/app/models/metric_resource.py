@@ -21,16 +21,19 @@ T = TypeVar("T", bound="MetricResource")
 
 @_attrs_define
 class MetricResource:
-    """
-    Example:
-        {'attributes': {'created_at': '2026-04-10T18:00:01Z', 'dimensions': {'environment': 'production', 'service':
-            'user-service'}, 'name': 'flags.evaluations', 'period_seconds': 60, 'recorded_at': '2026-04-10T18:00:00Z',
-            'unit': 'evaluations', 'value': 1482}, 'id': 'a1b2c3d4-5678-90ab-cdef-1234567890ab', 'type': 'metric'}
+    """JSON:API resource envelope for a metric data point.
 
-    Attributes:
-        type_ (MetricResourceType):
-        attributes (MetricAttributes):
-        id (None | str | Unset):
+    `id` must not be specified for create requests (the server assigns it).
+
+        Example:
+            {'attributes': {'created_at': '2026-04-10T18:00:01Z', 'dimensions': {'environment': 'production', 'service':
+                'user-service'}, 'name': 'flags.evaluations', 'period_seconds': 60, 'recorded_at': '2026-04-10T18:00:00Z',
+                'unit': 'evaluations', 'value': 1482}, 'id': 'a1b2c3d4-5678-90ab-cdef-1234567890ab', 'type': 'metric'}
+
+        Attributes:
+            type_ (MetricResourceType):
+            attributes (MetricAttributes): A pre-aggregated metric data point recorded for the account.
+            id (None | str | Unset):
     """
 
     type_: MetricResourceType

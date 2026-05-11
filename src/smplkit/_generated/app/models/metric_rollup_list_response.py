@@ -16,7 +16,8 @@ T = TypeVar("T", bound="MetricRollupListResponse")
 
 @_attrs_define
 class MetricRollupListResponse:
-    """
+    """JSON:API collection response for metric rollups.
+
     Attributes:
         data (list[MetricRollupResource]):
     """

@@ -7,13 +7,14 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
+from ...models.context_type_request import ContextTypeRequest
 from ...models.context_type_response import ContextTypeResponse
 from ...models.error_response import ErrorResponse
 
 
 def _get_kwargs(
     *,
-    body: ContextTypeResponse,
+    body: ContextTypeRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -78,14 +79,15 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: ContextTypeResponse,
+    body: ContextTypeRequest,
 ) -> Response[ContextTypeResponse | ErrorResponse]:
     """Create Context Type
 
      Create a new context type. The caller provides the id (key) in the request body.
 
     Args:
-        body (ContextTypeResponse):
+        body (ContextTypeRequest): JSON:API request envelope for creating or updating a context
+            type.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -109,14 +111,15 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: ContextTypeResponse,
+    body: ContextTypeRequest,
 ) -> ContextTypeResponse | ErrorResponse | None:
     """Create Context Type
 
      Create a new context type. The caller provides the id (key) in the request body.
 
     Args:
-        body (ContextTypeResponse):
+        body (ContextTypeRequest): JSON:API request envelope for creating or updating a context
+            type.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -135,14 +138,15 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: ContextTypeResponse,
+    body: ContextTypeRequest,
 ) -> Response[ContextTypeResponse | ErrorResponse]:
     """Create Context Type
 
      Create a new context type. The caller provides the id (key) in the request body.
 
     Args:
-        body (ContextTypeResponse):
+        body (ContextTypeRequest): JSON:API request envelope for creating or updating a context
+            type.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -164,14 +168,15 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: ContextTypeResponse,
+    body: ContextTypeRequest,
 ) -> ContextTypeResponse | ErrorResponse | None:
     """Create Context Type
 
      Create a new context type. The caller provides the id (key) in the request body.
 
     Args:
-        body (ContextTypeResponse):
+        body (ContextTypeRequest): JSON:API request envelope for creating or updating a context
+            type.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

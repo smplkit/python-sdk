@@ -16,7 +16,8 @@ T = TypeVar("T", bound="MetricNamesResponse")
 
 @_attrs_define
 class MetricNamesResponse:
-    """
+    """Plain-JSON response listing distinct metric names for the account.
+
     Attributes:
         data (list[MetricNameItem]):
     """

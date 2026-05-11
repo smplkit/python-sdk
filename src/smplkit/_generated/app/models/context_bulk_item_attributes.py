@@ -12,7 +12,7 @@ T = TypeVar("T", bound="ContextBulkItemAttributes")
 
 @_attrs_define
 class ContextBulkItemAttributes:
-    """ """
+    """Observed attribute values for this context instance."""
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 

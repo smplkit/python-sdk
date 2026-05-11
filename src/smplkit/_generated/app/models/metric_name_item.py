@@ -16,10 +16,11 @@ T = TypeVar("T", bound="MetricNameItem")
 
 @_attrs_define
 class MetricNameItem:
-    """
+    """One distinct metric name with a representative unit.
+
     Attributes:
-        name (str):
-        unit (None | str | Unset):
+        name (str): Distinct metric series name.
+        unit (None | str | Unset): Representative unit observed for this series.
     """
 
     name: str

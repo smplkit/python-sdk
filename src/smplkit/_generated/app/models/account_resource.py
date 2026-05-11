@@ -21,16 +21,20 @@ T = TypeVar("T", bound="AccountResource")
 
 @_attrs_define
 class AccountResource:
-    """
-    Example:
-        {'attributes': {'created_at': '2026-03-20T11:02:16.616Z', 'has_stripe_customer': False, 'key': 'acme_corp',
-            'name': 'Acme Corp'}, 'id': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'type': 'account'}
+    """JSON:API resource envelope for an account.
 
-    Attributes:
-        type_ (AccountResourceType):
-        attributes (Account):  Example: {'created_at': '2026-03-20T11:02:16.616Z', 'has_stripe_customer': False, 'key':
-            'acme_corp', 'name': 'Acme Corp'}.
-        id (None | str | Unset):
+    `id` must not be specified for create requests (the server assigns it).
+
+        Example:
+            {'attributes': {'created_at': '2026-03-20T11:02:16.616Z', 'has_stripe_customer': False, 'key': 'acme_corp',
+                'name': 'Acme Corp'}, 'id': 'd290f1ee-6c54-4b01-90e6-d701748f0851', 'type': 'account'}
+
+        Attributes:
+            type_ (AccountResourceType):
+            attributes (Account): A tenant of smplkit — the unit of isolation that owns all of a
+                customer's resources (environments, contexts, API keys, and so on). Example: {'created_at':
+                '2026-03-20T11:02:16.616Z', 'has_stripe_customer': False, 'key': 'acme_corp', 'name': 'Acme Corp'}.
+            id (None | str | Unset):
     """
 
     type_: AccountResourceType
