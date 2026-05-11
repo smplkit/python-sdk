@@ -115,8 +115,10 @@ async def main() -> None:
         # simulate someone making a change to trigger listeners
         await _update_max_retries(client, 7)
 
-        # wait a moment for the event to be delivered
-        await asyncio.sleep(0.2)
+        # wait for the WebSocket push to deliver the change
+        deadline = asyncio.get_event_loop().time() + 10.0
+        while user_svc_config.max_retries != 7 and asyncio.get_event_loop().time() < deadline:
+            await asyncio.sleep(0.1)
 
         # user_svc_config always reflects the latest values
         print(f"max_retries after update = {user_svc_config.max_retries}")

@@ -49,6 +49,9 @@ class Forwarder:
                 prior ``str`` field — no migration of stored ``forwarder.type``
                 values needed.
 
+                Values are SCREAMING_SNAKE_CASE per ADR-014. The Forwarder schema
+                accepts any casing on input via _normalize_forwarder_type.
+
                 Adding a new destination here requires a corresponding implementation
                 in ``app.services.forwarding`` and a regeneration of the OpenAPI
                 spec so the SDK clients pick up the new variant.

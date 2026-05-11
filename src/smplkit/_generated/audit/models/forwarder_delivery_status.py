@@ -1,12 +1,12 @@
 from typing import Literal, cast
 
-ForwarderDeliveryStatus = Literal["failed", "filtered_out", "skipped_do_not_forward", "succeeded"]
+ForwarderDeliveryStatus = Literal["FAILED", "FILTERED_OUT", "SKIPPED_DO_NOT_FORWARD", "SUCCEEDED"]
 
 FORWARDER_DELIVERY_STATUS_VALUES: set[ForwarderDeliveryStatus] = {
-    "failed",
-    "filtered_out",
-    "skipped_do_not_forward",
-    "succeeded",
+    "FAILED",
+    "FILTERED_OUT",
+    "SKIPPED_DO_NOT_FORWARD",
+    "SUCCEEDED",
 }
 
 
