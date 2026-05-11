@@ -20,18 +20,29 @@ T = TypeVar("T", bound="LoggerResource")
 
 @_attrs_define
 class LoggerResource:
-    """
-    Example:
-        {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'WARN'},
-            'staging': {'level': 'DEBUG'}}, 'group': 'database-loggers', 'level': 'DEBUG', 'managed': True, 'name': 'SQL
-            Logger', 'updated_at': '2026-04-01T10:00:00Z'}, 'id': 'com.example.sql', 'type': 'logger'}
+    """JSON:API resource envelope for a logger.
 
-    Attributes:
-        type_ (Literal['logger']):
-        attributes (Logger):  Example: {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level':
-            'WARN'}, 'staging': {'level': 'DEBUG'}}, 'group': 'database-loggers', 'level': 'DEBUG', 'managed': True, 'name':
-            'SQL Logger', 'updated_at': '2026-04-01T10:00:00Z'}.
-        id (None | str | Unset):
+    `id` is the logger's dot-separated key (e.g. `sqlalchemy.engine`).
+    On a `PUT /api/v1/loggers/{id}` create, the id is taken from the URL
+    path; on update, an `id` in the body renames the logger.
+
+        Example:
+            {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'WARN'},
+                'staging': {'level': 'DEBUG'}}, 'group': 'database-loggers', 'level': 'DEBUG', 'managed': True, 'name': 'SQL
+                Logger', 'updated_at': '2026-04-01T10:00:00Z'}, 'id': 'com.example.sql', 'type': 'logger'}
+
+        Attributes:
+            type_ (Literal['logger']):
+            attributes (Logger): A logger configured for the account.
+
+                Loggers are organized by dot-separated key (for example, `sqlalchemy.engine`),
+                matching the hierarchical naming convention used by most logging
+                frameworks. A managed logger applies the configured level to every
+                runtime where the logger appears; unmanaged loggers are tracked only
+                as observations from SDKs. Example: {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production':
+                {'level': 'WARN'}, 'staging': {'level': 'DEBUG'}}, 'group': 'database-loggers', 'level': 'DEBUG', 'managed':
+                True, 'name': 'SQL Logger', 'updated_at': '2026-04-01T10:00:00Z'}.
+            id (None | str | Unset):
     """
 
     type_: Literal["logger"]

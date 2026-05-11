@@ -20,14 +20,20 @@ T = TypeVar("T", bound="ServiceResource")
 
 @_attrs_define
 class ServiceResource:
-    """
-    Example:
-        {'attributes': {}, 'id': 'api-gateway', 'type': 'service'}
+    """JSON:API resource envelope for a discovered service.
 
-    Attributes:
-        id (str):
-        type_ (Literal['service']):
-        attributes (ServiceAttributes | Unset):
+    `id` is the service name as reported by an SDK during bulk
+    registration. The resource carries no additional attributes — it
+    represents the existence of the service in the account's
+    observations, nothing more.
+
+        Example:
+            {'attributes': {}, 'id': 'api-gateway', 'type': 'service'}
+
+        Attributes:
+            id (str):
+            type_ (Literal['service']):
+            attributes (ServiceAttributes | Unset): A discovered service has no attributes beyond its name (the `id`).
     """
 
     id: str

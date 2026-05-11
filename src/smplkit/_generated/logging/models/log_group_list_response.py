@@ -16,7 +16,8 @@ T = TypeVar("T", bound="LogGroupListResponse")
 
 @_attrs_define
 class LogGroupListResponse:
-    """
+    """JSON:API collection response for log groups.
+
     Attributes:
         data (list[LogGroupResource]):
     """

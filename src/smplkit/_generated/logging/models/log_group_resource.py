@@ -20,17 +20,27 @@ T = TypeVar("T", bound="LogGroupResource")
 
 @_attrs_define
 class LogGroupResource:
-    """
-    Example:
-        {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'ERROR'}},
-            'level': 'WARN', 'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}, 'id': 'database-loggers',
-            'type': 'log_group'}
+    """JSON:API resource envelope for a log group.
 
-    Attributes:
-        type_ (Literal['log_group']):
-        attributes (LogGroup):  Example: {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level':
-            'ERROR'}}, 'level': 'WARN', 'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}.
-        id (None | str | Unset):
+    `id` is the group's key (e.g. `database-loggers`). On a create
+    request the id may be supplied; if omitted, the server generates
+    one from `name`.
+
+        Example:
+            {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production': {'level': 'ERROR'}},
+                'level': 'WARN', 'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}, 'id': 'database-loggers',
+                'type': 'log_group'}
+
+        Attributes:
+            type_ (Literal['log_group']):
+            attributes (LogGroup): A named collection of loggers that share a level configuration.
+
+                Assigning a logger to a group ties the logger's effective level to
+                the group's level (and per-environment overrides). Loggers can move
+                between groups or be detached from a group entirely. Example: {'created_at': '2026-04-01T10:00:00Z',
+                'environments': {'production': {'level': 'ERROR'}}, 'level': 'WARN', 'name': 'Database Loggers', 'updated_at':
+                '2026-04-01T10:00:00Z'}.
+            id (None | str | Unset):
     """
 
     type_: Literal["log_group"]

@@ -16,7 +16,8 @@ T = TypeVar("T", bound="UsageListResponse")
 
 @_attrs_define
 class UsageListResponse:
-    """
+    """JSON:API collection response for usage counters.
+
     Example:
         {'data': [{'attributes': {'limit_key': 'logging.managed_loggers', 'period': 'current', 'value': 8}, 'id':
             'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type': 'usage'}, {'attributes': {'limit_key': 'logging.groups',

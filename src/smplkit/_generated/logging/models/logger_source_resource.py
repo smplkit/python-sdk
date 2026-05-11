@@ -20,7 +20,8 @@ T = TypeVar("T", bound="LoggerSourceResource")
 
 @_attrs_define
 class LoggerSourceResource:
-    """
+    """JSON:API resource envelope for a logger source observation.
+
     Example:
         {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environment': 'production', 'first_observed':
             '2026-04-01T10:00:00Z', 'last_seen': '2026-04-11T15:30:00Z', 'resolved_level': 'WARN', 'service': 'api-gateway',
@@ -28,9 +29,13 @@ class LoggerSourceResource:
 
     Attributes:
         type_ (Literal['logger_source']):
-        attributes (LoggerSource):  Example: {'created_at': '2026-04-01T10:00:00Z', 'environment': 'production',
-            'first_observed': '2026-04-01T10:00:00Z', 'last_seen': '2026-04-11T15:30:00Z', 'resolved_level': 'WARN',
-            'service': 'api-gateway', 'updated_at': '2026-04-11T15:30:00Z'}.
+        attributes (LoggerSource): A single service / environment observation of a logger.
+
+            A source row exists for every (service, environment) pair that has
+            reported the logger via the bulk registration endpoint. The row's
+            levels reflect what the SDK saw on the most recent report. Example: {'created_at': '2026-04-01T10:00:00Z',
+            'environment': 'production', 'first_observed': '2026-04-01T10:00:00Z', 'last_seen': '2026-04-11T15:30:00Z',
+            'resolved_level': 'WARN', 'service': 'api-gateway', 'updated_at': '2026-04-11T15:30:00Z'}.
         id (None | str | Unset):
     """
 

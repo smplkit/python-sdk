@@ -16,18 +16,20 @@ T = TypeVar("T", bound="LoggerBulkItem")
 
 @_attrs_define
 class LoggerBulkItem:
-    """
+    """One logger discovered by an SDK during a bulk registration call.
+
     Example:
         {'environment': 'production', 'id': 'sqlalchemy.engine', 'level': 'WARN', 'resolved_level': 'WARN', 'service':
             'api-gateway'}
 
     Attributes:
-        id (str): Normalized logger name
-        level (None | str | Unset): The explicitly-set level on this logger. Null if inherited.
-        resolved_level (None | str | Unset): The effective level after framework inheritance. Never null in compliant
-            SDKs.
-        service (None | str | Unset): Service name that discovered this logger
-        environment (None | str | Unset): Environment where this logger was observed
+        id (str): Dot-separated logger key as the SDK saw it.
+        level (None | str | Unset): Level explicitly set on the logger by application code. `null` when the level is
+            inherited.
+        resolved_level (None | str | Unset): Effective level after framework inheritance. SDKs should always report
+            this; the server falls back to `level` when `resolved_level` is missing.
+        service (None | str | Unset): Service name that observed the logger.
+        environment (None | str | Unset): Environment where the logger was observed.
     """
 
     id: str

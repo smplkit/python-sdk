@@ -78,7 +78,7 @@ def sync_detailed(
 ) -> Response[ErrorResponse | LoggerSourceListResponse]:
     """List Logger Sources
 
-     List all sources (service/environment observations) for a specific logger.
+     List the service / environment observations recorded for a logger.
 
     Args:
         id (str):
@@ -109,7 +109,7 @@ def sync(
 ) -> ErrorResponse | LoggerSourceListResponse | None:
     """List Logger Sources
 
-     List all sources (service/environment observations) for a specific logger.
+     List the service / environment observations recorded for a logger.
 
     Args:
         id (str):
@@ -135,7 +135,7 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | LoggerSourceListResponse]:
     """List Logger Sources
 
-     List all sources (service/environment observations) for a specific logger.
+     List the service / environment observations recorded for a logger.
 
     Args:
         id (str):
@@ -164,7 +164,7 @@ async def asyncio(
 ) -> ErrorResponse | LoggerSourceListResponse | None:
     """List Logger Sources
 
-     List all sources (service/environment observations) for a specific logger.
+     List the service / environment observations recorded for a logger.
 
     Args:
         id (str):

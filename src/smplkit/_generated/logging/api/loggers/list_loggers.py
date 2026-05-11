@@ -107,8 +107,12 @@ def sync_detailed(
 ) -> Response[ErrorResponse | LoggerListResponse]:
     """List Loggers
 
-     List all loggers for the authenticated account. Optionally filter by managed status,
-    service, or last-seen time window.
+     List loggers for this account.
+
+    Supports `filter[managed]` to narrow to managed (or unmanaged) loggers,
+    `filter[service]` to keep only loggers observed in a specific service,
+    and `filter[last_seen]` (interval notation `[<from>,*)`) to keep only
+    loggers with a source observation at or after the given timestamp.
 
     Args:
         filtermanaged (bool | None | Unset):
@@ -145,8 +149,12 @@ def sync(
 ) -> ErrorResponse | LoggerListResponse | None:
     """List Loggers
 
-     List all loggers for the authenticated account. Optionally filter by managed status,
-    service, or last-seen time window.
+     List loggers for this account.
+
+    Supports `filter[managed]` to narrow to managed (or unmanaged) loggers,
+    `filter[service]` to keep only loggers observed in a specific service,
+    and `filter[last_seen]` (interval notation `[<from>,*)`) to keep only
+    loggers with a source observation at or after the given timestamp.
 
     Args:
         filtermanaged (bool | None | Unset):
@@ -178,8 +186,12 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | LoggerListResponse]:
     """List Loggers
 
-     List all loggers for the authenticated account. Optionally filter by managed status,
-    service, or last-seen time window.
+     List loggers for this account.
+
+    Supports `filter[managed]` to narrow to managed (or unmanaged) loggers,
+    `filter[service]` to keep only loggers observed in a specific service,
+    and `filter[last_seen]` (interval notation `[<from>,*)`) to keep only
+    loggers with a source observation at or after the given timestamp.
 
     Args:
         filtermanaged (bool | None | Unset):
@@ -214,8 +226,12 @@ async def asyncio(
 ) -> ErrorResponse | LoggerListResponse | None:
     """List Loggers
 
-     List all loggers for the authenticated account. Optionally filter by managed status,
-    service, or last-seen time window.
+     List loggers for this account.
+
+    Supports `filter[managed]` to narrow to managed (or unmanaged) loggers,
+    `filter[service]` to keep only loggers observed in a specific service,
+    and `filter[last_seen]` (interval notation `[<from>,*)`) to keep only
+    loggers with a source observation at or after the given timestamp.
 
     Args:
         filtermanaged (bool | None | Unset):

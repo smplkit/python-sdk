@@ -98,7 +98,10 @@ def sync_detailed(
 ) -> Response[ErrorResponse | LoggerSourceListResponse]:
     """List All Logger Sources
 
-     List all logger sources across all loggers. Optionally filter by environment or service.
+     List every logger source observation for this account.
+
+    Supports `filter[environment]` and `filter[service]` to narrow to a
+    specific environment or service.
 
     Args:
         filterenvironment (None | str | Unset):
@@ -132,7 +135,10 @@ def sync(
 ) -> ErrorResponse | LoggerSourceListResponse | None:
     """List All Logger Sources
 
-     List all logger sources across all loggers. Optionally filter by environment or service.
+     List every logger source observation for this account.
+
+    Supports `filter[environment]` and `filter[service]` to narrow to a
+    specific environment or service.
 
     Args:
         filterenvironment (None | str | Unset):
@@ -161,7 +167,10 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | LoggerSourceListResponse]:
     """List All Logger Sources
 
-     List all logger sources across all loggers. Optionally filter by environment or service.
+     List every logger source observation for this account.
+
+    Supports `filter[environment]` and `filter[service]` to narrow to a
+    specific environment or service.
 
     Args:
         filterenvironment (None | str | Unset):
@@ -193,7 +202,10 @@ async def asyncio(
 ) -> ErrorResponse | LoggerSourceListResponse | None:
     """List All Logger Sources
 
-     List all logger sources across all loggers. Optionally filter by environment or service.
+     List every logger source observation for this account.
+
+    Supports `filter[environment]` and `filter[service]` to narrow to a
+    specific environment or service.
 
     Args:
         filterenvironment (None | str | Unset):

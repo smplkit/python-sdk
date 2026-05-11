@@ -78,7 +78,7 @@ def sync_detailed(
 ) -> Response[ErrorResponse | LoggerResponse]:
     """Get Logger
 
-     Return a logger by its key.
+     Retrieve a logger by its key.
 
     Args:
         id (str):
@@ -109,7 +109,7 @@ def sync(
 ) -> ErrorResponse | LoggerResponse | None:
     """Get Logger
 
-     Return a logger by its key.
+     Retrieve a logger by its key.
 
     Args:
         id (str):
@@ -135,7 +135,7 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | LoggerResponse]:
     """Get Logger
 
-     Return a logger by its key.
+     Retrieve a logger by its key.
 
     Args:
         id (str):
@@ -164,7 +164,7 @@ async def asyncio(
 ) -> ErrorResponse | LoggerResponse | None:
     """Get Logger
 
-     Return a logger by its key.
+     Retrieve a logger by its key.
 
     Args:
         id (str):

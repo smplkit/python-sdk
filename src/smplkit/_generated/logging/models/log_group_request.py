@@ -8,38 +8,37 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.logger_bulk_item import LoggerBulkItem
+    from ..models.log_group_resource import LogGroupResource
 
 
-T = TypeVar("T", bound="LoggerBulkRequest")
+T = TypeVar("T", bound="LogGroupRequest")
 
 
 @_attrs_define
-class LoggerBulkRequest:
-    """Payload for bulk registration of loggers discovered by an SDK.
-
-    Example:
-        {'loggers': [{'environment': 'production', 'id': 'sqlalchemy.engine', 'level': 'WARN', 'service': 'api-
-            gateway'}, {'environment': 'production', 'id': 'stripe', 'level': 'INFO', 'service': 'api-gateway'}]}
+class LogGroupRequest:
+    """JSON:API request envelope for creating or updating a log group.
 
     Attributes:
-        loggers (list[LoggerBulkItem]): Loggers to register or refresh observations for.
+        data (LogGroupResource): JSON:API resource envelope for a log group.
+
+            `id` is the group's key (e.g. `database-loggers`). On a create
+            request the id may be supplied; if omitted, the server generates
+            one from `name`. Example: {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production':
+            {'level': 'ERROR'}}, 'level': 'WARN', 'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}, 'id':
+            'database-loggers', 'type': 'log_group'}.
     """
 
-    loggers: list[LoggerBulkItem]
+    data: LogGroupResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        loggers = []
-        for loggers_item_data in self.loggers:
-            loggers_item = loggers_item_data.to_dict()
-            loggers.append(loggers_item)
+        data = self.data.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "loggers": loggers,
+                "data": data,
             }
         )
 
@@ -47,22 +46,17 @@ class LoggerBulkRequest:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.logger_bulk_item import LoggerBulkItem
+        from ..models.log_group_resource import LogGroupResource
 
         d = dict(src_dict)
-        loggers = []
-        _loggers = d.pop("loggers")
-        for loggers_item_data in _loggers:
-            loggers_item = LoggerBulkItem.from_dict(loggers_item_data)
+        data = LogGroupResource.from_dict(d.pop("data"))
 
-            loggers.append(loggers_item)
-
-        logger_bulk_request = cls(
-            loggers=loggers,
+        log_group_request = cls(
+            data=data,
         )
 
-        logger_bulk_request.additional_properties = d
-        return logger_bulk_request
+        log_group_request.additional_properties = d
+        return log_group_request
 
     @property
     def additional_keys(self) -> list[str]:

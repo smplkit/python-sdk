@@ -9,13 +9,14 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
+from ...models.logger_request import LoggerRequest
 from ...models.logger_response import LoggerResponse
 
 
 def _get_kwargs(
     id: str,
     *,
-    body: LoggerResponse,
+    body: LoggerRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -83,16 +84,20 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: LoggerResponse,
+    body: LoggerRequest,
 ) -> Response[ErrorResponse | LoggerResponse]:
     """Update or Create Logger
 
-     Create or update a logger (upsert). If the logger does not exist it is created.
-    Fields absent from the body are preserved on update; explicit null clears them.
+     Create or replace a logger at the given key.
+
+    If the logger does not yet exist, it is created. Fields omitted from
+    the request body are preserved; explicit `null` clears them. Setting
+    `level`, `group`, or `environments` on an unmanaged logger promotes
+    it to managed automatically.
 
     Args:
         id (str):
-        body (LoggerResponse):
+        body (LoggerRequest): JSON:API request envelope for creating or updating a logger.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,16 +123,20 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: LoggerResponse,
+    body: LoggerRequest,
 ) -> ErrorResponse | LoggerResponse | None:
     """Update or Create Logger
 
-     Create or update a logger (upsert). If the logger does not exist it is created.
-    Fields absent from the body are preserved on update; explicit null clears them.
+     Create or replace a logger at the given key.
+
+    If the logger does not yet exist, it is created. Fields omitted from
+    the request body are preserved; explicit `null` clears them. Setting
+    `level`, `group`, or `environments` on an unmanaged logger promotes
+    it to managed automatically.
 
     Args:
         id (str):
-        body (LoggerResponse):
+        body (LoggerRequest): JSON:API request envelope for creating or updating a logger.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -148,16 +157,20 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: LoggerResponse,
+    body: LoggerRequest,
 ) -> Response[ErrorResponse | LoggerResponse]:
     """Update or Create Logger
 
-     Create or update a logger (upsert). If the logger does not exist it is created.
-    Fields absent from the body are preserved on update; explicit null clears them.
+     Create or replace a logger at the given key.
+
+    If the logger does not yet exist, it is created. Fields omitted from
+    the request body are preserved; explicit `null` clears them. Setting
+    `level`, `group`, or `environments` on an unmanaged logger promotes
+    it to managed automatically.
 
     Args:
         id (str):
-        body (LoggerResponse):
+        body (LoggerRequest): JSON:API request envelope for creating or updating a logger.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -181,16 +194,20 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient,
-    body: LoggerResponse,
+    body: LoggerRequest,
 ) -> ErrorResponse | LoggerResponse | None:
     """Update or Create Logger
 
-     Create or update a logger (upsert). If the logger does not exist it is created.
-    Fields absent from the body are preserved on update; explicit null clears them.
+     Create or replace a logger at the given key.
+
+    If the logger does not yet exist, it is created. Fields omitted from
+    the request body are preserved; explicit `null` clears them. Setting
+    `level`, `group`, or `environments` on an unmanaged logger promotes
+    it to managed automatically.
 
     Args:
         id (str):
-        body (LoggerResponse):
+        body (LoggerRequest): JSON:API request envelope for creating or updating a logger.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

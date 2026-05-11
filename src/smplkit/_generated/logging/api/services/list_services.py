@@ -72,7 +72,7 @@ def sync_detailed(
 ) -> Response[ErrorResponse | ServiceListResponse]:
     """List Services
 
-     Return the distinct service names observed across all logger sources for the account.
+     List the services that have reported a logger for this account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -97,7 +97,7 @@ def sync(
 ) -> ErrorResponse | ServiceListResponse | None:
     """List Services
 
-     Return the distinct service names observed across all logger sources for the account.
+     List the services that have reported a logger for this account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,7 +118,7 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | ServiceListResponse]:
     """List Services
 
-     Return the distinct service names observed across all logger sources for the account.
+     List the services that have reported a logger for this account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -141,7 +141,7 @@ async def asyncio(
 ) -> ErrorResponse | ServiceListResponse | None:
     """List Services
 
-     Return the distinct service names observed across all logger sources for the account.
+     List the services that have reported a logger for this account.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
