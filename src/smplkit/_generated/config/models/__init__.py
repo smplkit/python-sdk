@@ -7,6 +7,7 @@ from .config_item_definition_type_type_0 import ConfigItemDefinitionTypeType0
 from .config_item_override import ConfigItemOverride
 from .config_items_type_0 import ConfigItemsType0
 from .config_list_response import ConfigListResponse
+from .config_request import ConfigRequest
 from .config_resource import ConfigResource
 from .config_response import ConfigResponse
 from .environment_override import EnvironmentOverride
@@ -23,6 +24,7 @@ __all__ = (
     "ConfigItemOverride",
     "ConfigItemsType0",
     "ConfigListResponse",
+    "ConfigRequest",
     "ConfigResource",
     "ConfigResponse",
     "EnvironmentOverride",

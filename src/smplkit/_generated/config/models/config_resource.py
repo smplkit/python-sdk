@@ -20,21 +20,31 @@ T = TypeVar("T", bound="ConfigResource")
 
 @_attrs_define
 class ConfigResource:
-    """
-    Example:
-        {'attributes': {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database configuration', 'environments':
-            {'prod': {'values': {'host': {'value': 'db-prod.internal'}}}}, 'items': {'host': {'description': 'Primary
-            database hostname', 'type': 'STRING', 'value': 'db.internal'}}, 'name': 'Database', 'parent': 'common',
-            'updated_at': '2026-03-27T10:00:00Z'}, 'id': 'database', 'type': 'config'}
+    """JSON:API resource envelope for a config.
 
-    Attributes:
-        type_ (Literal['config']):
-        attributes (Config):  Example: {'created_at': '2026-03-27T10:00:00Z', 'description': 'Database configuration',
-            'environments': {'prod': {'values': {'host': {'value': 'db-prod.internal'}, 'pool_size': {'value': 20}}}},
-            'items': {'host': {'description': 'Primary database hostname', 'type': 'STRING', 'value': 'db.internal'},
-            'pool_size': {'description': 'Connection pool size', 'type': 'NUMBER', 'value': 10}}, 'name': 'Database',
-            'updated_at': '2026-03-27T10:00:00Z'}.
-        id (None | str | Unset):
+    `id` is the human-readable key for the config and must be supplied
+    by the caller on create. It is unique within the account.
+
+        Example:
+            {'attributes': {'created_at': '2026-05-11T12:00:00Z', 'description': 'Database connection settings.',
+                'environments': {'prod': {'values': {'host': {'value': 'db-prod.internal'}}}}, 'items': {'host': {'description':
+                'Primary database hostname.', 'type': 'STRING', 'value': 'db.internal'}}, 'name': 'Database', 'parent':
+                'common', 'updated_at': '2026-05-11T12:00:00Z'}, 'id': 'database', 'type': 'config'}
+
+        Attributes:
+            type_ (Literal['config']):
+            attributes (Config): A named bag of configuration items, optionally inheriting from another config.
+
+                Items are typed key/value pairs (`STRING`, `NUMBER`, `BOOLEAN`,
+                `JSON`). Configs may declare per-environment overrides for any item
+                declared on the config itself or anywhere in its inheritance chain;
+                resolving a config against an environment merges the chain top-down
+                and then applies the matching overrides. Example: {'created_at': '2026-05-11T12:00:00Z', 'description':
+                'Database connection settings.', 'environments': {'prod': {'values': {'host': {'value': 'db-prod.internal'},
+                'pool_size': {'value': 20}}}}, 'items': {'host': {'description': 'Primary database hostname.', 'type': 'STRING',
+                'value': 'db.internal'}, 'pool_size': {'description': 'Connection pool size.', 'type': 'NUMBER', 'value': 10}},
+                'name': 'Database', 'parent': 'common', 'updated_at': '2026-05-11T12:00:00Z'}.
+            id (None | str | Unset):
     """
 
     type_: Literal["config"]
