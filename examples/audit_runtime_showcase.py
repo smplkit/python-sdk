@@ -37,7 +37,7 @@ async def main() -> None:
                 "snapshot": {"total_cents": 4900, "currency": "USD"},
                 "request_id": "req-abc",
             },
-            flush=True # or omit to have events flushed asynchronously
+            flush=True,  # or omit to have events flushed asynchronously
         )
         print(f"Recorded events for invoice {some_resource_id}")
 

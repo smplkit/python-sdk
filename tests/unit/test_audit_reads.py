@@ -191,9 +191,7 @@ class TestEventsGet:
 
     def test_get_accepts_string_id(self):
         event_id = "11111111-2222-3333-4444-555555555555"
-        client = _client_with_handler(
-            lambda req: httpx.Response(200, json={"data": _event_resource(event_id)})
-        )
+        client = _client_with_handler(lambda req: httpx.Response(200, json={"data": _event_resource(event_id)}))
         try:
             ev = client.events.get(event_id)
             assert ev.id == UUID(event_id)
