@@ -42,7 +42,9 @@ async def main() -> None:
         print(f"Recorded events for invoice {some_resource_id}")
 
         # list events
-        page = client.audit.events.list(resource_id=some_resource_id)
+        page = client.audit.events.list(
+            resource_type="invoice", resource_id=some_resource_id
+        )
         assert some_resource_id in {e.resource_id for e in page.events}
         recorded_event_id = page.events[0].id
         print(f"Listed {len(page)} event(s) for invoice {some_resource_id}")
