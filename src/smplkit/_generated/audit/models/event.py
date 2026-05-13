@@ -33,6 +33,8 @@ class Event:
             action (str): Slug for what happened, e.g. `user.created`. Lowercase, dot-separated.
             resource_type (str): Slug for the kind of resource the event is about, e.g. `user`. Lowercase, dot-separated.
             resource_id (str): Identifier of the specific resource the event is about.
+            description (None | str | Unset): Free-text description of the event. Included alongside `resource_id` in the
+                `filter[search]` substring target.
             occurred_at (datetime.datetime | None | Unset): When the event actually happened. Defaults to the server receipt
                 time (`created_at`).
             data (EventData | Unset): Free-form payload attached to the event. Use it for resource snapshots (by convention
@@ -53,6 +55,7 @@ class Event:
     action: str
     resource_type: str
     resource_id: str
+    description: None | str | Unset = UNSET
     occurred_at: datetime.datetime | None | Unset = UNSET
     data: EventData | Unset = UNSET
     do_not_forward: bool | Unset = False
@@ -69,6 +72,12 @@ class Event:
         resource_type = self.resource_type
 
         resource_id = self.resource_id
+
+        description: None | str | Unset
+        if isinstance(self.description, Unset):
+            description = UNSET
+        else:
+            description = self.description
 
         occurred_at: None | str | Unset
         if isinstance(self.occurred_at, Unset):
@@ -127,6 +136,8 @@ class Event:
                 "resource_id": resource_id,
             }
         )
+        if description is not UNSET:
+            field_dict["description"] = description
         if occurred_at is not UNSET:
             field_dict["occurred_at"] = occurred_at
         if data is not UNSET:
@@ -156,6 +167,15 @@ class Event:
         resource_type = d.pop("resource_type")
 
         resource_id = d.pop("resource_id")
+
+        def _parse_description(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        description = _parse_description(d.pop("description", UNSET))
 
         def _parse_occurred_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -248,6 +268,7 @@ class Event:
             action=action,
             resource_type=resource_type,
             resource_id=resource_id,
+            description=description,
             occurred_at=occurred_at,
             data=data,
             do_not_forward=do_not_forward,
