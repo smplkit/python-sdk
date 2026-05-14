@@ -8,6 +8,7 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error_response import ErrorResponse
+from ...models.list_users_sort import ListUsersSort
 from ...models.user_list_response import UserListResponse
 from ...types import Unset
 
@@ -19,6 +20,7 @@ def _get_kwargs(
     filtersearch: None | str | Unset = UNSET,
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 50,
+    sort: ListUsersSort | Unset = "email",
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -47,6 +49,12 @@ def _get_kwargs(
     params["page[number]"] = pagenumber
 
     params["page[size]"] = pagesize
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -112,6 +120,7 @@ def sync_detailed(
     filtersearch: None | str | Unset = UNSET,
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 50,
+    sort: ListUsersSort | Unset = "email",
 ) -> Response[ErrorResponse | UserListResponse]:
     """List Users
 
@@ -124,6 +133,9 @@ def sync_detailed(
             and email. If the value is a valid UUID, also matches user id exactly.
         pagenumber (int | Unset): 1-based page number Default: 1.
         pagesize (int | Unset): Items per page Default: 50.
+        sort (ListUsersSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `email`. Allowed values: `created_at`, `-created_at`, `display_name`,
+            `-display_name`, `email`, `-email`. Default: 'email'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -139,6 +151,7 @@ def sync_detailed(
         filtersearch=filtersearch,
         pagenumber=pagenumber,
         pagesize=pagesize,
+        sort=sort,
     )
 
     response = client.get_httpx_client().request(
@@ -156,6 +169,7 @@ def sync(
     filtersearch: None | str | Unset = UNSET,
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 50,
+    sort: ListUsersSort | Unset = "email",
 ) -> ErrorResponse | UserListResponse | None:
     """List Users
 
@@ -168,6 +182,9 @@ def sync(
             and email. If the value is a valid UUID, also matches user id exactly.
         pagenumber (int | Unset): 1-based page number Default: 1.
         pagesize (int | Unset): Items per page Default: 50.
+        sort (ListUsersSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `email`. Allowed values: `created_at`, `-created_at`, `display_name`,
+            `-display_name`, `email`, `-email`. Default: 'email'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -184,6 +201,7 @@ def sync(
         filtersearch=filtersearch,
         pagenumber=pagenumber,
         pagesize=pagesize,
+        sort=sort,
     ).parsed
 
 
@@ -195,6 +213,7 @@ async def asyncio_detailed(
     filtersearch: None | str | Unset = UNSET,
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 50,
+    sort: ListUsersSort | Unset = "email",
 ) -> Response[ErrorResponse | UserListResponse]:
     """List Users
 
@@ -207,6 +226,9 @@ async def asyncio_detailed(
             and email. If the value is a valid UUID, also matches user id exactly.
         pagenumber (int | Unset): 1-based page number Default: 1.
         pagesize (int | Unset): Items per page Default: 50.
+        sort (ListUsersSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `email`. Allowed values: `created_at`, `-created_at`, `display_name`,
+            `-display_name`, `email`, `-email`. Default: 'email'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -222,6 +244,7 @@ async def asyncio_detailed(
         filtersearch=filtersearch,
         pagenumber=pagenumber,
         pagesize=pagesize,
+        sort=sort,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -237,6 +260,7 @@ async def asyncio(
     filtersearch: None | str | Unset = UNSET,
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 50,
+    sort: ListUsersSort | Unset = "email",
 ) -> ErrorResponse | UserListResponse | None:
     """List Users
 
@@ -249,6 +273,9 @@ async def asyncio(
             and email. If the value is a valid UUID, also matches user id exactly.
         pagenumber (int | Unset): 1-based page number Default: 1.
         pagesize (int | Unset): Items per page Default: 50.
+        sort (ListUsersSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `email`. Allowed values: `created_at`, `-created_at`, `display_name`,
+            `-display_name`, `email`, `-email`. Default: 'email'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -266,5 +293,6 @@ async def asyncio(
             filtersearch=filtersearch,
             pagenumber=pagenumber,
             pagesize=pagesize,
+            sort=sort,
         )
     ).parsed

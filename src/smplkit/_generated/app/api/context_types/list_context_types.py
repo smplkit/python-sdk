@@ -4,18 +4,34 @@ from typing import Any
 import httpx
 
 from ...client import AuthenticatedClient, Client
-from ...types import Response
+from ...types import Response, UNSET
 from ... import errors
 
 from ...models.context_type_list_response import ContextTypeListResponse
 from ...models.error_response import ErrorResponse
+from ...models.list_context_types_sort import ListContextTypesSort
+from ...types import Unset
 
 
-def _get_kwargs() -> dict[str, Any]:
+def _get_kwargs(
+    *,
+    sort: ListContextTypesSort | Unset = "key",
+) -> dict[str, Any]:
+
+    params: dict[str, Any] = {}
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/api/v1/context_types",
+        "params": params,
     }
 
     return _kwargs
@@ -69,10 +85,16 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    sort: ListContextTypesSort | Unset = "key",
 ) -> Response[ContextTypeListResponse | ErrorResponse]:
     """List Context Types
 
      List all context types for the authenticated account.
+
+    Args:
+        sort (ListContextTypesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
+            `-name`, `updated_at`, `-updated_at`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -82,7 +104,9 @@ def sync_detailed(
         Response[ContextTypeListResponse | ErrorResponse]
     """
 
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        sort=sort,
+    )
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -94,10 +118,16 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    sort: ListContextTypesSort | Unset = "key",
 ) -> ContextTypeListResponse | ErrorResponse | None:
     """List Context Types
 
      List all context types for the authenticated account.
+
+    Args:
+        sort (ListContextTypesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
+            `-name`, `updated_at`, `-updated_at`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -109,16 +139,23 @@ def sync(
 
     return sync_detailed(
         client=client,
+        sort=sort,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    sort: ListContextTypesSort | Unset = "key",
 ) -> Response[ContextTypeListResponse | ErrorResponse]:
     """List Context Types
 
      List all context types for the authenticated account.
+
+    Args:
+        sort (ListContextTypesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
+            `-name`, `updated_at`, `-updated_at`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -128,7 +165,9 @@ async def asyncio_detailed(
         Response[ContextTypeListResponse | ErrorResponse]
     """
 
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        sort=sort,
+    )
 
     response = await client.get_async_httpx_client().request(**kwargs)
 
@@ -138,10 +177,16 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    sort: ListContextTypesSort | Unset = "key",
 ) -> ContextTypeListResponse | ErrorResponse | None:
     """List Context Types
 
      List all context types for the authenticated account.
+
+    Args:
+        sort (ListContextTypesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
+            `-name`, `updated_at`, `-updated_at`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -154,5 +199,6 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            sort=sort,
         )
     ).parsed
