@@ -4,18 +4,34 @@ from typing import Any
 import httpx
 
 from ...client import AuthenticatedClient, Client
-from ...types import Response
+from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error_response import ErrorResponse
+from ...models.list_payment_methods_sort import ListPaymentMethodsSort
 from ...models.payment_method_list_response import PaymentMethodListResponse
+from ...types import Unset
 
 
-def _get_kwargs() -> dict[str, Any]:
+def _get_kwargs(
+    *,
+    sort: ListPaymentMethodsSort | Unset = "-created_at",
+) -> dict[str, Any]:
+
+    params: dict[str, Any] = {}
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/api/v1/payment_methods",
+        "params": params,
     }
 
     return _kwargs
@@ -69,10 +85,17 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    sort: ListPaymentMethodsSort | Unset = "-created_at",
 ) -> Response[ErrorResponse | PaymentMethodListResponse]:
     """List Payment Methods
 
      List all payment methods for the account. Default is returned first, then newest first.
+
+    Args:
+        sort (ListPaymentMethodsSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `exp_year`,
+            `-exp_year`, `is_default`, `-is_default`, `updated_at`, `-updated_at`. Default:
+            '-created_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -82,7 +105,9 @@ def sync_detailed(
         Response[ErrorResponse | PaymentMethodListResponse]
     """
 
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        sort=sort,
+    )
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -94,10 +119,17 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    sort: ListPaymentMethodsSort | Unset = "-created_at",
 ) -> ErrorResponse | PaymentMethodListResponse | None:
     """List Payment Methods
 
      List all payment methods for the account. Default is returned first, then newest first.
+
+    Args:
+        sort (ListPaymentMethodsSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `exp_year`,
+            `-exp_year`, `is_default`, `-is_default`, `updated_at`, `-updated_at`. Default:
+            '-created_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -109,16 +141,24 @@ def sync(
 
     return sync_detailed(
         client=client,
+        sort=sort,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    sort: ListPaymentMethodsSort | Unset = "-created_at",
 ) -> Response[ErrorResponse | PaymentMethodListResponse]:
     """List Payment Methods
 
      List all payment methods for the account. Default is returned first, then newest first.
+
+    Args:
+        sort (ListPaymentMethodsSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `exp_year`,
+            `-exp_year`, `is_default`, `-is_default`, `updated_at`, `-updated_at`. Default:
+            '-created_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -128,7 +168,9 @@ async def asyncio_detailed(
         Response[ErrorResponse | PaymentMethodListResponse]
     """
 
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        sort=sort,
+    )
 
     response = await client.get_async_httpx_client().request(**kwargs)
 
@@ -138,10 +180,17 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    sort: ListPaymentMethodsSort | Unset = "-created_at",
 ) -> ErrorResponse | PaymentMethodListResponse | None:
     """List Payment Methods
 
      List all payment methods for the account. Default is returned first, then newest first.
+
+    Args:
+        sort (ListPaymentMethodsSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `exp_year`,
+            `-exp_year`, `is_default`, `-is_default`, `updated_at`, `-updated_at`. Default:
+            '-created_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -154,5 +203,6 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            sort=sort,
         )
     ).parsed

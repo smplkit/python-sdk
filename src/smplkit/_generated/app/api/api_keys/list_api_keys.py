@@ -9,12 +9,14 @@ from ... import errors
 
 from ...models.api_key_list_response import ApiKeyListResponse
 from ...models.error_response import ErrorResponse
+from ...models.list_api_keys_sort import ListApiKeysSort
 from ...types import Unset
 
 
 def _get_kwargs(
     *,
     filterstatus: None | str | Unset = UNSET,
+    sort: ListApiKeysSort | Unset = "name",
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -25,6 +27,12 @@ def _get_kwargs(
     else:
         json_filterstatus = filterstatus
     params["filter[status]"] = json_filterstatus
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -86,6 +94,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
+    sort: ListApiKeysSort | Unset = "name",
 ) -> Response[ApiKeyListResponse | ErrorResponse]:
     """List API Keys
 
@@ -93,6 +102,9 @@ def sync_detailed(
 
     Args:
         filterstatus (None | str | Unset):
+        sort (ListApiKeysSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `name`. Allowed values: `created_at`, `-created_at`, `expires_at`, `-expires_at`,
+            `last_used_at`, `-last_used_at`, `name`, `-name`, `status`, `-status`. Default: 'name'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -104,6 +116,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         filterstatus=filterstatus,
+        sort=sort,
     )
 
     response = client.get_httpx_client().request(
@@ -117,6 +130,7 @@ def sync(
     *,
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
+    sort: ListApiKeysSort | Unset = "name",
 ) -> ApiKeyListResponse | ErrorResponse | None:
     """List API Keys
 
@@ -124,6 +138,9 @@ def sync(
 
     Args:
         filterstatus (None | str | Unset):
+        sort (ListApiKeysSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `name`. Allowed values: `created_at`, `-created_at`, `expires_at`, `-expires_at`,
+            `last_used_at`, `-last_used_at`, `name`, `-name`, `status`, `-status`. Default: 'name'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -136,6 +153,7 @@ def sync(
     return sync_detailed(
         client=client,
         filterstatus=filterstatus,
+        sort=sort,
     ).parsed
 
 
@@ -143,6 +161,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
+    sort: ListApiKeysSort | Unset = "name",
 ) -> Response[ApiKeyListResponse | ErrorResponse]:
     """List API Keys
 
@@ -150,6 +169,9 @@ async def asyncio_detailed(
 
     Args:
         filterstatus (None | str | Unset):
+        sort (ListApiKeysSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `name`. Allowed values: `created_at`, `-created_at`, `expires_at`, `-expires_at`,
+            `last_used_at`, `-last_used_at`, `name`, `-name`, `status`, `-status`. Default: 'name'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -161,6 +183,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         filterstatus=filterstatus,
+        sort=sort,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -172,6 +195,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
+    sort: ListApiKeysSort | Unset = "name",
 ) -> ApiKeyListResponse | ErrorResponse | None:
     """List API Keys
 
@@ -179,6 +203,9 @@ async def asyncio(
 
     Args:
         filterstatus (None | str | Unset):
+        sort (ListApiKeysSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `name`. Allowed values: `created_at`, `-created_at`, `expires_at`, `-expires_at`,
+            `last_used_at`, `-last_used_at`, `name`, `-name`, `status`, `-status`. Default: 'name'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -192,5 +219,6 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             filterstatus=filterstatus,
+            sort=sort,
         )
     ).parsed

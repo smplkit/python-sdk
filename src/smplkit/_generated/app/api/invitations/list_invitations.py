@@ -9,6 +9,7 @@ from ... import errors
 
 from ...models.error_response import ErrorResponse
 from ...models.invitation_list_response import InvitationListResponse
+from ...models.list_invitations_sort import ListInvitationsSort
 from ...types import Unset
 
 
@@ -16,6 +17,7 @@ def _get_kwargs(
     *,
     filterstatus: None | str | Unset = UNSET,
     filtertoken: None | str | Unset = UNSET,
+    sort: ListInvitationsSort | Unset = "-created_at",
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -33,6 +35,12 @@ def _get_kwargs(
     else:
         json_filtertoken = filtertoken
     params["filter[token]"] = json_filtertoken
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -95,6 +103,7 @@ def sync_detailed(
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
     filtertoken: None | str | Unset = UNSET,
+    sort: ListInvitationsSort | Unset = "-created_at",
 ) -> Response[ErrorResponse | InvitationListResponse]:
     """List Invitations
 
@@ -106,6 +115,9 @@ def sync_detailed(
     Args:
         filterstatus (None | str | Unset):
         filtertoken (None | str | Unset):
+        sort (ListInvitationsSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `email`,
+            `-email`, `status`, `-status`. Default: '-created_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,6 +130,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         filterstatus=filterstatus,
         filtertoken=filtertoken,
+        sort=sort,
     )
 
     response = client.get_httpx_client().request(
@@ -132,6 +145,7 @@ def sync(
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
     filtertoken: None | str | Unset = UNSET,
+    sort: ListInvitationsSort | Unset = "-created_at",
 ) -> ErrorResponse | InvitationListResponse | None:
     """List Invitations
 
@@ -143,6 +157,9 @@ def sync(
     Args:
         filterstatus (None | str | Unset):
         filtertoken (None | str | Unset):
+        sort (ListInvitationsSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `email`,
+            `-email`, `status`, `-status`. Default: '-created_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -156,6 +173,7 @@ def sync(
         client=client,
         filterstatus=filterstatus,
         filtertoken=filtertoken,
+        sort=sort,
     ).parsed
 
 
@@ -164,6 +182,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
     filtertoken: None | str | Unset = UNSET,
+    sort: ListInvitationsSort | Unset = "-created_at",
 ) -> Response[ErrorResponse | InvitationListResponse]:
     """List Invitations
 
@@ -175,6 +194,9 @@ async def asyncio_detailed(
     Args:
         filterstatus (None | str | Unset):
         filtertoken (None | str | Unset):
+        sort (ListInvitationsSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `email`,
+            `-email`, `status`, `-status`. Default: '-created_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -187,6 +209,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         filterstatus=filterstatus,
         filtertoken=filtertoken,
+        sort=sort,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -199,6 +222,7 @@ async def asyncio(
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
     filtertoken: None | str | Unset = UNSET,
+    sort: ListInvitationsSort | Unset = "-created_at",
 ) -> ErrorResponse | InvitationListResponse | None:
     """List Invitations
 
@@ -210,6 +234,9 @@ async def asyncio(
     Args:
         filterstatus (None | str | Unset):
         filtertoken (None | str | Unset):
+        sort (ListInvitationsSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `email`,
+            `-email`, `status`, `-status`. Default: '-created_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -224,5 +251,6 @@ async def asyncio(
             client=client,
             filterstatus=filterstatus,
             filtertoken=filtertoken,
+            sort=sort,
         )
     ).parsed

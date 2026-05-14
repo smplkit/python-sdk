@@ -8,6 +8,7 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error_response import ErrorResponse
+from ...models.list_metric_rollups_sort import ListMetricRollupsSort
 from ...models.metric_rollup_list_response import MetricRollupListResponse
 from ...types import Unset
 
@@ -17,6 +18,7 @@ def _get_kwargs(
     filtername: str,
     filterrollup: str,
     filterrecorded_at: None | str | Unset = UNSET,
+    sort: ListMetricRollupsSort | Unset = "bucket",
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -31,6 +33,12 @@ def _get_kwargs(
     else:
         json_filterrecorded_at = filterrecorded_at
     params["filter[recorded_at]"] = json_filterrecorded_at
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -94,6 +102,7 @@ def sync_detailed(
     filtername: str,
     filterrollup: str,
     filterrecorded_at: None | str | Unset = UNSET,
+    sort: ListMetricRollupsSort | Unset = "bucket",
 ) -> Response[ErrorResponse | MetricRollupListResponse]:
     """List Metric Rollups
 
@@ -103,6 +112,8 @@ def sync_detailed(
         filtername (str):
         filterrollup (str):
         filterrecorded_at (None | str | Unset):
+        sort (ListMetricRollupsSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `bucket`. Allowed values: `bucket`, `-bucket`. Default: 'bucket'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -116,6 +127,7 @@ def sync_detailed(
         filtername=filtername,
         filterrollup=filterrollup,
         filterrecorded_at=filterrecorded_at,
+        sort=sort,
     )
 
     response = client.get_httpx_client().request(
@@ -131,6 +143,7 @@ def sync(
     filtername: str,
     filterrollup: str,
     filterrecorded_at: None | str | Unset = UNSET,
+    sort: ListMetricRollupsSort | Unset = "bucket",
 ) -> ErrorResponse | MetricRollupListResponse | None:
     """List Metric Rollups
 
@@ -140,6 +153,8 @@ def sync(
         filtername (str):
         filterrollup (str):
         filterrecorded_at (None | str | Unset):
+        sort (ListMetricRollupsSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `bucket`. Allowed values: `bucket`, `-bucket`. Default: 'bucket'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -154,6 +169,7 @@ def sync(
         filtername=filtername,
         filterrollup=filterrollup,
         filterrecorded_at=filterrecorded_at,
+        sort=sort,
     ).parsed
 
 
@@ -163,6 +179,7 @@ async def asyncio_detailed(
     filtername: str,
     filterrollup: str,
     filterrecorded_at: None | str | Unset = UNSET,
+    sort: ListMetricRollupsSort | Unset = "bucket",
 ) -> Response[ErrorResponse | MetricRollupListResponse]:
     """List Metric Rollups
 
@@ -172,6 +189,8 @@ async def asyncio_detailed(
         filtername (str):
         filterrollup (str):
         filterrecorded_at (None | str | Unset):
+        sort (ListMetricRollupsSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `bucket`. Allowed values: `bucket`, `-bucket`. Default: 'bucket'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -185,6 +204,7 @@ async def asyncio_detailed(
         filtername=filtername,
         filterrollup=filterrollup,
         filterrecorded_at=filterrecorded_at,
+        sort=sort,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -198,6 +218,7 @@ async def asyncio(
     filtername: str,
     filterrollup: str,
     filterrecorded_at: None | str | Unset = UNSET,
+    sort: ListMetricRollupsSort | Unset = "bucket",
 ) -> ErrorResponse | MetricRollupListResponse | None:
     """List Metric Rollups
 
@@ -207,6 +228,8 @@ async def asyncio(
         filtername (str):
         filterrollup (str):
         filterrecorded_at (None | str | Unset):
+        sort (ListMetricRollupsSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `bucket`. Allowed values: `bucket`, `-bucket`. Default: 'bucket'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -222,5 +245,6 @@ async def asyncio(
             filtername=filtername,
             filterrollup=filterrollup,
             filterrecorded_at=filterrecorded_at,
+            sort=sort,
         )
     ).parsed
