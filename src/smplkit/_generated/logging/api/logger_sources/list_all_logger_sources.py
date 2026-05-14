@@ -8,6 +8,7 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error_response import ErrorResponse
+from ...models.list_all_logger_sources_sort import ListAllLoggerSourcesSort
 from ...models.logger_source_list_response import LoggerSourceListResponse
 from ...types import Unset
 
@@ -16,6 +17,7 @@ def _get_kwargs(
     *,
     filterenvironment: None | str | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
+    sort: ListAllLoggerSourcesSort | Unset = "-last_seen",
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -33,6 +35,12 @@ def _get_kwargs(
     else:
         json_filterservice = filterservice
     params["filter[service]"] = json_filterservice
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -95,17 +103,22 @@ def sync_detailed(
     client: AuthenticatedClient,
     filterenvironment: None | str | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
+    sort: ListAllLoggerSourcesSort | Unset = "-last_seen",
 ) -> Response[ErrorResponse | LoggerSourceListResponse]:
     """List All Logger Sources
 
      List every logger source observation for this account.
 
-    Supports `filter[environment]` and `filter[service]` to narrow to a
-    specific environment or service.
+    Default sort is `-last_seen` (most recently observed first). Supports
+    `filter[environment]` and `filter[service]` to narrow to a specific
+    environment or service.
 
     Args:
         filterenvironment (None | str | Unset):
         filterservice (None | str | Unset):
+        sort (ListAllLoggerSourcesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`,
+            `-environment`, `last_seen`, `-last_seen`, `service`, `-service`. Default: '-last_seen'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,6 +131,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         filterenvironment=filterenvironment,
         filterservice=filterservice,
+        sort=sort,
     )
 
     response = client.get_httpx_client().request(
@@ -132,17 +146,22 @@ def sync(
     client: AuthenticatedClient,
     filterenvironment: None | str | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
+    sort: ListAllLoggerSourcesSort | Unset = "-last_seen",
 ) -> ErrorResponse | LoggerSourceListResponse | None:
     """List All Logger Sources
 
      List every logger source observation for this account.
 
-    Supports `filter[environment]` and `filter[service]` to narrow to a
-    specific environment or service.
+    Default sort is `-last_seen` (most recently observed first). Supports
+    `filter[environment]` and `filter[service]` to narrow to a specific
+    environment or service.
 
     Args:
         filterenvironment (None | str | Unset):
         filterservice (None | str | Unset):
+        sort (ListAllLoggerSourcesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`,
+            `-environment`, `last_seen`, `-last_seen`, `service`, `-service`. Default: '-last_seen'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -156,6 +175,7 @@ def sync(
         client=client,
         filterenvironment=filterenvironment,
         filterservice=filterservice,
+        sort=sort,
     ).parsed
 
 
@@ -164,17 +184,22 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     filterenvironment: None | str | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
+    sort: ListAllLoggerSourcesSort | Unset = "-last_seen",
 ) -> Response[ErrorResponse | LoggerSourceListResponse]:
     """List All Logger Sources
 
      List every logger source observation for this account.
 
-    Supports `filter[environment]` and `filter[service]` to narrow to a
-    specific environment or service.
+    Default sort is `-last_seen` (most recently observed first). Supports
+    `filter[environment]` and `filter[service]` to narrow to a specific
+    environment or service.
 
     Args:
         filterenvironment (None | str | Unset):
         filterservice (None | str | Unset):
+        sort (ListAllLoggerSourcesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`,
+            `-environment`, `last_seen`, `-last_seen`, `service`, `-service`. Default: '-last_seen'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -187,6 +212,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         filterenvironment=filterenvironment,
         filterservice=filterservice,
+        sort=sort,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -199,17 +225,22 @@ async def asyncio(
     client: AuthenticatedClient,
     filterenvironment: None | str | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
+    sort: ListAllLoggerSourcesSort | Unset = "-last_seen",
 ) -> ErrorResponse | LoggerSourceListResponse | None:
     """List All Logger Sources
 
      List every logger source observation for this account.
 
-    Supports `filter[environment]` and `filter[service]` to narrow to a
-    specific environment or service.
+    Default sort is `-last_seen` (most recently observed first). Supports
+    `filter[environment]` and `filter[service]` to narrow to a specific
+    environment or service.
 
     Args:
         filterenvironment (None | str | Unset):
         filterservice (None | str | Unset):
+        sort (ListAllLoggerSourcesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`,
+            `-environment`, `last_seen`, `-last_seen`, `service`, `-service`. Default: '-last_seen'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -224,5 +255,6 @@ async def asyncio(
             client=client,
             filterenvironment=filterenvironment,
             filterservice=filterservice,
+            sort=sort,
         )
     ).parsed
