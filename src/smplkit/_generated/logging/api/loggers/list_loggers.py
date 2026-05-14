@@ -8,6 +8,7 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error_response import ErrorResponse
+from ...models.list_loggers_sort import ListLoggersSort
 from ...models.logger_list_response import LoggerListResponse
 from ...types import Unset
 
@@ -17,6 +18,7 @@ def _get_kwargs(
     filtermanaged: bool | None | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
     filterlast_seen: None | str | Unset = UNSET,
+    sort: ListLoggersSort | Unset = "key",
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -41,6 +43,12 @@ def _get_kwargs(
     else:
         json_filterlast_seen = filterlast_seen
     params["filter[last_seen]"] = json_filterlast_seen
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -104,20 +112,25 @@ def sync_detailed(
     filtermanaged: bool | None | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
     filterlast_seen: None | str | Unset = UNSET,
+    sort: ListLoggersSort | Unset = "key",
 ) -> Response[ErrorResponse | LoggerListResponse]:
     """List Loggers
 
      List loggers for this account.
 
-    Supports `filter[managed]` to narrow to managed (or unmanaged) loggers,
-    `filter[service]` to keep only loggers observed in a specific service,
-    and `filter[last_seen]` (interval notation `[<from>,*)`) to keep only
-    loggers with a source observation at or after the given timestamp.
+    Default sort is `key` ascending. Supports `filter[managed]` to narrow
+    to managed (or unmanaged) loggers, `filter[service]` to keep only
+    loggers observed in a specific service, and `filter[last_seen]`
+    (interval notation `[<from>,*)`) to keep only loggers with a source
+    observation at or after the given timestamp.
 
     Args:
         filtermanaged (bool | None | Unset):
         filterservice (None | str | Unset):
         filterlast_seen (None | str | Unset):
+        sort (ListLoggersSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
+            `-name`, `updated_at`, `-updated_at`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -131,6 +144,7 @@ def sync_detailed(
         filtermanaged=filtermanaged,
         filterservice=filterservice,
         filterlast_seen=filterlast_seen,
+        sort=sort,
     )
 
     response = client.get_httpx_client().request(
@@ -146,20 +160,25 @@ def sync(
     filtermanaged: bool | None | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
     filterlast_seen: None | str | Unset = UNSET,
+    sort: ListLoggersSort | Unset = "key",
 ) -> ErrorResponse | LoggerListResponse | None:
     """List Loggers
 
      List loggers for this account.
 
-    Supports `filter[managed]` to narrow to managed (or unmanaged) loggers,
-    `filter[service]` to keep only loggers observed in a specific service,
-    and `filter[last_seen]` (interval notation `[<from>,*)`) to keep only
-    loggers with a source observation at or after the given timestamp.
+    Default sort is `key` ascending. Supports `filter[managed]` to narrow
+    to managed (or unmanaged) loggers, `filter[service]` to keep only
+    loggers observed in a specific service, and `filter[last_seen]`
+    (interval notation `[<from>,*)`) to keep only loggers with a source
+    observation at or after the given timestamp.
 
     Args:
         filtermanaged (bool | None | Unset):
         filterservice (None | str | Unset):
         filterlast_seen (None | str | Unset):
+        sort (ListLoggersSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
+            `-name`, `updated_at`, `-updated_at`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -174,6 +193,7 @@ def sync(
         filtermanaged=filtermanaged,
         filterservice=filterservice,
         filterlast_seen=filterlast_seen,
+        sort=sort,
     ).parsed
 
 
@@ -183,20 +203,25 @@ async def asyncio_detailed(
     filtermanaged: bool | None | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
     filterlast_seen: None | str | Unset = UNSET,
+    sort: ListLoggersSort | Unset = "key",
 ) -> Response[ErrorResponse | LoggerListResponse]:
     """List Loggers
 
      List loggers for this account.
 
-    Supports `filter[managed]` to narrow to managed (or unmanaged) loggers,
-    `filter[service]` to keep only loggers observed in a specific service,
-    and `filter[last_seen]` (interval notation `[<from>,*)`) to keep only
-    loggers with a source observation at or after the given timestamp.
+    Default sort is `key` ascending. Supports `filter[managed]` to narrow
+    to managed (or unmanaged) loggers, `filter[service]` to keep only
+    loggers observed in a specific service, and `filter[last_seen]`
+    (interval notation `[<from>,*)`) to keep only loggers with a source
+    observation at or after the given timestamp.
 
     Args:
         filtermanaged (bool | None | Unset):
         filterservice (None | str | Unset):
         filterlast_seen (None | str | Unset):
+        sort (ListLoggersSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
+            `-name`, `updated_at`, `-updated_at`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -210,6 +235,7 @@ async def asyncio_detailed(
         filtermanaged=filtermanaged,
         filterservice=filterservice,
         filterlast_seen=filterlast_seen,
+        sort=sort,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -223,20 +249,25 @@ async def asyncio(
     filtermanaged: bool | None | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
     filterlast_seen: None | str | Unset = UNSET,
+    sort: ListLoggersSort | Unset = "key",
 ) -> ErrorResponse | LoggerListResponse | None:
     """List Loggers
 
      List loggers for this account.
 
-    Supports `filter[managed]` to narrow to managed (or unmanaged) loggers,
-    `filter[service]` to keep only loggers observed in a specific service,
-    and `filter[last_seen]` (interval notation `[<from>,*)`) to keep only
-    loggers with a source observation at or after the given timestamp.
+    Default sort is `key` ascending. Supports `filter[managed]` to narrow
+    to managed (or unmanaged) loggers, `filter[service]` to keep only
+    loggers observed in a specific service, and `filter[last_seen]`
+    (interval notation `[<from>,*)`) to keep only loggers with a source
+    observation at or after the given timestamp.
 
     Args:
         filtermanaged (bool | None | Unset):
         filterservice (None | str | Unset):
         filterlast_seen (None | str | Unset):
+        sort (ListLoggersSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
+            `-name`, `updated_at`, `-updated_at`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -252,5 +283,6 @@ async def asyncio(
             filtermanaged=filtermanaged,
             filterservice=filterservice,
             filterlast_seen=filterlast_seen,
+            sort=sort,
         )
     ).parsed
