@@ -7,6 +7,7 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
+from ...models.list_resource_types_sort import ListResourceTypesSort
 from ...models.resource_type_list_response import ResourceTypeListResponse
 from ...types import Unset
 
@@ -15,6 +16,7 @@ def _get_kwargs(
     *,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListResourceTypesSort | Unset = "key",
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -32,6 +34,12 @@ def _get_kwargs(
     else:
         json_pageafter = pageafter
     params["page[after]"] = json_pageafter
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -74,17 +82,21 @@ def sync_detailed(
     client: AuthenticatedClient,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListResourceTypesSort | Unset = "key",
 ) -> Response[ResourceTypeListResponse]:
     """List Resource Types
 
      List the distinct `resource_type` slugs recorded for this account.
 
-    The resource `id` is the slug itself. Useful for populating filter
-    dropdowns in a UI.
+    The resource `id` is the slug itself. Default sort is `key`
+    ascending; pass `sort=-key` for descending. Useful for populating
+    filter dropdowns in a UI.
 
     Args:
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListResourceTypesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -97,6 +109,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         pagesize=pagesize,
         pageafter=pageafter,
+        sort=sort,
     )
 
     response = client.get_httpx_client().request(
@@ -111,17 +124,21 @@ def sync(
     client: AuthenticatedClient,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListResourceTypesSort | Unset = "key",
 ) -> ResourceTypeListResponse | None:
     """List Resource Types
 
      List the distinct `resource_type` slugs recorded for this account.
 
-    The resource `id` is the slug itself. Useful for populating filter
-    dropdowns in a UI.
+    The resource `id` is the slug itself. Default sort is `key`
+    ascending; pass `sort=-key` for descending. Useful for populating
+    filter dropdowns in a UI.
 
     Args:
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListResourceTypesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -135,6 +152,7 @@ def sync(
         client=client,
         pagesize=pagesize,
         pageafter=pageafter,
+        sort=sort,
     ).parsed
 
 
@@ -143,17 +161,21 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListResourceTypesSort | Unset = "key",
 ) -> Response[ResourceTypeListResponse]:
     """List Resource Types
 
      List the distinct `resource_type` slugs recorded for this account.
 
-    The resource `id` is the slug itself. Useful for populating filter
-    dropdowns in a UI.
+    The resource `id` is the slug itself. Default sort is `key`
+    ascending; pass `sort=-key` for descending. Useful for populating
+    filter dropdowns in a UI.
 
     Args:
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListResourceTypesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -166,6 +188,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         pagesize=pagesize,
         pageafter=pageafter,
+        sort=sort,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -178,17 +201,21 @@ async def asyncio(
     client: AuthenticatedClient,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListResourceTypesSort | Unset = "key",
 ) -> ResourceTypeListResponse | None:
     """List Resource Types
 
      List the distinct `resource_type` slugs recorded for this account.
 
-    The resource `id` is the slug itself. Useful for populating filter
-    dropdowns in a UI.
+    The resource `id` is the slug itself. Default sort is `key`
+    ascending; pass `sort=-key` for descending. Useful for populating
+    filter dropdowns in a UI.
 
     Args:
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListResourceTypesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -203,5 +230,6 @@ async def asyncio(
             client=client,
             pagesize=pagesize,
             pageafter=pageafter,
+            sort=sort,
         )
     ).parsed
