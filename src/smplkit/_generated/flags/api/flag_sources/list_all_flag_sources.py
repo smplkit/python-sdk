@@ -8,6 +8,7 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.flag_source_list_response import FlagSourceListResponse
+from ...models.list_all_flag_sources_sort import ListAllFlagSourcesSort
 from ...types import Unset
 
 
@@ -15,6 +16,7 @@ def _get_kwargs(
     *,
     filterenvironment: None | str | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
+    sort: ListAllFlagSourcesSort | Unset = "-last_seen",
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -32,6 +34,12 @@ def _get_kwargs(
     else:
         json_filterservice = filterservice
     params["filter[service]"] = json_filterservice
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -72,16 +80,21 @@ def sync_detailed(
     client: AuthenticatedClient,
     filterenvironment: None | str | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
+    sort: ListAllFlagSourcesSort | Unset = "-last_seen",
 ) -> Response[FlagSourceListResponse]:
     """List All Flag Sources
 
      List service/environment observations across all flags for this account.
 
-    Filter by `environment` or `service` (or both) to narrow the result.
+    Default sort is `-last_seen` (most recently seen first). Filter by
+    `environment` or `service` (or both) to narrow the result.
 
     Args:
         filterenvironment (None | str | Unset):
         filterservice (None | str | Unset):
+        sort (ListAllFlagSourcesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`,
+            `-environment`, `last_seen`, `-last_seen`, `service`, `-service`. Default: '-last_seen'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -94,6 +107,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         filterenvironment=filterenvironment,
         filterservice=filterservice,
+        sort=sort,
     )
 
     response = client.get_httpx_client().request(
@@ -108,16 +122,21 @@ def sync(
     client: AuthenticatedClient,
     filterenvironment: None | str | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
+    sort: ListAllFlagSourcesSort | Unset = "-last_seen",
 ) -> FlagSourceListResponse | None:
     """List All Flag Sources
 
      List service/environment observations across all flags for this account.
 
-    Filter by `environment` or `service` (or both) to narrow the result.
+    Default sort is `-last_seen` (most recently seen first). Filter by
+    `environment` or `service` (or both) to narrow the result.
 
     Args:
         filterenvironment (None | str | Unset):
         filterservice (None | str | Unset):
+        sort (ListAllFlagSourcesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`,
+            `-environment`, `last_seen`, `-last_seen`, `service`, `-service`. Default: '-last_seen'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -131,6 +150,7 @@ def sync(
         client=client,
         filterenvironment=filterenvironment,
         filterservice=filterservice,
+        sort=sort,
     ).parsed
 
 
@@ -139,16 +159,21 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     filterenvironment: None | str | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
+    sort: ListAllFlagSourcesSort | Unset = "-last_seen",
 ) -> Response[FlagSourceListResponse]:
     """List All Flag Sources
 
      List service/environment observations across all flags for this account.
 
-    Filter by `environment` or `service` (or both) to narrow the result.
+    Default sort is `-last_seen` (most recently seen first). Filter by
+    `environment` or `service` (or both) to narrow the result.
 
     Args:
         filterenvironment (None | str | Unset):
         filterservice (None | str | Unset):
+        sort (ListAllFlagSourcesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`,
+            `-environment`, `last_seen`, `-last_seen`, `service`, `-service`. Default: '-last_seen'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -161,6 +186,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         filterenvironment=filterenvironment,
         filterservice=filterservice,
+        sort=sort,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -173,16 +199,21 @@ async def asyncio(
     client: AuthenticatedClient,
     filterenvironment: None | str | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
+    sort: ListAllFlagSourcesSort | Unset = "-last_seen",
 ) -> FlagSourceListResponse | None:
     """List All Flag Sources
 
      List service/environment observations across all flags for this account.
 
-    Filter by `environment` or `service` (or both) to narrow the result.
+    Default sort is `-last_seen` (most recently seen first). Filter by
+    `environment` or `service` (or both) to narrow the result.
 
     Args:
         filterenvironment (None | str | Unset):
         filterservice (None | str | Unset):
+        sort (ListAllFlagSourcesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`,
+            `-environment`, `last_seen`, `-last_seen`, `service`, `-service`. Default: '-last_seen'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -197,5 +228,6 @@ async def asyncio(
             client=client,
             filterenvironment=filterenvironment,
             filterservice=filterservice,
+            sort=sort,
         )
     ).parsed

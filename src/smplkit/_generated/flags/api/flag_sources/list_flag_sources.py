@@ -5,21 +5,36 @@ from urllib.parse import quote
 import httpx
 
 from ...client import AuthenticatedClient, Client
-from ...types import Response
+from ...types import Response, UNSET
 from ... import errors
 
 from ...models.flag_source_list_response import FlagSourceListResponse
+from ...models.list_flag_sources_sort import ListFlagSourcesSort
+from ...types import Unset
 
 
 def _get_kwargs(
     id: str,
+    *,
+    sort: ListFlagSourcesSort | Unset = "-last_seen",
 ) -> dict[str, Any]:
+
+    params: dict[str, Any] = {}
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/api/v1/flags/{id}/sources".format(
             id=quote(str(id), safe=""),
         ),
+        "params": params,
     }
 
     return _kwargs
@@ -52,13 +67,19 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
+    sort: ListFlagSourcesSort | Unset = "-last_seen",
 ) -> Response[FlagSourceListResponse]:
     """List Flag Sources
 
      List the service/environment observations recorded for a single flag.
 
+    Default sort is `-last_seen` (most recently seen first).
+
     Args:
         id (str):
+        sort (ListFlagSourcesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`,
+            `-environment`, `last_seen`, `-last_seen`, `service`, `-service`. Default: '-last_seen'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -70,6 +91,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+        sort=sort,
     )
 
     response = client.get_httpx_client().request(
@@ -83,13 +105,19 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient,
+    sort: ListFlagSourcesSort | Unset = "-last_seen",
 ) -> FlagSourceListResponse | None:
     """List Flag Sources
 
      List the service/environment observations recorded for a single flag.
 
+    Default sort is `-last_seen` (most recently seen first).
+
     Args:
         id (str):
+        sort (ListFlagSourcesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`,
+            `-environment`, `last_seen`, `-last_seen`, `service`, `-service`. Default: '-last_seen'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -102,6 +130,7 @@ def sync(
     return sync_detailed(
         id=id,
         client=client,
+        sort=sort,
     ).parsed
 
 
@@ -109,13 +138,19 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
+    sort: ListFlagSourcesSort | Unset = "-last_seen",
 ) -> Response[FlagSourceListResponse]:
     """List Flag Sources
 
      List the service/environment observations recorded for a single flag.
 
+    Default sort is `-last_seen` (most recently seen first).
+
     Args:
         id (str):
+        sort (ListFlagSourcesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`,
+            `-environment`, `last_seen`, `-last_seen`, `service`, `-service`. Default: '-last_seen'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -127,6 +162,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+        sort=sort,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -138,13 +174,19 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient,
+    sort: ListFlagSourcesSort | Unset = "-last_seen",
 ) -> FlagSourceListResponse | None:
     """List Flag Sources
 
      List the service/environment observations recorded for a single flag.
 
+    Default sort is `-last_seen` (most recently seen first).
+
     Args:
         id (str):
+        sort (ListFlagSourcesSort | Unset): Field to sort by. Prefix with `-` for descending
+            order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`,
+            `-environment`, `last_seen`, `-last_seen`, `service`, `-service`. Default: '-last_seen'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -158,5 +200,6 @@ async def asyncio(
         await asyncio_detailed(
             id=id,
             client=client,
+            sort=sort,
         )
     ).parsed

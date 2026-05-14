@@ -19,6 +19,9 @@ from .flag_source_list_response import FlagSourceListResponse
 from .flag_source_resource import FlagSourceResource
 from .flag_type import FlagType
 from .flag_value import FlagValue
+from .list_all_flag_sources_sort import ListAllFlagSourcesSort
+from .list_flag_sources_sort import ListFlagSourcesSort
+from .list_flags_sort import ListFlagsSort
 from .manual_review_item import ManualReviewItem
 from .remove_references_attributes import RemoveReferencesAttributes
 from .remove_references_request import RemoveReferencesRequest
@@ -48,6 +51,9 @@ __all__ = (
     "FlagSourceResource",
     "FlagType",
     "FlagValue",
+    "ListAllFlagSourcesSort",
+    "ListFlagSourcesSort",
+    "ListFlagsSort",
     "ManualReviewItem",
     "RemoveReferencesAttributes",
     "RemoveReferencesRequest",
