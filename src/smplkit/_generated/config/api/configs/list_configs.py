@@ -8,12 +8,14 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.config_list_response import ConfigListResponse
+from ...models.list_configs_sort import ListConfigsSort
 from ...types import Unset
 
 
 def _get_kwargs(
     *,
     filterparent: None | str | Unset = UNSET,
+    sort: ListConfigsSort | Unset = "key",
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -24,6 +26,12 @@ def _get_kwargs(
     else:
         json_filterparent = filterparent
     params["filter[parent]"] = json_filterparent
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -61,16 +69,20 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     filterparent: None | str | Unset = UNSET,
+    sort: ListConfigsSort | Unset = "key",
 ) -> Response[ConfigListResponse]:
     """List Configs
 
      List configs for this account.
 
-    Pass `filter[parent]=<parent_key>` to return only the direct children
-    of a specific config.
+    Default sort is `key` ascending. Pass `filter[parent]=<parent_key>`
+    to return only the direct children of a specific config.
 
     Args:
         filterparent (None | str | Unset):
+        sort (ListConfigsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
+            `-name`, `updated_at`, `-updated_at`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -82,6 +94,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         filterparent=filterparent,
+        sort=sort,
     )
 
     response = client.get_httpx_client().request(
@@ -95,16 +108,20 @@ def sync(
     *,
     client: AuthenticatedClient,
     filterparent: None | str | Unset = UNSET,
+    sort: ListConfigsSort | Unset = "key",
 ) -> ConfigListResponse | None:
     """List Configs
 
      List configs for this account.
 
-    Pass `filter[parent]=<parent_key>` to return only the direct children
-    of a specific config.
+    Default sort is `key` ascending. Pass `filter[parent]=<parent_key>`
+    to return only the direct children of a specific config.
 
     Args:
         filterparent (None | str | Unset):
+        sort (ListConfigsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
+            `-name`, `updated_at`, `-updated_at`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -117,6 +134,7 @@ def sync(
     return sync_detailed(
         client=client,
         filterparent=filterparent,
+        sort=sort,
     ).parsed
 
 
@@ -124,16 +142,20 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     filterparent: None | str | Unset = UNSET,
+    sort: ListConfigsSort | Unset = "key",
 ) -> Response[ConfigListResponse]:
     """List Configs
 
      List configs for this account.
 
-    Pass `filter[parent]=<parent_key>` to return only the direct children
-    of a specific config.
+    Default sort is `key` ascending. Pass `filter[parent]=<parent_key>`
+    to return only the direct children of a specific config.
 
     Args:
         filterparent (None | str | Unset):
+        sort (ListConfigsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
+            `-name`, `updated_at`, `-updated_at`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -145,6 +167,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         filterparent=filterparent,
+        sort=sort,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -156,16 +179,20 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     filterparent: None | str | Unset = UNSET,
+    sort: ListConfigsSort | Unset = "key",
 ) -> ConfigListResponse | None:
     """List Configs
 
      List configs for this account.
 
-    Pass `filter[parent]=<parent_key>` to return only the direct children
-    of a specific config.
+    Default sort is `key` ascending. Pass `filter[parent]=<parent_key>`
+    to return only the direct children of a specific config.
 
     Args:
         filterparent (None | str | Unset):
+        sort (ListConfigsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
+            `-name`, `updated_at`, `-updated_at`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -179,5 +206,6 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             filterparent=filterparent,
+            sort=sort,
         )
     ).parsed
