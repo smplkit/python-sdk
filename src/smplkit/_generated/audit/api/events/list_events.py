@@ -8,6 +8,7 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.event_list_response import EventListResponse
+from ...models.list_events_sort import ListEventsSort
 from ...types import Unset
 from uuid import UUID
 
@@ -23,6 +24,7 @@ def _get_kwargs(
     filtersearch: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListEventsSort | Unset = "-occurred_at",
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -92,6 +94,12 @@ def _get_kwargs(
         json_pageafter = pageafter
     params["page[after]"] = json_pageafter
 
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
+
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
@@ -136,16 +144,20 @@ def sync_detailed(
     filtersearch: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListEventsSort | Unset = "-occurred_at",
 ) -> Response[EventListResponse]:
     """List Events
 
      List audit events for this account.
 
-    Default sort is newest first. Filters are exact-match except
-    `filter[occurred_at]`, which uses interval notation
-    (e.g. `[2026-01-01T00:00:00Z,2026-01-31T00:00:00Z)`), and
-    `filter[search]`, which is a case-insensitive substring match against
-    `resource_id` or `description`.
+    Default sort is `-occurred_at` (newest occurrence first). Sort by
+    `occurred_at` or `created_at`, ascending or descending — keep the same
+    `sort` value across paginated requests so the cursor stays consistent.
+    Filters are exact-match except `filter[occurred_at]`, which uses
+    interval notation (e.g.
+    `[2026-01-01T00:00:00Z,2026-01-31T00:00:00Z)`), and `filter[search]`,
+    which is a case-insensitive substring match against `resource_id` or
+    `description`.
 
     To bound the rows scanned per request, the endpoint requires either:
 
@@ -166,6 +178,9 @@ def sync_detailed(
             or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListEventsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`,
+            `-occurred_at`. Default: '-occurred_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -185,6 +200,7 @@ def sync_detailed(
         filtersearch=filtersearch,
         pagesize=pagesize,
         pageafter=pageafter,
+        sort=sort,
     )
 
     response = client.get_httpx_client().request(
@@ -206,16 +222,20 @@ def sync(
     filtersearch: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListEventsSort | Unset = "-occurred_at",
 ) -> EventListResponse | None:
     """List Events
 
      List audit events for this account.
 
-    Default sort is newest first. Filters are exact-match except
-    `filter[occurred_at]`, which uses interval notation
-    (e.g. `[2026-01-01T00:00:00Z,2026-01-31T00:00:00Z)`), and
-    `filter[search]`, which is a case-insensitive substring match against
-    `resource_id` or `description`.
+    Default sort is `-occurred_at` (newest occurrence first). Sort by
+    `occurred_at` or `created_at`, ascending or descending — keep the same
+    `sort` value across paginated requests so the cursor stays consistent.
+    Filters are exact-match except `filter[occurred_at]`, which uses
+    interval notation (e.g.
+    `[2026-01-01T00:00:00Z,2026-01-31T00:00:00Z)`), and `filter[search]`,
+    which is a case-insensitive substring match against `resource_id` or
+    `description`.
 
     To bound the rows scanned per request, the endpoint requires either:
 
@@ -236,6 +256,9 @@ def sync(
             or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListEventsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`,
+            `-occurred_at`. Default: '-occurred_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -256,6 +279,7 @@ def sync(
         filtersearch=filtersearch,
         pagesize=pagesize,
         pageafter=pageafter,
+        sort=sort,
     ).parsed
 
 
@@ -271,16 +295,20 @@ async def asyncio_detailed(
     filtersearch: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListEventsSort | Unset = "-occurred_at",
 ) -> Response[EventListResponse]:
     """List Events
 
      List audit events for this account.
 
-    Default sort is newest first. Filters are exact-match except
-    `filter[occurred_at]`, which uses interval notation
-    (e.g. `[2026-01-01T00:00:00Z,2026-01-31T00:00:00Z)`), and
-    `filter[search]`, which is a case-insensitive substring match against
-    `resource_id` or `description`.
+    Default sort is `-occurred_at` (newest occurrence first). Sort by
+    `occurred_at` or `created_at`, ascending or descending — keep the same
+    `sort` value across paginated requests so the cursor stays consistent.
+    Filters are exact-match except `filter[occurred_at]`, which uses
+    interval notation (e.g.
+    `[2026-01-01T00:00:00Z,2026-01-31T00:00:00Z)`), and `filter[search]`,
+    which is a case-insensitive substring match against `resource_id` or
+    `description`.
 
     To bound the rows scanned per request, the endpoint requires either:
 
@@ -301,6 +329,9 @@ async def asyncio_detailed(
             or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListEventsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`,
+            `-occurred_at`. Default: '-occurred_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -320,6 +351,7 @@ async def asyncio_detailed(
         filtersearch=filtersearch,
         pagesize=pagesize,
         pageafter=pageafter,
+        sort=sort,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -339,16 +371,20 @@ async def asyncio(
     filtersearch: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListEventsSort | Unset = "-occurred_at",
 ) -> EventListResponse | None:
     """List Events
 
      List audit events for this account.
 
-    Default sort is newest first. Filters are exact-match except
-    `filter[occurred_at]`, which uses interval notation
-    (e.g. `[2026-01-01T00:00:00Z,2026-01-31T00:00:00Z)`), and
-    `filter[search]`, which is a case-insensitive substring match against
-    `resource_id` or `description`.
+    Default sort is `-occurred_at` (newest occurrence first). Sort by
+    `occurred_at` or `created_at`, ascending or descending — keep the same
+    `sort` value across paginated requests so the cursor stays consistent.
+    Filters are exact-match except `filter[occurred_at]`, which uses
+    interval notation (e.g.
+    `[2026-01-01T00:00:00Z,2026-01-31T00:00:00Z)`), and `filter[search]`,
+    which is a case-insensitive substring match against `resource_id` or
+    `description`.
 
     To bound the rows scanned per request, the endpoint requires either:
 
@@ -369,6 +405,9 @@ async def asyncio(
             or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListEventsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`,
+            `-occurred_at`. Default: '-occurred_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -390,5 +429,6 @@ async def asyncio(
             filtersearch=filtersearch,
             pagesize=pagesize,
             pageafter=pageafter,
+            sort=sort,
         )
     ).parsed

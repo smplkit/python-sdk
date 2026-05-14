@@ -8,6 +8,7 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.forwarder_list_response import ForwarderListResponse
+from ...models.list_forwarders_sort import ListForwardersSort
 from ...types import Unset
 
 
@@ -17,6 +18,7 @@ def _get_kwargs(
     filterenabled: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListForwardersSort | Unset = "-created_at",
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -48,6 +50,12 @@ def _get_kwargs(
     else:
         json_pageafter = pageafter
     params["page[after]"] = json_pageafter
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -90,16 +98,23 @@ def sync_detailed(
     filterenabled: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListForwardersSort | Unset = "-created_at",
 ) -> Response[ForwarderListResponse]:
     """List Forwarders
 
      List forwarders for this account.
+
+    Default sort is `-created_at` (newest first). Pagination uses cursor
+    tokens; keep the same `sort` value across paginated requests.
 
     Args:
         filterforwarder_type (None | str | Unset):
         filterenabled (bool | None | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListForwardersSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `updated_at`,
+            `-updated_at`. Default: '-created_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -114,6 +129,7 @@ def sync_detailed(
         filterenabled=filterenabled,
         pagesize=pagesize,
         pageafter=pageafter,
+        sort=sort,
     )
 
     response = client.get_httpx_client().request(
@@ -130,16 +146,23 @@ def sync(
     filterenabled: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListForwardersSort | Unset = "-created_at",
 ) -> ForwarderListResponse | None:
     """List Forwarders
 
      List forwarders for this account.
+
+    Default sort is `-created_at` (newest first). Pagination uses cursor
+    tokens; keep the same `sort` value across paginated requests.
 
     Args:
         filterforwarder_type (None | str | Unset):
         filterenabled (bool | None | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListForwardersSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `updated_at`,
+            `-updated_at`. Default: '-created_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -155,6 +178,7 @@ def sync(
         filterenabled=filterenabled,
         pagesize=pagesize,
         pageafter=pageafter,
+        sort=sort,
     ).parsed
 
 
@@ -165,16 +189,23 @@ async def asyncio_detailed(
     filterenabled: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListForwardersSort | Unset = "-created_at",
 ) -> Response[ForwarderListResponse]:
     """List Forwarders
 
      List forwarders for this account.
+
+    Default sort is `-created_at` (newest first). Pagination uses cursor
+    tokens; keep the same `sort` value across paginated requests.
 
     Args:
         filterforwarder_type (None | str | Unset):
         filterenabled (bool | None | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListForwardersSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `updated_at`,
+            `-updated_at`. Default: '-created_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -189,6 +220,7 @@ async def asyncio_detailed(
         filterenabled=filterenabled,
         pagesize=pagesize,
         pageafter=pageafter,
+        sort=sort,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -203,16 +235,23 @@ async def asyncio(
     filterenabled: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListForwardersSort | Unset = "-created_at",
 ) -> ForwarderListResponse | None:
     """List Forwarders
 
      List forwarders for this account.
+
+    Default sort is `-created_at` (newest first). Pagination uses cursor
+    tokens; keep the same `sort` value across paginated requests.
 
     Args:
         filterforwarder_type (None | str | Unset):
         filterenabled (bool | None | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListForwardersSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `updated_at`,
+            `-updated_at`. Default: '-created_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -229,5 +268,6 @@ async def asyncio(
             filterenabled=filterenabled,
             pagesize=pagesize,
             pageafter=pageafter,
+            sort=sort,
         )
     ).parsed

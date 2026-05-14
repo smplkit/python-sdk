@@ -9,6 +9,7 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.forwarder_delivery_list_response import ForwarderDeliveryListResponse
+from ...models.list_forwarder_deliveries_sort import ListForwarderDeliveriesSort
 from ...types import Unset
 from uuid import UUID
 
@@ -21,6 +22,7 @@ def _get_kwargs(
     filterevent_id: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListForwarderDeliveriesSort | Unset = "-created_at",
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -59,6 +61,12 @@ def _get_kwargs(
     else:
         json_pageafter = pageafter
     params["page[after]"] = json_pageafter
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -107,15 +115,16 @@ def sync_detailed(
     filterevent_id: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListForwarderDeliveriesSort | Unset = "-created_at",
 ) -> Response[ForwarderDeliveryListResponse]:
     """List Forwarder Deliveries
 
      List delivery log entries for a forwarder.
 
-    Default sort is newest first. Filter by `status` (one of `SUCCEEDED`,
-    `FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` — case-insensitive),
-    by `event_id`, or by a `created_at` range using interval notation
-    (e.g. `[2026-01-01T00:00:00Z,*)`).
+    Default sort is `-created_at` (newest first). Filter by `status` (one of
+    `SUCCEEDED`, `FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` —
+    case-insensitive), by `event_id`, or by a `created_at` range using
+    interval notation (e.g. `[2026-01-01T00:00:00Z,*)`).
 
     Args:
         forwarder_id (UUID):
@@ -124,6 +133,9 @@ def sync_detailed(
         filterevent_id (None | str | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListForwarderDeliveriesSort | Unset): Field to sort by. Prefix with `-` for
+            descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.
+            Default: '-created_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -140,6 +152,7 @@ def sync_detailed(
         filterevent_id=filterevent_id,
         pagesize=pagesize,
         pageafter=pageafter,
+        sort=sort,
     )
 
     response = client.get_httpx_client().request(
@@ -158,15 +171,16 @@ def sync(
     filterevent_id: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListForwarderDeliveriesSort | Unset = "-created_at",
 ) -> ForwarderDeliveryListResponse | None:
     """List Forwarder Deliveries
 
      List delivery log entries for a forwarder.
 
-    Default sort is newest first. Filter by `status` (one of `SUCCEEDED`,
-    `FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` — case-insensitive),
-    by `event_id`, or by a `created_at` range using interval notation
-    (e.g. `[2026-01-01T00:00:00Z,*)`).
+    Default sort is `-created_at` (newest first). Filter by `status` (one of
+    `SUCCEEDED`, `FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` —
+    case-insensitive), by `event_id`, or by a `created_at` range using
+    interval notation (e.g. `[2026-01-01T00:00:00Z,*)`).
 
     Args:
         forwarder_id (UUID):
@@ -175,6 +189,9 @@ def sync(
         filterevent_id (None | str | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListForwarderDeliveriesSort | Unset): Field to sort by. Prefix with `-` for
+            descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.
+            Default: '-created_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -192,6 +209,7 @@ def sync(
         filterevent_id=filterevent_id,
         pagesize=pagesize,
         pageafter=pageafter,
+        sort=sort,
     ).parsed
 
 
@@ -204,15 +222,16 @@ async def asyncio_detailed(
     filterevent_id: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListForwarderDeliveriesSort | Unset = "-created_at",
 ) -> Response[ForwarderDeliveryListResponse]:
     """List Forwarder Deliveries
 
      List delivery log entries for a forwarder.
 
-    Default sort is newest first. Filter by `status` (one of `SUCCEEDED`,
-    `FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` — case-insensitive),
-    by `event_id`, or by a `created_at` range using interval notation
-    (e.g. `[2026-01-01T00:00:00Z,*)`).
+    Default sort is `-created_at` (newest first). Filter by `status` (one of
+    `SUCCEEDED`, `FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` —
+    case-insensitive), by `event_id`, or by a `created_at` range using
+    interval notation (e.g. `[2026-01-01T00:00:00Z,*)`).
 
     Args:
         forwarder_id (UUID):
@@ -221,6 +240,9 @@ async def asyncio_detailed(
         filterevent_id (None | str | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListForwarderDeliveriesSort | Unset): Field to sort by. Prefix with `-` for
+            descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.
+            Default: '-created_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -237,6 +259,7 @@ async def asyncio_detailed(
         filterevent_id=filterevent_id,
         pagesize=pagesize,
         pageafter=pageafter,
+        sort=sort,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -253,15 +276,16 @@ async def asyncio(
     filterevent_id: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListForwarderDeliveriesSort | Unset = "-created_at",
 ) -> ForwarderDeliveryListResponse | None:
     """List Forwarder Deliveries
 
      List delivery log entries for a forwarder.
 
-    Default sort is newest first. Filter by `status` (one of `SUCCEEDED`,
-    `FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` — case-insensitive),
-    by `event_id`, or by a `created_at` range using interval notation
-    (e.g. `[2026-01-01T00:00:00Z,*)`).
+    Default sort is `-created_at` (newest first). Filter by `status` (one of
+    `SUCCEEDED`, `FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` —
+    case-insensitive), by `event_id`, or by a `created_at` range using
+    interval notation (e.g. `[2026-01-01T00:00:00Z,*)`).
 
     Args:
         forwarder_id (UUID):
@@ -270,6 +294,9 @@ async def asyncio(
         filterevent_id (None | str | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListForwarderDeliveriesSort | Unset): Field to sort by. Prefix with `-` for
+            descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.
+            Default: '-created_at'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -288,5 +315,6 @@ async def asyncio(
             filterevent_id=filterevent_id,
             pagesize=pagesize,
             pageafter=pageafter,
+            sort=sort,
         )
     ).parsed

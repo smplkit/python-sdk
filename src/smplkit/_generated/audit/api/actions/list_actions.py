@@ -8,6 +8,7 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.action_list_response import ActionListResponse
+from ...models.list_actions_sort import ListActionsSort
 from ...types import Unset
 
 
@@ -16,6 +17,7 @@ def _get_kwargs(
     filterresource_type: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListActionsSort | Unset = "key",
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -40,6 +42,12 @@ def _get_kwargs(
     else:
         json_pageafter = pageafter
     params["page[after]"] = json_pageafter
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -79,11 +87,13 @@ def sync_detailed(
     filterresource_type: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListActionsSort | Unset = "key",
 ) -> Response[ActionListResponse]:
     """List Actions
 
      List the distinct `action` slugs recorded for this account.
 
+    Default sort is `key` ascending; pass `sort=-key` for descending.
     Without `filter[resource_type]`, returns one row per distinct
     action. With `filter[resource_type]`, returns the actions recorded
     for that specific resource type.
@@ -92,6 +102,8 @@ def sync_detailed(
         filterresource_type (None | str | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListActionsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -105,6 +117,7 @@ def sync_detailed(
         filterresource_type=filterresource_type,
         pagesize=pagesize,
         pageafter=pageafter,
+        sort=sort,
     )
 
     response = client.get_httpx_client().request(
@@ -120,11 +133,13 @@ def sync(
     filterresource_type: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListActionsSort | Unset = "key",
 ) -> ActionListResponse | None:
     """List Actions
 
      List the distinct `action` slugs recorded for this account.
 
+    Default sort is `key` ascending; pass `sort=-key` for descending.
     Without `filter[resource_type]`, returns one row per distinct
     action. With `filter[resource_type]`, returns the actions recorded
     for that specific resource type.
@@ -133,6 +148,8 @@ def sync(
         filterresource_type (None | str | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListActionsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -147,6 +164,7 @@ def sync(
         filterresource_type=filterresource_type,
         pagesize=pagesize,
         pageafter=pageafter,
+        sort=sort,
     ).parsed
 
 
@@ -156,11 +174,13 @@ async def asyncio_detailed(
     filterresource_type: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListActionsSort | Unset = "key",
 ) -> Response[ActionListResponse]:
     """List Actions
 
      List the distinct `action` slugs recorded for this account.
 
+    Default sort is `key` ascending; pass `sort=-key` for descending.
     Without `filter[resource_type]`, returns one row per distinct
     action. With `filter[resource_type]`, returns the actions recorded
     for that specific resource type.
@@ -169,6 +189,8 @@ async def asyncio_detailed(
         filterresource_type (None | str | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListActionsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -182,6 +204,7 @@ async def asyncio_detailed(
         filterresource_type=filterresource_type,
         pagesize=pagesize,
         pageafter=pageafter,
+        sort=sort,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -195,11 +218,13 @@ async def asyncio(
     filterresource_type: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    sort: ListActionsSort | Unset = "key",
 ) -> ActionListResponse | None:
     """List Actions
 
      List the distinct `action` slugs recorded for this account.
 
+    Default sort is `key` ascending; pass `sort=-key` for descending.
     Without `filter[resource_type]`, returns one row per distinct
     action. With `filter[resource_type]`, returns the actions recorded
     for that specific resource type.
@@ -208,6 +233,8 @@ async def asyncio(
         filterresource_type (None | str | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        sort (ListActionsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -223,5 +250,6 @@ async def asyncio(
             filterresource_type=filterresource_type,
             pagesize=pagesize,
             pageafter=pageafter,
+            sort=sort,
         )
     ).parsed
