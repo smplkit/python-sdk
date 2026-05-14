@@ -8,6 +8,7 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.flag_list_response import FlagListResponse
+from ...models.list_flags_sort import ListFlagsSort
 from ...types import Unset
 
 
@@ -17,6 +18,7 @@ def _get_kwargs(
     filtermanaged: bool | None | Unset = UNSET,
     filterreferences_context: None | str | Unset = UNSET,
     filterreferences_context_type: None | str | Unset = UNSET,
+    sort: ListFlagsSort | Unset = "key",
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -48,6 +50,12 @@ def _get_kwargs(
     else:
         json_filterreferences_context_type = filterreferences_context_type
     params["filter[references_context_type]"] = json_filterreferences_context_type
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -88,10 +96,13 @@ def sync_detailed(
     filtermanaged: bool | None | Unset = UNSET,
     filterreferences_context: None | str | Unset = UNSET,
     filterreferences_context_type: None | str | Unset = UNSET,
+    sort: ListFlagsSort | Unset = "key",
 ) -> Response[FlagListResponse]:
     """List Flags
 
      List feature flags for this account.
+
+    Default sort is `key` ascending.
 
     Args:
         filtertype (None | str | Unset):
@@ -100,6 +111,9 @@ def sync_detailed(
             context instance. Format: {type}:{key}
         filterreferences_context_type (None | str | Unset): Return flags whose rules reference any
             attribute of the given context type.
+        sort (ListFlagsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
+            `-name`, `type`, `-type`, `updated_at`, `-updated_at`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -114,6 +128,7 @@ def sync_detailed(
         filtermanaged=filtermanaged,
         filterreferences_context=filterreferences_context,
         filterreferences_context_type=filterreferences_context_type,
+        sort=sort,
     )
 
     response = client.get_httpx_client().request(
@@ -130,10 +145,13 @@ def sync(
     filtermanaged: bool | None | Unset = UNSET,
     filterreferences_context: None | str | Unset = UNSET,
     filterreferences_context_type: None | str | Unset = UNSET,
+    sort: ListFlagsSort | Unset = "key",
 ) -> FlagListResponse | None:
     """List Flags
 
      List feature flags for this account.
+
+    Default sort is `key` ascending.
 
     Args:
         filtertype (None | str | Unset):
@@ -142,6 +160,9 @@ def sync(
             context instance. Format: {type}:{key}
         filterreferences_context_type (None | str | Unset): Return flags whose rules reference any
             attribute of the given context type.
+        sort (ListFlagsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
+            `-name`, `type`, `-type`, `updated_at`, `-updated_at`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -157,6 +178,7 @@ def sync(
         filtermanaged=filtermanaged,
         filterreferences_context=filterreferences_context,
         filterreferences_context_type=filterreferences_context_type,
+        sort=sort,
     ).parsed
 
 
@@ -167,10 +189,13 @@ async def asyncio_detailed(
     filtermanaged: bool | None | Unset = UNSET,
     filterreferences_context: None | str | Unset = UNSET,
     filterreferences_context_type: None | str | Unset = UNSET,
+    sort: ListFlagsSort | Unset = "key",
 ) -> Response[FlagListResponse]:
     """List Flags
 
      List feature flags for this account.
+
+    Default sort is `key` ascending.
 
     Args:
         filtertype (None | str | Unset):
@@ -179,6 +204,9 @@ async def asyncio_detailed(
             context instance. Format: {type}:{key}
         filterreferences_context_type (None | str | Unset): Return flags whose rules reference any
             attribute of the given context type.
+        sort (ListFlagsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
+            `-name`, `type`, `-type`, `updated_at`, `-updated_at`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -193,6 +221,7 @@ async def asyncio_detailed(
         filtermanaged=filtermanaged,
         filterreferences_context=filterreferences_context,
         filterreferences_context_type=filterreferences_context_type,
+        sort=sort,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -207,10 +236,13 @@ async def asyncio(
     filtermanaged: bool | None | Unset = UNSET,
     filterreferences_context: None | str | Unset = UNSET,
     filterreferences_context_type: None | str | Unset = UNSET,
+    sort: ListFlagsSort | Unset = "key",
 ) -> FlagListResponse | None:
     """List Flags
 
      List feature flags for this account.
+
+    Default sort is `key` ascending.
 
     Args:
         filtertype (None | str | Unset):
@@ -219,6 +251,9 @@ async def asyncio(
             context instance. Format: {type}:{key}
         filterreferences_context_type (None | str | Unset): Return flags whose rules reference any
             attribute of the given context type.
+        sort (ListFlagsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
+            `-name`, `type`, `-type`, `updated_at`, `-updated_at`. Default: 'key'.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -235,5 +270,6 @@ async def asyncio(
             filtermanaged=filtermanaged,
             filterreferences_context=filterreferences_context,
             filterreferences_context_type=filterreferences_context_type,
+            sort=sort,
         )
     ).parsed
