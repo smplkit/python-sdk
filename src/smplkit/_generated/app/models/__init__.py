@@ -53,6 +53,10 @@ from .environment_request import EnvironmentRequest
 from .environment_resource import EnvironmentResource
 from .environment_resource_type import EnvironmentResourceType
 from .environment_response import EnvironmentResponse
+from .environment_usage import EnvironmentUsage
+from .environment_usage_resource import EnvironmentUsageResource
+from .environment_usage_resource_type import EnvironmentUsageResourceType
+from .environment_usage_response import EnvironmentUsageResponse
 from .error import Error
 from .error_response import ErrorResponse
 from .error_source import ErrorSource
@@ -194,6 +198,10 @@ __all__ = (
     "EnvironmentResource",
     "EnvironmentResourceType",
     "EnvironmentResponse",
+    "EnvironmentUsage",
+    "EnvironmentUsageResource",
+    "EnvironmentUsageResourceType",
+    "EnvironmentUsageResponse",
     "Error",
     "ErrorResponse",
     "ErrorSource",
