@@ -1143,7 +1143,7 @@ class TestWebSocketEventHandling:
 
     @patch("smplkit.logging.client.get_log_group.asyncio_detailed")
     def test_handle_group_changed_spawns_thread_and_fires(self, mock_get):
-        """_handle_group_changed spawns a thread that fetches a single group and fires listeners."""
+        """_handle_group_changed fires the cascade listener for a logger that inherits from the group."""
         import time
         from smplkit.logging.client import LogGroupResponse, LogGroupResource, GenLogGroup
         from smplkit._generated.logging.types import UNSET
@@ -1159,27 +1159,46 @@ class TestWebSocketEventHandling:
 
         client = _make_async_logging_client()
         client._groups_cache["db-loggers"] = {"level": "WARN", "group": None, "environments": {}}
-        listener = MagicMock()
-        client._global_listeners.append(listener)
+        client._loggers_cache["app.db"] = {
+            "level": None,
+            "group": "db-loggers",
+            "managed": True,
+            "environments": {},
+        }
+        global_listener = MagicMock()
+        client._global_listeners.append(global_listener)
+        key_listener = MagicMock()
+        client._key_listeners["app.db"] = [key_listener]
         client._handle_group_changed({"id": "db-loggers"})
         time.sleep(0.3)
         mock_get.assert_called_once()
-        listener.assert_called_once()
+        global_listener.assert_called_once()
+        key_listener.assert_called_once()
+        assert key_listener.call_args[0][0].id == "app.db"
 
     def test_handle_group_deleted_spawns_thread_and_fires(self):
-        """_handle_group_deleted spawns a thread and fires deleted listener."""
+        """_handle_group_deleted fires deleted=True on the group key and cascade=False on descendants."""
         import time
 
         client = _make_async_logging_client()
         client._groups_cache["db-loggers"] = {"level": "WARN", "group": None, "environments": {}}
-        listener = MagicMock()
-        client._global_listeners.append(listener)
+        client._loggers_cache["app.db"] = {
+            "level": None,
+            "group": "db-loggers",
+            "managed": True,
+            "environments": {},
+        }
+        group_listener = MagicMock()
+        client._key_listeners["db-loggers"] = [group_listener]
+        logger_listener = MagicMock()
+        client._key_listeners["app.db"] = [logger_listener]
         client._handle_group_deleted({"id": "db-loggers"})
         time.sleep(0.3)
         assert "db-loggers" not in client._groups_cache
-        listener.assert_called_once()
-        event = listener.call_args[0][0]
-        assert event.deleted is True
+        group_listener.assert_called_once()
+        assert group_listener.call_args[0][0].deleted is True
+        logger_listener.assert_called_once()
+        assert logger_listener.call_args[0][0].deleted is False
 
     @patch("smplkit.logging.client.get_logger.asyncio_detailed")
     def test_async_fire_change_listeners_global_exception_swallowed(self, mock_get):
@@ -1323,6 +1342,14 @@ class TestWebSocketEventHandling:
         with patch.object(client, "_apply_levels", side_effect=RuntimeError("apply failed")):
             client._handle_group_deleted({"id": "db-loggers"})
             time.sleep(0.3)  # should not raise
+
+    def test_fire_change_listeners_empty_list_is_noop(self):
+        """Empty changed-keys list is a no-op on the async client (defensive guard)."""
+        client = _make_async_logging_client()
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        client._fire_change_listeners([], "websocket")
+        listener.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
