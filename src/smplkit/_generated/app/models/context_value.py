@@ -1,37 +1,42 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-if TYPE_CHECKING:
-    from ..models.page_meta import PageMeta
-
-
-T = TypeVar("T", bound="UserListMeta")
+T = TypeVar("T", bound="ContextValue")
 
 
 @_attrs_define
-class UserListMeta:
-    """
-    Attributes:
-        page (PageMeta): Pagination metadata returned with a collection response.
+class ContextValue:
+    """A single distinct attribute value observed across context instances.
+
+    Returned by `GET /api/v1/context_values` to power typeahead pickers in
+    rule-building UIs. The set of values reflects what has been registered
+    via the bulk-context endpoint — it is observational, not a customer-
+    declared enumeration.
+
+        Example:
+            {'value': 'Michael'}
+
+        Attributes:
+            value (str): The distinct attribute value as it appears on at least one context instance of the requested type.
     """
 
-    page: PageMeta
+    value: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        page = self.page.to_dict()
+        value = self.value
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "page": page,
+                "value": value,
             }
         )
 
@@ -39,17 +44,15 @@ class UserListMeta:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.page_meta import PageMeta
-
         d = dict(src_dict)
-        page = PageMeta.from_dict(d.pop("page"))
+        value = d.pop("value")
 
-        user_list_meta = cls(
-            page=page,
+        context_value = cls(
+            value=value,
         )
 
-        user_list_meta.additional_properties = d
-        return user_list_meta
+        context_value.additional_properties = d
+        return context_value
 
     @property
     def additional_keys(self) -> list[str]:

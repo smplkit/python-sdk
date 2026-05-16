@@ -9,6 +9,7 @@ from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
     from ..models.invoice_resource import InvoiceResource
+    from ..models.list_meta import ListMeta
 
 
 T = TypeVar("T", bound="InvoiceListResponse")
@@ -20,9 +21,11 @@ class InvoiceListResponse:
 
     Attributes:
         data (list[InvoiceResource]):
+        meta (ListMeta): Top-level ``meta`` block included on every JSON:API list response.
     """
 
     data: list[InvoiceResource]
+    meta: ListMeta
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -31,11 +34,14 @@ class InvoiceListResponse:
             data_item = data_item_data.to_dict()
             data.append(data_item)
 
+        meta = self.meta.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "data": data,
+                "meta": meta,
             }
         )
 
@@ -44,6 +50,7 @@ class InvoiceListResponse:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.invoice_resource import InvoiceResource
+        from ..models.list_meta import ListMeta
 
         d = dict(src_dict)
         data = []
@@ -53,8 +60,11 @@ class InvoiceListResponse:
 
             data.append(data_item)
 
+        meta = ListMeta.from_dict(d.pop("meta"))
+
         invoice_list_response = cls(
             data=data,
+            meta=meta,
         )
 
         invoice_list_response.additional_properties = d

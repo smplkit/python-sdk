@@ -29,9 +29,11 @@ class Context:
 
         Example:
             {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'}, 'context_type': 'user', 'created_at':
-                '2026-03-31T10:00:00Z', 'name': 'Alice Smith', 'updated_at': '2026-03-31T10:00:00Z'}
+                '2026-03-31T10:00:00Z', 'key': 'alice-123', 'name': 'Alice Smith', 'updated_at': '2026-03-31T10:00:00Z'}
 
         Attributes:
+            key (str): Entity identifier within the context type (e.g. `alice-123`). Together with `context_type` it forms
+                the composite `id` `context_type:key`. Set by the bulk-register API; not editable.
             context_type (str): Key of the context type this instance belongs to (e.g. `user`, `account`).
             name (None | str | Unset): Human-readable display name for the context instance.
             attributes (ContextAttributes | Unset): Observed attribute values for this context instance. The key set is
@@ -40,6 +42,7 @@ class Context:
             updated_at (datetime.datetime | None | Unset): When the context instance was last modified.
     """
 
+    key: str
     context_type: str
     name: None | str | Unset = UNSET
     attributes: ContextAttributes | Unset = UNSET
@@ -48,6 +51,8 @@ class Context:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        key = self.key
+
         context_type = self.context_type
 
         name: None | str | Unset
@@ -80,6 +85,7 @@ class Context:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "key": key,
                 "context_type": context_type,
             }
         )
@@ -99,6 +105,8 @@ class Context:
         from ..models.context_attributes import ContextAttributes
 
         d = dict(src_dict)
+        key = d.pop("key")
+
         context_type = d.pop("context_type")
 
         def _parse_name(data: object) -> None | str | Unset:
@@ -152,6 +160,7 @@ class Context:
         updated_at = _parse_updated_at(d.pop("updated_at", UNSET))
 
         context = cls(
+            key=key,
             context_type=context_type,
             name=name,
             attributes=attributes,
