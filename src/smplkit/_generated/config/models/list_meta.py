@@ -8,40 +8,36 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.config_resource import ConfigResource
-    from ..models.list_meta import ListMeta
+    from ..models.pagination_meta import PaginationMeta
 
 
-T = TypeVar("T", bound="ConfigListResponse")
+T = TypeVar("T", bound="ListMeta")
 
 
 @_attrs_define
-class ConfigListResponse:
-    """JSON:API collection response for configs.
+class ListMeta:
+    """Top-level ``meta`` block included on every JSON:API list response.
 
     Attributes:
-        data (list[ConfigResource]):
-        meta (ListMeta): Top-level ``meta`` block included on every JSON:API list response.
+        pagination (PaginationMeta): Pagination block returned inside ``meta`` on every list response.
+
+            ``page`` and ``size`` are always present and echo the parameters that
+            served the response (their defaults when the client omitted them).
+            ``total`` and ``total_pages`` are present only when the request included
+            ``meta[total]=true``.
     """
 
-    data: list[ConfigResource]
-    meta: ListMeta
+    pagination: PaginationMeta
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = []
-        for data_item_data in self.data:
-            data_item = data_item_data.to_dict()
-            data.append(data_item)
-
-        meta = self.meta.to_dict()
+        pagination = self.pagination.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "data": data,
-                "meta": meta,
+                "pagination": pagination,
             }
         )
 
@@ -49,26 +45,17 @@ class ConfigListResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.config_resource import ConfigResource
-        from ..models.list_meta import ListMeta
+        from ..models.pagination_meta import PaginationMeta
 
         d = dict(src_dict)
-        data = []
-        _data = d.pop("data")
-        for data_item_data in _data:
-            data_item = ConfigResource.from_dict(data_item_data)
+        pagination = PaginationMeta.from_dict(d.pop("pagination"))
 
-            data.append(data_item)
-
-        meta = ListMeta.from_dict(d.pop("meta"))
-
-        config_list_response = cls(
-            data=data,
-            meta=meta,
+        list_meta = cls(
+            pagination=pagination,
         )
 
-        config_list_response.additional_properties = d
-        return config_list_response
+        list_meta.additional_properties = d
+        return list_meta
 
     @property
     def additional_keys(self) -> list[str]:
