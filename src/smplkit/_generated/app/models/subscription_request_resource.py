@@ -8,37 +8,33 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from ..models.subscription_resource_type import check_subscription_resource_type
-from ..models.subscription_resource_type import SubscriptionResourceType
+from ..models.subscription_request_resource_type import check_subscription_request_resource_type
+from ..models.subscription_request_resource_type import SubscriptionRequestResourceType
 from typing import cast
 
 if TYPE_CHECKING:
-    from ..models.subscription_response_attributes import SubscriptionResponseAttributes
+    from ..models.subscription_request_attributes import SubscriptionRequestAttributes
 
 
-T = TypeVar("T", bound="SubscriptionResource")
+T = TypeVar("T", bound="SubscriptionRequestResource")
 
 
 @_attrs_define
-class SubscriptionResource:
-    """JSON:API resource object for a subscription.
+class SubscriptionRequestResource:
+    """JSON:API resource object for a subscription update request.
 
     Example:
-        {'attributes': {'current_period_end': '2026-06-01T00:00:00Z', 'current_period_start': '2026-05-01T00:00:00Z',
-            'discount_amount_cents': 2220, 'discount_pct': 15, 'discount_source': 'VOLUME', 'items': [{'id':
-            'i1j2k3l4-5678-90ab-cdef-1234567890ab', 'plan': 'PRO', 'price_monthly_cents': 9900, 'product': 'audit'}],
-            'next_tier': {'additional_savings_cents': 4281, 'discount_pct': 33, 'products_needed': 1}, 'payment_method':
-            'p1q2r3s4-5678-90ab-cdef-1234567890ab', 'status': 'ACTIVE', 'subtotal_cents': 14800, 'total_cents': 12580},
-            'id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type': 'subscription'}
+        {'attributes': {'items': [{'plan': 'PRO', 'product': 'audit'}, {'plan': 'PRO', 'product': 'config'}],
+            'payment_method': 'p1q2r3s4-5678-90ab-cdef-1234567890ab'}, 'type': 'subscription'}
 
     Attributes:
-        type_ (SubscriptionResourceType): JSON:API resource type.
-        attributes (SubscriptionResponseAttributes): Customer's subscription as returned by the API.
-        id (None | str | Unset): Subscription identifier. Always `current` on response; absent on create-style requests.
+        type_ (SubscriptionRequestResourceType): JSON:API resource type.
+        attributes (SubscriptionRequestAttributes): Customer's desired subscription state.
+        id (None | str | Unset): Subscription identifier; the server ignores this and uses the auth context.
     """
 
-    type_: SubscriptionResourceType
-    attributes: SubscriptionResponseAttributes
+    type_: SubscriptionRequestResourceType
+    attributes: SubscriptionRequestAttributes
     id: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -68,12 +64,12 @@ class SubscriptionResource:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.subscription_response_attributes import SubscriptionResponseAttributes
+        from ..models.subscription_request_attributes import SubscriptionRequestAttributes
 
         d = dict(src_dict)
-        type_ = check_subscription_resource_type(d.pop("type"))
+        type_ = check_subscription_request_resource_type(d.pop("type"))
 
-        attributes = SubscriptionResponseAttributes.from_dict(d.pop("attributes"))
+        attributes = SubscriptionRequestAttributes.from_dict(d.pop("attributes"))
 
         def _parse_id(data: object) -> None | str | Unset:
             if data is None:
@@ -84,14 +80,14 @@ class SubscriptionResource:
 
         id = _parse_id(d.pop("id", UNSET))
 
-        subscription_resource = cls(
+        subscription_request_resource = cls(
             type_=type_,
             attributes=attributes,
             id=id,
         )
 
-        subscription_resource.additional_properties = d
-        return subscription_resource
+        subscription_request_resource.additional_properties = d
+        return subscription_request_resource
 
     @property
     def additional_keys(self) -> list[str]:

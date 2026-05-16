@@ -8,27 +8,23 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.subscription_resource import SubscriptionResource
+    from ..models.admin_subscription_request_resource import AdminSubscriptionRequestResource
 
 
-T = TypeVar("T", bound="SubscriptionResponse")
+T = TypeVar("T", bound="AdminSubscriptionRequest")
 
 
 @_attrs_define
-class SubscriptionResponse:
-    """Single-resource response envelope for a subscription.
+class AdminSubscriptionRequest:
+    """Admin-scope request envelope for replacing a subscription.
 
     Attributes:
-        data (SubscriptionResource): JSON:API resource object for a subscription. Example: {'attributes':
-            {'current_period_end': '2026-06-01T00:00:00Z', 'current_period_start': '2026-05-01T00:00:00Z',
-            'discount_amount_cents': 2220, 'discount_pct': 15, 'discount_source': 'VOLUME', 'items': [{'id':
-            'i1j2k3l4-5678-90ab-cdef-1234567890ab', 'plan': 'PRO', 'price_monthly_cents': 9900, 'product': 'audit'}],
-            'next_tier': {'additional_savings_cents': 4281, 'discount_pct': 33, 'products_needed': 1}, 'payment_method':
-            'p1q2r3s4-5678-90ab-cdef-1234567890ab', 'status': 'ACTIVE', 'subtotal_cents': 14800, 'total_cents': 12580},
-            'id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type': 'subscription'}.
+        data (AdminSubscriptionRequestResource): Admin-scope resource object for a subscription update request. Example:
+            {'attributes': {'discount_override_pct': 100, 'items': [{'plan': 'PRO', 'product': 'audit'}]}, 'type':
+            'subscription'}.
     """
 
-    data: SubscriptionResource
+    data: AdminSubscriptionRequestResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -46,17 +42,17 @@ class SubscriptionResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.subscription_resource import SubscriptionResource
+        from ..models.admin_subscription_request_resource import AdminSubscriptionRequestResource
 
         d = dict(src_dict)
-        data = SubscriptionResource.from_dict(d.pop("data"))
+        data = AdminSubscriptionRequestResource.from_dict(d.pop("data"))
 
-        subscription_response = cls(
+        admin_subscription_request = cls(
             data=data,
         )
 
-        subscription_response.additional_properties = d
-        return subscription_response
+        admin_subscription_request.additional_properties = d
+        return admin_subscription_request
 
     @property
     def additional_keys(self) -> list[str]:

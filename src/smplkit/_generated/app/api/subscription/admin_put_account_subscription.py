@@ -8,23 +8,23 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
+from ...models.admin_subscription_request import AdminSubscriptionRequest
 from ...models.error_response import ErrorResponse
-from ...models.plan_change_request import PlanChangeRequest
 from ...models.subscription_response import SubscriptionResponse
 from uuid import UUID
 
 
 def _get_kwargs(
-    id: UUID,
+    account_id: UUID,
     *,
-    body: PlanChangeRequest,
+    body: AdminSubscriptionRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
-        "method": "post",
-        "url": "/api/v1/subscriptions/{id}/actions/downgrade".format(
-            id=quote(str(id), safe=""),
+        "method": "put",
+        "url": "/api/v1/accounts/{account_id}/subscription".format(
+            account_id=quote(str(account_id), safe=""),
         ),
     }
 
@@ -82,18 +82,24 @@ def _build_response(
 
 
 def sync_detailed(
-    id: UUID,
+    account_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: PlanChangeRequest,
+    body: AdminSubscriptionRequest,
 ) -> Response[ErrorResponse | SubscriptionResponse]:
-    """Downgrade Subscription
+    """Replace Account Subscription (admin)
 
-     Downgrade an existing paid subscription to a lower plan.
+     Admin replacement of a specific account's subscription.
+
+    Accepts the same body shape as the customer endpoint plus
+    ``discount_override_pct``. Setting the override to 100 skips the billing
+    provider entirely; lowering it below 100 requires a payment method on
+    file for the target account.
 
     Args:
-        id (UUID):
-        body (PlanChangeRequest): Body for the subscription upgrade and downgrade actions.
+        account_id (UUID):
+        body (AdminSubscriptionRequest): Admin-scope request envelope for replacing a
+            subscription.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -104,7 +110,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
-        id=id,
+        account_id=account_id,
         body=body,
     )
 
@@ -116,18 +122,24 @@ def sync_detailed(
 
 
 def sync(
-    id: UUID,
+    account_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: PlanChangeRequest,
+    body: AdminSubscriptionRequest,
 ) -> ErrorResponse | SubscriptionResponse | None:
-    """Downgrade Subscription
+    """Replace Account Subscription (admin)
 
-     Downgrade an existing paid subscription to a lower plan.
+     Admin replacement of a specific account's subscription.
+
+    Accepts the same body shape as the customer endpoint plus
+    ``discount_override_pct``. Setting the override to 100 skips the billing
+    provider entirely; lowering it below 100 requires a payment method on
+    file for the target account.
 
     Args:
-        id (UUID):
-        body (PlanChangeRequest): Body for the subscription upgrade and downgrade actions.
+        account_id (UUID):
+        body (AdminSubscriptionRequest): Admin-scope request envelope for replacing a
+            subscription.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -138,25 +150,31 @@ def sync(
     """
 
     return sync_detailed(
-        id=id,
+        account_id=account_id,
         client=client,
         body=body,
     ).parsed
 
 
 async def asyncio_detailed(
-    id: UUID,
+    account_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: PlanChangeRequest,
+    body: AdminSubscriptionRequest,
 ) -> Response[ErrorResponse | SubscriptionResponse]:
-    """Downgrade Subscription
+    """Replace Account Subscription (admin)
 
-     Downgrade an existing paid subscription to a lower plan.
+     Admin replacement of a specific account's subscription.
+
+    Accepts the same body shape as the customer endpoint plus
+    ``discount_override_pct``. Setting the override to 100 skips the billing
+    provider entirely; lowering it below 100 requires a payment method on
+    file for the target account.
 
     Args:
-        id (UUID):
-        body (PlanChangeRequest): Body for the subscription upgrade and downgrade actions.
+        account_id (UUID):
+        body (AdminSubscriptionRequest): Admin-scope request envelope for replacing a
+            subscription.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -167,7 +185,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
-        id=id,
+        account_id=account_id,
         body=body,
     )
 
@@ -177,18 +195,24 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    id: UUID,
+    account_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: PlanChangeRequest,
+    body: AdminSubscriptionRequest,
 ) -> ErrorResponse | SubscriptionResponse | None:
-    """Downgrade Subscription
+    """Replace Account Subscription (admin)
 
-     Downgrade an existing paid subscription to a lower plan.
+     Admin replacement of a specific account's subscription.
+
+    Accepts the same body shape as the customer endpoint plus
+    ``discount_override_pct``. Setting the override to 100 skips the billing
+    provider entirely; lowering it below 100 requires a payment method on
+    file for the target account.
 
     Args:
-        id (UUID):
-        body (PlanChangeRequest): Body for the subscription upgrade and downgrade actions.
+        account_id (UUID):
+        body (AdminSubscriptionRequest): Admin-scope request envelope for replacing a
+            subscription.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -200,7 +224,7 @@ async def asyncio(
 
     return (
         await asyncio_detailed(
-            id=id,
+            account_id=account_id,
             client=client,
             body=body,
         )

@@ -11,6 +11,10 @@ from .add_payment_method_attributes import AddPaymentMethodAttributes
 from .add_payment_method_body import AddPaymentMethodBody
 from .add_payment_method_data import AddPaymentMethodData
 from .add_payment_method_data_type import AddPaymentMethodDataType
+from .admin_subscription_request import AdminSubscriptionRequest
+from .admin_subscription_request_attributes import AdminSubscriptionRequestAttributes
+from .admin_subscription_request_resource import AdminSubscriptionRequestResource
+from .admin_subscription_request_resource_type import AdminSubscriptionRequestResourceType
 from .api_key import ApiKey
 from .api_key_list_response import ApiKeyListResponse
 from .api_key_request import ApiKeyRequest
@@ -39,9 +43,6 @@ from .context_type_resource import ContextTypeResource
 from .context_type_resource_type import ContextTypeResourceType
 from .context_type_response import ContextTypeResponse
 from .create_email_registration_body import CreateEmailRegistrationBody
-from .create_subscription_attributes import CreateSubscriptionAttributes
-from .create_subscription_body import CreateSubscriptionBody
-from .create_subscription_data import CreateSubscriptionData
 from .email import Email
 from .email_resource import EmailResource
 from .email_resource_type import EmailResourceType
@@ -89,7 +90,6 @@ from .list_payment_methods_sort import ListPaymentMethodsSort
 from .list_plans_sort import ListPlansSort
 from .list_products_sort import ListProductsSort
 from .list_services_sort import ListServicesSort
-from .list_subscriptions_sort import ListSubscriptionsSort
 from .list_users_sort import ListUsersSort
 from .login_request import LoginRequest
 from .metric_attributes import MetricAttributes
@@ -104,7 +104,7 @@ from .metric_rollup_attributes import MetricRollupAttributes
 from .metric_rollup_list_response import MetricRollupListResponse
 from .metric_rollup_resource import MetricRollupResource
 from .metric_rollup_resource_type import MetricRollupResourceType
-from .next_tier_meta import NextTierMeta
+from .next_tier_response import NextTierResponse
 from .oidc_provider import OidcProvider
 from .page_meta import PageMeta
 from .payment_method import PaymentMethod
@@ -115,7 +115,6 @@ from .payment_method_resource import PaymentMethodResource
 from .payment_method_resource_type import PaymentMethodResourceType
 from .payment_method_response import PaymentMethodResponse
 from .plan import Plan
-from .plan_change_request import PlanChangeRequest
 from .plan_definition import PlanDefinition
 from .plan_definition_limits import PlanDefinitionLimits
 from .plan_list_response import PlanListResponse
@@ -143,13 +142,27 @@ from .setup_intent_attributes import SetupIntentAttributes
 from .setup_intent_resource import SetupIntentResource
 from .setup_intent_resource_type import SetupIntentResourceType
 from .setup_intent_response import SetupIntentResponse
-from .subscription_attributes import SubscriptionAttributes
-from .subscription_list_meta import SubscriptionListMeta
-from .subscription_list_meta_discount_source import SubscriptionListMetaDiscountSource
-from .subscription_list_response import SubscriptionListResponse
+from .subscription_change_projection import SubscriptionChangeProjection
+from .subscription_change_projection_effect import SubscriptionChangeProjectionEffect
+from .subscription_item_request import SubscriptionItemRequest
+from .subscription_item_response import SubscriptionItemResponse
+from .subscription_preview_attributes import SubscriptionPreviewAttributes
+from .subscription_preview_attributes_projected_discount_source import (
+    SubscriptionPreviewAttributesProjectedDiscountSource,
+)
+from .subscription_preview_resource import SubscriptionPreviewResource
+from .subscription_preview_resource_id import SubscriptionPreviewResourceId
+from .subscription_preview_resource_type import SubscriptionPreviewResourceType
+from .subscription_preview_response import SubscriptionPreviewResponse
+from .subscription_request import SubscriptionRequest
+from .subscription_request_attributes import SubscriptionRequestAttributes
+from .subscription_request_resource import SubscriptionRequestResource
+from .subscription_request_resource_type import SubscriptionRequestResourceType
 from .subscription_resource import SubscriptionResource
 from .subscription_resource_type import SubscriptionResourceType
 from .subscription_response import SubscriptionResponse
+from .subscription_response_attributes import SubscriptionResponseAttributes
+from .subscription_response_attributes_discount_source import SubscriptionResponseAttributesDiscountSource
 from .user import User
 from .user_list_meta import UserListMeta
 from .user_list_response import UserListResponse
@@ -171,6 +184,10 @@ __all__ = (
     "AddPaymentMethodBody",
     "AddPaymentMethodData",
     "AddPaymentMethodDataType",
+    "AdminSubscriptionRequest",
+    "AdminSubscriptionRequestAttributes",
+    "AdminSubscriptionRequestResource",
+    "AdminSubscriptionRequestResourceType",
     "ApiKey",
     "ApiKeyListResponse",
     "ApiKeyRequest",
@@ -199,9 +216,6 @@ __all__ = (
     "ContextTypeResourceType",
     "ContextTypeResponse",
     "CreateEmailRegistrationBody",
-    "CreateSubscriptionAttributes",
-    "CreateSubscriptionBody",
-    "CreateSubscriptionData",
     "Email",
     "EmailResource",
     "EmailResourceType",
@@ -249,7 +263,6 @@ __all__ = (
     "ListPlansSort",
     "ListProductsSort",
     "ListServicesSort",
-    "ListSubscriptionsSort",
     "ListUsersSort",
     "LoginRequest",
     "MetricAttributes",
@@ -264,7 +277,7 @@ __all__ = (
     "MetricRollupListResponse",
     "MetricRollupResource",
     "MetricRollupResourceType",
-    "NextTierMeta",
+    "NextTierResponse",
     "OidcProvider",
     "PageMeta",
     "PaymentMethod",
@@ -275,7 +288,6 @@ __all__ = (
     "PaymentMethodResourceType",
     "PaymentMethodResponse",
     "Plan",
-    "PlanChangeRequest",
     "PlanDefinition",
     "PlanDefinitionLimits",
     "PlanListResponse",
@@ -303,13 +315,25 @@ __all__ = (
     "SetupIntentResource",
     "SetupIntentResourceType",
     "SetupIntentResponse",
-    "SubscriptionAttributes",
-    "SubscriptionListMeta",
-    "SubscriptionListMetaDiscountSource",
-    "SubscriptionListResponse",
+    "SubscriptionChangeProjection",
+    "SubscriptionChangeProjectionEffect",
+    "SubscriptionItemRequest",
+    "SubscriptionItemResponse",
+    "SubscriptionPreviewAttributes",
+    "SubscriptionPreviewAttributesProjectedDiscountSource",
+    "SubscriptionPreviewResource",
+    "SubscriptionPreviewResourceId",
+    "SubscriptionPreviewResourceType",
+    "SubscriptionPreviewResponse",
+    "SubscriptionRequest",
+    "SubscriptionRequestAttributes",
+    "SubscriptionRequestResource",
+    "SubscriptionRequestResourceType",
     "SubscriptionResource",
     "SubscriptionResourceType",
     "SubscriptionResponse",
+    "SubscriptionResponseAttributes",
+    "SubscriptionResponseAttributesDiscountSource",
     "User",
     "UserListMeta",
     "UserListResponse",

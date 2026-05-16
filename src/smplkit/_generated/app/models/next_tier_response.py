@@ -7,17 +7,18 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-T = TypeVar("T", bound="NextTierMeta")
+T = TypeVar("T", bound="NextTierResponse")
 
 
 @_attrs_define
-class NextTierMeta:
-    """Information about the next volume-discount tier.
+class NextTierResponse:
+    """Hint describing how the customer could unlock a better discount.
 
     Attributes:
-        products_needed (int): Number of additional subscribed products needed to reach the next tier.
+        products_needed (int): Number of additional paid products required to reach the next discount tier.
         discount_pct (int): Discount percentage that would apply at the next tier.
-        additional_savings_cents (int): Additional monthly savings in cents at the next tier.
+        additional_savings_cents (int): Estimated additional monthly savings (in cents) at the next tier, compared to
+            paying full list price for the added product.
     """
 
     products_needed: int
@@ -53,14 +54,14 @@ class NextTierMeta:
 
         additional_savings_cents = d.pop("additional_savings_cents")
 
-        next_tier_meta = cls(
+        next_tier_response = cls(
             products_needed=products_needed,
             discount_pct=discount_pct,
             additional_savings_cents=additional_savings_cents,
         )
 
-        next_tier_meta.additional_properties = d
-        return next_tier_meta
+        next_tier_response.additional_properties = d
+        return next_tier_response
 
     @property
     def additional_keys(self) -> list[str]:
