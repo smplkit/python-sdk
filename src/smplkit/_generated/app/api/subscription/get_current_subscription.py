@@ -1,6 +1,5 @@
 from http import HTTPStatus
 from typing import Any
-from urllib.parse import quote
 
 import httpx
 
@@ -10,18 +9,13 @@ from ... import errors
 
 from ...models.error_response import ErrorResponse
 from ...models.subscription_response import SubscriptionResponse
-from uuid import UUID
 
 
-def _get_kwargs(
-    id: UUID,
-) -> dict[str, Any]:
+def _get_kwargs() -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
-        "method": "post",
-        "url": "/api/v1/subscriptions/{id}/actions/cancel".format(
-            id=quote(str(id), safe=""),
-        ),
+        "method": "get",
+        "url": "/api/v1/accounts/current/subscription",
     }
 
     return _kwargs
@@ -73,16 +67,12 @@ def _build_response(
 
 
 def sync_detailed(
-    id: UUID,
     *,
     client: AuthenticatedClient,
 ) -> Response[ErrorResponse | SubscriptionResponse]:
-    """Cancel Subscription
+    """Get Current Subscription
 
-     Cancel a subscription at end of the current billing period.
-
-    Args:
-        id (UUID):
+     Return the authenticated account's subscription, or 404 if none exists.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -92,9 +82,7 @@ def sync_detailed(
         Response[ErrorResponse | SubscriptionResponse]
     """
 
-    kwargs = _get_kwargs(
-        id=id,
-    )
+    kwargs = _get_kwargs()
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -104,16 +92,12 @@ def sync_detailed(
 
 
 def sync(
-    id: UUID,
     *,
     client: AuthenticatedClient,
 ) -> ErrorResponse | SubscriptionResponse | None:
-    """Cancel Subscription
+    """Get Current Subscription
 
-     Cancel a subscription at end of the current billing period.
-
-    Args:
-        id (UUID):
+     Return the authenticated account's subscription, or 404 if none exists.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -124,22 +108,17 @@ def sync(
     """
 
     return sync_detailed(
-        id=id,
         client=client,
     ).parsed
 
 
 async def asyncio_detailed(
-    id: UUID,
     *,
     client: AuthenticatedClient,
 ) -> Response[ErrorResponse | SubscriptionResponse]:
-    """Cancel Subscription
+    """Get Current Subscription
 
-     Cancel a subscription at end of the current billing period.
-
-    Args:
-        id (UUID):
+     Return the authenticated account's subscription, or 404 if none exists.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -149,9 +128,7 @@ async def asyncio_detailed(
         Response[ErrorResponse | SubscriptionResponse]
     """
 
-    kwargs = _get_kwargs(
-        id=id,
-    )
+    kwargs = _get_kwargs()
 
     response = await client.get_async_httpx_client().request(**kwargs)
 
@@ -159,16 +136,12 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    id: UUID,
     *,
     client: AuthenticatedClient,
 ) -> ErrorResponse | SubscriptionResponse | None:
-    """Cancel Subscription
+    """Get Current Subscription
 
-     Cancel a subscription at end of the current billing period.
-
-    Args:
-        id (UUID):
+     Return the authenticated account's subscription, or 404 if none exists.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -180,7 +153,6 @@ async def asyncio(
 
     return (
         await asyncio_detailed(
-            id=id,
             client=client,
         )
     ).parsed

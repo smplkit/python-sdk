@@ -8,27 +8,26 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.create_subscription_data import CreateSubscriptionData
+    from ..models.subscription_preview_resource import SubscriptionPreviewResource
 
 
-T = TypeVar("T", bound="CreateSubscriptionBody")
+T = TypeVar("T", bound="SubscriptionPreviewResponse")
 
 
 @_attrs_define
-class CreateSubscriptionBody:
-    """JSON:API request envelope for creating a subscription.
-
-    Example:
-        {'data': {'attributes': {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'plan': 'pro', 'product':
-            'flags'}, 'type': 'subscription'}}
+class SubscriptionPreviewResponse:
+    """Response envelope for the preview action.
 
     Attributes:
-        data (CreateSubscriptionData): Resource object for the create-subscription request. Example: {'attributes':
-            {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'plan': 'pro', 'product': 'flags'}, 'type':
-            'subscription'}.
+        data (SubscriptionPreviewResource): JSON:API resource object for a subscription preview. Example: {'attributes':
+            {'changes': [{'effect': 'IMMEDIATE', 'from_plan': 'FREE', 'monthly_cents': 9900, 'product': 'audit',
+            'prorated_charge_today_cents': 4521, 'to_plan': 'PRO'}], 'next_invoice_total_cents': 12580,
+            'projected_discount_amount_cents': 2220, 'projected_discount_pct': 15, 'projected_discount_source': 'VOLUME',
+            'projected_subtotal_cents': 14800, 'projected_total_cents': 12580, 'total_charge_today_cents': 4521}, 'id':
+            'preview', 'type': 'subscription_preview'}.
     """
 
-    data: CreateSubscriptionData
+    data: SubscriptionPreviewResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -46,17 +45,17 @@ class CreateSubscriptionBody:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.create_subscription_data import CreateSubscriptionData
+        from ..models.subscription_preview_resource import SubscriptionPreviewResource
 
         d = dict(src_dict)
-        data = CreateSubscriptionData.from_dict(d.pop("data"))
+        data = SubscriptionPreviewResource.from_dict(d.pop("data"))
 
-        create_subscription_body = cls(
+        subscription_preview_response = cls(
             data=data,
         )
 
-        create_subscription_body.additional_properties = d
-        return create_subscription_body
+        subscription_preview_response.additional_properties = d
+        return subscription_preview_response
 
     @property
     def additional_keys(self) -> list[str]:

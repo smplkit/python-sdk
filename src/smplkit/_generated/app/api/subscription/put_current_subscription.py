@@ -7,20 +7,20 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
-from ...models.create_subscription_body import CreateSubscriptionBody
 from ...models.error_response import ErrorResponse
+from ...models.subscription_request import SubscriptionRequest
 from ...models.subscription_response import SubscriptionResponse
 
 
 def _get_kwargs(
     *,
-    body: CreateSubscriptionBody,
+    body: SubscriptionRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
-        "method": "post",
-        "url": "/api/v1/subscriptions",
+        "method": "put",
+        "url": "/api/v1/accounts/current/subscription",
     }
 
     _kwargs["json"] = body.to_dict()
@@ -34,10 +34,10 @@ def _get_kwargs(
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
 ) -> ErrorResponse | SubscriptionResponse | None:
-    if response.status_code == 201:
-        response_201 = SubscriptionResponse.from_dict(response.json())
+    if response.status_code == 200:
+        response_200 = SubscriptionResponse.from_dict(response.json())
 
-        return response_201
+        return response_200
 
     if response.status_code == 400:
         response_400 = ErrorResponse.from_dict(response.json())
@@ -79,16 +79,15 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: CreateSubscriptionBody,
+    body: SubscriptionRequest,
 ) -> Response[ErrorResponse | SubscriptionResponse]:
-    """Create Subscription
+    """Replace Current Subscription
 
-     Create a new paid subscription for a product.
+     Replace the authenticated account's subscription with the desired state.
 
     Args:
-        body (CreateSubscriptionBody): JSON:API request envelope for creating a subscription.
-            Example: {'data': {'attributes': {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-
-            ef1234567890', 'plan': 'pro', 'product': 'flags'}, 'type': 'subscription'}}.
+        body (SubscriptionRequest): Single-resource request envelope for replacing the
+            subscription.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -112,16 +111,15 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: CreateSubscriptionBody,
+    body: SubscriptionRequest,
 ) -> ErrorResponse | SubscriptionResponse | None:
-    """Create Subscription
+    """Replace Current Subscription
 
-     Create a new paid subscription for a product.
+     Replace the authenticated account's subscription with the desired state.
 
     Args:
-        body (CreateSubscriptionBody): JSON:API request envelope for creating a subscription.
-            Example: {'data': {'attributes': {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-
-            ef1234567890', 'plan': 'pro', 'product': 'flags'}, 'type': 'subscription'}}.
+        body (SubscriptionRequest): Single-resource request envelope for replacing the
+            subscription.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -140,16 +138,15 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: CreateSubscriptionBody,
+    body: SubscriptionRequest,
 ) -> Response[ErrorResponse | SubscriptionResponse]:
-    """Create Subscription
+    """Replace Current Subscription
 
-     Create a new paid subscription for a product.
+     Replace the authenticated account's subscription with the desired state.
 
     Args:
-        body (CreateSubscriptionBody): JSON:API request envelope for creating a subscription.
-            Example: {'data': {'attributes': {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-
-            ef1234567890', 'plan': 'pro', 'product': 'flags'}, 'type': 'subscription'}}.
+        body (SubscriptionRequest): Single-resource request envelope for replacing the
+            subscription.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -171,16 +168,15 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: CreateSubscriptionBody,
+    body: SubscriptionRequest,
 ) -> ErrorResponse | SubscriptionResponse | None:
-    """Create Subscription
+    """Replace Current Subscription
 
-     Create a new paid subscription for a product.
+     Replace the authenticated account's subscription with the desired state.
 
     Args:
-        body (CreateSubscriptionBody): JSON:API request envelope for creating a subscription.
-            Example: {'data': {'attributes': {'payment_method': 'a1b2c3d4-e5f6-7890-abcd-
-            ef1234567890', 'plan': 'pro', 'product': 'flags'}, 'type': 'subscription'}}.
+        body (SubscriptionRequest): Single-resource request envelope for replacing the
+            subscription.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
