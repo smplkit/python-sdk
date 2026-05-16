@@ -73,7 +73,7 @@ def _extract_pagination(body_dict: dict[str, Any]) -> dict[str, int]:
     Always present per ADR-014; `total` and `total_pages` are only
     populated when the request included `meta[total]=true`.
     """
-    return ((body_dict.get("meta") or {}).get("pagination") or {})
+    return (body_dict.get("meta") or {}).get("pagination") or {}
 
 
 # ---------------------------------------------------------------------------

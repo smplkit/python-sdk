@@ -198,8 +198,11 @@ class TestForwardersCrud:
 
         c = _client_with_handler(handler)
         first = c.forwarders.list(
-            page_size=1, page_number=1, meta_total=True,
-            forwarder_type="DATADOG", enabled=True,
+            page_size=1,
+            page_number=1,
+            meta_total=True,
+            forwarder_type="DATADOG",
+            enabled=True,
         )
         assert len(first.forwarders) == 1
         assert first.pagination["total"] == 2

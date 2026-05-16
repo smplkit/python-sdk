@@ -110,7 +110,7 @@ class EventListPage:
 
 def _extract_pagination(body_dict: dict[str, Any]) -> dict[str, int]:
     """Return the ``meta.pagination`` block from an offset-paginated list."""
-    return ((body_dict.get("meta") or {}).get("pagination") or {})
+    return (body_dict.get("meta") or {}).get("pagination") or {}
 
 
 class ResourceTypeListPage:
