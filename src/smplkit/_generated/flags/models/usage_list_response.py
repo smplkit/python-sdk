@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
+    from ..models.list_meta import ListMeta
     from ..models.usage_resource import UsageResource
 
 
@@ -24,9 +25,11 @@ class UsageListResponse:
 
     Attributes:
         data (list[UsageResource]):
+        meta (ListMeta): Top-level ``meta`` block included on every JSON:API list response.
     """
 
     data: list[UsageResource]
+    meta: ListMeta
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -35,11 +38,14 @@ class UsageListResponse:
             data_item = data_item_data.to_dict()
             data.append(data_item)
 
+        meta = self.meta.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "data": data,
+                "meta": meta,
             }
         )
 
@@ -47,6 +53,7 @@ class UsageListResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.list_meta import ListMeta
         from ..models.usage_resource import UsageResource
 
         d = dict(src_dict)
@@ -57,8 +64,11 @@ class UsageListResponse:
 
             data.append(data_item)
 
+        meta = ListMeta.from_dict(d.pop("meta"))
+
         usage_list_response = cls(
             data=data,
+            meta=meta,
         )
 
         usage_list_response.additional_properties = d
