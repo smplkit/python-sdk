@@ -244,7 +244,7 @@ class TestResourceTypesList:
                         _resource_type_resource(key="account"),
                         _resource_type_resource(key="user"),
                     ],
-                    "meta": {"page_size": 50},
+                    "meta": {"pagination": {"page": 1, "size": 1000}},
                 },
             )
 
@@ -254,11 +254,11 @@ class TestResourceTypesList:
             assert isinstance(page, ResourceTypeListPage)
             assert len(page) == 2
             assert [r.id for r in page] == ["account", "user"]
-            assert page.next_cursor is None
+            assert page.pagination == {"page": 1, "size": 1000}
         finally:
             c._close()
 
-    def test_pagination_cursor_propagates(self):
+    def test_pagination_params_propagate(self):
         captured: list[str] = []
 
         def handler(req):
@@ -267,30 +267,33 @@ class TestResourceTypesList:
                 200,
                 json={
                     "data": [_resource_type_resource(key="alpha")],
-                    "links": {"next": "/api/v1/resource_types?page[size]=1&page[after]=tok-2"},
-                    "meta": {"page_size": 1},
+                    "meta": {"pagination": {"page": 2, "size": 1, "total": 3, "total_pages": 3}},
                 },
             )
 
         c = _client_with_handler(handler)
         try:
-            page = c.resource_types.list(page_size=1, page_after="tok-1")
+            page = c.resource_types.list(page_size=1, page_number=2, meta_total=True)
             url = captured[0]
             assert "page%5Bsize%5D=1" in url or "page[size]=1" in url
-            assert "page%5Bafter%5D=tok-1" in url or "page[after]=tok-1" in url
-            assert page.next_cursor == "tok-2"
+            assert "page%5Bnumber%5D=2" in url or "page[number]=2" in url
+            assert "meta%5Btotal%5D=true" in url or "meta[total]=true" in url
+            assert page.pagination == {"page": 2, "size": 1, "total": 3, "total_pages": 3}
         finally:
             c._close()
 
     def test_empty_response(self):
         def handler(req):
-            return httpx.Response(200, json={"data": [], "meta": {"page_size": 50}})
+            return httpx.Response(
+                200,
+                json={"data": [], "meta": {"pagination": {"page": 1, "size": 1000}}},
+            )
 
         c = _client_with_handler(handler)
         try:
             page = c.resource_types.list()
             assert len(page) == 0
-            assert page.next_cursor is None
+            assert page.pagination == {"page": 1, "size": 1000}
             assert list(page) == []
         finally:
             c._close()
@@ -339,7 +342,7 @@ class TestActionsList:
                         _action_resource(key="account.updated"),
                         _action_resource(key="user.login"),
                     ],
-                    "meta": {"page_size": 50},
+                    "meta": {"pagination": {"page": 1, "size": 1000}},
                 },
             )
 
@@ -360,7 +363,7 @@ class TestActionsList:
                 200,
                 json={
                     "data": [_action_resource(key="user.login")],
-                    "meta": {"page_size": 50},
+                    "meta": {"pagination": {"page": 1, "size": 1000}},
                 },
             )
 
@@ -373,34 +376,45 @@ class TestActionsList:
         finally:
             c._close()
 
-    def test_pagination_cursor_with_filter_in_next_link(self):
+    def test_pagination_params_propagate_with_filter(self):
+        captured: list[str] = []
+
         def handler(req):
+            captured.append(str(req.url))
             return httpx.Response(
                 200,
                 json={
                     "data": [_action_resource(key="a.x")],
-                    "links": {"next": "/api/v1/actions?page[size]=1&page[after]=tok-2&filter[resource_type]=user"},
-                    "meta": {"page_size": 1},
+                    "meta": {"pagination": {"page": 2, "size": 1, "total": 5, "total_pages": 5}},
                 },
             )
 
         c = _client_with_handler(handler)
         try:
-            page = c.actions.list(page_size=1, filter_resource_type="user")
-            # The cursor token is sliced at the next ``&`` so trailing
-            # query params don't leak into ``next_cursor``.
-            assert page.next_cursor == "tok-2"
+            page = c.actions.list(
+                page_size=1,
+                page_number=2,
+                meta_total=True,
+                filter_resource_type="user",
+            )
+            url = captured[0]
+            assert "page%5Bnumber%5D=2" in url or "page[number]=2" in url
+            assert "filter%5Bresource_type%5D=user" in url or "filter[resource_type]=user" in url
+            assert page.pagination["total"] == 5
         finally:
             c._close()
 
-    def test_pagination_cursor_extraction_when_no_link(self):
+    def test_empty_response(self):
         def handler(req):
-            return httpx.Response(200, json={"data": [], "meta": {"page_size": 50}})
+            return httpx.Response(
+                200,
+                json={"data": [], "meta": {"pagination": {"page": 1, "size": 1000}}},
+            )
 
         c = _client_with_handler(handler)
         try:
             page = c.actions.list()
-            assert page.next_cursor is None
+            assert page.pagination == {"page": 1, "size": 1000}
         finally:
             c._close()
 
@@ -411,7 +425,7 @@ class TestActionsList:
                 Action._from_resource(_action_resource(key="a.x")),
                 Action._from_resource(_action_resource(key="b.y")),
             ],
-            next_cursor=None,
+            pagination={"page": 1, "size": 2},
         )
         assert len(page) == 2
         assert [a.id for a in page] == ["a.x", "b.y"]

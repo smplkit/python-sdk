@@ -11,11 +11,11 @@ from ..types import UNSET, Unset
 from typing import cast
 
 
-T = TypeVar("T", bound="ActionListLinks")
+T = TypeVar("T", bound="ForwarderDeliveryListLinks")
 
 
 @_attrs_define
-class ActionListLinks:
+class ForwarderDeliveryListLinks:
     """
     Attributes:
         next_ (None | str | Unset):
@@ -52,12 +52,12 @@ class ActionListLinks:
 
         next_ = _parse_next_(d.pop("next", UNSET))
 
-        action_list_links = cls(
+        forwarder_delivery_list_links = cls(
             next_=next_,
         )
 
-        action_list_links.additional_properties = d
-        return action_list_links
+        forwarder_delivery_list_links.additional_properties = d
+        return forwarder_delivery_list_links
 
     @property
     def additional_keys(self) -> list[str]:

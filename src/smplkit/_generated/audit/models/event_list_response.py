@@ -21,11 +21,17 @@ T = TypeVar("T", bound="EventListResponse")
 
 @_attrs_define
 class EventListResponse:
-    """JSON:API collection response for audit events.
+    """JSON:API collection response for audit events (cursor paged).
 
     Attributes:
         data (list[EventResource]):
-        meta (EventListMeta):
+        meta (EventListMeta): Cursor-pagination meta for the audit-event list endpoint.
+
+            Audit events are append-only at high cardinality (millions of rows
+            per account at production tenants), so this endpoint stays on
+            cursor pagination — the documented exception in ADR-014. Every
+            other read-many endpoint in the platform follows the standard
+            offset convention (`page[number]` / `page[size]`).
         links (EventListLinks | None | Unset):
     """
 
