@@ -29,10 +29,13 @@ class Context:
 
         Example:
             {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'}, 'context_type': 'user', 'created_at':
-                '2026-03-31T10:00:00Z', 'name': 'Alice Smith', 'updated_at': '2026-03-31T10:00:00Z'}
+                '2026-03-31T10:00:00Z', 'key': 'alice-123', 'name': 'Alice Smith', 'updated_at': '2026-03-31T10:00:00Z'}
 
         Attributes:
             context_type (str): Key of the context type this instance belongs to (e.g. `user`, `account`).
+            key (None | str | Unset): Entity identifier within the context type (e.g. `alice-123`). Together with
+                `context_type` it forms the composite `id` `context_type:key`. Always populated in responses; declared optional
+                only so SDK consumers can construct a draft Context without a key. Set by the bulk-register API; not editable.
             name (None | str | Unset): Human-readable display name for the context instance.
             attributes (ContextAttributes | Unset): Observed attribute values for this context instance. The key set is
                 conventionally aligned with the parent context type's known attribute keys, but additional keys are accepted.
@@ -41,6 +44,7 @@ class Context:
     """
 
     context_type: str
+    key: None | str | Unset = UNSET
     name: None | str | Unset = UNSET
     attributes: ContextAttributes | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
@@ -49,6 +53,12 @@ class Context:
 
     def to_dict(self) -> dict[str, Any]:
         context_type = self.context_type
+
+        key: None | str | Unset
+        if isinstance(self.key, Unset):
+            key = UNSET
+        else:
+            key = self.key
 
         name: None | str | Unset
         if isinstance(self.name, Unset):
@@ -83,6 +93,8 @@ class Context:
                 "context_type": context_type,
             }
         )
+        if key is not UNSET:
+            field_dict["key"] = key
         if name is not UNSET:
             field_dict["name"] = name
         if attributes is not UNSET:
@@ -100,6 +112,15 @@ class Context:
 
         d = dict(src_dict)
         context_type = d.pop("context_type")
+
+        def _parse_key(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        key = _parse_key(d.pop("key", UNSET))
 
         def _parse_name(data: object) -> None | str | Unset:
             if data is None:
@@ -153,6 +174,7 @@ class Context:
 
         context = cls(
             context_type=context_type,
+            key=key,
             name=name,
             attributes=attributes,
             created_at=created_at,
