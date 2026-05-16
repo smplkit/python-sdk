@@ -9,6 +9,7 @@ from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
     from ..models.context_resource import ContextResource
+    from ..models.list_meta import ListMeta
 
 
 T = TypeVar("T", bound="ContextListResponse")
@@ -20,9 +21,11 @@ class ContextListResponse:
 
     Attributes:
         data (list[ContextResource]):
+        meta (ListMeta): Top-level ``meta`` block included on every JSON:API list response.
     """
 
     data: list[ContextResource]
+    meta: ListMeta
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -31,11 +34,14 @@ class ContextListResponse:
             data_item = data_item_data.to_dict()
             data.append(data_item)
 
+        meta = self.meta.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "data": data,
+                "meta": meta,
             }
         )
 
@@ -44,6 +50,7 @@ class ContextListResponse:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.context_resource import ContextResource
+        from ..models.list_meta import ListMeta
 
         d = dict(src_dict)
         data = []
@@ -53,8 +60,11 @@ class ContextListResponse:
 
             data.append(data_item)
 
+        meta = ListMeta.from_dict(d.pop("meta"))
+
         context_list_response = cls(
             data=data,
+            meta=meta,
         )
 
         context_list_response.additional_properties = d

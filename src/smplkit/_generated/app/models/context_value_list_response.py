@@ -8,36 +8,40 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.context_resource import ContextResource
+    from ..models.context_value_resource import ContextValueResource
+    from ..models.list_meta import ListMeta
 
 
-T = TypeVar("T", bound="ContextResponse")
+T = TypeVar("T", bound="ContextValueListResponse")
 
 
 @_attrs_define
-class ContextResponse:
-    """JSON:API single-resource response envelope for a context instance.
+class ContextValueListResponse:
+    """JSON:API collection response envelope for distinct context values.
 
     Attributes:
-        data (ContextResource): JSON:API resource envelope for a context instance.
-
-            `id` is the composite identifier `context_type:key` (e.g. `user:alice-123`). Example: {'attributes':
-            {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'}, 'context_type': 'user', 'created_at':
-            '2026-03-31T10:00:00Z', 'key': 'alice-123', 'name': 'Alice Smith', 'updated_at': '2026-03-31T10:00:00Z'}, 'id':
-            'user:alice-123', 'type': 'context'}.
+        data (list[ContextValueResource]):
+        meta (ListMeta): Top-level ``meta`` block included on every JSON:API list response.
     """
 
-    data: ContextResource
+    data: list[ContextValueResource]
+    meta: ListMeta
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = self.data.to_dict()
+        data = []
+        for data_item_data in self.data:
+            data_item = data_item_data.to_dict()
+            data.append(data_item)
+
+        meta = self.meta.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "data": data,
+                "meta": meta,
             }
         )
 
@@ -45,17 +49,26 @@ class ContextResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.context_resource import ContextResource
+        from ..models.context_value_resource import ContextValueResource
+        from ..models.list_meta import ListMeta
 
         d = dict(src_dict)
-        data = ContextResource.from_dict(d.pop("data"))
+        data = []
+        _data = d.pop("data")
+        for data_item_data in _data:
+            data_item = ContextValueResource.from_dict(data_item_data)
 
-        context_response = cls(
+            data.append(data_item)
+
+        meta = ListMeta.from_dict(d.pop("meta"))
+
+        context_value_list_response = cls(
             data=data,
+            meta=meta,
         )
 
-        context_response.additional_properties = d
-        return context_response
+        context_value_list_response.additional_properties = d
+        return context_value_list_response
 
     @property
     def additional_keys(self) -> list[str]:
