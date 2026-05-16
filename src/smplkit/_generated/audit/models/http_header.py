@@ -14,9 +14,13 @@ T = TypeVar("T", bound="HttpHeader")
 class HttpHeader:
     """A single HTTP header attached to a forwarder delivery request.
 
-    Attributes:
-        name (str): Header name.
-        value (str): Header value.
+    Header values carrying secrets (API keys, bearer tokens, HEC tokens)
+    are encrypted at the application layer before persistence; the wire
+    representation here is always plaintext.
+
+        Attributes:
+            name (str): Header name.
+            value (str): Header value.
     """
 
     name: str

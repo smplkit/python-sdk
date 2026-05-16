@@ -16,17 +16,19 @@ T = TypeVar("T", bound="ForwarderRequest")
 
 @_attrs_define
 class ForwarderRequest:
-    """JSON:API request envelope for creating or updating a forwarder.
+    r"""JSON:API request envelope for creating or updating a forwarder.
 
     Attributes:
         data (ForwarderResource): JSON:API resource envelope for a forwarder.
 
-            `id` must not be specified for create requests (the server assigns it). Example: {'attributes': {'created_at':
-            '2026-05-07T12:00:00Z', 'enabled': True, 'filter': {'==': [{'var': 'action'}, 'user.created']},
-            'forwarder_type': 'DATADOG', 'http': {'headers': [{'name': 'DD-API-KEY', 'value': 'dd-api-key-plaintext'}],
-            'method': 'POST', 'success_status': '2xx', 'url': 'https://http-intake.logs.datadoghq.com/api/v2/logs'}, 'name':
-            'Datadog production', 'slug': 'datadog_production', 'updated_at': '2026-05-07T12:00:00Z', 'version': 1}, 'id':
-            '11111111-2222-3333-4444-555555555555', 'type': 'forwarder'}.
+            `id` must not be specified for create requests (the server assigns it). Example: {'attributes':
+            {'configuration': {'headers': [{'name': 'DD-API-KEY', 'value': 'dd-api-key-plaintext'}], 'method': 'POST',
+            'success_status': '2xx', 'url': 'https://http-intake.logs.datadoghq.com/api/v2/logs'}, 'created_at':
+            '2026-05-07T12:00:00Z', 'description': 'Forwards user.* events to the prod Datadog tenant.', 'enabled': True,
+            'filter': {'==': [{'var': 'action'}, 'user.created']}, 'forwarder_type': 'DATADOG', 'name': 'Datadog
+            production', 'transform': '{ "message": action & \' on \' & resource_type }', 'transform_type': 'JSONATA',
+            'updated_at': '2026-05-07T12:00:00Z', 'version': 1}, 'id': '11111111-2222-3333-4444-555555555555', 'type':
+            'forwarder'}.
     """
 
     data: ForwarderResource

@@ -21,13 +21,13 @@ from .forwarder_delivery_resource import ForwarderDeliveryResource
 from .forwarder_delivery_response import ForwarderDeliveryResponse
 from .forwarder_delivery_status import ForwarderDeliveryStatus
 from .forwarder_filter_type_0 import ForwarderFilterType0
-from .forwarder_http import ForwarderHttp
-from .forwarder_http_method import ForwarderHttpMethod
 from .forwarder_list_response import ForwarderListResponse
 from .forwarder_request import ForwarderRequest
 from .forwarder_resource import ForwarderResource
 from .forwarder_response import ForwarderResponse
 from .forwarder_type import ForwarderType
+from .http_configuration import HttpConfiguration
+from .http_configuration_method import HttpConfigurationMethod
 from .http_header import HttpHeader
 from .list_actions_sort import ListActionsSort
 from .list_events_sort import ListEventsSort
@@ -70,13 +70,13 @@ __all__ = (
     "ForwarderDeliveryResponse",
     "ForwarderDeliveryStatus",
     "ForwarderFilterType0",
-    "ForwarderHttp",
-    "ForwarderHttpMethod",
     "ForwarderListResponse",
     "ForwarderRequest",
     "ForwarderResource",
     "ForwarderResponse",
     "ForwarderType",
+    "HttpConfiguration",
+    "HttpConfigurationMethod",
     "HttpHeader",
     "ListActionsSort",
     "ListEventsSort",
