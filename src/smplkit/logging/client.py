@@ -495,7 +495,10 @@ class LoggingClient:
                             },
                         )
                     )
-            debug("api", f"GET /api/v1/loggers page {page_number} -> {response.status_code.value} ({len(page_rows)} loggers)")
+            debug(
+                "api",
+                f"GET /api/v1/loggers page {page_number} -> {response.status_code.value} ({len(page_rows)} loggers)",
+            )
             return page_rows
 
         loggers_data: dict[str, dict[str, Any]] = dict(paginate_sync(fetch_loggers_page))
@@ -527,7 +530,10 @@ class LoggingClient:
                             },
                         )
                     )
-            debug("api", f"GET /api/v1/log-groups page {page_number} -> {grp_response.status_code.value} ({len(page_rows)} groups)")
+            debug(
+                "api",
+                f"GET /api/v1/log-groups page {page_number} -> {grp_response.status_code.value} ({len(page_rows)} groups)",
+            )
             return page_rows
 
         groups_data: dict[str, dict[str, Any]] = dict(paginate_sync(fetch_groups_page))
@@ -985,7 +991,10 @@ class AsyncLoggingClient:
                             },
                         )
                     )
-            debug("api", f"GET /api/v1/loggers page {page_number} -> {response.status_code.value} ({len(page_rows)} loggers)")
+            debug(
+                "api",
+                f"GET /api/v1/loggers page {page_number} -> {response.status_code.value} ({len(page_rows)} loggers)",
+            )
             return page_rows
 
         loggers_data: dict[str, dict[str, Any]] = dict(await paginate_async(fetch_loggers_page))
@@ -1017,7 +1026,10 @@ class AsyncLoggingClient:
                             },
                         )
                     )
-            debug("api", f"GET /api/v1/log-groups page {page_number} -> {grp_response.status_code.value} ({len(page_rows)} groups)")
+            debug(
+                "api",
+                f"GET /api/v1/log-groups page {page_number} -> {grp_response.status_code.value} ({len(page_rows)} groups)",
+            )
             return page_rows
 
         groups_data: dict[str, dict[str, Any]] = dict(await paginate_async(fetch_groups_page))
