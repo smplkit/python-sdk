@@ -7,17 +7,16 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.context_list_response import ContextListResponse
+from ...models.context_value_list_response import ContextValueListResponse
 from ...models.error_response import ErrorResponse
-from ...models.list_contexts_sort import ListContextsSort
 from ...types import Unset
 
 
 def _get_kwargs(
     *,
     filtercontext_type: None | str | Unset = UNSET,
+    filterattribute: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
-    sort: ListContextsSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
@@ -32,18 +31,19 @@ def _get_kwargs(
         json_filtercontext_type = filtercontext_type
     params["filter[context_type]"] = json_filtercontext_type
 
+    json_filterattribute: None | str | Unset
+    if isinstance(filterattribute, Unset):
+        json_filterattribute = UNSET
+    else:
+        json_filterattribute = filterattribute
+    params["filter[attribute]"] = json_filterattribute
+
     json_filtersearch: None | str | Unset
     if isinstance(filtersearch, Unset):
         json_filtersearch = UNSET
     else:
         json_filtersearch = filtersearch
     params["filter[search]"] = json_filtersearch
-
-    json_sort: str | Unset = UNSET
-    if not isinstance(sort, Unset):
-        json_sort = sort
-
-    params["sort"] = json_sort
 
     params["page[number]"] = pagenumber
 
@@ -55,7 +55,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/api/v1/contexts",
+        "url": "/api/v1/context_values",
         "params": params,
     }
 
@@ -64,9 +64,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ContextListResponse | ErrorResponse | None:
+) -> ContextValueListResponse | ErrorResponse | None:
     if response.status_code == 200:
-        response_200 = ContextListResponse.from_dict(response.json())
+        response_200 = ContextValueListResponse.from_dict(response.json())
 
         return response_200
 
@@ -98,7 +98,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ContextListResponse | ErrorResponse]:
+) -> Response[ContextValueListResponse | ErrorResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -111,28 +111,34 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     filtercontext_type: None | str | Unset = UNSET,
+    filterattribute: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
-    sort: ListContextsSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
-) -> Response[ContextListResponse | ErrorResponse]:
-    """List Contexts
+) -> Response[ContextValueListResponse | ErrorResponse]:
+    """List Context Values
 
-     List context instances for the authenticated account. `filter[context_type]` narrows the result to
-    one context type. `filter[search]` does a case-insensitive substring match against the context
-    `key`, `name`, and every attribute value, returning any context where at least one of those fields
-    contains the search term.
+     Return distinct values observed for a single attribute across context instances of one context type.
+    The intended use case is a typeahead picker in a rule-building UI: the customer chooses a context
+    type and an attribute name, then this endpoint streams back the distinct values matching what
+    they've typed so far.
+
+    `filter[context_type]` and `filter[attribute]` are required. `filter[attribute]` accepts any
+    attribute name — including the two first-class columns `key` and `name` — and is treated uniformly
+    from the customer's perspective; the server adjusts the underlying query accordingly.
+
+    `filter[search]` does a case-insensitive starts-with match. The returned set excludes empty strings
+    and NULL values.
 
     Args:
-        filtercontext_type (None | str | Unset): Limit results to context instances of this
-            context type (e.g. `user`).
-        filtersearch (None | str | Unset): Case-insensitive substring match against the `key`,
-            `name`, and any attribute value. A context is returned if at least one of those fields
-            contains the search term.
-        sort (ListContextsSort | Unset): Field to sort by. Prefix with `-` for descending order.
-            Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
-            `-name`, `updated_at`, `-updated_at`. Default: 'key'.
+        filtercontext_type (None | str | Unset): Context type key whose instances should be
+            searched (e.g. `user`).
+        filterattribute (None | str | Unset): Attribute name whose distinct values should be
+            returned (e.g. `first_name`). Accepts `key` and `name` as well as any attribute key stored
+            on the context instance.
+        filtersearch (None | str | Unset): Optional case-insensitive starts-with match against the
+            projected attribute value. When omitted, all distinct values are returned in the page.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
             Default: 1.
@@ -149,13 +155,13 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ContextListResponse | ErrorResponse]
+        Response[ContextValueListResponse | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
         filtercontext_type=filtercontext_type,
+        filterattribute=filterattribute,
         filtersearch=filtersearch,
-        sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
         metatotal=metatotal,
@@ -172,28 +178,34 @@ def sync(
     *,
     client: AuthenticatedClient,
     filtercontext_type: None | str | Unset = UNSET,
+    filterattribute: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
-    sort: ListContextsSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
-) -> ContextListResponse | ErrorResponse | None:
-    """List Contexts
+) -> ContextValueListResponse | ErrorResponse | None:
+    """List Context Values
 
-     List context instances for the authenticated account. `filter[context_type]` narrows the result to
-    one context type. `filter[search]` does a case-insensitive substring match against the context
-    `key`, `name`, and every attribute value, returning any context where at least one of those fields
-    contains the search term.
+     Return distinct values observed for a single attribute across context instances of one context type.
+    The intended use case is a typeahead picker in a rule-building UI: the customer chooses a context
+    type and an attribute name, then this endpoint streams back the distinct values matching what
+    they've typed so far.
+
+    `filter[context_type]` and `filter[attribute]` are required. `filter[attribute]` accepts any
+    attribute name — including the two first-class columns `key` and `name` — and is treated uniformly
+    from the customer's perspective; the server adjusts the underlying query accordingly.
+
+    `filter[search]` does a case-insensitive starts-with match. The returned set excludes empty strings
+    and NULL values.
 
     Args:
-        filtercontext_type (None | str | Unset): Limit results to context instances of this
-            context type (e.g. `user`).
-        filtersearch (None | str | Unset): Case-insensitive substring match against the `key`,
-            `name`, and any attribute value. A context is returned if at least one of those fields
-            contains the search term.
-        sort (ListContextsSort | Unset): Field to sort by. Prefix with `-` for descending order.
-            Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
-            `-name`, `updated_at`, `-updated_at`. Default: 'key'.
+        filtercontext_type (None | str | Unset): Context type key whose instances should be
+            searched (e.g. `user`).
+        filterattribute (None | str | Unset): Attribute name whose distinct values should be
+            returned (e.g. `first_name`). Accepts `key` and `name` as well as any attribute key stored
+            on the context instance.
+        filtersearch (None | str | Unset): Optional case-insensitive starts-with match against the
+            projected attribute value. When omitted, all distinct values are returned in the page.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
             Default: 1.
@@ -210,14 +222,14 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ContextListResponse | ErrorResponse
+        ContextValueListResponse | ErrorResponse
     """
 
     return sync_detailed(
         client=client,
         filtercontext_type=filtercontext_type,
+        filterattribute=filterattribute,
         filtersearch=filtersearch,
-        sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
         metatotal=metatotal,
@@ -228,28 +240,34 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     filtercontext_type: None | str | Unset = UNSET,
+    filterattribute: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
-    sort: ListContextsSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
-) -> Response[ContextListResponse | ErrorResponse]:
-    """List Contexts
+) -> Response[ContextValueListResponse | ErrorResponse]:
+    """List Context Values
 
-     List context instances for the authenticated account. `filter[context_type]` narrows the result to
-    one context type. `filter[search]` does a case-insensitive substring match against the context
-    `key`, `name`, and every attribute value, returning any context where at least one of those fields
-    contains the search term.
+     Return distinct values observed for a single attribute across context instances of one context type.
+    The intended use case is a typeahead picker in a rule-building UI: the customer chooses a context
+    type and an attribute name, then this endpoint streams back the distinct values matching what
+    they've typed so far.
+
+    `filter[context_type]` and `filter[attribute]` are required. `filter[attribute]` accepts any
+    attribute name — including the two first-class columns `key` and `name` — and is treated uniformly
+    from the customer's perspective; the server adjusts the underlying query accordingly.
+
+    `filter[search]` does a case-insensitive starts-with match. The returned set excludes empty strings
+    and NULL values.
 
     Args:
-        filtercontext_type (None | str | Unset): Limit results to context instances of this
-            context type (e.g. `user`).
-        filtersearch (None | str | Unset): Case-insensitive substring match against the `key`,
-            `name`, and any attribute value. A context is returned if at least one of those fields
-            contains the search term.
-        sort (ListContextsSort | Unset): Field to sort by. Prefix with `-` for descending order.
-            Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
-            `-name`, `updated_at`, `-updated_at`. Default: 'key'.
+        filtercontext_type (None | str | Unset): Context type key whose instances should be
+            searched (e.g. `user`).
+        filterattribute (None | str | Unset): Attribute name whose distinct values should be
+            returned (e.g. `first_name`). Accepts `key` and `name` as well as any attribute key stored
+            on the context instance.
+        filtersearch (None | str | Unset): Optional case-insensitive starts-with match against the
+            projected attribute value. When omitted, all distinct values are returned in the page.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
             Default: 1.
@@ -266,13 +284,13 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ContextListResponse | ErrorResponse]
+        Response[ContextValueListResponse | ErrorResponse]
     """
 
     kwargs = _get_kwargs(
         filtercontext_type=filtercontext_type,
+        filterattribute=filterattribute,
         filtersearch=filtersearch,
-        sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
         metatotal=metatotal,
@@ -287,28 +305,34 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     filtercontext_type: None | str | Unset = UNSET,
+    filterattribute: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
-    sort: ListContextsSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
-) -> ContextListResponse | ErrorResponse | None:
-    """List Contexts
+) -> ContextValueListResponse | ErrorResponse | None:
+    """List Context Values
 
-     List context instances for the authenticated account. `filter[context_type]` narrows the result to
-    one context type. `filter[search]` does a case-insensitive substring match against the context
-    `key`, `name`, and every attribute value, returning any context where at least one of those fields
-    contains the search term.
+     Return distinct values observed for a single attribute across context instances of one context type.
+    The intended use case is a typeahead picker in a rule-building UI: the customer chooses a context
+    type and an attribute name, then this endpoint streams back the distinct values matching what
+    they've typed so far.
+
+    `filter[context_type]` and `filter[attribute]` are required. `filter[attribute]` accepts any
+    attribute name — including the two first-class columns `key` and `name` — and is treated uniformly
+    from the customer's perspective; the server adjusts the underlying query accordingly.
+
+    `filter[search]` does a case-insensitive starts-with match. The returned set excludes empty strings
+    and NULL values.
 
     Args:
-        filtercontext_type (None | str | Unset): Limit results to context instances of this
-            context type (e.g. `user`).
-        filtersearch (None | str | Unset): Case-insensitive substring match against the `key`,
-            `name`, and any attribute value. A context is returned if at least one of those fields
-            contains the search term.
-        sort (ListContextsSort | Unset): Field to sort by. Prefix with `-` for descending order.
-            Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
-            `-name`, `updated_at`, `-updated_at`. Default: 'key'.
+        filtercontext_type (None | str | Unset): Context type key whose instances should be
+            searched (e.g. `user`).
+        filterattribute (None | str | Unset): Attribute name whose distinct values should be
+            returned (e.g. `first_name`). Accepts `key` and `name` as well as any attribute key stored
+            on the context instance.
+        filtersearch (None | str | Unset): Optional case-insensitive starts-with match against the
+            projected attribute value. When omitted, all distinct values are returned in the page.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
             Default: 1.
@@ -325,15 +349,15 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ContextListResponse | ErrorResponse
+        ContextValueListResponse | ErrorResponse
     """
 
     return (
         await asyncio_detailed(
             client=client,
             filtercontext_type=filtercontext_type,
+            filterattribute=filterattribute,
             filtersearch=filtersearch,
-            sort=sort,
             pagenumber=pagenumber,
             pagesize=pagesize,
             metatotal=metatotal,

@@ -8,42 +8,39 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from ..models.context_resource_type import check_context_resource_type
-from ..models.context_resource_type import ContextResourceType
+from ..models.context_value_resource_type import check_context_value_resource_type
+from ..models.context_value_resource_type import ContextValueResourceType
 from typing import cast
 
 if TYPE_CHECKING:
-    from ..models.context import Context
+    from ..models.context_value import ContextValue
 
 
-T = TypeVar("T", bound="ContextResource")
+T = TypeVar("T", bound="ContextValueResource")
 
 
 @_attrs_define
-class ContextResource:
-    """JSON:API resource envelope for a context instance.
+class ContextValueResource:
+    """JSON:API resource envelope for a distinct context-attribute value.
 
-    `id` is the composite identifier `context_type:key` (e.g. `user:alice-123`).
+    `id` is the value itself.
 
         Example:
-            {'attributes': {'attributes': {'first_name': 'Alice', 'plan': 'enterprise'}, 'context_type': 'user',
-                'created_at': '2026-03-31T10:00:00Z', 'key': 'alice-123', 'name': 'Alice Smith', 'updated_at':
-                '2026-03-31T10:00:00Z'}, 'id': 'user:alice-123', 'type': 'context'}
+            {'attributes': {'value': 'Michael'}, 'id': 'Michael', 'type': 'context_value'}
 
         Attributes:
-            type_ (ContextResourceType):
-            attributes (Context): A specific instance of a context type — for example, a particular
-                user, account, or device — together with the attributes observed on it.
+            type_ (ContextValueResourceType):
+            attributes (ContextValue): A single distinct attribute value observed across context instances.
 
-                Context instances are addressed by a composite identifier of the form
-                `context_type:key` (e.g. `user:alice-123`). Example: {'attributes': {'first_name': 'Alice', 'plan':
-                'enterprise'}, 'context_type': 'user', 'created_at': '2026-03-31T10:00:00Z', 'key': 'alice-123', 'name': 'Alice
-                Smith', 'updated_at': '2026-03-31T10:00:00Z'}.
+                Returned by `GET /api/v1/context_values` to power typeahead pickers in
+                rule-building UIs. The set of values reflects what has been registered
+                via the bulk-context endpoint — it is observational, not a customer-
+                declared enumeration. Example: {'value': 'Michael'}.
             id (None | str | Unset):
     """
 
-    type_: ContextResourceType
-    attributes: Context
+    type_: ContextValueResourceType
+    attributes: ContextValue
     id: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -73,12 +70,12 @@ class ContextResource:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.context import Context
+        from ..models.context_value import ContextValue
 
         d = dict(src_dict)
-        type_ = check_context_resource_type(d.pop("type"))
+        type_ = check_context_value_resource_type(d.pop("type"))
 
-        attributes = Context.from_dict(d.pop("attributes"))
+        attributes = ContextValue.from_dict(d.pop("attributes"))
 
         def _parse_id(data: object) -> None | str | Unset:
             if data is None:
@@ -89,14 +86,14 @@ class ContextResource:
 
         id = _parse_id(d.pop("id", UNSET))
 
-        context_resource = cls(
+        context_value_resource = cls(
             type_=type_,
             attributes=attributes,
             id=id,
         )
 
-        context_resource.additional_properties = d
-        return context_resource
+        context_value_resource.additional_properties = d
+        return context_value_resource
 
     @property
     def additional_keys(self) -> list[str]:

@@ -6,11 +6,9 @@ from typing import Any, TypeVar, TYPE_CHECKING
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..types import UNSET, Unset
-
 
 if TYPE_CHECKING:
-    from ..models.user_list_meta import UserListMeta
+    from ..models.list_meta import ListMeta
     from ..models.user_resource import UserResource
 
 
@@ -23,11 +21,11 @@ class UserListResponse:
 
     Attributes:
         data (list[UserResource]):
-        meta (UserListMeta | Unset):
+        meta (ListMeta): Top-level ``meta`` block included on every JSON:API list response.
     """
 
     data: list[UserResource]
-    meta: UserListMeta | Unset = UNSET
+    meta: ListMeta
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -36,25 +34,22 @@ class UserListResponse:
             data_item = data_item_data.to_dict()
             data.append(data_item)
 
-        meta: dict[str, Any] | Unset = UNSET
-        if not isinstance(self.meta, Unset):
-            meta = self.meta.to_dict()
+        meta = self.meta.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "data": data,
+                "meta": meta,
             }
         )
-        if meta is not UNSET:
-            field_dict["meta"] = meta
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.user_list_meta import UserListMeta
+        from ..models.list_meta import ListMeta
         from ..models.user_resource import UserResource
 
         d = dict(src_dict)
@@ -65,12 +60,7 @@ class UserListResponse:
 
             data.append(data_item)
 
-        _meta = d.pop("meta", UNSET)
-        meta: UserListMeta | Unset
-        if isinstance(_meta, Unset):
-            meta = UNSET
-        else:
-            meta = UserListMeta.from_dict(_meta)
+        meta = ListMeta.from_dict(d.pop("meta"))
 
         user_list_response = cls(
             data=data,
