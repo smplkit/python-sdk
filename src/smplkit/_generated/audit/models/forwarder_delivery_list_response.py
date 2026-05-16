@@ -11,9 +11,9 @@ from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
+    from ..models.forwarder_delivery_list_links import ForwarderDeliveryListLinks
+    from ..models.forwarder_delivery_list_meta import ForwarderDeliveryListMeta
     from ..models.forwarder_delivery_resource import ForwarderDeliveryResource
-    from ..models.forwarder_list_links import ForwarderListLinks
-    from ..models.forwarder_list_meta import ForwarderListMeta
 
 
 T = TypeVar("T", bound="ForwarderDeliveryListResponse")
@@ -21,21 +21,27 @@ T = TypeVar("T", bound="ForwarderDeliveryListResponse")
 
 @_attrs_define
 class ForwarderDeliveryListResponse:
-    """JSON:API collection response for forwarder deliveries.
+    """JSON:API collection response for forwarder deliveries (cursor paged).
 
     Attributes:
         data (list[ForwarderDeliveryResource]):
-        meta (ForwarderListMeta):
-        links (ForwarderListLinks | None | Unset):
+        meta (ForwarderDeliveryListMeta): Cursor-pagination meta for the forwarder-delivery log endpoint.
+
+            Forwarder deliveries are append-only at high cardinality (one row per
+            delivery attempt per event) and scroll with the same workload as
+            audit events, so this endpoint stays on cursor pagination — the
+            documented exception in ADR-014. The parent `/forwarders` collection
+            follows the standard offset convention.
+        links (ForwarderDeliveryListLinks | None | Unset):
     """
 
     data: list[ForwarderDeliveryResource]
-    meta: ForwarderListMeta
-    links: ForwarderListLinks | None | Unset = UNSET
+    meta: ForwarderDeliveryListMeta
+    links: ForwarderDeliveryListLinks | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.forwarder_list_links import ForwarderListLinks
+        from ..models.forwarder_delivery_list_links import ForwarderDeliveryListLinks
 
         data = []
         for data_item_data in self.data:
@@ -47,7 +53,7 @@ class ForwarderDeliveryListResponse:
         links: dict[str, Any] | None | Unset
         if isinstance(self.links, Unset):
             links = UNSET
-        elif isinstance(self.links, ForwarderListLinks):
+        elif isinstance(self.links, ForwarderDeliveryListLinks):
             links = self.links.to_dict()
         else:
             links = self.links
@@ -67,9 +73,9 @@ class ForwarderDeliveryListResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.forwarder_delivery_list_links import ForwarderDeliveryListLinks
+        from ..models.forwarder_delivery_list_meta import ForwarderDeliveryListMeta
         from ..models.forwarder_delivery_resource import ForwarderDeliveryResource
-        from ..models.forwarder_list_links import ForwarderListLinks
-        from ..models.forwarder_list_meta import ForwarderListMeta
 
         d = dict(src_dict)
         data = []
@@ -79,9 +85,9 @@ class ForwarderDeliveryListResponse:
 
             data.append(data_item)
 
-        meta = ForwarderListMeta.from_dict(d.pop("meta"))
+        meta = ForwarderDeliveryListMeta.from_dict(d.pop("meta"))
 
-        def _parse_links(data: object) -> ForwarderListLinks | None | Unset:
+        def _parse_links(data: object) -> ForwarderDeliveryListLinks | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -89,12 +95,12 @@ class ForwarderDeliveryListResponse:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                links_type_0 = ForwarderListLinks.from_dict(data)
+                links_type_0 = ForwarderDeliveryListLinks.from_dict(data)
 
                 return links_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(ForwarderListLinks | None | Unset, data)
+            return cast(ForwarderDeliveryListLinks | None | Unset, data)
 
         links = _parse_links(d.pop("links", UNSET))
 

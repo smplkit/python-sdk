@@ -6,58 +6,51 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..types import UNSET, Unset
 
-from typing import cast
-
-
-T = TypeVar("T", bound="ForwarderListLinks")
+T = TypeVar("T", bound="ForwarderDeliveryListMeta")
 
 
 @_attrs_define
-class ForwarderListLinks:
-    """
-    Attributes:
-        next_ (None | str | Unset):
+class ForwarderDeliveryListMeta:
+    """Cursor-pagination meta for the forwarder-delivery log endpoint.
+
+    Forwarder deliveries are append-only at high cardinality (one row per
+    delivery attempt per event) and scroll with the same workload as
+    audit events, so this endpoint stays on cursor pagination — the
+    documented exception in ADR-014. The parent `/forwarders` collection
+    follows the standard offset convention.
+
+        Attributes:
+            page_size (int):
     """
 
-    next_: None | str | Unset = UNSET
+    page_size: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        next_: None | str | Unset
-        if isinstance(self.next_, Unset):
-            next_ = UNSET
-        else:
-            next_ = self.next_
+        page_size = self.page_size
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({})
-        if next_ is not UNSET:
-            field_dict["next"] = next_
+        field_dict.update(
+            {
+                "page_size": page_size,
+            }
+        )
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+        page_size = d.pop("page_size")
 
-        def _parse_next_(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        next_ = _parse_next_(d.pop("next", UNSET))
-
-        forwarder_list_links = cls(
-            next_=next_,
+        forwarder_delivery_list_meta = cls(
+            page_size=page_size,
         )
 
-        forwarder_list_links.additional_properties = d
-        return forwarder_list_links
+        forwarder_delivery_list_meta.additional_properties = d
+        return forwarder_delivery_list_meta
 
     @property
     def additional_keys(self) -> list[str]:

@@ -12,9 +12,16 @@ T = TypeVar("T", bound="EventListMeta")
 
 @_attrs_define
 class EventListMeta:
-    """
-    Attributes:
-        page_size (int):
+    """Cursor-pagination meta for the audit-event list endpoint.
+
+    Audit events are append-only at high cardinality (millions of rows
+    per account at production tenants), so this endpoint stays on
+    cursor pagination — the documented exception in ADR-014. Every
+    other read-many endpoint in the platform follows the standard
+    offset convention (`page[number]` / `page[size]`).
+
+        Attributes:
+            page_size (int):
     """
 
     page_size: int
