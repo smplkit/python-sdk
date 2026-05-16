@@ -108,14 +108,29 @@ class EventListPage:
         return len(self.events)
 
 
+def _extract_pagination(body_dict: dict[str, Any]) -> dict[str, int]:
+    """Return the ``meta.pagination`` block from an offset-paginated list."""
+    return ((body_dict.get("meta") or {}).get("pagination") or {})
+
+
 class ResourceTypeListPage:
-    """A single page from ``client.audit.resource_types.list(...)``."""
+    """A single page from ``client.audit.resource_types.list(...)``.
 
-    __slots__ = ("resource_types", "next_cursor")
+    ``resource_types`` is the page; ``pagination`` is the response's
+    ``meta.pagination`` block (`page`, `size`, and — only when the
+    caller passed `meta_total=True` — `total` and `total_pages`).
+    """
 
-    def __init__(self, *, resource_types: list[ResourceType], next_cursor: str | None) -> None:
+    __slots__ = ("resource_types", "pagination")
+
+    def __init__(
+        self,
+        *,
+        resource_types: list[ResourceType],
+        pagination: dict[str, int],
+    ) -> None:
         self.resource_types = resource_types
-        self.next_cursor = next_cursor
+        self.pagination = pagination
 
     def __iter__(self):
         return iter(self.resource_types)
@@ -125,13 +140,23 @@ class ResourceTypeListPage:
 
 
 class ActionListPage:
-    """A single page from ``client.audit.actions.list(...)``."""
+    """A single page from ``client.audit.actions.list(...)``.
 
-    __slots__ = ("actions", "next_cursor")
+    ``actions`` is the page; ``pagination`` is the response's
+    ``meta.pagination`` block (`page`, `size`, and — only when the
+    caller passed `meta_total=True` — `total` and `total_pages`).
+    """
 
-    def __init__(self, *, actions: list[Action], next_cursor: str | None) -> None:
+    __slots__ = ("actions", "pagination")
+
+    def __init__(
+        self,
+        *,
+        actions: list[Action],
+        pagination: dict[str, int],
+    ) -> None:
         self.actions = actions
-        self.next_cursor = next_cursor
+        self.pagination = pagination
 
     def __iter__(self):
         return iter(self.actions)
@@ -311,25 +336,30 @@ class _ResourceTypesClient:
     def list(
         self,
         *,
+        page_number: int | None = None,
         page_size: int | None = None,
-        page_after: str | None = None,
+        meta_total: bool | None = None,
     ) -> ResourceTypeListPage:
         """List the distinct ``resource_type`` slugs seen in the account.
 
         Backed by a maintain-by-write side table (ADR-047 §2.5), so the
         response time is independent of how many years of events the
-        account has accumulated. Sorted alphabetically; cursor pagination
-        via ``page_after``.
+        account has accumulated. Sorted alphabetically; offset paginated
+        per ADR-014.
         """
         resp = _gen_list_resource_types.sync_detailed(
             client=self._auth,
+            pagenumber=page_number if page_number is not None else UNSET,
             pagesize=page_size if page_size is not None else UNSET,
-            pageafter=page_after if page_after is not None else UNSET,
+            metatotal=meta_total if meta_total is not None else UNSET,
         )
         _expect_status(resp, 200)
         body_dict = resp.parsed.to_dict()
         rows = [ResourceType._from_resource(r) for r in body_dict.get("data", [])]
-        return ResourceTypeListPage(resource_types=rows, next_cursor=_extract_next_cursor(body_dict))
+        return ResourceTypeListPage(
+            resource_types=rows,
+            pagination=_extract_pagination(body_dict),
+        )
 
 
 class _ActionsClient:
@@ -342,8 +372,9 @@ class _ActionsClient:
         self,
         *,
         filter_resource_type: str | None = None,
+        page_number: int | None = None,
         page_size: int | None = None,
-        page_after: str | None = None,
+        meta_total: bool | None = None,
     ) -> ActionListPage:
         """List the distinct ``action`` slugs seen in the account.
 
@@ -353,19 +384,23 @@ class _ActionsClient:
         specific resource_type, powering the cascading-filter behavior
         on the Activity tab.
 
-        ADR-047 §2.5. Sorted alphabetically; cursor pagination via
-        ``page_after``.
+        ADR-047 §2.5. Sorted alphabetically; offset paginated per
+        ADR-014.
         """
         resp = _gen_list_actions.sync_detailed(
             client=self._auth,
             filterresource_type=(filter_resource_type if filter_resource_type is not None else UNSET),
+            pagenumber=page_number if page_number is not None else UNSET,
             pagesize=page_size if page_size is not None else UNSET,
-            pageafter=page_after if page_after is not None else UNSET,
+            metatotal=meta_total if meta_total is not None else UNSET,
         )
         _expect_status(resp, 200)
         body_dict = resp.parsed.to_dict()
         rows = [Action._from_resource(r) for r in body_dict.get("data", [])]
-        return ActionListPage(actions=rows, next_cursor=_extract_next_cursor(body_dict))
+        return ActionListPage(
+            actions=rows,
+            pagination=_extract_pagination(body_dict),
+        )
 
 
 class AuditClient:

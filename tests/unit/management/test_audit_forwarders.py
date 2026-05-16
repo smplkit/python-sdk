@@ -182,12 +182,11 @@ class TestForwardersCrud:
         pages = [
             {
                 "data": [_forwarder_resource(name="A")],
-                "links": {"next": "/api/v1/forwarders?page[size]=1&page[after]=tok-2"},
-                "meta": {"page_size": 1},
+                "meta": {"pagination": {"page": 1, "size": 1, "total": 2, "total_pages": 2}},
             },
             {
                 "data": [_forwarder_resource(name="B")],
-                "meta": {"page_size": 1},
+                "meta": {"pagination": {"page": 2, "size": 1, "total": 2, "total_pages": 2}},
             },
         ]
         call_count = [0]
@@ -198,14 +197,18 @@ class TestForwardersCrud:
             return httpx.Response(200, json=page)
 
         c = _client_with_handler(handler)
-        first = c.forwarders.list(page_size=1, forwarder_type="DATADOG", enabled=True)
+        first = c.forwarders.list(
+            page_size=1, page_number=1, meta_total=True,
+            forwarder_type="DATADOG", enabled=True,
+        )
         assert len(first.forwarders) == 1
-        assert first.next_cursor == "tok-2"
+        assert first.pagination["total"] == 2
+        assert first.pagination["page"] == 1
         iterated = list(first)
         assert len(iterated) == 1
 
-        second = c.forwarders.list(page_size=1, page_after=first.next_cursor)
-        assert second.next_cursor is None
+        second = c.forwarders.list(page_size=1, page_number=2, meta_total=True)
+        assert second.pagination["page"] == 2
 
     def test_get(self):
         def handler(req):

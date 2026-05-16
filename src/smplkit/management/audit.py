@@ -67,14 +67,13 @@ def _expect_status(resp: Any, *expected: int) -> None:
         )
 
 
-def _extract_next_cursor(body_dict: dict[str, Any]) -> str | None:
-    next_link = (body_dict.get("links") or {}).get("next")
-    if next_link and "page[after]=" in next_link:
-        # The link may include other query params after the cursor; the
-        # cursor token is base64-url-safe so we slice at the next ``&``.
-        after = next_link.split("page[after]=", 1)[1]
-        return after.split("&", 1)[0]
-    return None
+def _extract_pagination(body_dict: dict[str, Any]) -> dict[str, int]:
+    """Return the `meta.pagination` block from a list response.
+
+    Always present per ADR-014; `total` and `total_pages` are only
+    populated when the request included `meta[total]=true`.
+    """
+    return ((body_dict.get("meta") or {}).get("pagination") or {})
 
 
 # ---------------------------------------------------------------------------
@@ -83,13 +82,24 @@ def _extract_next_cursor(body_dict: dict[str, Any]) -> str | None:
 
 
 class ForwarderListPage:
-    """A single page from ``mgmt.audit.forwarders.list(...)``."""
+    """A single page from ``mgmt.audit.forwarders.list(...)``.
 
-    __slots__ = ("forwarders", "next_cursor")
+    ``forwarders`` is the page's forwarders; ``pagination`` is the
+    response's ``meta.pagination`` block (`page`, `size`, and — only
+    when the caller passed `meta_total=True` — `total` and
+    `total_pages`).
+    """
 
-    def __init__(self, *, forwarders: list[Forwarder], next_cursor: str | None) -> None:
+    __slots__ = ("forwarders", "pagination")
+
+    def __init__(
+        self,
+        *,
+        forwarders: list[Forwarder],
+        pagination: dict[str, int],
+    ) -> None:
         self.forwarders = forwarders
-        self.next_cursor = next_cursor
+        self.pagination = pagination
 
     def __iter__(self):
         return iter(self.forwarders)
@@ -192,22 +202,33 @@ class ForwardersClient:
         *,
         forwarder_type: ForwarderType | None = None,
         enabled: bool | None = None,
+        page_number: int | None = None,
         page_size: int | None = None,
-        page_after: str | None = None,
+        meta_total: bool | None = None,
     ) -> ForwarderListPage:
-        """List forwarders for the authenticated account."""
+        """List forwarders for the authenticated account.
+
+        Offset paginated per ADR-014: pass ``page_number`` (1-based) and
+        ``page_size`` (default 1000, max 1000). Pass ``meta_total=True``
+        to populate ``total`` and ``total_pages`` in the returned
+        ``pagination`` dict (costs an extra COUNT query server-side).
+        """
         ft = ForwarderType(forwarder_type).value if forwarder_type is not None else UNSET
         resp = _gen_list_forwarders.sync_detailed(
             client=self._auth,
             filterforwarder_type=ft,
             filterenabled=enabled if enabled is not None else UNSET,
+            pagenumber=page_number if page_number is not None else UNSET,
             pagesize=page_size if page_size is not None else UNSET,
-            pageafter=page_after if page_after is not None else UNSET,
+            metatotal=meta_total if meta_total is not None else UNSET,
         )
         _expect_status(resp, 200)
         body_dict = resp.parsed.to_dict()
         forwarders = [Forwarder._from_resource(r) for r in body_dict.get("data", [])]
-        return ForwarderListPage(forwarders=forwarders, next_cursor=_extract_next_cursor(body_dict))
+        return ForwarderListPage(
+            forwarders=forwarders,
+            pagination=_extract_pagination(body_dict),
+        )
 
     def get(self, forwarder_id: UUID | str) -> Forwarder:
         fid = forwarder_id if isinstance(forwarder_id, UUID) else UUID(str(forwarder_id))
