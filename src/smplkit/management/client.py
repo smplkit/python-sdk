@@ -339,6 +339,21 @@ def _is_unset(value: Any) -> bool:
     return type(value).__name__ == "Unset"
 
 
+def _pagination_kwargs(page_number: int | None, page_size: int | None) -> dict[str, int]:
+    """Build the ``pagenumber``/``pagesize`` kwargs for a generated list call.
+
+    Each value is included only when the caller supplied a non-None override —
+    omitting both yields ``{}``, letting the generated client send the
+    server-default page (1) and size (1000).
+    """
+    kwargs: dict[str, int] = {}
+    if page_number is not None:
+        kwargs["pagenumber"] = page_number
+    if page_size is not None:
+        kwargs["pagesize"] = page_size
+    return kwargs
+
+
 def _check_status(status_code: int, content: bytes) -> None:
     _raise_for_status(int(status_code), content)
 
@@ -392,8 +407,14 @@ class EnvironmentsClient:
             classification=classification,
         )
 
-    def list(self) -> list[Environment]:
-        resp = _gen_list_environments.sync_detailed(client=self._app_http)
+    def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[Environment]:
+        kwargs = _pagination_kwargs(page_number, page_size)
+        resp = _gen_list_environments.sync_detailed(client=self._app_http, **kwargs)
         _check_status(int(resp.status_code), resp.content)
         body = json.loads(resp.content)
         return [_env_resource_from_dict(item, sync_client=self) for item in body.get("data", [])]
@@ -456,8 +477,14 @@ class AsyncEnvironmentsClient:
             classification=classification,
         )
 
-    async def list(self) -> list[AsyncEnvironment]:
-        resp = await _gen_list_environments.asyncio_detailed(client=self._app_http)
+    async def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[AsyncEnvironment]:
+        kwargs = _pagination_kwargs(page_number, page_size)
+        resp = await _gen_list_environments.asyncio_detailed(client=self._app_http, **kwargs)
         _check_status(int(resp.status_code), resp.content)
         body = json.loads(resp.content)
         return [_env_resource_from_dict(item, async_client=self) for item in body.get("data", [])]
@@ -557,8 +584,14 @@ class ContextTypesClient:
             attributes=attributes or {},
         )
 
-    def list(self) -> list[ContextType]:
-        resp = _gen_list_context_types.sync_detailed(client=self._app_http)
+    def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[ContextType]:
+        kwargs = _pagination_kwargs(page_number, page_size)
+        resp = _gen_list_context_types.sync_detailed(client=self._app_http, **kwargs)
         _check_status(int(resp.status_code), resp.content)
         body = json.loads(resp.content)
         return [_ct_resource_from_dict(item, sync_client=self) for item in body.get("data", [])]
@@ -617,8 +650,14 @@ class AsyncContextTypesClient:
             attributes=attributes or {},
         )
 
-    async def list(self) -> list[AsyncContextType]:
-        resp = await _gen_list_context_types.asyncio_detailed(client=self._app_http)
+    async def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[AsyncContextType]:
+        kwargs = _pagination_kwargs(page_number, page_size)
+        resp = await _gen_list_context_types.asyncio_detailed(client=self._app_http, **kwargs)
         _check_status(int(resp.status_code), resp.content)
         body = json.loads(resp.content)
         return [_ct_resource_from_dict(item, async_client=self) for item in body.get("data", [])]
@@ -798,11 +837,19 @@ class ContextsClient:
         """Number of observations queued and awaiting flush."""
         return self._buffer.pending_count
 
-    def list(self, type: str) -> list[Context]:
+    def list(
+        self,
+        type: str,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[Context]:
         """List all contexts of a given type."""
+        kwargs = _pagination_kwargs(page_number, page_size)
         resp = _gen_list_contexts.sync_detailed(
             client=self._app_http,
             filtercontext_type=type,
+            **kwargs,
         )
         _check_status(int(resp.status_code), resp.content)
         body = json.loads(resp.content)
@@ -890,10 +937,18 @@ class AsyncContextsClient:
         """Number of observations queued and awaiting flush."""
         return self._buffer.pending_count
 
-    async def list(self, type: str) -> list[AsyncContext]:
+    async def list(
+        self,
+        type: str,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[AsyncContext]:
+        kwargs = _pagination_kwargs(page_number, page_size)
         resp = await _gen_list_contexts.asyncio_detailed(
             client=self._app_http,
             filtercontext_type=type,
+            **kwargs,
         )
         _check_status(int(resp.status_code), resp.content)
         body = json.loads(resp.content)
@@ -1066,9 +1121,15 @@ class ConfigClient:
             raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
         return _resource_to_config(self, response.parsed.data)
 
-    def list(self) -> list[Config]:
+    def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[Config]:
+        kwargs = _pagination_kwargs(page_number, page_size)
         try:
-            response = _gen_list_configs.sync_detailed(client=self._http_client)
+            response = _gen_list_configs.sync_detailed(client=self._http_client, **kwargs)
         except Exception as exc:
             _maybe_reraise_network_error(exc, self._http_client._base_url)
             raise
@@ -1167,9 +1228,15 @@ class AsyncConfigClient:
             raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
         return _resource_to_async_config(self, response.parsed.data)
 
-    async def list(self) -> list[AsyncConfig]:
+    async def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[AsyncConfig]:
+        kwargs = _pagination_kwargs(page_number, page_size)
         try:
-            response = await _gen_list_configs.asyncio_detailed(client=self._http_client)
+            response = await _gen_list_configs.asyncio_detailed(client=self._http_client, **kwargs)
         except Exception as exc:
             _maybe_reraise_network_error(exc, self._http_client._base_url)
             raise
@@ -1381,9 +1448,15 @@ class FlagsClient:
         body = json.loads(response.content)
         return self._model_from_json(body["data"])
 
-    def list(self) -> list[Flag]:
+    def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[Flag]:
+        kwargs = _pagination_kwargs(page_number, page_size)
         try:
-            response = _gen_list_flags.sync_detailed(client=self._http_client)
+            response = _gen_list_flags.sync_detailed(client=self._http_client, **kwargs)
         except Exception as exc:
             _maybe_reraise_network_error(exc, self._http_client._base_url)
             raise
@@ -1574,9 +1647,15 @@ class AsyncFlagsClient:
         body = json.loads(response.content)
         return self._model_from_json(body["data"])
 
-    async def list(self) -> list[AsyncFlag]:
+    async def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[AsyncFlag]:
+        kwargs = _pagination_kwargs(page_number, page_size)
         try:
-            response = await _gen_list_flags.asyncio_detailed(client=self._http_client)
+            response = await _gen_list_flags.asyncio_detailed(client=self._http_client, **kwargs)
         except Exception as exc:
             _maybe_reraise_network_error(exc, self._http_client._base_url)
             raise
@@ -1687,9 +1766,15 @@ class LoggersClient:
             managed=managed,
         )
 
-    def list(self) -> list[SmplLogger]:
+    def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[SmplLogger]:
+        kwargs = _pagination_kwargs(page_number, page_size)
         try:
-            response = _gen_list_loggers.sync_detailed(client=self._http_client)
+            response = _gen_list_loggers.sync_detailed(client=self._http_client, **kwargs)
         except Exception as exc:
             _maybe_reraise_network_error(exc, self._base_url)
             raise
@@ -1809,9 +1894,15 @@ class AsyncLoggersClient:
             managed=managed,
         )
 
-    async def list(self) -> list[AsyncSmplLogger]:
+    async def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[AsyncSmplLogger]:
+        kwargs = _pagination_kwargs(page_number, page_size)
         try:
-            response = await _gen_list_loggers.asyncio_detailed(client=self._http_client)
+            response = await _gen_list_loggers.asyncio_detailed(client=self._http_client, **kwargs)
         except Exception as exc:
             _maybe_reraise_network_error(exc, self._base_url)
             raise
@@ -1881,9 +1972,15 @@ class LogGroupsClient:
             group=group,
         )
 
-    def list(self) -> list[SmplLogGroup]:
+    def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[SmplLogGroup]:
+        kwargs = _pagination_kwargs(page_number, page_size)
         try:
-            response = _gen_list_log_groups.sync_detailed(client=self._http_client)
+            response = _gen_list_log_groups.sync_detailed(client=self._http_client, **kwargs)
         except Exception as exc:
             _maybe_reraise_network_error(exc, self._base_url)
             raise
@@ -1950,9 +2047,15 @@ class AsyncLogGroupsClient:
             group=group,
         )
 
-    async def list(self) -> list[AsyncSmplLogGroup]:
+    async def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[AsyncSmplLogGroup]:
+        kwargs = _pagination_kwargs(page_number, page_size)
         try:
-            response = await _gen_list_log_groups.asyncio_detailed(client=self._http_client)
+            response = await _gen_list_log_groups.asyncio_detailed(client=self._http_client, **kwargs)
         except Exception as exc:
             _maybe_reraise_network_error(exc, self._base_url)
             raise

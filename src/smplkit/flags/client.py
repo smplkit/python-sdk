@@ -27,6 +27,7 @@ from smplkit._errors import (
     ValidationError,
     _raise_for_status,
 )
+from smplkit._helpers import paginate_async, paginate_sync
 from smplkit._generated.flags.api.flags import (  # noqa: F401  (re-exported)
     bulk_register_flags,
     create_flag,
@@ -532,28 +533,35 @@ class FlagsClient:
         self._flag_store = {f["id"]: f for f in flags}
 
     def _fetch_flags_list(self) -> list[dict[str, Any]]:
-        try:
-            response = list_flags.sync_detailed(client=self._flags_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._flags_http._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-        body = json.loads(response.content)
-        result = []
-        for r in body.get("data", []):
-            d = _flag_dict_from_json(r)
-            result.append(
-                {
-                    "id": d["id"],
-                    "name": d["name"],
-                    "type": d["type"],
-                    "default": d["default"],
-                    "values": d["values"],
-                    "description": d["description"],
-                    "environments": d["environments"],
-                }
-            )
-        return result
+        def fetch_page(page_number: int, page_size: int) -> list[dict[str, Any]]:
+            try:
+                response = list_flags.sync_detailed(
+                    client=self._flags_http,
+                    pagenumber=page_number,
+                    pagesize=page_size,
+                )
+            except Exception as exc:
+                _maybe_reraise_network_error(exc, self._flags_http._base_url)
+                raise
+            _check_response_status(response.status_code, response.content)
+            body = json.loads(response.content)
+            result = []
+            for r in body.get("data", []):
+                d = _flag_dict_from_json(r)
+                result.append(
+                    {
+                        "id": d["id"],
+                        "name": d["name"],
+                        "type": d["type"],
+                        "default": d["default"],
+                        "values": d["values"],
+                        "description": d["description"],
+                        "environments": d["environments"],
+                    }
+                )
+            return result
+
+        return paginate_sync(fetch_page)
 
     def _fire_change_listeners(self, flag_id: str | None, source: str, *, deleted: bool = False) -> None:
         if flag_id:
@@ -862,51 +870,68 @@ class AsyncFlagsClient:
         self._flag_store = {f["id"]: f for f in flags}
 
     async def _fetch_flags_list(self) -> list[dict[str, Any]]:
-        try:
-            response = await list_flags.asyncio_detailed(client=self._flags_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._flags_http._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-        body = json.loads(response.content)
-        result = []
-        for r in body.get("data", []):
-            d = _flag_dict_from_json(r)
-            result.append(
-                {
-                    "id": d["id"],
-                    "name": d["name"],
-                    "type": d["type"],
-                    "default": d["default"],
-                    "values": d["values"],
-                    "description": d["description"],
-                    "environments": d["environments"],
-                }
-            )
-        return result
+        async def fetch_page(page_number: int, page_size: int) -> list[dict[str, Any]]:
+            try:
+                response = await list_flags.asyncio_detailed(
+                    client=self._flags_http,
+                    pagenumber=page_number,
+                    pagesize=page_size,
+                )
+            except Exception as exc:
+                _maybe_reraise_network_error(exc, self._flags_http._base_url)
+                raise
+            _check_response_status(response.status_code, response.content)
+            body = json.loads(response.content)
+            result = []
+            for r in body.get("data", []):
+                d = _flag_dict_from_json(r)
+                result.append(
+                    {
+                        "id": d["id"],
+                        "name": d["name"],
+                        "type": d["type"],
+                        "default": d["default"],
+                        "values": d["values"],
+                        "description": d["description"],
+                        "environments": d["environments"],
+                    }
+                )
+            return result
+
+        return await paginate_async(fetch_page)
 
     def _fetch_all_flags_sync(self) -> None:
         """Sync fetch for lazy init from _evaluate_handle."""
-        try:
-            response = list_flags.sync_detailed(client=self._flags_http)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._flags_http._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-        body = json.loads(response.content)
-        store: dict[str, dict[str, Any]] = {}
-        for r in body.get("data", []):
-            d = _flag_dict_from_json(r)
-            store[d["id"]] = {
-                "id": d["id"],
-                "name": d["name"],
-                "type": d["type"],
-                "default": d["default"],
-                "values": d["values"],
-                "description": d["description"],
-                "environments": d["environments"],
-            }
-        self._flag_store = store
+
+        def fetch_page(page_number: int, page_size: int) -> list[dict[str, Any]]:
+            try:
+                response = list_flags.sync_detailed(
+                    client=self._flags_http,
+                    pagenumber=page_number,
+                    pagesize=page_size,
+                )
+            except Exception as exc:
+                _maybe_reraise_network_error(exc, self._flags_http._base_url)
+                raise
+            _check_response_status(response.status_code, response.content)
+            body = json.loads(response.content)
+            page_rows: list[dict[str, Any]] = []
+            for r in body.get("data", []):
+                d = _flag_dict_from_json(r)
+                page_rows.append(
+                    {
+                        "id": d["id"],
+                        "name": d["name"],
+                        "type": d["type"],
+                        "default": d["default"],
+                        "values": d["values"],
+                        "description": d["description"],
+                        "environments": d["environments"],
+                    }
+                )
+            return page_rows
+
+        self._flag_store = {f["id"]: f for f in paginate_sync(fetch_page)}
 
     def _fetch_flag_single_data_sync(self, key: str) -> dict[str, Any]:
         """Sync fetch of a single flag by key (used from WS event handlers)."""

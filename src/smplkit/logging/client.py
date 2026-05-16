@@ -23,6 +23,7 @@ from smplkit._errors import (
     ValidationError,
     _raise_for_status,
 )
+from smplkit._helpers import paginate_async, paginate_sync
 from smplkit._generated.logging.client import AuthenticatedClient
 from smplkit._generated.logging.api.loggers import (  # noqa: F401  (re-exported for tests + management)
     bulk_register_loggers,
@@ -465,46 +466,71 @@ class LoggingClient:
     def _fetch_and_apply(self, trigger: str = "unknown") -> None:
         """Fetch all loggers/groups, resolve levels, apply to runtime."""
         debug("resolution", f"full resolution pass starting (trigger: {trigger})")
-        # Fetch loggers
-        debug("api", "GET /api/v1/loggers")
-        try:
-            response = list_loggers.sync_detailed(client=self._logging_http)
-            _check_response_status(response.status_code, response.content)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._logging_base_url)
-            raise
-        loggers_data: dict[str, dict[str, Any]] = {}
-        if response.parsed is not None and hasattr(response.parsed, "data"):
-            for r in response.parsed.data:
-                attrs = r.attributes
-                lid = _unset_to_none(r.id) or ""
-                loggers_data[lid] = {
-                    "level": _unset_to_none(attrs.level),
-                    "group": _unset_to_none(attrs.group),
-                    "managed": _unset_to_none(attrs.managed),
-                    "environments": _extract_environments(attrs.environments),
-                }
-        debug("api", f"GET /api/v1/loggers -> {response.status_code.value} ({len(loggers_data)} loggers)")
 
-        # Fetch groups
-        debug("api", "GET /api/v1/log-groups")
-        try:
-            grp_response = list_log_groups.sync_detailed(client=self._logging_http)
-            _check_response_status(grp_response.status_code, grp_response.content)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._logging_base_url)
-            raise
-        groups_data: dict[str, dict[str, Any]] = {}
-        if grp_response.parsed is not None and hasattr(grp_response.parsed, "data"):
-            for r in grp_response.parsed.data:
-                attrs = r.attributes
-                gid = _unset_to_none(r.id) or ""
-                groups_data[gid] = {
-                    "level": _unset_to_none(attrs.level),
-                    "group": _unset_to_none(attrs.parent_id),
-                    "environments": _extract_environments(attrs.environments),
-                }
-        debug("api", f"GET /api/v1/log-groups -> {grp_response.status_code.value} ({len(groups_data)} groups)")
+        def fetch_loggers_page(page_number: int, page_size: int) -> list[tuple[str, dict[str, Any]]]:
+            debug("api", f"GET /api/v1/loggers (page {page_number})")
+            try:
+                response = list_loggers.sync_detailed(
+                    client=self._logging_http,
+                    pagenumber=page_number,
+                    pagesize=page_size,
+                )
+                _check_response_status(response.status_code, response.content)
+            except Exception as exc:
+                _maybe_reraise_network_error(exc, self._logging_base_url)
+                raise
+            page_rows: list[tuple[str, dict[str, Any]]] = []
+            if response.parsed is not None and hasattr(response.parsed, "data"):
+                for r in response.parsed.data:
+                    attrs = r.attributes
+                    lid = _unset_to_none(r.id) or ""
+                    page_rows.append(
+                        (
+                            lid,
+                            {
+                                "level": _unset_to_none(attrs.level),
+                                "group": _unset_to_none(attrs.group),
+                                "managed": _unset_to_none(attrs.managed),
+                                "environments": _extract_environments(attrs.environments),
+                            },
+                        )
+                    )
+            debug("api", f"GET /api/v1/loggers page {page_number} -> {response.status_code.value} ({len(page_rows)} loggers)")
+            return page_rows
+
+        loggers_data: dict[str, dict[str, Any]] = dict(paginate_sync(fetch_loggers_page))
+
+        def fetch_groups_page(page_number: int, page_size: int) -> list[tuple[str, dict[str, Any]]]:
+            debug("api", f"GET /api/v1/log-groups (page {page_number})")
+            try:
+                grp_response = list_log_groups.sync_detailed(
+                    client=self._logging_http,
+                    pagenumber=page_number,
+                    pagesize=page_size,
+                )
+                _check_response_status(grp_response.status_code, grp_response.content)
+            except Exception as exc:
+                _maybe_reraise_network_error(exc, self._logging_base_url)
+                raise
+            page_rows: list[tuple[str, dict[str, Any]]] = []
+            if grp_response.parsed is not None and hasattr(grp_response.parsed, "data"):
+                for r in grp_response.parsed.data:
+                    attrs = r.attributes
+                    gid = _unset_to_none(r.id) or ""
+                    page_rows.append(
+                        (
+                            gid,
+                            {
+                                "level": _unset_to_none(attrs.level),
+                                "group": _unset_to_none(attrs.parent_id),
+                                "environments": _extract_environments(attrs.environments),
+                            },
+                        )
+                    )
+            debug("api", f"GET /api/v1/log-groups page {page_number} -> {grp_response.status_code.value} ({len(page_rows)} groups)")
+            return page_rows
+
+        groups_data: dict[str, dict[str, Any]] = dict(paginate_sync(fetch_groups_page))
 
         self._loggers_cache = loggers_data
         self._groups_cache = groups_data
@@ -930,44 +956,71 @@ class AsyncLoggingClient:
         """
         http = http_client if http_client is not None else self._logging_http
         debug("resolution", f"full resolution pass starting (trigger: {trigger})")
-        debug("api", "GET /api/v1/loggers")
-        try:
-            response = await list_loggers.asyncio_detailed(client=http)
-            _check_response_status(response.status_code, response.content)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, http._base_url)
-            raise
-        loggers_data: dict[str, dict[str, Any]] = {}
-        if response.parsed is not None and hasattr(response.parsed, "data"):
-            for r in response.parsed.data:
-                attrs = r.attributes
-                lid = _unset_to_none(r.id) or ""
-                loggers_data[lid] = {
-                    "level": _unset_to_none(attrs.level),
-                    "group": _unset_to_none(attrs.group),
-                    "managed": _unset_to_none(attrs.managed),
-                    "environments": _extract_environments(attrs.environments),
-                }
-        debug("api", f"GET /api/v1/loggers -> {response.status_code.value} ({len(loggers_data)} loggers)")
 
-        debug("api", "GET /api/v1/log-groups")
-        try:
-            grp_response = await list_log_groups.asyncio_detailed(client=http)
-            _check_response_status(grp_response.status_code, grp_response.content)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, http._base_url)
-            raise
-        groups_data: dict[str, dict[str, Any]] = {}
-        if grp_response.parsed is not None and hasattr(grp_response.parsed, "data"):
-            for r in grp_response.parsed.data:
-                attrs = r.attributes
-                gid = _unset_to_none(r.id) or ""
-                groups_data[gid] = {
-                    "level": _unset_to_none(attrs.level),
-                    "group": _unset_to_none(attrs.parent_id),
-                    "environments": _extract_environments(attrs.environments),
-                }
-        debug("api", f"GET /api/v1/log-groups -> {grp_response.status_code.value} ({len(groups_data)} groups)")
+        async def fetch_loggers_page(page_number: int, page_size: int) -> list[tuple[str, dict[str, Any]]]:
+            debug("api", f"GET /api/v1/loggers (page {page_number})")
+            try:
+                response = await list_loggers.asyncio_detailed(
+                    client=http,
+                    pagenumber=page_number,
+                    pagesize=page_size,
+                )
+                _check_response_status(response.status_code, response.content)
+            except Exception as exc:
+                _maybe_reraise_network_error(exc, http._base_url)
+                raise
+            page_rows: list[tuple[str, dict[str, Any]]] = []
+            if response.parsed is not None and hasattr(response.parsed, "data"):
+                for r in response.parsed.data:
+                    attrs = r.attributes
+                    lid = _unset_to_none(r.id) or ""
+                    page_rows.append(
+                        (
+                            lid,
+                            {
+                                "level": _unset_to_none(attrs.level),
+                                "group": _unset_to_none(attrs.group),
+                                "managed": _unset_to_none(attrs.managed),
+                                "environments": _extract_environments(attrs.environments),
+                            },
+                        )
+                    )
+            debug("api", f"GET /api/v1/loggers page {page_number} -> {response.status_code.value} ({len(page_rows)} loggers)")
+            return page_rows
+
+        loggers_data: dict[str, dict[str, Any]] = dict(await paginate_async(fetch_loggers_page))
+
+        async def fetch_groups_page(page_number: int, page_size: int) -> list[tuple[str, dict[str, Any]]]:
+            debug("api", f"GET /api/v1/log-groups (page {page_number})")
+            try:
+                grp_response = await list_log_groups.asyncio_detailed(
+                    client=http,
+                    pagenumber=page_number,
+                    pagesize=page_size,
+                )
+                _check_response_status(grp_response.status_code, grp_response.content)
+            except Exception as exc:
+                _maybe_reraise_network_error(exc, http._base_url)
+                raise
+            page_rows: list[tuple[str, dict[str, Any]]] = []
+            if grp_response.parsed is not None and hasattr(grp_response.parsed, "data"):
+                for r in grp_response.parsed.data:
+                    attrs = r.attributes
+                    gid = _unset_to_none(r.id) or ""
+                    page_rows.append(
+                        (
+                            gid,
+                            {
+                                "level": _unset_to_none(attrs.level),
+                                "group": _unset_to_none(attrs.parent_id),
+                                "environments": _extract_environments(attrs.environments),
+                            },
+                        )
+                    )
+            debug("api", f"GET /api/v1/log-groups page {page_number} -> {grp_response.status_code.value} ({len(page_rows)} groups)")
+            return page_rows
+
+        groups_data: dict[str, dict[str, Any]] = dict(await paginate_async(fetch_groups_page))
 
         self._loggers_cache = loggers_data
         self._groups_cache = groups_data

@@ -24,6 +24,7 @@ from smplkit._errors import (
     ValidationError,
     _raise_for_status,
 )
+from smplkit._helpers import PAGE_SIZE, paginate_async, paginate_sync
 from smplkit._resolver import resolve
 from smplkit._generated.config.api.configs import (  # noqa: F401  (re-exported for test patches)
     create_config,
@@ -300,15 +301,23 @@ class ConfigClient:
 
     def _fetch_all_configs(self) -> list[Config]:
         """List configs directly from the API (no management indirection)."""
-        try:
-            response = list_configs.sync_detailed(client=self._parent._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [_resource_to_config(None, r) for r in response.parsed.data]
+
+        def fetch_page(page_number: int, page_size: int) -> list[Config]:
+            try:
+                response = list_configs.sync_detailed(
+                    client=self._parent._http_client,
+                    pagenumber=page_number,
+                    pagesize=page_size,
+                )
+            except Exception as exc:
+                _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
+                raise
+            _check_response_status(response.status_code, response.content)
+            if response.parsed is None or not hasattr(response.parsed, "data"):
+                return []
+            return [_resource_to_config(None, r) for r in response.parsed.data]
+
+        return paginate_sync(fetch_page)
 
     def _fetch_config(self, config_id: str) -> Config | None:
         """Fetch a single config from the API. Returns ``None`` on missing data."""
@@ -566,15 +575,22 @@ class AsyncConfigClient:
         self._ws_manager.on("configs_changed", self._handle_configs_changed)
 
     async def _fetch_all_configs_async(self) -> list[AsyncConfig]:
-        try:
-            response = await list_configs.asyncio_detailed(client=self._parent._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
-            raise
-        _check_response_status(response.status_code, response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [_resource_to_async_config(None, r) for r in response.parsed.data]
+        async def fetch_page(page_number: int, page_size: int) -> list[AsyncConfig]:
+            try:
+                response = await list_configs.asyncio_detailed(
+                    client=self._parent._http_client,
+                    pagenumber=page_number,
+                    pagesize=page_size,
+                )
+            except Exception as exc:
+                _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
+                raise
+            _check_response_status(response.status_code, response.content)
+            if response.parsed is None or not hasattr(response.parsed, "data"):
+                return []
+            return [_resource_to_async_config(None, r) for r in response.parsed.data]
+
+        return await paginate_async(fetch_page)
 
     # ------------------------------------------------------------------
     # Runtime: get
@@ -767,11 +783,24 @@ class AsyncConfigClient:
 
     def _handle_configs_changed(self, data: dict[str, Any]) -> None:
         try:
-            response = list_configs.sync_detailed(client=self._parent._http_client)
-            _check_response_status(response.status_code, response.content)
-            if response.parsed is None or not hasattr(response.parsed, "data"):
-                return
-            models = [_resource_to_async_config(None, r) for r in response.parsed.data]
+            models: list[AsyncConfig] = []
+            page = 1
+            while True:
+                response = list_configs.sync_detailed(
+                    client=self._parent._http_client,
+                    pagenumber=page,
+                    pagesize=PAGE_SIZE,
+                )
+                _check_response_status(response.status_code, response.content)
+                if response.parsed is None or not hasattr(response.parsed, "data"):
+                    # Malformed response — preserve the existing cache rather
+                    # than risk wiping it from a partial refresh.
+                    return
+                page_rows = [_resource_to_async_config(None, r) for r in response.parsed.data]
+                models.extend(page_rows)
+                if len(page_rows) < PAGE_SIZE:
+                    break
+                page += 1
             raw_cache = {m.id: m for m in models}
             self._rebuild_resolved_cache(raw_cache, source="websocket")
         except Exception:
