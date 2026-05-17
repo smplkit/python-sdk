@@ -65,49 +65,39 @@ class Event:
 
     ADR-047 §2.3.1. Field set mirrors the JSON:API resource attributes
     plus the resource ``id``.
+
+    :ivar id: Server-assigned UUID for this event.
+    :ivar action: Action slug — e.g. ``"user.created"``, ``"invoice.paid"``.
+    :ivar resource_type: Type of resource the action operated on — e.g. ``"invoice"``.
+    :ivar resource_id: Customer-facing id of the resource the action operated on.
+    :ivar actor_type: Type of the actor that performed the action (``"user"``,
+        ``"api_key"``, ``"system"``, …). Empty string when unknown.
+    :ivar actor_label: Display label for the actor — typically a name or email.
+        Empty string when unknown.
+    :ivar occurred_at: When the action actually happened, as reported by the source.
+    :ivar created_at: When the audit service first ingested this event.
+    :ivar actor_id: UUID of the actor, when the actor is a tracked entity (user,
+        api_key). ``None`` for system actors or anonymous events.
+    :ivar data: Free-form per-event payload defined by the customer. Surfaced
+        on the audit-event resource as a structured JSONB column.
+    :ivar idempotency_key: Customer-supplied dedupe key. Empty when the customer
+        didn't supply one.
+    :ivar do_not_forward: When ``True``, skip this event from SIEM forwarder
+        delivery regardless of any matching forwarder filter.
     """
 
     id: UUID
-    """Server-assigned UUID for this event."""
-
     action: str
-    """Action slug — e.g. ``"user.created"``, ``"invoice.paid"``."""
-
     resource_type: str
-    """Type of resource the action operated on — e.g. ``"invoice"``."""
-
     resource_id: str
-    """Customer-facing id of the resource the action operated on."""
-
     actor_type: str
-    """Type of the actor that performed the action (``"user"``,
-    ``"api_key"``, ``"system"``, …). Empty string when unknown."""
-
     actor_label: str
-    """Display label for the actor — typically a name or email. Empty
-    string when unknown."""
-
     occurred_at: datetime
-    """When the action actually happened, as reported by the source."""
-
     created_at: datetime
-    """When the audit service first ingested this event."""
-
     actor_id: UUID | None = None
-    """UUID of the actor, when the actor is a tracked entity (user,
-    api_key). ``None`` for system actors or anonymous events."""
-
     data: dict[str, Any] = field(default_factory=dict)
-    """Free-form per-event payload defined by the customer. Surfaced
-    on the audit-event resource as a structured JSONB column."""
-
     idempotency_key: str = ""
-    """Customer-supplied dedupe key. Empty when the customer didn't
-    supply one."""
-
     do_not_forward: bool = False
-    """When ``True``, skip this event from SIEM forwarder delivery
-    regardless of any matching forwarder filter."""
 
     @classmethod
     def _from_resource(cls, resource: dict[str, Any]) -> "Event":
@@ -131,14 +121,15 @@ class Event:
 
 @dataclass(frozen=True, slots=True)
 class HttpHeader:
-    """A single name/value HTTP header on a forwarder destination."""
+    """A single name/value HTTP header on a forwarder destination.
+
+    :ivar name: Header name (e.g. ``"Authorization"``, ``"DD-API-KEY"``).
+    :ivar value: Header value, plaintext on writes. The audit service encrypts
+        values at rest; reads return them as ``"<redacted>"``.
+    """
 
     name: str
-    """Header name (e.g. ``"Authorization"``, ``"DD-API-KEY"``)."""
-
     value: str
-    """Header value, plaintext on writes. The audit service encrypts
-    values at rest; reads return them as ``"<redacted>"``."""
 
     def _to_dict(self) -> dict[str, str]:
         return {"name": self.name, "value": self.value}
@@ -146,23 +137,22 @@ class HttpHeader:
 
 @dataclass(frozen=True, slots=True)
 class HttpConfiguration:
-    """Forwarder destination HTTP request shape."""
+    """Forwarder destination HTTP request shape.
+
+    :ivar method: HTTP verb used for delivery. Defaults to ``HttpMethod.POST``.
+    :ivar url: Destination URL the audit service POSTs each event to.
+    :ivar headers: Headers attached to every outbound request. Values carry
+        credentials and are encrypted at rest server-side; reads return them
+        redacted.
+    :ivar success_status: Status the destination must return for delivery to
+        count as success — either an exact code (``"200"``, ``"204"``) or a
+        class (``"2xx"``, ``"4xx"``). Defaults to ``"2xx"``.
+    """
 
     method: HttpMethod = HttpMethod.POST
-    """HTTP verb used for delivery. Defaults to ``HttpMethod.POST``."""
-
     url: str = ""
-    """Destination URL the audit service POSTs each event to."""
-
     headers: list[HttpHeader] = field(default_factory=list)
-    """Headers attached to every outbound request. Values carry
-    credentials and are encrypted at rest server-side; reads return
-    them redacted."""
-
     success_status: str = "2xx"
-    """Status the destination must return for delivery to count as
-    success — either an exact code (``"200"``, ``"204"``) or a class
-    (``"2xx"``, ``"4xx"``). Defaults to ``"2xx"``."""
 
     def _to_dict(self) -> dict[str, Any]:
         return {
@@ -190,52 +180,41 @@ class Forwarder:
     redacted on reads — the GET path on the audit API replaces every
     header value with ``"<redacted>"``. Re-supply the real values when
     calling ``update`` (the SDK does not cache them client-side).
+
+    :ivar id: Server-assigned UUID for this forwarder.
+    :ivar name: Display name. Free-form.
+    :ivar forwarder_type: Destination type — see :class:`ForwarderType`.
+    :ivar enabled: When ``False``, the audit service skips delivery for this
+        forwarder but still records ``filtered_out`` deliveries.
+    :ivar configuration: Destination request configuration.
+    :ivar description: Optional free-text description.
+    :ivar filter: Optional JSON Logic expression evaluated per event. When
+        set, events that don't match are recorded as ``filtered_out``
+        deliveries instead of being POSTed to the destination.
+    :ivar transform: Optional template applied to each event before delivery.
+        Shape depends on :attr:`transform_type`; for ``"JSONATA"``, a JSONata
+        expression. ``None`` delivers the event JSON as-is.
+    :ivar transform_type: Engine used to evaluate :attr:`transform`. Currently
+        only ``"JSONATA"`` is supported.
+    :ivar created_at: When the audit service first persisted this forwarder.
+    :ivar updated_at: When this forwarder was last mutated.
+    :ivar deleted_at: Soft-delete timestamp. ``None`` for live forwarders.
+    :ivar version: Monotonic version counter; bumped on every server-side write.
     """
 
     id: UUID
-    """Server-assigned UUID for this forwarder."""
-
     name: str
-    """Display name. Free-form."""
-
     forwarder_type: ForwarderType
-    """Destination type — see :class:`ForwarderType`."""
-
     enabled: bool
-    """When ``False``, the audit service skips delivery for this
-    forwarder but still records ``filtered_out`` deliveries."""
-
     configuration: HttpConfiguration
-    """Destination request configuration."""
-
     description: str | None = None
-    """Optional free-text description."""
-
     filter: dict[str, Any] | None = None
-    """Optional JSON Logic expression evaluated per event. When set,
-    events that don't match are recorded as ``filtered_out`` deliveries
-    instead of being POSTed to the destination."""
-
     transform: str | None = None
-    """Optional template applied to each event before delivery. Shape
-    depends on :attr:`transform_type`; for ``"JSONATA"``, a JSONata
-    expression. ``None`` delivers the event JSON as-is."""
-
     transform_type: str | None = None
-    """Engine used to evaluate :attr:`transform`. Currently only
-    ``"JSONATA"`` is supported."""
-
     created_at: datetime | None = None
-    """When the audit service first persisted this forwarder."""
-
     updated_at: datetime | None = None
-    """When this forwarder was last mutated."""
-
     deleted_at: datetime | None = None
-    """Soft-delete timestamp. ``None`` for live forwarders."""
-
     version: int | None = None
-    """Monotonic version counter; bumped on every server-side write."""
 
     @classmethod
     def _from_resource(cls, resource: dict[str, Any]) -> "Forwarder":
@@ -269,16 +248,15 @@ class ResourceType:
     id"). The duplication keeps SDK consumers from having to dig into
     the id field when filtering UI controls; pick whichever name reads
     better in context.
+
+    :ivar id: The resource-type slug, surfaced as the JSON:API resource id.
+    :ivar resource_type: Same value as :attr:`id`; provided for readability.
+    :ivar created_at: Earliest sighting of this resource_type for the account.
     """
 
     id: str
-    """The resource-type slug, surfaced as the JSON:API resource id."""
-
     resource_type: str
-    """Same value as :attr:`id`; provided for readability."""
-
     created_at: datetime
-    """Earliest sighting of this resource_type for the account."""
 
     @classmethod
     def _from_resource(cls, resource: dict[str, Any]) -> "ResourceType":
@@ -298,17 +276,16 @@ class Action:
     same value. When the parent list call filtered by ``resource_type``,
     ``created_at`` is the first sighting of that specific (action,
     resource_type) triple, not the action overall.
+
+    :ivar id: The action slug, surfaced as the JSON:API resource id.
+    :ivar action: Same value as :attr:`id`; provided for readability.
+    :ivar created_at: Earliest sighting of this action (or action/resource_type
+        pair when the list call was filtered) for the account.
     """
 
     id: str
-    """The action slug, surfaced as the JSON:API resource id."""
-
     action: str
-    """Same value as :attr:`id`; provided for readability."""
-
     created_at: datetime
-    """Earliest sighting of this action (or action/resource_type pair
-    when the list call was filtered) for the account."""
 
     @classmethod
     def _from_resource(cls, resource: dict[str, Any]) -> "Action":
