@@ -10,14 +10,13 @@ from ... import errors
 from ...models.event_list_response import EventListResponse
 from ...models.list_events_sort import ListEventsSort
 from ...types import Unset
-from uuid import UUID
 
 
 def _get_kwargs(
     *,
     filteroccurred_at: None | str | Unset = UNSET,
     filteractor_type: None | str | Unset = UNSET,
-    filteractor_id: None | Unset | UUID = UNSET,
+    filteractor_id: None | str | Unset = UNSET,
     filteraction: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
@@ -46,8 +45,6 @@ def _get_kwargs(
     json_filteractor_id: None | str | Unset
     if isinstance(filteractor_id, Unset):
         json_filteractor_id = UNSET
-    elif isinstance(filteractor_id, UUID):
-        json_filteractor_id = str(filteractor_id)
     else:
         json_filteractor_id = filteractor_id
     params["filter[actor_id]"] = json_filteractor_id
@@ -137,7 +134,7 @@ def sync_detailed(
     client: AuthenticatedClient,
     filteroccurred_at: None | str | Unset = UNSET,
     filteractor_type: None | str | Unset = UNSET,
-    filteractor_id: None | Unset | UUID = UNSET,
+    filteractor_id: None | str | Unset = UNSET,
     filteraction: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
@@ -170,7 +167,7 @@ def sync_detailed(
     Args:
         filteroccurred_at (None | str | Unset):
         filteractor_type (None | str | Unset):
-        filteractor_id (None | Unset | UUID):
+        filteractor_id (None | str | Unset):
         filteraction (None | str | Unset):
         filterresource_type (None | str | Unset):
         filterresource_id (None | str | Unset):
@@ -215,7 +212,7 @@ def sync(
     client: AuthenticatedClient,
     filteroccurred_at: None | str | Unset = UNSET,
     filteractor_type: None | str | Unset = UNSET,
-    filteractor_id: None | Unset | UUID = UNSET,
+    filteractor_id: None | str | Unset = UNSET,
     filteraction: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
@@ -248,7 +245,7 @@ def sync(
     Args:
         filteroccurred_at (None | str | Unset):
         filteractor_type (None | str | Unset):
-        filteractor_id (None | Unset | UUID):
+        filteractor_id (None | str | Unset):
         filteraction (None | str | Unset):
         filterresource_type (None | str | Unset):
         filterresource_id (None | str | Unset):
@@ -288,7 +285,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     filteroccurred_at: None | str | Unset = UNSET,
     filteractor_type: None | str | Unset = UNSET,
-    filteractor_id: None | Unset | UUID = UNSET,
+    filteractor_id: None | str | Unset = UNSET,
     filteraction: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
@@ -321,7 +318,7 @@ async def asyncio_detailed(
     Args:
         filteroccurred_at (None | str | Unset):
         filteractor_type (None | str | Unset):
-        filteractor_id (None | Unset | UUID):
+        filteractor_id (None | str | Unset):
         filteraction (None | str | Unset):
         filterresource_type (None | str | Unset):
         filterresource_id (None | str | Unset):
@@ -364,7 +361,7 @@ async def asyncio(
     client: AuthenticatedClient,
     filteroccurred_at: None | str | Unset = UNSET,
     filteractor_type: None | str | Unset = UNSET,
-    filteractor_id: None | Unset | UUID = UNSET,
+    filteractor_id: None | str | Unset = UNSET,
     filteraction: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
@@ -397,7 +394,7 @@ async def asyncio(
     Args:
         filteroccurred_at (None | str | Unset):
         filteractor_type (None | str | Unset):
-        filteractor_id (None | Unset | UUID):
+        filteractor_id (None | str | Unset):
         filteraction (None | str | Unset):
         filterresource_type (None | str | Unset):
         filterresource_id (None | str | Unset):
