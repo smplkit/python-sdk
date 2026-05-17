@@ -261,6 +261,82 @@ def test_event_from_resource_handles_nullable_actor_id():
     resource = _make_resource("33333333-3333-3333-3333-333333333333", actor_id=None)
     ev = Event._from_resource(resource)
     assert ev.actor_id is None
+    assert ev.actor_type is None or ev.actor_type == "API_KEY"
+
+
+def test_event_from_resource_accepts_free_form_actor_id():
+    """actor_id is a free-form string on the wire — non-UUID values must
+    round-trip without coercion or rejection."""
+    resource = _make_resource(
+        "33333333-3333-3333-3333-333333333333",
+        actor_id="not-a-uuid:billing-bot",
+    )
+    ev = Event._from_resource(resource)
+    assert ev.actor_id == "not-a-uuid:billing-bot"
+    assert isinstance(ev.actor_id, str)
+
+
+def test_event_from_resource_handles_null_actor_type_and_label():
+    """All three actor fields are nullable on the wire — the wrapper
+    must surface None rather than coercing to an empty string."""
+    resource = _make_resource(
+        "55555555-5555-5555-5555-555555555555",
+        actor_id=None,
+    )
+    resource["attributes"]["actor_type"] = None
+    resource["attributes"]["actor_label"] = None
+    ev = Event._from_resource(resource)
+    assert ev.actor_type is None
+    assert ev.actor_label is None
+
+
+def test_record_passes_actor_fields_to_wire():
+    """Customer-supplied actor attribution makes it into the POST body."""
+    posts: list[str] = []
+    success_body = {
+        "data": {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "type": "event",
+            "attributes": {
+                "action": "user.created",
+                "resource_type": "user",
+                "resource_id": "u-1",
+                "occurred_at": "2026-05-06T12:00:00+00:00",
+                "created_at": "2026-05-06T12:00:01+00:00",
+                "actor_type": "EXTERNAL_SERVICE",
+                "actor_id": "not-a-uuid:billing-bot",
+                "actor_label": "Billing Bot",
+                "data": {},
+                "idempotency_key": "auto",
+            },
+        }
+    }
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        posts.append(req.content.decode())
+        return httpx.Response(201, json=success_body)
+
+    transport = httpx.MockTransport(handler)
+    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client._auth.set_httpx_client(
+        httpx.Client(transport=transport, base_url="https://audit.example.com")
+    )
+    try:
+        client.events.record(
+            action="user.created",
+            resource_type="user",
+            resource_id="u-1",
+            actor_type="EXTERNAL_SERVICE",
+            actor_id="not-a-uuid:billing-bot",
+            actor_label="Billing Bot",
+            flush=True,
+        )
+        body = "".join(posts).replace(" ", "")
+        assert '"actor_type":"EXTERNAL_SERVICE"' in body
+        assert '"actor_id":"not-a-uuid:billing-bot"' in body
+        assert '"actor_label":"BillingBot"' in body
+    finally:
+        client._close()
 
 
 def test_event_from_resource_handles_z_suffix_timestamps():

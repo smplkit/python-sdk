@@ -66,42 +66,56 @@ class HttpMethod(str, enum.Enum):
 class Event:
     """A single audit event as returned by the audit service.
 
-    ADR-047 §2.3.1. Field set mirrors the JSON:API resource attributes
-    plus the resource ``id``.
+    Field set mirrors the JSON:API resource attributes plus the resource
+    ``id``.
+
+    Actor attribution (``actor_type``, ``actor_id``, ``actor_label``) is
+    customer-supplied and all three are free-form, nullable strings. The
+    audit service stores whatever the caller passed in and never
+    backfills from the request credential — callers that want events
+    attributed to the calling user or API key must populate the fields
+    themselves on ``record(...)``.
 
     Attributes:
         id (UUID): Server-assigned UUID for this event.
-        action (str): Action slug — e.g. ``"user.created"``, ``"invoice.paid"``.
-        resource_type (str): Type of resource the action operated on — e.g.
-            ``"invoice"``.
-        resource_id (str): Customer-facing id of the resource the action operated on.
-        actor_type (str): Type of the actor that performed the action
-            (``"user"``, ``"api_key"``, ``"system"``, …). Empty string when unknown.
-        actor_label (str): Display label for the actor — typically a name or
-            email. Empty string when unknown.
-        occurred_at (datetime): When the action actually happened, as reported
-            by the source.
-        created_at (datetime): When the audit service first ingested this event.
-        actor_id (UUID | None): UUID of the actor, when the actor is a tracked
-            entity (user, api_key). ``None`` for system actors or anonymous events.
-        data (dict[str, Any]): Free-form per-event payload defined by the
-            customer. Surfaced on the audit-event resource as a structured
-            JSONB column.
-        idempotency_key (str): Customer-supplied dedupe key. Empty when the
-            customer didn't supply one.
+        action (str): What happened (e.g. ``"user.created"``,
+            ``"invoice.paid"``). Any non-empty string.
+        resource_type (str): Kind of resource the event is about
+            (e.g. ``"invoice"``). Any non-empty string.
+        resource_id (str): Identifier of the specific resource the
+            event is about.
+        occurred_at (datetime): When the action actually happened, as
+            reported by the source.
+        created_at (datetime): When the audit service first ingested
+            this event.
+        actor_type (str | None): Kind of actor that caused the event
+            (e.g. ``"USER"``, ``"API_KEY"``, ``"SYSTEM"``, or any label
+            the caller chose). ``None`` when not supplied.
+        actor_id (str | None): Identifier of the actor that caused the
+            event. Free-form — any identifier scheme is accepted.
+            ``None`` when not supplied.
+        actor_label (str | None): Human-readable label for the actor
+            (e.g. an email address or API key name). ``None`` when not
+            supplied.
+        data (dict[str, Any]): Free-form per-event payload defined by
+            the customer. Surfaced on the audit-event resource as a
+            structured JSONB column.
+        idempotency_key (str): Customer-supplied dedupe key. Empty when
+            the customer didn't supply one.
         do_not_forward (bool): When ``True``, skip this event from SIEM
-            forwarder delivery regardless of any matching forwarder filter.
+            forwarder delivery regardless of any matching forwarder
+            filter.
     """
 
     id: UUID
     action: str
     resource_type: str
     resource_id: str
-    actor_type: str
-    actor_label: str
     occurred_at: datetime
     created_at: datetime
-    actor_id: UUID | None = None
+    actor_type: str | None = None
+    actor_id: str | None = None
+    actor_label: str | None = None
     data: dict[str, Any] = field(default_factory=dict)
     idempotency_key: str = ""
     do_not_forward: bool = False
@@ -109,15 +123,14 @@ class Event:
     @classmethod
     def _from_resource(cls, resource: dict[str, Any]) -> "Event":
         attrs = resource.get("attributes", {})
-        actor_id = attrs.get("actor_id")
         return cls(
             id=UUID(resource["id"]),
             action=attrs["action"],
             resource_type=attrs["resource_type"],
             resource_id=attrs["resource_id"],
-            actor_type=attrs.get("actor_type") or "",
-            actor_label=attrs.get("actor_label") or "",
-            actor_id=UUID(actor_id) if actor_id else None,
+            actor_type=attrs.get("actor_type"),
+            actor_id=attrs.get("actor_id"),
+            actor_label=attrs.get("actor_label"),
             occurred_at=_parse_iso(attrs["occurred_at"]),
             created_at=_parse_iso(attrs["created_at"]),
             data=attrs.get("data") or {},

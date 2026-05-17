@@ -192,6 +192,9 @@ class _EventsClient:
         resource_id: str,
         *,
         occurred_at: datetime | None = None,
+        actor_type: str | None = None,
+        actor_id: str | None = None,
+        actor_label: str | None = None,
         data: dict[str, Any] | None = None,
         idempotency_key: str | None = None,
         do_not_forward: bool = False,
@@ -212,14 +215,25 @@ class _EventsClient:
         choice on the request-handling hot path.
 
         Args:
-            action: ``{resource_type}.{verb}`` (e.g. ``"invoice.created"``).
-            resource_type: The resource type acted on. Customer events
+            action: What happened (e.g. ``"invoice.created"``). Any
+                non-empty string.
+            resource_type: Kind of resource the event is about (e.g.
+                ``"invoice"``). Any non-empty string. Customer events
                 must NOT use the ``smpl.`` prefix — that namespace is
                 reserved for smplkit-emitted events and the server will
                 reject customer attempts with a 403.
             resource_id: Identifier of the affected resource.
             occurred_at: When the event happened in the originating
                 system. Defaults to ``now`` server-side if omitted.
+            actor_type: Free-form label for the kind of actor that caused
+                the event (e.g. ``"USER"``, ``"API_KEY"``, ``"SYSTEM"``,
+                or any custom value). The audit service never backfills
+                this from the request credential — supply it explicitly
+                when you want the event attributed.
+            actor_id: Free-form identifier of the actor that caused the
+                event. Any string scheme is accepted.
+            actor_label: Human-readable label for the actor (e.g. an
+                email address or API key name).
             data: Free-form contextual JSON. To record a resource
                 snapshot, place it inside ``data`` -- smplkit's internal
                 convention nests it at ``data["snapshot"]`` for
@@ -234,7 +248,7 @@ class _EventsClient:
             idempotency_key: Optional caller-supplied idempotency key.
                 If omitted, the server derives one from event content
                 (account_id + action + resource_type + resource_id +
-                occurred_at + data).
+                occurred_at + actor_* + data).
             do_not_forward: When True, the audit service records the
                 event normally but does NOT POST it through any
                 configured SIEM forwarder. A
@@ -254,6 +268,12 @@ class _EventsClient:
         )
         if occurred_at is not None:
             attrs.occurred_at = occurred_at.astimezone(timezone.utc)
+        if actor_type is not None:
+            attrs.actor_type = actor_type
+        if actor_id is not None:
+            attrs.actor_id = actor_id
+        if actor_label is not None:
+            attrs.actor_label = actor_label
         if data is not None:
             attrs.data = _GenEventData.from_dict(data)
         if do_not_forward:
@@ -281,28 +301,25 @@ class _EventsClient:
         resource_type: str | None = None,
         resource_id: str | None = None,
         actor_type: str | None = None,
-        actor_id: UUID | str | None = None,
+        actor_id: str | None = None,
         occurred_at_range: str | None = None,
         page_size: int | None = None,
         page_after: str | None = None,
     ) -> EventListPage:
         """List audit events for the authenticated account.
 
-        Filters apply server-side per ADR-047. Pagination uses an opaque
-        cursor (``page_after``); the returned page exposes
-        ``next_cursor`` if more pages are available.
+        Filters apply server-side. ``actor_id`` is matched as a literal
+        string against whatever the recording call stored. Pagination
+        uses an opaque cursor (``page_after``); the returned page
+        exposes ``next_cursor`` if more pages are available.
         """
-        actor_id_arg: Any = UNSET
-        if actor_id is not None:
-            actor_id_arg = actor_id if isinstance(actor_id, UUID) else UUID(str(actor_id))
-
         resp = _gen_list_events.sync_detailed(
             client=self._auth,
             filteraction=action if action is not None else UNSET,
             filterresource_type=resource_type if resource_type is not None else UNSET,
             filterresource_id=resource_id if resource_id is not None else UNSET,
             filteractor_type=actor_type if actor_type is not None else UNSET,
-            filteractor_id=actor_id_arg,
+            filteractor_id=actor_id if actor_id is not None else UNSET,
             filteroccurred_at=occurred_at_range if occurred_at_range is not None else UNSET,
             pagesize=page_size if page_size is not None else UNSET,
             pageafter=page_after if page_after is not None else UNSET,
