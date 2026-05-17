@@ -54,9 +54,9 @@ class SearchEventsRequest:
                 provided. When a JSON Logic `filter` is present, the effective range is intersected with the last 30 days.
             filtersearch (None | str | Unset): Case-insensitive substring match on `resource_id` or `description`. Must be
                 accompanied by either `filter[occurred_at]` or `filter[resource_type]` + `filter[resource_id]`.
-            pagesize (int | Unset): Maximum events to return. Range 1..1000, default 10. The default is intentionally
-                smaller than the list endpoint's default of 1000 because the search UI typically renders results one card at a
-                time. Default: 10.
+            pagesize (int | Unset): Maximum events to return. Range 1..1000, default 1000 — matches every other list /
+                search endpoint on the platform. Set explicitly to a smaller value when the consumer is rendering results card-
+                by-card. Default: 1000.
             pageafter (None | str | Unset): Opaque cursor — pass the previous response's `links.next` cursor verbatim to
                 fetch the next page. Keep the same `sort` value across paginated requests.
             sort (str | Unset): Sort field: `occurred_at` or `created_at`, optionally prefixed with `-` for descending
@@ -71,7 +71,7 @@ class SearchEventsRequest:
     filteractor_id: None | str | Unset = UNSET
     filteroccurred_at: None | str | Unset = UNSET
     filtersearch: None | str | Unset = UNSET
-    pagesize: int | Unset = 10
+    pagesize: int | Unset = 1000
     pageafter: None | str | Unset = UNSET
     sort: str | Unset = "-occurred_at"
 
