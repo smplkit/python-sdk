@@ -21,7 +21,7 @@ Exposed namespaces:
 
 from __future__ import annotations
 
-from smplkit.audit.models import ForwarderType
+from smplkit.audit.models import ForwarderType, TransformType
 from smplkit.management.audit import (
     AsyncAuditClient as AsyncMgmtAuditClient,
     AuditClient as MgmtAuditClient,
@@ -89,4 +89,5 @@ __all__ = [
     "LoggersClient",
     "MgmtAuditClient",
     "SmplManagementClient",
+    "TransformType",
 ]

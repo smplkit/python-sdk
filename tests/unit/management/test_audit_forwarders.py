@@ -13,7 +13,7 @@ from uuid import UUID
 import httpx
 import pytest
 
-from smplkit import Error, NotFoundError, PaymentRequiredError
+from smplkit import Error, NotFoundError
 from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 from smplkit.audit import (
     Forwarder,
@@ -21,6 +21,7 @@ from smplkit.audit import (
     HttpConfiguration,
     HttpHeader,
     HttpMethod,
+    TransformType,
 )
 from smplkit.management.audit import AuditClient
 
@@ -38,7 +39,7 @@ def _forwarder_resource(
     enabled: bool = True,
     forwarder_type: str = "DATADOG",
     filter_: dict[str, Any] | None = None,
-    transform: str | None = None,
+    transform: Any = None,
     transform_type: str | None = None,
 ) -> dict[str, Any]:
     return {
@@ -117,6 +118,20 @@ class TestModels:
         names = [m.name for m in HttpMethod]
         assert names == sorted(names)
 
+    def test_transform_type_enum_only_jsonata(self):
+        # The audit spec pins ``transform_type`` to a single value today;
+        # the SDK enum must mirror that so adding new members is a
+        # deliberate, type-checkable change.
+        assert [m.name for m in TransformType] == ["JSONATA"]
+        assert TransformType.JSONATA.value == "JSONATA"
+        # ``str`` subclassing keeps interop with raw strings transparent.
+        assert TransformType.JSONATA == "JSONATA"
+
+    def test_forwarder_from_resource_returns_transform_type_enum(self):
+        f = Forwarder._from_resource(_forwarder_resource(transform="$", transform_type="JSONATA"))
+        assert f.transform == "$"
+        assert f.transform_type is TransformType.JSONATA
+
     def test_forwarder_from_resource(self):
         f = Forwarder._from_resource(_forwarder_resource())
         assert f.id == FWD_ID
@@ -174,6 +189,7 @@ class TestForwardersCrud:
             description="Forwards user.* events.",
             filter={"==": [{"var": "action"}, "user.created"]},
             transform="$",
+            transform_type=TransformType.JSONATA,
         )
         fwd.save()
         # Server-assigned fields are now populated on the original instance.
@@ -186,6 +202,66 @@ class TestForwardersCrud:
         assert "Forwards user.* events." in captured["body"]
         assert "JSONATA" in captured["body"]
 
+    def test_new_requires_transform_type_when_transform_provided(self):
+        c = _client_with_handler(lambda req: httpx.Response(204))
+        with pytest.raises(ValueError, match="transform_type is required"):
+            c.forwarders.new(
+                name="x",
+                forwarder_type="HTTP",
+                configuration=HttpConfiguration(url="https://x"),
+                transform="$",
+            )
+
+    def test_new_accepts_non_string_transform(self):
+        # ``transform`` is typed ``Any`` on the wire — the SDK must not
+        # constrain the value's Python type. JSONata templates are
+        # typically strings, but the spec doesn't reject other shapes.
+        captured: dict[str, Any] = {}
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            captured["body"] = req.content.decode()
+            return httpx.Response(
+                201,
+                json={
+                    "data": _forwarder_resource(
+                        transform={"wrap": "$"},
+                        transform_type="JSONATA",
+                    )
+                },
+            )
+
+        c = _client_with_handler(handler)
+        fwd = c.forwarders.new(
+            name="x",
+            forwarder_type="HTTP",
+            configuration=HttpConfiguration(url="https://x"),
+            transform={"wrap": "$"},
+            transform_type=TransformType.JSONATA,
+        )
+        fwd.save()
+        assert '"transform":{"wrap":"$"}' in captured["body"].replace(" ", "")
+        # Server-reported transform_type round-trips as the typed enum.
+        assert fwd.transform_type is TransformType.JSONATA
+
+    def test_new_without_transform_omits_transform_type(self):
+        captured: dict[str, Any] = {}
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            captured["body"] = req.content.decode()
+            return httpx.Response(201, json={"data": _forwarder_resource()})
+
+        c = _client_with_handler(handler)
+        fwd = c.forwarders.new(
+            name="x",
+            forwarder_type="HTTP",
+            configuration=HttpConfiguration(url="https://x"),
+        )
+        fwd.save()
+        # Neither field should be present in the request body when the
+        # caller didn't supply a transform.
+        assert "transform_type" not in captured["body"]
+        assert '"transform":' not in captured["body"]
+
     def test_save_with_no_client_raises(self):
         fwd = Forwarder(
             None,
@@ -194,23 +270,6 @@ class TestForwardersCrud:
             configuration=HttpConfiguration(url="https://x"),
         )
         with pytest.raises(RuntimeError, match="without a client"):
-            fwd.save()
-
-    def test_create_402_raises_payment_required(self):
-        # The audit service no longer returns 402 on forwarder creation
-        # (configuration is plan-agnostic — see ADR-047), but the
-        # wrapper's status-to-exception mapping should still surface
-        # 402 as PaymentRequiredError if any future endpoint does.
-        def handler(req):
-            return httpx.Response(402, json={"errors": [{"status": "402"}]})
-
-        c = _client_with_handler(handler)
-        fwd = c.forwarders.new(
-            name="x",
-            forwarder_type="HTTP",
-            configuration=HttpConfiguration(url="https://x"),
-        )
-        with pytest.raises(PaymentRequiredError):
             fwd.save()
 
     def test_list_paginates(self):

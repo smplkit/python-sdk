@@ -117,7 +117,10 @@ async def main() -> None:
 
         # wait for the WebSocket push to deliver the change
         deadline = asyncio.get_event_loop().time() + 10.0
-        while user_svc_config.max_retries != 7 and asyncio.get_event_loop().time() < deadline:
+        while (
+            user_svc_config.max_retries != 7
+            and asyncio.get_event_loop().time() < deadline
+        ):
             await asyncio.sleep(0.1)
 
         # user_svc_config always reflects the latest values

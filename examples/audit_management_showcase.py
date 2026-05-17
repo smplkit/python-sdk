@@ -15,7 +15,13 @@ Usage::
 import uuid
 
 from smplkit import SmplManagementClient
-from smplkit.audit import ForwarderType, HttpConfiguration, HttpHeader, HttpMethod
+from smplkit.audit import (
+    ForwarderType,
+    HttpConfiguration,
+    HttpHeader,
+    HttpMethod,
+    TransformType,
+)
 
 
 # JSON Logic filter — only forward ``invoice.*`` actions.
@@ -53,6 +59,7 @@ def main() -> None:
             ),
             filter=INVOICE_FILTER,
             transform=SIEM_TRANSFORM,
+            transform_type=TransformType.JSONATA,
         )
         forwarder.save()
         print(f"Created forwarder: {forwarder.name} (id={forwarder.id})")
@@ -72,7 +79,9 @@ def main() -> None:
         fetched.enabled = False
         fetched.save()
         assert fetched.enabled is False
-        print(f"Disabled forwarder: {fetched.name} (enabled={fetched.enabled})")
+        print(
+            f"Disabled forwarder: {fetched.name} (enabled={fetched.enabled})"
+        )
 
         # delete a forwarder
         fetched.delete()

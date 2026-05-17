@@ -17,10 +17,10 @@ SIEM forwarder CRUD lives on :class:`smplkit.SmplManagementClient`
 under ``mgmt.audit.forwarders.*``. See ``smplkit.management.audit``.
 
 The shared dataclasses (``Event``, ``Forwarder``, ``HttpConfiguration``,
-``HttpHeader``, ``ResourceType``, ``Action``) plus the ``ForwarderType``
-and ``HttpMethod`` enums live in :mod:`smplkit.audit.models` and are
-re-exported here for convenience — both the runtime and the
-management clients return them.
+``HttpHeader``, ``ResourceType``, ``Action``) plus the ``ForwarderType``,
+``HttpMethod``, and ``TransformType`` enums live in
+:mod:`smplkit.audit.models` and are re-exported here for convenience —
+both the runtime and the management clients return them.
 """
 
 from smplkit.audit.client import AsyncAuditClient, AuditClient
@@ -33,6 +33,7 @@ from smplkit.audit.models import (
     HttpHeader,
     HttpMethod,
     ResourceType,
+    TransformType,
 )
 
 __all__ = [
@@ -46,4 +47,5 @@ __all__ = [
     "HttpHeader",
     "HttpMethod",
     "ResourceType",
+    "TransformType",
 ]

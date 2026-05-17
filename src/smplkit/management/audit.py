@@ -4,9 +4,8 @@ Counterpart to the runtime :class:`smplkit.audit.AuditClient`. The
 runtime client owns event recording and read-side queries; this client
 owns SIEM forwarder CRUD:
 
-* ``mgmt.audit.forwarders.create/get/list/update/delete`` — manage the
-  customer's configured forwarders. Pro tier; gated on the
-  ``audit.event_forwarding`` entitlement.
+* ``mgmt.audit.forwarders.new/get/list/save/delete`` — manage the
+  customer's configured forwarders.
 
 Async support mirrors the runtime audit client today: the
 ``AsyncAuditClient`` placeholder delegates to the sync surface so
@@ -51,6 +50,7 @@ from smplkit.audit.models import (
     Forwarder,
     ForwarderType,
     HttpConfiguration,
+    TransformType,
 )
 
 
@@ -135,7 +135,8 @@ def _build_forwarder_attrs(
     enabled: bool,
     description: str | None,
     filter: dict[str, Any] | None,
-    transform: str | None,
+    transform: Any,
+    transform_type: TransformType | None,
 ) -> _GenForwarder:
     # ``ForwarderType`` is a ``str`` subclass — passing the enum directly
     # gives the generated model a string that matches its Literal type
@@ -152,7 +153,7 @@ def _build_forwarder_attrs(
         attrs.filter_ = _GenForwarderFilter.from_dict(filter)
     if transform is not None:
         attrs.transform = transform
-        attrs.transform_type = "JSONATA"
+        attrs.transform_type = TransformType(transform_type).value if transform_type is not None else None
     return attrs
 
 
@@ -171,7 +172,8 @@ class ForwardersClient:
         enabled: bool = True,
         description: str | None = None,
         filter: dict[str, Any] | None = None,
-        transform: str | None = None,
+        transform: Any = None,
+        transform_type: TransformType | None = None,
     ) -> Forwarder:
         """Return an unsaved :class:`Forwarder`. Call :meth:`Forwarder.save` to persist.
 
@@ -187,9 +189,21 @@ class ForwardersClient:
             description: Optional free-text description.
             filter: Optional JSON Logic filter; events that don't match
                 are recorded as ``filtered_out`` deliveries.
-            transform: Optional JSONata template applied to the event
-                payload before POST. Empty/None sends the event as-is.
+            transform: Optional template applied to the event payload
+                before POST. Shape depends on ``transform_type`` — for
+                :attr:`TransformType.JSONATA`, a string containing a
+                JSONata expression. Any value of any type is accepted.
+                ``None`` sends the event as-is.
+            transform_type: A :class:`TransformType` enum member naming
+                the engine that evaluates ``transform``. Required
+                whenever ``transform`` is provided.
+
+        Raises:
+            ValueError: If ``transform`` is provided without a
+                ``transform_type``.
         """
+        if transform is not None and transform_type is None:
+            raise ValueError("transform_type is required when transform is provided")
         return Forwarder(
             self,
             name=name,
@@ -199,6 +213,7 @@ class ForwardersClient:
             description=description,
             filter=filter,
             transform=transform,
+            transform_type=transform_type,
         )
 
     def list(
@@ -253,6 +268,7 @@ class ForwardersClient:
             description=forwarder.description,
             filter=forwarder.filter,
             transform=forwarder.transform,
+            transform_type=forwarder.transform_type,
         )
         body = _GenForwarderRequest(data=_GenForwarderResource(id="", attributes=attrs))
         resp = _gen_create_forwarder.sync_detailed(client=self._auth, body=body)
@@ -278,6 +294,7 @@ class ForwardersClient:
             description=forwarder.description,
             filter=forwarder.filter,
             transform=forwarder.transform,
+            transform_type=forwarder.transform_type,
         )
         body = _GenForwarderRequest(data=_GenForwarderResource(id=str(forwarder.id), attributes=attrs))
         resp = _gen_update_forwarder.sync_detailed(forwarder_id=forwarder.id, client=self._auth, body=body)
@@ -338,4 +355,5 @@ __all__ = [
     "ForwarderListPage",
     "ForwardersClient",
     "ForwarderType",
+    "TransformType",
 ]

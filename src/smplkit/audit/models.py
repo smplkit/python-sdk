@@ -62,6 +62,17 @@ class HttpMethod(str, enum.Enum):
     PUT = "PUT"
 
 
+class TransformType(str, enum.Enum):
+    """Engine used to evaluate a forwarder's ``transform``.
+
+    Today only :attr:`JSONATA` is supported. ``str`` subclassing keeps
+    interop with raw strings transparent
+    (``TransformType.JSONATA == "JSONATA"``).
+    """
+
+    JSONATA = "JSONATA"
+
+
 @dataclass(frozen=True, slots=True)
 class Event:
     """A single audit event as returned by the audit service.
@@ -218,12 +229,12 @@ class Forwarder:
             evaluated per event. When set, events that don't match are recorded
             as ``filtered_out`` deliveries instead of being POSTed to the
             destination.
-        transform (str | None): Optional template applied to each event
+        transform (Any | None): Optional template applied to each event
             before delivery. Shape depends on :attr:`transform_type`; for
-            ``"JSONATA"``, a JSONata expression. ``None`` delivers the event
-            JSON as-is.
-        transform_type (str | None): Engine used to evaluate :attr:`transform`.
-            Currently only ``"JSONATA"`` is supported.
+            :attr:`TransformType.JSONATA`, a string containing a JSONata
+            expression. ``None`` delivers the event JSON as-is.
+        transform_type (TransformType | None): Engine used to evaluate
+            :attr:`transform`. Must be set whenever :attr:`transform` is set.
         created_at (datetime | None): When the audit service first persisted
             this forwarder. ``None`` for an unsaved instance.
         updated_at (datetime | None): When this forwarder was last mutated.
@@ -244,8 +255,8 @@ class Forwarder:
         enabled: bool = True,
         description: str | None = None,
         filter: dict[str, Any] | None = None,
-        transform: str | None = None,
-        transform_type: str | None = None,
+        transform: Any = None,
+        transform_type: TransformType | None = None,
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
         deleted_at: datetime | None = None,
@@ -311,6 +322,7 @@ class Forwarder:
     @classmethod
     def _from_resource(cls, resource: dict[str, Any], *, client: ForwardersClient | None = None) -> Forwarder:
         attrs = resource.get("attributes", {})
+        tt_raw = attrs.get("transform_type")
         return cls(
             client,
             id=UUID(resource["id"]),
@@ -323,7 +335,7 @@ class Forwarder:
             description=attrs.get("description"),
             filter=attrs.get("filter"),
             transform=attrs.get("transform"),
-            transform_type=attrs.get("transform_type"),
+            transform_type=TransformType(tt_raw) if tt_raw is not None else None,
             configuration=HttpConfiguration._from_dict(attrs.get("configuration") or {}),
             created_at=_parse_iso_or_none(attrs.get("created_at")),
             updated_at=_parse_iso_or_none(attrs.get("updated_at")),

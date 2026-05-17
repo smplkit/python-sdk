@@ -27,12 +27,15 @@ async def main() -> None:
     ) as client:
         some_resource_id = f"showcase-{uuid.uuid4().hex[:8]}"
 
-        # record an event
+        # record an event with full customer-supplied actor attribution
         client.audit.events.record(
             action="invoice.created",
             resource_type="invoice",
             resource_id=some_resource_id,
             occurred_at=datetime.now(timezone.utc),
+            actor_type="USER",
+            actor_id="billing-bot:42",
+            actor_label="finance@example.com",
             data={
                 "snapshot": {"total_cents": 4900, "currency": "USD"},
                 "request_id": "req-abc",
@@ -54,7 +57,11 @@ async def main() -> None:
         assert event.id == recorded_event_id
         assert event.resource_id == some_resource_id
         assert event.action == "invoice.created"
-        print(f"Fetched event {event.id}: {event.action}")
+        assert event.actor_id == "billing-bot:42"
+        assert event.actor_label == "finance@example.com"
+        print(
+            f"Fetched event {event.id}: {event.action} by {event.actor_label}"
+        )
 
         # list resource types observed
         resource_types = client.audit.resource_types.list()

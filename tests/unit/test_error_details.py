@@ -13,6 +13,7 @@ from smplkit._errors import (
     ConflictError,
     Error,
     NotFoundError,
+    PaymentRequiredError,
     ValidationError,
     _derive_message,
     _parse_error_body,
@@ -258,6 +259,24 @@ class TestRaiseForStatus:
         assert "Errors:" in str(exc)
         assert "[0]" in str(exc)
         assert "[1]" in str(exc)
+
+    def test_402_payment_required(self):
+        body = json.dumps(
+            {
+                "errors": [
+                    {
+                        "status": "402",
+                        "title": "Payment Required",
+                        "detail": "Plan does not include this capability.",
+                    }
+                ]
+            }
+        ).encode()
+        with pytest.raises(PaymentRequiredError) as exc_info:
+            _raise_for_status(402, body)
+        exc = exc_info.value
+        assert exc.status_code == 402
+        assert "Plan does not include this capability." in str(exc)
 
     def test_404_not_found(self):
         body = json.dumps(
