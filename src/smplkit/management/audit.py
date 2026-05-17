@@ -195,15 +195,20 @@ class ForwardersClient:
                 JSONata expression. Any value of any type is accepted.
                 ``None`` sends the event as-is.
             transform_type: A :class:`TransformType` enum member naming
-                the engine that evaluates ``transform``. Required
-                whenever ``transform`` is provided.
+                the engine that evaluates ``transform``. Must be
+                provided together with ``transform`` — neither field is
+                meaningful in isolation.
 
         Raises:
-            ValueError: If ``transform`` is provided without a
-                ``transform_type``.
+            ValueError: If exactly one of ``transform`` /
+                ``transform_type`` is provided, or if ``transform_type``
+                is :attr:`TransformType.JSONATA` and ``transform`` is
+                not a string.
         """
-        if transform is not None and transform_type is None:
-            raise ValueError("transform_type is required when transform is provided")
+        if (transform is None) != (transform_type is None):
+            raise ValueError("transform and transform_type must be specified together")
+        if transform_type == TransformType.JSONATA and not isinstance(transform, str):
+            raise ValueError("transform must be a string when transform_type is JSONATA")
         return Forwarder(
             self,
             name=name,

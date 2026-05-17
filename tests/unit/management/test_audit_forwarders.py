@@ -204,7 +204,7 @@ class TestForwardersCrud:
 
     def test_new_requires_transform_type_when_transform_provided(self):
         c = _client_with_handler(lambda req: httpx.Response(204))
-        with pytest.raises(ValueError, match="transform_type is required"):
+        with pytest.raises(ValueError, match="must be specified together"):
             c.forwarders.new(
                 name="x",
                 forwarder_type="HTTP",
@@ -212,36 +212,29 @@ class TestForwardersCrud:
                 transform="$",
             )
 
-    def test_new_accepts_non_string_transform(self):
-        # ``transform`` is typed ``Any`` on the wire — the SDK must not
-        # constrain the value's Python type. JSONata templates are
-        # typically strings, but the spec doesn't reject other shapes.
-        captured: dict[str, Any] = {}
-
-        def handler(req: httpx.Request) -> httpx.Response:
-            captured["body"] = req.content.decode()
-            return httpx.Response(
-                201,
-                json={
-                    "data": _forwarder_resource(
-                        transform={"wrap": "$"},
-                        transform_type="JSONATA",
-                    )
-                },
+    def test_new_requires_transform_when_transform_type_provided(self):
+        c = _client_with_handler(lambda req: httpx.Response(204))
+        with pytest.raises(ValueError, match="must be specified together"):
+            c.forwarders.new(
+                name="x",
+                forwarder_type="HTTP",
+                configuration=HttpConfiguration(url="https://x"),
+                transform_type=TransformType.JSONATA,
             )
 
-        c = _client_with_handler(handler)
-        fwd = c.forwarders.new(
-            name="x",
-            forwarder_type="HTTP",
-            configuration=HttpConfiguration(url="https://x"),
-            transform={"wrap": "$"},
-            transform_type=TransformType.JSONATA,
-        )
-        fwd.save()
-        assert '"transform":{"wrap":"$"}' in captured["body"].replace(" ", "")
-        # Server-reported transform_type round-trips as the typed enum.
-        assert fwd.transform_type is TransformType.JSONATA
+    def test_new_rejects_non_string_transform_for_jsonata(self):
+        # JSONata templates are strings; the SDK must refuse other
+        # shapes client-side rather than letting the server return a
+        # 400.
+        c = _client_with_handler(lambda req: httpx.Response(204))
+        with pytest.raises(ValueError, match="must be a string when transform_type is JSONATA"):
+            c.forwarders.new(
+                name="x",
+                forwarder_type="HTTP",
+                configuration=HttpConfiguration(url="https://x"),
+                transform={"wrap": "$"},
+                transform_type=TransformType.JSONATA,
+            )
 
     def test_new_without_transform_omits_transform_type(self):
         captured: dict[str, Any] = {}
