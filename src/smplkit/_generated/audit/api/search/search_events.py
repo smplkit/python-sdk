@@ -7,13 +7,13 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
-from ...models.search_events_request import SearchEventsRequest
-from ...models.search_events_response import SearchEventsResponse
+from ...models.event_search_request import EventSearchRequest
+from ...models.event_search_response import EventSearchResponse
 
 
 def _get_kwargs(
     *,
-    body: SearchEventsRequest,
+    body: EventSearchRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -30,9 +30,9 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> SearchEventsResponse | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> EventSearchResponse | None:
     if response.status_code == 200:
-        response_200 = SearchEventsResponse.from_dict(response.json())
+        response_200 = EventSearchResponse.from_dict(response.json())
 
         return response_200
 
@@ -42,9 +42,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(
-    *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[SearchEventsResponse]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[EventSearchResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -56,8 +54,8 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: SearchEventsRequest,
-) -> Response[SearchEventsResponse]:
+    body: EventSearchRequest,
+) -> Response[EventSearchResponse]:
     r"""Search Events
 
      Search audit events with column filters and an optional JSON Logic expression.
@@ -76,7 +74,7 @@ def sync_detailed(
     like \"0 matches\" when the truth is \"ceiling reached.\"
 
     Args:
-        body (SearchEventsRequest): Request body for ``POST /api/v1/search/events``.
+        body (EventSearchRequest): Request body for ``POST /api/v1/search/events``.
 
             Mirrors every column filter accepted by ``GET /api/v1/events`` with
             identical semantics, and adds a top-level ``filter`` field carrying
@@ -101,7 +99,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[SearchEventsResponse]
+        Response[EventSearchResponse]
     """
 
     kwargs = _get_kwargs(
@@ -118,8 +116,8 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: SearchEventsRequest,
-) -> SearchEventsResponse | None:
+    body: EventSearchRequest,
+) -> EventSearchResponse | None:
     r"""Search Events
 
      Search audit events with column filters and an optional JSON Logic expression.
@@ -138,7 +136,7 @@ def sync(
     like \"0 matches\" when the truth is \"ceiling reached.\"
 
     Args:
-        body (SearchEventsRequest): Request body for ``POST /api/v1/search/events``.
+        body (EventSearchRequest): Request body for ``POST /api/v1/search/events``.
 
             Mirrors every column filter accepted by ``GET /api/v1/events`` with
             identical semantics, and adds a top-level ``filter`` field carrying
@@ -163,7 +161,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        SearchEventsResponse
+        EventSearchResponse
     """
 
     return sync_detailed(
@@ -175,8 +173,8 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: SearchEventsRequest,
-) -> Response[SearchEventsResponse]:
+    body: EventSearchRequest,
+) -> Response[EventSearchResponse]:
     r"""Search Events
 
      Search audit events with column filters and an optional JSON Logic expression.
@@ -195,7 +193,7 @@ async def asyncio_detailed(
     like \"0 matches\" when the truth is \"ceiling reached.\"
 
     Args:
-        body (SearchEventsRequest): Request body for ``POST /api/v1/search/events``.
+        body (EventSearchRequest): Request body for ``POST /api/v1/search/events``.
 
             Mirrors every column filter accepted by ``GET /api/v1/events`` with
             identical semantics, and adds a top-level ``filter`` field carrying
@@ -220,7 +218,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[SearchEventsResponse]
+        Response[EventSearchResponse]
     """
 
     kwargs = _get_kwargs(
@@ -235,8 +233,8 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: SearchEventsRequest,
-) -> SearchEventsResponse | None:
+    body: EventSearchRequest,
+) -> EventSearchResponse | None:
     r"""Search Events
 
      Search audit events with column filters and an optional JSON Logic expression.
@@ -255,7 +253,7 @@ async def asyncio(
     like \"0 matches\" when the truth is \"ceiling reached.\"
 
     Args:
-        body (SearchEventsRequest): Request body for ``POST /api/v1/search/events``.
+        body (EventSearchRequest): Request body for ``POST /api/v1/search/events``.
 
             Mirrors every column filter accepted by ``GET /api/v1/events`` with
             identical semantics, and adds a top-level ``filter`` field carrying
@@ -280,7 +278,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        SearchEventsResponse
+        EventSearchResponse
     """
 
     return (

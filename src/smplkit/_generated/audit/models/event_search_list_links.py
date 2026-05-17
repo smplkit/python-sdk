@@ -11,11 +11,11 @@ from ..types import UNSET, Unset
 from typing import cast
 
 
-T = TypeVar("T", bound="SearchEventsListLinks")
+T = TypeVar("T", bound="EventSearchListLinks")
 
 
 @_attrs_define
-class SearchEventsListLinks:
+class EventSearchListLinks:
     """
     Attributes:
         next_ (None | str | Unset): Opaque cursor token for the next page. POST the same body with `page[after]` set to
@@ -54,12 +54,12 @@ class SearchEventsListLinks:
 
         next_ = _parse_next_(d.pop("next", UNSET))
 
-        search_events_list_links = cls(
+        event_search_list_links = cls(
             next_=next_,
         )
 
-        search_events_list_links.additional_properties = d
-        return search_events_list_links
+        event_search_list_links.additional_properties = d
+        return event_search_list_links
 
     @property
     def additional_keys(self) -> list[str]:

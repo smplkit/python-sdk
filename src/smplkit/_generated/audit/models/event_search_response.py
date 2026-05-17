@@ -12,37 +12,37 @@ from typing import cast
 
 if TYPE_CHECKING:
     from ..models.event_resource import EventResource
-    from ..models.search_events_list_links import SearchEventsListLinks
-    from ..models.search_events_list_meta import SearchEventsListMeta
+    from ..models.event_search_list_links import EventSearchListLinks
+    from ..models.event_search_list_meta import EventSearchListMeta
 
 
-T = TypeVar("T", bound="SearchEventsResponse")
+T = TypeVar("T", bound="EventSearchResponse")
 
 
 @_attrs_define
-class SearchEventsResponse:
+class EventSearchResponse:
     """JSON:API list envelope returned by the search endpoint.
 
     Structurally identical to ``EventListResponse`` from the list
     endpoint — the only difference is the extra `scan` block inside
-    `meta` (`SearchEventsListMeta` vs `EventListMeta`).
+    `meta` (`EventSearchListMeta` vs `EventListMeta`).
 
         Attributes:
             data (list[EventResource]):
-            meta (SearchEventsListMeta): Cursor-pagination + scan meta for the search response.
+            meta (EventSearchListMeta): Cursor-pagination + scan meta for the search response.
 
                 Mirrors `EventListMeta` (cursor pagination — `page_size` is the
                 only pagination field) and adds the `scan` block above.
-            links (None | SearchEventsListLinks | Unset):
+            links (EventSearchListLinks | None | Unset):
     """
 
     data: list[EventResource]
-    meta: SearchEventsListMeta
-    links: None | SearchEventsListLinks | Unset = UNSET
+    meta: EventSearchListMeta
+    links: EventSearchListLinks | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.search_events_list_links import SearchEventsListLinks
+        from ..models.event_search_list_links import EventSearchListLinks
 
         data = []
         for data_item_data in self.data:
@@ -54,7 +54,7 @@ class SearchEventsResponse:
         links: dict[str, Any] | None | Unset
         if isinstance(self.links, Unset):
             links = UNSET
-        elif isinstance(self.links, SearchEventsListLinks):
+        elif isinstance(self.links, EventSearchListLinks):
             links = self.links.to_dict()
         else:
             links = self.links
@@ -75,8 +75,8 @@ class SearchEventsResponse:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.event_resource import EventResource
-        from ..models.search_events_list_links import SearchEventsListLinks
-        from ..models.search_events_list_meta import SearchEventsListMeta
+        from ..models.event_search_list_links import EventSearchListLinks
+        from ..models.event_search_list_meta import EventSearchListMeta
 
         d = dict(src_dict)
         data = []
@@ -86,9 +86,9 @@ class SearchEventsResponse:
 
             data.append(data_item)
 
-        meta = SearchEventsListMeta.from_dict(d.pop("meta"))
+        meta = EventSearchListMeta.from_dict(d.pop("meta"))
 
-        def _parse_links(data: object) -> None | SearchEventsListLinks | Unset:
+        def _parse_links(data: object) -> EventSearchListLinks | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -96,23 +96,23 @@ class SearchEventsResponse:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                links_type_0 = SearchEventsListLinks.from_dict(data)
+                links_type_0 = EventSearchListLinks.from_dict(data)
 
                 return links_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(None | SearchEventsListLinks | Unset, data)
+            return cast(EventSearchListLinks | None | Unset, data)
 
         links = _parse_links(d.pop("links", UNSET))
 
-        search_events_response = cls(
+        event_search_response = cls(
             data=data,
             meta=meta,
             links=links,
         )
 
-        search_events_response.additional_properties = d
-        return search_events_response
+        event_search_response.additional_properties = d
+        return event_search_response
 
     @property
     def additional_keys(self) -> list[str]:

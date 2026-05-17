@@ -8,14 +8,14 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.search_scan_meta import SearchScanMeta
+    from ..models.event_search_scan_meta import EventSearchScanMeta
 
 
-T = TypeVar("T", bound="SearchEventsListMeta")
+T = TypeVar("T", bound="EventSearchListMeta")
 
 
 @_attrs_define
-class SearchEventsListMeta:
+class EventSearchListMeta:
     """Cursor-pagination + scan meta for the search response.
 
     Mirrors `EventListMeta` (cursor pagination — `page_size` is the
@@ -23,7 +23,7 @@ class SearchEventsListMeta:
 
         Attributes:
             page_size (int):
-            scan (SearchScanMeta): Scan statistics for a search response.
+            scan (EventSearchScanMeta): Scan statistics for a search response.
 
                 Exposed so a selective JSON Logic filter doesn't silently look like
                 "0 matches" when the truth is "the scan ceiling was reached before
@@ -31,7 +31,7 @@ class SearchEventsListMeta:
     """
 
     page_size: int
-    scan: SearchScanMeta
+    scan: EventSearchScanMeta
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -52,20 +52,20 @@ class SearchEventsListMeta:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.search_scan_meta import SearchScanMeta
+        from ..models.event_search_scan_meta import EventSearchScanMeta
 
         d = dict(src_dict)
         page_size = d.pop("page_size")
 
-        scan = SearchScanMeta.from_dict(d.pop("scan"))
+        scan = EventSearchScanMeta.from_dict(d.pop("scan"))
 
-        search_events_list_meta = cls(
+        event_search_list_meta = cls(
             page_size=page_size,
             scan=scan,
         )
 
-        search_events_list_meta.additional_properties = d
-        return search_events_list_meta
+        event_search_list_meta.additional_properties = d
+        return event_search_list_meta
 
     @property
     def additional_keys(self) -> list[str]:

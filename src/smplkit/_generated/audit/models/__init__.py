@@ -11,6 +11,12 @@ from .event_list_response import EventListResponse
 from .event_request import EventRequest
 from .event_resource import EventResource
 from .event_response import EventResponse
+from .event_search_list_links import EventSearchListLinks
+from .event_search_list_meta import EventSearchListMeta
+from .event_search_request import EventSearchRequest
+from .event_search_request_filter_type_0 import EventSearchRequestFilterType0
+from .event_search_response import EventSearchResponse
+from .event_search_scan_meta import EventSearchScanMeta
 from .forwarder import Forwarder
 from .forwarder_delivery import ForwarderDelivery
 from .forwarder_delivery_list_links import ForwarderDeliveryListLinks
@@ -40,12 +46,6 @@ from .resource_type_attributes import ResourceTypeAttributes
 from .resource_type_list_response import ResourceTypeListResponse
 from .resource_type_resource import ResourceTypeResource
 from .retry_failed_deliveries_summary import RetryFailedDeliveriesSummary
-from .search_events_list_links import SearchEventsListLinks
-from .search_events_list_meta import SearchEventsListMeta
-from .search_events_request import SearchEventsRequest
-from .search_events_request_filter_type_0 import SearchEventsRequestFilterType0
-from .search_events_response import SearchEventsResponse
-from .search_scan_meta import SearchScanMeta
 from .test_forwarder_request import TestForwarderRequest
 from .test_forwarder_request_method import TestForwarderRequestMethod
 from .test_forwarder_response import TestForwarderResponse
@@ -66,6 +66,12 @@ __all__ = (
     "EventRequest",
     "EventResource",
     "EventResponse",
+    "EventSearchListLinks",
+    "EventSearchListMeta",
+    "EventSearchRequest",
+    "EventSearchRequestFilterType0",
+    "EventSearchResponse",
+    "EventSearchScanMeta",
     "Forwarder",
     "ForwarderDelivery",
     "ForwarderDeliveryListLinks",
@@ -95,12 +101,6 @@ __all__ = (
     "ResourceTypeListResponse",
     "ResourceTypeResource",
     "RetryFailedDeliveriesSummary",
-    "SearchEventsListLinks",
-    "SearchEventsListMeta",
-    "SearchEventsRequest",
-    "SearchEventsRequestFilterType0",
-    "SearchEventsResponse",
-    "SearchScanMeta",
     "TestForwarderRequest",
     "TestForwarderRequestMethod",
     "TestForwarderResponse",
