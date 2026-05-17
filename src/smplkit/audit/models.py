@@ -12,8 +12,11 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from smplkit.management.audit import ForwardersClient
 
 
 class ForwarderType(str, enum.Enum):
@@ -172,16 +175,18 @@ class HttpConfiguration:
         )
 
 
-@dataclass(frozen=True, slots=True)
 class Forwarder:
     """A SIEM streaming forwarder configured on the customer's account.
 
-    Header values from ``configuration.headers`` are always returned
-    redacted on reads — the GET path on the audit API replaces every
-    header value with ``"<redacted>"``. Re-supply the real values when
-    calling ``update`` (the SDK does not cache them client-side).
+    Active-record style: mutate fields directly and call :meth:`save` to
+    persist, or :meth:`delete` to remove. Header values in
+    ``configuration.headers`` are always returned redacted on reads — the
+    GET path on the audit API replaces every header value with
+    ``"<redacted>"``. Re-supply the real values before calling
+    :meth:`save` (the SDK does not cache them client-side).
 
-    :ivar id: Server-assigned UUID for this forwarder.
+    :ivar id: Server-assigned UUID for this forwarder. ``None`` until
+        :meth:`save` has run for the first time.
     :ivar name: Display name. Free-form.
     :ivar forwarder_type: Destination type — see :class:`ForwarderType`.
     :ivar enabled: When ``False``, the audit service skips delivery for this
@@ -197,29 +202,92 @@ class Forwarder:
     :ivar transform_type: Engine used to evaluate :attr:`transform`. Currently
         only ``"JSONATA"`` is supported.
     :ivar created_at: When the audit service first persisted this forwarder.
+        ``None`` for an unsaved instance.
     :ivar updated_at: When this forwarder was last mutated.
     :ivar deleted_at: Soft-delete timestamp. ``None`` for live forwarders.
     :ivar version: Monotonic version counter; bumped on every server-side write.
     """
 
-    id: UUID
-    name: str
-    forwarder_type: ForwarderType
-    enabled: bool
-    configuration: HttpConfiguration
-    description: str | None = None
-    filter: dict[str, Any] | None = None
-    transform: str | None = None
-    transform_type: str | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
-    deleted_at: datetime | None = None
-    version: int | None = None
+    def __init__(
+        self,
+        client: ForwardersClient | None = None,
+        *,
+        id: UUID | None = None,
+        name: str,
+        forwarder_type: ForwarderType,
+        configuration: HttpConfiguration,
+        enabled: bool = True,
+        description: str | None = None,
+        filter: dict[str, Any] | None = None,
+        transform: str | None = None,
+        transform_type: str | None = None,
+        created_at: datetime | None = None,
+        updated_at: datetime | None = None,
+        deleted_at: datetime | None = None,
+        version: int | None = None,
+    ) -> None:
+        self.id = id
+        self.name = name
+        self.forwarder_type = forwarder_type
+        self.configuration = configuration
+        self.enabled = enabled
+        self.description = description
+        self.filter = filter
+        self.transform = transform
+        self.transform_type = transform_type
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.deleted_at = deleted_at
+        self.version = version
+        self._client = client
+
+    def __repr__(self) -> str:
+        return f"Forwarder(id={self.id!r}, name={self.name!r}, enabled={self.enabled!r})"
+
+    def save(self) -> None:
+        """Create or update this forwarder on the server.
+
+        Upsert behavior is driven by :attr:`created_at`: a forwarder with
+        no ``created_at`` is created (POST); otherwise it's full-replace
+        updated (PUT). After the call, every field is refreshed from the
+        server response (including newly-assigned ``id``, ``created_at``,
+        ``updated_at``, ``version``).
+        """
+        if self._client is None:
+            raise RuntimeError("Forwarder was constructed without a client; cannot save")
+        if self.created_at is None:
+            other = self._client._create(self)
+        else:
+            other = self._client._update(self)
+        self._apply(other)
+
+    def delete(self) -> None:
+        """Soft-delete this forwarder on the server."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("Forwarder was constructed without a client or id; cannot delete")
+        self._client.delete(self.id)
+
+    def _apply(self, other: Forwarder) -> None:
+        """Copy every server-authoritative field from ``other`` onto self."""
+        self.id = other.id
+        self.name = other.name
+        self.forwarder_type = other.forwarder_type
+        self.configuration = other.configuration
+        self.enabled = other.enabled
+        self.description = other.description
+        self.filter = other.filter
+        self.transform = other.transform
+        self.transform_type = other.transform_type
+        self.created_at = other.created_at
+        self.updated_at = other.updated_at
+        self.deleted_at = other.deleted_at
+        self.version = other.version
 
     @classmethod
-    def _from_resource(cls, resource: dict[str, Any]) -> "Forwarder":
+    def _from_resource(cls, resource: dict[str, Any], *, client: ForwardersClient | None = None) -> Forwarder:
         attrs = resource.get("attributes", {})
         return cls(
+            client,
             id=UUID(resource["id"]),
             name=attrs.get("name") or "",
             # Server-side validation already enforces enum membership;

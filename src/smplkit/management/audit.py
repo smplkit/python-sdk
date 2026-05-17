@@ -162,7 +162,7 @@ class ForwardersClient:
     def __init__(self, *, auth_client: _AuditAuthClient) -> None:
         self._auth = auth_client
 
-    def create(
+    def new(
         self,
         *,
         name: str,
@@ -173,16 +173,12 @@ class ForwardersClient:
         filter: dict[str, Any] | None = None,
         transform: str | None = None,
     ) -> Forwarder:
-        """Create a forwarder.
+        """Return an unsaved :class:`Forwarder`. Call :meth:`Forwarder.save` to persist.
 
         Args:
-            name: Display name. The slug is derived server-side.
+            name: Display name. Free-form.
             forwarder_type: A :class:`ForwarderType` enum member
                 (e.g. ``ForwarderType.HTTP``, ``ForwarderType.DATADOG``).
-                The constant is a ``str`` subclass, so callers passing
-                the literal string (``"http"``) still type-check
-                cleanly; the enum is the recommended form for IDE
-                autocomplete and grep-ability.
             configuration: Destination HTTP request configuration —
                 an :class:`HttpConfiguration` instance. Headers carry
                 credentials and are encrypted at rest server-side;
@@ -194,7 +190,8 @@ class ForwardersClient:
             transform: Optional JSONata template applied to the event
                 payload before POST. Empty/None sends the event as-is.
         """
-        attrs = _build_forwarder_attrs(
+        return Forwarder(
+            self,
             name=name,
             forwarder_type=forwarder_type,
             configuration=configuration,
@@ -203,10 +200,6 @@ class ForwardersClient:
             filter=filter,
             transform=transform,
         )
-        body = _GenForwarderRequest(data=_GenForwarderResource(id="", attributes=attrs))
-        resp = _gen_create_forwarder.sync_detailed(client=self._auth, body=body)
-        _expect_status(resp, 201)
-        return Forwarder._from_resource(resp.parsed.to_dict()["data"])
 
     def list(
         self,
@@ -235,51 +228,61 @@ class ForwardersClient:
         )
         _expect_status(resp, 200)
         body_dict = resp.parsed.to_dict()
-        forwarders = [Forwarder._from_resource(r) for r in body_dict.get("data", [])]
+        forwarders = [Forwarder._from_resource(r, client=self) for r in body_dict.get("data", [])]
         return ForwarderListPage(
             forwarders=forwarders,
             pagination=_extract_pagination(body_dict),
         )
 
     def get(self, forwarder_id: UUID | str) -> Forwarder:
+        """Fetch a single forwarder by id; returned instance is bound to this
+        client so ``forwarder.save()`` and ``forwarder.delete()`` work."""
         fid = forwarder_id if isinstance(forwarder_id, UUID) else UUID(str(forwarder_id))
         resp = _gen_get_forwarder.sync_detailed(forwarder_id=fid, client=self._auth)
         _expect_status(resp, 200)
-        return Forwarder._from_resource(resp.parsed.to_dict()["data"])
+        return Forwarder._from_resource(resp.parsed.to_dict()["data"], client=self)
 
-    def update(
-        self,
-        forwarder_id: UUID | str,
-        *,
-        name: str,
-        forwarder_type: ForwarderType,
-        configuration: HttpConfiguration,
-        enabled: bool = True,
-        description: str | None = None,
-        filter: dict[str, Any] | None = None,
-        transform: str | None = None,
-    ) -> Forwarder:
-        """Full-replace update. PUT semantics — every field is overwritten.
-
-        Header values must be re-supplied as plaintext; the GET path
-        redacts them, so a PUT body containing ``"<redacted>"`` would
-        persist that literal. Track real header values client-side and
-        round-trip them on update.
-        """
-        fid = forwarder_id if isinstance(forwarder_id, UUID) else UUID(str(forwarder_id))
+    def _create(self, forwarder: Forwarder) -> Forwarder:
+        """POST a new forwarder. Called by :meth:`Forwarder.save` on unsaved
+        instances; not intended for direct use."""
         attrs = _build_forwarder_attrs(
-            name=name,
-            forwarder_type=forwarder_type,
-            configuration=configuration,
-            enabled=enabled,
-            description=description,
-            filter=filter,
-            transform=transform,
+            name=forwarder.name,
+            forwarder_type=forwarder.forwarder_type,
+            configuration=forwarder.configuration,
+            enabled=forwarder.enabled,
+            description=forwarder.description,
+            filter=forwarder.filter,
+            transform=forwarder.transform,
         )
-        body = _GenForwarderRequest(data=_GenForwarderResource(id=str(fid), attributes=attrs))
-        resp = _gen_update_forwarder.sync_detailed(forwarder_id=fid, client=self._auth, body=body)
+        body = _GenForwarderRequest(data=_GenForwarderResource(id="", attributes=attrs))
+        resp = _gen_create_forwarder.sync_detailed(client=self._auth, body=body)
+        _expect_status(resp, 201)
+        return Forwarder._from_resource(resp.parsed.to_dict()["data"], client=self)
+
+    def _update(self, forwarder: Forwarder) -> Forwarder:
+        """Full-replace PUT for an existing forwarder. Called by
+        :meth:`Forwarder.save` on instances with ``created_at``; not intended
+        for direct use.
+
+        Header values must be re-supplied as plaintext; the GET path redacts
+        them, so a PUT body containing ``"<redacted>"`` would persist that
+        literal. Track real header values client-side and round-trip them.
+        """
+        if forwarder.id is None:
+            raise ValueError("cannot update a Forwarder with no id")
+        attrs = _build_forwarder_attrs(
+            name=forwarder.name,
+            forwarder_type=forwarder.forwarder_type,
+            configuration=forwarder.configuration,
+            enabled=forwarder.enabled,
+            description=forwarder.description,
+            filter=forwarder.filter,
+            transform=forwarder.transform,
+        )
+        body = _GenForwarderRequest(data=_GenForwarderResource(id=str(forwarder.id), attributes=attrs))
+        resp = _gen_update_forwarder.sync_detailed(forwarder_id=forwarder.id, client=self._auth, body=body)
         _expect_status(resp, 200)
-        return Forwarder._from_resource(resp.parsed.to_dict()["data"])
+        return Forwarder._from_resource(resp.parsed.to_dict()["data"], client=self)
 
     def delete(self, forwarder_id: UUID | str) -> None:
         """Soft-delete a forwarder."""

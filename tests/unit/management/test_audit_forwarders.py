@@ -17,6 +17,7 @@ from smplkit import Error, NotFoundError, PaymentRequiredError
 from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 from smplkit.audit import (
     Forwarder,
+    ForwarderType,
     HttpConfiguration,
     HttpHeader,
     HttpMethod,
@@ -125,6 +126,14 @@ class TestModels:
         assert f.deleted_at is None
         assert f.description is None
         assert f.transform_type is None
+        # No client attached when _from_resource is called bare.
+        assert f._client is None
+
+    def test_forwarder_repr(self):
+        f = Forwarder._from_resource(_forwarder_resource())
+        r = repr(f)
+        assert "Datadog production" in r
+        assert str(FWD_ID) in r
 
 
 # ---------------------------------------------------------------------------
@@ -133,7 +142,19 @@ class TestModels:
 
 
 class TestForwardersCrud:
-    def test_create(self):
+    def test_new_returns_unsaved_forwarder(self):
+        c = _client_with_handler(lambda req: httpx.Response(204))
+        fwd = c.forwarders.new(
+            name="Datadog production",
+            forwarder_type="DATADOG",
+            configuration=HttpConfiguration(url="https://x"),
+        )
+        assert isinstance(fwd, Forwarder)
+        assert fwd.id is None
+        assert fwd.created_at is None
+        assert fwd._client is c.forwarders
+
+    def test_new_then_save_posts(self):
         captured: dict[str, Any] = {}
 
         def handler(req: httpx.Request) -> httpx.Response:
@@ -143,7 +164,7 @@ class TestForwardersCrud:
             return httpx.Response(201, json={"data": _forwarder_resource()}, headers={"content-type": JSONAPI})
 
         c = _client_with_handler(handler)
-        fwd = c.forwarders.create(
+        fwd = c.forwarders.new(
             name="Datadog production",
             forwarder_type="DATADOG",
             configuration=HttpConfiguration(
@@ -154,15 +175,26 @@ class TestForwardersCrud:
             filter={"==": [{"var": "action"}, "user.created"]},
             transform="$",
         )
-        assert fwd.name == "Datadog production"
+        fwd.save()
+        # Server-assigned fields are now populated on the original instance.
+        assert fwd.id == FWD_ID
+        assert fwd.created_at is not None
+        assert fwd.version == 1
         assert captured["method"] == "POST"
         assert "/api/v1/forwarders" in captured["url"]
-        # The transform survives the round-trip; the on-the-wire body must
-        # carry it before the server redacts headers on the read. The
-        # description and transform_type also need to reach the server.
         assert "user.created" in captured["body"]
         assert "Forwards user.* events." in captured["body"]
         assert "JSONATA" in captured["body"]
+
+    def test_save_with_no_client_raises(self):
+        fwd = Forwarder(
+            None,
+            name="x",
+            forwarder_type=ForwarderType("HTTP"),
+            configuration=HttpConfiguration(url="https://x"),
+        )
+        with pytest.raises(RuntimeError, match="without a client"):
+            fwd.save()
 
     def test_create_402_raises_payment_required(self):
         # The audit service no longer returns 402 on forwarder creation
@@ -173,12 +205,13 @@ class TestForwardersCrud:
             return httpx.Response(402, json={"errors": [{"status": "402"}]})
 
         c = _client_with_handler(handler)
+        fwd = c.forwarders.new(
+            name="x",
+            forwarder_type="HTTP",
+            configuration=HttpConfiguration(url="https://x"),
+        )
         with pytest.raises(PaymentRequiredError):
-            c.forwarders.create(
-                name="x",
-                forwarder_type="HTTP",
-                configuration=HttpConfiguration(url="https://x"),
-            )
+            fwd.save()
 
     def test_list_paginates(self):
         pages = [
@@ -207,6 +240,8 @@ class TestForwardersCrud:
             enabled=True,
         )
         assert len(first.forwarders) == 1
+        # Listed forwarders are client-bound — save()/delete() on them works.
+        assert first.forwarders[0]._client is c.forwarders
         assert first.pagination["total"] == 2
         assert first.pagination["page"] == 1
         iterated = list(first)
@@ -223,28 +258,80 @@ class TestForwardersCrud:
         c = _client_with_handler(handler)
         fwd = c.forwarders.get(FWD_ID)
         assert fwd.id == FWD_ID
+        # Bound to the client so save()/delete() works.
+        assert fwd._client is c.forwarders
         # str id also accepted.
         fwd2 = c.forwarders.get(str(FWD_ID))
         assert fwd2.id == FWD_ID
 
-    def test_update(self):
+    def test_get_then_mutate_then_save_puts(self):
+        captured: dict[str, Any] = {}
+
         def handler(req):
-            assert req.method == "PUT"
-            return httpx.Response(200, json={"data": _forwarder_resource(name="Renamed")})
+            captured["method"] = req.method
+            captured["url"] = str(req.url)
+            captured["body"] = req.content.decode() if req.method == "PUT" else ""
+            if req.method == "GET":
+                return httpx.Response(200, json={"data": _forwarder_resource(enabled=True)})
+            return httpx.Response(200, json={"data": _forwarder_resource(enabled=False)})
 
         c = _client_with_handler(handler)
-        fwd = c.forwarders.update(
-            FWD_ID,
-            name="Renamed",
-            forwarder_type="DATADOG",
-            configuration=HttpConfiguration(url="https://x"),
-            enabled=False,
-            filter={"==": [1, 1]},
-            transform="$",
-        )
-        assert fwd.name == "Renamed"
+        fwd = c.forwarders.get(FWD_ID)
+        assert fwd.enabled is True
+        fwd.enabled = False
+        fwd.save()
+        assert captured["method"] == "PUT"
+        assert str(FWD_ID) in captured["url"]
+        assert '"enabled":false' in captured["body"]
+        # Server-truthful enabled value is back on the instance.
+        assert fwd.enabled is False
 
-    def test_delete(self):
+    def test_update_internal_with_no_id_raises(self):
+        c = _client_with_handler(lambda req: httpx.Response(204))
+        fwd = Forwarder(
+            c.forwarders,
+            name="x",
+            forwarder_type=ForwarderType("HTTP"),
+            configuration=HttpConfiguration(url="https://x"),
+            created_at=None,
+        )
+        # Manually mark as 'persisted' but leave id None to exercise the guard.
+        from datetime import datetime, timezone
+
+        fwd.created_at = datetime.now(timezone.utc)
+        with pytest.raises(ValueError, match="no id"):
+            fwd.save()
+
+    def test_forwarder_delete_removes_via_id(self):
+        captured: dict[str, str] = {}
+
+        def handler(req):
+            captured["method"] = req.method
+            captured["path"] = req.url.path
+            return httpx.Response(204)
+
+        c = _client_with_handler(handler)
+        fwd = Forwarder._from_resource(_forwarder_resource(), client=c.forwarders)
+        fwd.delete()
+        assert captured["method"] == "DELETE"
+        assert str(FWD_ID) in captured["path"]
+
+    def test_forwarder_delete_without_id_raises(self):
+        c = _client_with_handler(lambda req: httpx.Response(204))
+        fwd = c.forwarders.new(
+            name="x",
+            forwarder_type="HTTP",
+            configuration=HttpConfiguration(url="https://x"),
+        )
+        with pytest.raises(RuntimeError, match="without a client or id"):
+            fwd.delete()
+
+    def test_forwarder_delete_without_client_raises(self):
+        fwd = Forwarder._from_resource(_forwarder_resource())  # no client
+        with pytest.raises(RuntimeError, match="without a client or id"):
+            fwd.delete()
+
+    def test_client_delete_by_id_still_works(self):
         captured: dict[str, str] = {}
 
         def handler(req):
@@ -253,8 +340,7 @@ class TestForwardersCrud:
 
         c = _client_with_handler(handler)
         c.forwarders.delete(FWD_ID)
-        # str id also accepted.
-        c.forwarders.delete(str(FWD_ID))
+        c.forwarders.delete(str(FWD_ID))  # str id also accepted
         assert captured["method"] == "DELETE"
 
     def test_delete_404_raises_not_found(self):
@@ -275,17 +361,18 @@ class TestForwardersCrud:
         with pytest.raises(Error):
             c.forwarders.delete(FWD_ID)
 
-    def test_create_unexpected_2xx_status_raises_error(self):
+    def test_save_unexpected_2xx_status_raises_error(self):
         def handler(req):
             return httpx.Response(200, json={})
 
         c = _client_with_handler(handler)
+        fwd = c.forwarders.new(
+            name="x",
+            forwarder_type="HTTP",
+            configuration=HttpConfiguration(url="https://x"),
+        )
         with pytest.raises(Error):
-            c.forwarders.create(
-                name="x",
-                forwarder_type="HTTP",
-                configuration=HttpConfiguration(url="https://x"),
-            )
+            fwd.save()
 
 
 def test_async_client_exposes_forwarders():

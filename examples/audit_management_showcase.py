@@ -42,63 +42,43 @@ def main() -> None:
     with SmplManagementClient() as manage:
         forwarder_name = f"showcase-{uuid.uuid4().hex[:6]}"
 
-        # create a forwarder
-        forwarder = manage.audit.forwarders.create(
+        # 1) build a new forwarder, then persist it with .save()
+        forwarder = manage.audit.forwarders.new(
             name=forwarder_name,
             forwarder_type=ForwarderType.HTTP,
             configuration=HttpConfiguration(
                 method=HttpMethod.POST,
                 url="https://httpbin.org/post",
                 headers=[HttpHeader(name="X-Showcase", value="ok")],
-                success_status="2xx",
             ),
             filter=INVOICE_FILTER,
             transform=SIEM_TRANSFORM,
         )
-        assert forwarder.name == forwarder_name
-        assert forwarder.enabled is True
-        assert forwarder.filter == INVOICE_FILTER
-        assert forwarder.transform == SIEM_TRANSFORM
-        print(f"Created forwarder: {forwarder.name}")
+        forwarder.save()
+        print(f"Created forwarder: {forwarder.name} (id={forwarder.id})")
 
-        # fetch a forwarder
-        fetched = manage.audit.forwarders.get(forwarder.id)
-        assert fetched.id == forwarder.id
-        assert fetched.name == forwarder_name
-        assert fetched.filter == INVOICE_FILTER
-        assert fetched.transform == SIEM_TRANSFORM
-        print(f"Fetched forwarder: {fetched.name}")
-
-        # list forwarders
+        # 2) list every forwarder on the account
         listed = manage.audit.forwarders.list()
         assert forwarder.id in {f.id for f in listed.forwarders}
         print(f"Account has {len(listed.forwarders)} forwarder(s)")
 
-        # update a forwarder
-        renamed = f"{forwarder.name}-renamed"
-        updated = manage.audit.forwarders.update(
-            forwarder.id,
-            name=renamed,
-            forwarder_type=forwarder.forwarder_type,
-            configuration=HttpConfiguration(
-                method=HttpMethod.POST,
-                url="https://httpbin.org/post",
-                headers=[HttpHeader(name="X-Showcase", value="ok")],
-                success_status="2xx",
-            ),
-            enabled=False,
-            filter=INVOICE_FILTER,
-            transform=SIEM_TRANSFORM,
-        )
-        assert updated.name == renamed
-        assert updated.enabled is False
-        print(f"Updated forwarder: {updated.name} (enabled={updated.enabled})")
+        # 3) fetch this forwarder by id
+        fetched = manage.audit.forwarders.get(forwarder.id)
+        assert fetched.id == forwarder.id
+        assert fetched.enabled is True
+        print(f"Fetched forwarder: {fetched.name}")
 
-        # delete a forwarder
-        manage.audit.forwarders.delete(forwarder.id)
+        # 4) mutate the fetched instance and save — active-record style
+        fetched.enabled = False
+        fetched.save()
+        assert fetched.enabled is False
+        print(f"Disabled forwarder: {fetched.name} (enabled={fetched.enabled})")
+
+        # 5) delete via the active-record instance
+        fetched.delete()
         remaining = manage.audit.forwarders.list()
-        assert forwarder.id not in {f.id for f in remaining.forwarders}
-        print(f"Deleted forwarder: {forwarder.name}")
+        assert fetched.id not in {f.id for f in remaining.forwarders}
+        print(f"Deleted forwarder: {fetched.name}")
 
         print("Done!")
 
