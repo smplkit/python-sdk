@@ -42,7 +42,7 @@ def main() -> None:
     with SmplManagementClient() as manage:
         forwarder_name = f"showcase-{uuid.uuid4().hex[:6]}"
 
-        # 1) build a new forwarder, then persist it with .save()
+        # create a new forwarder
         forwarder = manage.audit.forwarders.new(
             name=forwarder_name,
             forwarder_type=ForwarderType.HTTP,
@@ -57,24 +57,24 @@ def main() -> None:
         forwarder.save()
         print(f"Created forwarder: {forwarder.name} (id={forwarder.id})")
 
-        # 2) list every forwarder on the account
+        # list forwarders
         listed = manage.audit.forwarders.list()
         assert forwarder.id in {f.id for f in listed.forwarders}
         print(f"Account has {len(listed.forwarders)} forwarder(s)")
 
-        # 3) fetch this forwarder by id
+        # get a forwarder
         fetched = manage.audit.forwarders.get(forwarder.id)
         assert fetched.id == forwarder.id
         assert fetched.enabled is True
         print(f"Fetched forwarder: {fetched.name}")
 
-        # 4) mutate the fetched instance and save — active-record style
+        # update a forwarder
         fetched.enabled = False
         fetched.save()
         assert fetched.enabled is False
         print(f"Disabled forwarder: {fetched.name} (enabled={fetched.enabled})")
 
-        # 5) delete via the active-record instance
+        # delete a forwarder
         fetched.delete()
         remaining = manage.audit.forwarders.list()
         assert fetched.id not in {f.id for f in remaining.forwarders}
