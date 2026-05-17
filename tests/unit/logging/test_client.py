@@ -1291,31 +1291,33 @@ class TestWebSocketEventHandling:
         assert client._ws_manager is None
 
     @patch("smplkit.logging.client.get_logger.sync_detailed")
-    def test_handle_logger_changed_scoped_fetch_and_apply(self, mock_get):
-        """logger_changed fetches single logger and fires listener when content changed."""
+    def test_handle_logger_changed_scoped_fetch_and_fires(self, mock_get):
+        """logger_changed fires once per logger whose effective level moved."""
         mock_get.return_value = _make_logger_response("sqlalchemy.engine", level="INFO")
         client = _make_logging_client()
+        client._name_map["sqlalchemy.engine"] = "sqlalchemy.engine"
         client._loggers_cache["sqlalchemy.engine"] = {
             "level": "DEBUG",
             "group": None,
             "managed": True,
             "environments": {},
         }
-        from unittest.mock import MagicMock as MM
-
-        listener = MM()
+        listener = MagicMock()
         client._global_listeners.append(listener)
         client._handle_logger_changed({"id": "sqlalchemy.engine"})
         mock_get.assert_called_once()
         listener.assert_called_once()
         event = listener.call_args[0][0]
+        assert event.id == "sqlalchemy.engine"
         assert event.source == "websocket"
+        assert event.level == "INFO"
 
     @patch("smplkit.logging.client.get_logger.sync_detailed")
-    def test_handle_logger_changed_no_fire_when_unchanged(self, mock_get):
-        """logger_changed fires no listener when content is identical."""
+    def test_handle_logger_changed_no_fire_when_effective_unchanged(self, mock_get):
+        """logger_changed fires no listener when effective level is unchanged."""
         mock_get.return_value = _make_logger_response("sqlalchemy.engine", level="DEBUG")
         client = _make_logging_client()
+        client._name_map["sqlalchemy.engine"] = "sqlalchemy.engine"
         client._loggers_cache["sqlalchemy.engine"] = {
             "level": "DEBUG",
             "group": None,
@@ -1327,25 +1329,30 @@ class TestWebSocketEventHandling:
         client._handle_logger_changed({"id": "sqlalchemy.engine"})
         listener.assert_not_called()
 
-    def test_handle_logger_deleted_removes_and_fires(self):
-        """logger_deleted removes entry and fires listener with deleted=True."""
+    def test_handle_logger_deleted_removes_cache_and_fires_no_event_for_deleted_key(self):
+        """logger_deleted removes the cache entry. The deleted logger itself
+        fires no listener (deletion is not a level change). Loggers whose
+        effective level changes due to the deletion fire normally."""
         client = _make_logging_client()
+        client._name_map["sqlalchemy.engine"] = "sqlalchemy.engine"
         client._loggers_cache["sqlalchemy.engine"] = {
             "level": "DEBUG",
             "group": None,
             "managed": True,
             "environments": {},
         }
-        listener = MagicMock()
-        client._global_listeners.append(listener)
+        global_listener = MagicMock()
+        key_listener_on_deleted = MagicMock()
+        client._global_listeners.append(global_listener)
+        client._key_listeners["sqlalchemy.engine"] = [key_listener_on_deleted]
         client._handle_logger_deleted({"id": "sqlalchemy.engine"})
         assert "sqlalchemy.engine" not in client._loggers_cache
-        listener.assert_called_once()
-        event = listener.call_args[0][0]
-        assert event.deleted is True
+        # The deleted entity's own listener never fires for a deletion.
+        global_listener.assert_not_called()
+        key_listener_on_deleted.assert_not_called()
 
     def test_handle_logger_deleted_missing_key_no_fire(self):
-        """logger_deleted does not fire when key was not in store."""
+        """logger_deleted does not fire when the key was not in cache."""
         client = _make_logging_client()
         listener = MagicMock()
         client._global_listeners.append(listener)
@@ -1353,12 +1360,12 @@ class TestWebSocketEventHandling:
         listener.assert_not_called()
 
     @patch("smplkit.logging.client.get_log_group.sync_detailed")
-    def test_handle_group_changed_scoped_fetch_and_apply(self, mock_get):
-        """group_changed fires listeners for loggers whose resolved level changed."""
+    def test_handle_group_changed_cascades_to_dependent_logger(self, mock_get):
+        """group_changed fires once per dependent logger whose effective level moved."""
         mock_get.return_value = _make_group_response("db-loggers", level="ERROR")
         client = _make_logging_client()
+        client._name_map["app.db"] = "app.db"
         client._groups_cache["db-loggers"] = {"level": "WARN", "group": None, "environments": {}}
-        # A logger that inherits from the group — its resolved level moves WARN→ERROR.
         client._loggers_cache["app.db"] = {
             "level": None,
             "group": "db-loggers",
@@ -1372,42 +1379,46 @@ class TestWebSocketEventHandling:
         client._handle_group_changed({"id": "db-loggers"})
         mock_get.assert_called_once()
         global_listener.assert_called_once()
+        event = global_listener.call_args[0][0]
+        assert event.id == "app.db"
+        assert event.level == "ERROR"
         key_listener.assert_called_once()
         assert key_listener.call_args[0][0].id == "app.db"
 
-    def test_handle_group_deleted_removes_and_fires(self):
-        """group_deleted fires deleted=True for the group key if it had a listener;
-        descendant loggers fire as normal level changes."""
+    def test_handle_group_deleted_cascade_no_event_for_group_key(self):
+        """group_deleted cascades to dependent loggers; no event for the group id."""
         client = _make_logging_client()
+        client._name_map["app.db"] = "app.db"
         client._groups_cache["db-loggers"] = {"level": "WARN", "group": None, "environments": {}}
-        # Logger inherits from the group; its resolved level was WARN, will fall
-        # to system default INFO once the group is gone.
         client._loggers_cache["app.db"] = {
             "level": None,
             "group": "db-loggers",
             "managed": True,
             "environments": {},
         }
-        group_listener = MagicMock()
-        client._key_listeners["db-loggers"] = [group_listener]
+        # A listener on the group key — must NOT fire (groups aren't loggers).
+        group_key_listener = MagicMock()
+        client._key_listeners["db-loggers"] = [group_key_listener]
         logger_listener = MagicMock()
         client._key_listeners["app.db"] = [logger_listener]
         client._handle_group_deleted({"id": "db-loggers"})
         assert "db-loggers" not in client._groups_cache
-        group_listener.assert_called_once()
-        assert group_listener.call_args[0][0].deleted is True
+        group_key_listener.assert_not_called()
         logger_listener.assert_called_once()
-        assert logger_listener.call_args[0][0].deleted is False
+        event = logger_listener.call_args[0][0]
+        assert event.id == "app.db"
+        assert event.level == "INFO"  # system fallback
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
     def test_handle_loggers_changed_full_refetch_and_diff_fire(self, mock_loggers, mock_groups):
-        """loggers_changed does a full list fetch and fires listeners for changed keys."""
+        """loggers_changed re-fetches and fires once per logger whose effective level moved."""
         logger_attrs = _make_logger_attrs(name="SQL Logger", level="INFO")
         resource = _make_resource(logger_attrs, id="sqlalchemy.engine")
         mock_loggers.return_value = _ok_response(_make_list_parsed([resource]))
         mock_groups.return_value = _ok_response(_make_list_parsed([]))
         client = _make_logging_client()
+        client._name_map["sqlalchemy.engine"] = "sqlalchemy.engine"
         client._loggers_cache["sqlalchemy.engine"] = {
             "level": "DEBUG",
             "group": None,
@@ -1419,6 +1430,7 @@ class TestWebSocketEventHandling:
         client._handle_loggers_changed({})
         mock_loggers.assert_called_once()
         listener.assert_called_once()
+        assert listener.call_args[0][0].level == "INFO"
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
@@ -1443,10 +1455,11 @@ class TestWebSocketEventHandling:
         client._handle_group_changed({"id": "db-loggers"})  # should not raise
 
     @patch("smplkit.logging.client.get_logger.sync_detailed")
-    def test_fire_change_listeners_global_exception_swallowed(self, mock_get):
-        """_fire_change_listeners swallows exceptions from global listeners."""
+    def test_global_listener_exception_swallowed(self, mock_get):
+        """_fire_for_logger swallows exceptions from global listeners."""
         mock_get.return_value = _make_logger_response("sqlalchemy.engine", level="INFO")
         client = _make_logging_client()
+        client._name_map["sqlalchemy.engine"] = "sqlalchemy.engine"
         client._loggers_cache["sqlalchemy.engine"] = {
             "level": "DEBUG",
             "group": None,
@@ -1460,10 +1473,11 @@ class TestWebSocketEventHandling:
         good.assert_called_once()
 
     @patch("smplkit.logging.client.get_logger.sync_detailed")
-    def test_fire_change_listeners_key_listener_exception_swallowed(self, mock_get):
-        """_fire_change_listeners swallows exceptions from per-key listeners."""
+    def test_key_listener_exception_swallowed(self, mock_get):
+        """_fire_for_logger swallows exceptions from per-key listeners."""
         mock_get.return_value = _make_logger_response("sqlalchemy.engine", level="INFO")
         client = _make_logging_client()
+        client._name_map["sqlalchemy.engine"] = "sqlalchemy.engine"
         client._loggers_cache["sqlalchemy.engine"] = {
             "level": "DEBUG",
             "group": None,
@@ -1479,100 +1493,114 @@ class TestWebSocketEventHandling:
     def test_logger_change_event_repr(self):
         from smplkit.logging.client import LoggerChangeEvent
 
-        event = LoggerChangeEvent(id="sqlalchemy.engine", source="websocket", deleted=True)
+        event = LoggerChangeEvent(id="sqlalchemy.engine", level="DEBUG", source="websocket")
         r = repr(event)
         assert "sqlalchemy.engine" in r
         assert "websocket" in r
-        assert "True" in r
+        assert "DEBUG" in r
 
 
 # ---------------------------------------------------------------------------
-# Resolved-level diff fire (Go-SDK-style snapshot+delta)
+# Listener fanout diagnostics
 #
-# These tests pin down the three diagnostic scenarios from the bug report:
-# group-driven cascade, group deletion cascade, and dot-ancestry cascade.
-# Plus the negative check — non-resolving cache mutations must not fire.
+# One invocation per effective-level apply. Global listeners are
+# semantically a key-scoped subscription on every logger — so an N-way
+# cascade fires N invocations of every global, not one summary event.
+# Deletion is not a level change: the deleted entity itself never fires;
+# only dependent loggers whose effective level moves fire (through the
+# normal apply path).
 # ---------------------------------------------------------------------------
 
 
-class TestResolvedLevelDeltaFire:
-    @patch("smplkit.logging.client.get_log_group.sync_detailed")
-    def test_group_change_cascades_to_inherited_logger(self, mock_get):
-        """A managed logger that inherits from a group fires when the group's level moves."""
-        mock_get.return_value = _make_group_response("sql", level="ERROR")
-        client = _make_logging_client()
-        client._groups_cache["sql"] = {"level": "WARN", "group": None, "environments": {}}
-        client._loggers_cache["app.db"] = {
-            "level": None,
-            "group": "sql",
-            "managed": True,
-            "environments": {},
-        }
-        listener = MagicMock()
-        client._key_listeners["app.db"] = [listener]
-        client._handle_group_changed({"id": "sql"})
-        listener.assert_called_once()
-        assert listener.call_args[0][0].id == "app.db"
-        assert listener.call_args[0][0].deleted is False
-
-    def test_group_deletion_cascades_to_inherited_logger(self):
-        """Deleting a group fires deleted=False on inheriting loggers whose
-        resolved level falls back to the system default."""
-        client = _make_logging_client()
-        client._groups_cache["sql"] = {"level": "WARN", "group": None, "environments": {}}
-        client._loggers_cache["app.db"] = {
-            "level": None,
-            "group": "sql",
-            "managed": True,
-            "environments": {},
-        }
-        listener = MagicMock()
-        client._key_listeners["app.db"] = [listener]
-        client._handle_group_deleted({"id": "sql"})
-        listener.assert_called_once()
-        assert listener.call_args[0][0].id == "app.db"
-        assert listener.call_args[0][0].deleted is False
-
+class TestListenerFanoutDiagnostics:
     @patch("smplkit.logging.client.get_logger.sync_detailed")
-    def test_logger_change_cascades_to_dot_descendant(self, mock_get):
-        """A descendant logger (com.acme.payments) fires when its dot-ancestor
-        (com.acme) moves — even though the descendant isn't in any cache."""
+    def test_diagnostic_1_dot_ancestor_cascade_fires_per_logger(self, mock_get):
+        """logger_changed on com.acme cascades to 5 descendants → global fires 6x."""
         mock_get.return_value = _make_logger_response("com.acme", level="ERROR")
         client = _make_logging_client()
-        client._loggers_cache["com.acme"] = {
-            "level": "WARN",
-            "group": None,
-            "managed": True,
-            "environments": {},
-        }
-        descendant_listener = MagicMock()
-        client._key_listeners["com.acme.payments"] = [descendant_listener]
+        for name in ["com.acme", "com.acme.a", "com.acme.b", "com.acme.c", "com.acme.d", "com.acme.e"]:
+            client._name_map[name] = name
+            client._loggers_cache[name] = {
+                "level": "WARN" if name == "com.acme" else None,
+                "group": None,
+                "managed": True,
+                "environments": {},
+            }
+        global_listener = MagicMock()
+        client._global_listeners.append(global_listener)
         client._handle_logger_changed({"id": "com.acme"})
-        descendant_listener.assert_called_once()
-        assert descendant_listener.call_args[0][0].id == "com.acme.payments"
+        assert global_listener.call_count == 6
+        # Each invocation carries one logger's id and the new level.
+        ids = {c.args[0].id for c in global_listener.call_args_list}
+        levels = {c.args[0].level for c in global_listener.call_args_list}
+        assert ids == {"com.acme", "com.acme.a", "com.acme.b", "com.acme.c", "com.acme.d", "com.acme.e"}
+        assert levels == {"ERROR"}
 
-    def test_fire_change_listeners_empty_list_is_noop(self):
-        """Empty changed-keys list is a no-op (defensive guard against bad callers)."""
+    @patch("smplkit.logging.client.get_log_group.sync_detailed")
+    def test_diagnostic_2_group_cascade_fires_per_logger(self, mock_get):
+        """group_changed on app cascades to 3 dependent loggers → global fires 3x."""
+        mock_get.return_value = _make_group_response("app", level="ERROR")
         client = _make_logging_client()
-        listener = MagicMock()
-        client._global_listeners.append(listener)
-        client._fire_change_listeners([], "websocket")
-        listener.assert_not_called()
+        client._groups_cache["app"] = {"level": "WARN", "group": None, "environments": {}}
+        for name in ["app.db", "app.queue", "app.api"]:
+            client._name_map[name] = name
+            client._loggers_cache[name] = {
+                "level": None,
+                "group": "app",
+                "managed": True,
+                "environments": {},
+            }
+        global_listener = MagicMock()
+        client._global_listeners.append(global_listener)
+        client._handle_group_changed({"id": "app"})
+        assert global_listener.call_count == 3
+        ids = {c.args[0].id for c in global_listener.call_args_list}
+        assert ids == {"app.db", "app.queue", "app.api"}
+        assert all(c.args[0].level == "ERROR" for c in global_listener.call_args_list)
+
+    def test_diagnostic_3_group_deleted_cascade_fires_per_dependent_no_deleted_event(self):
+        """group_deleted on app fires 3 cascade events for dependents. NO event
+        for the deleted group id; NO deleted-flavored event anywhere."""
+        client = _make_logging_client()
+        client._groups_cache["app"] = {"level": "ERROR", "group": None, "environments": {}}
+        for name in ["app.db", "app.queue", "app.api"]:
+            client._name_map[name] = name
+            client._loggers_cache[name] = {
+                "level": None,
+                "group": "app",
+                "managed": True,
+                "environments": {},
+            }
+        global_listener = MagicMock()
+        client._global_listeners.append(global_listener)
+        # Listener on the deleted group key — must not fire (groups aren't loggers).
+        group_key_listener = MagicMock()
+        client._key_listeners["app"] = [group_key_listener]
+        client._handle_group_deleted({"id": "app"})
+        assert global_listener.call_count == 3
+        ids = [c.args[0].id for c in global_listener.call_args_list]
+        assert set(ids) == {"app.db", "app.queue", "app.api"}
+        # No event carries id="app", no event has a `deleted` field at all.
+        assert "app" not in ids
+        for c in global_listener.call_args_list:
+            assert not hasattr(c.args[0], "deleted")
+            assert c.args[0].level == "INFO"  # system fallback
+        group_key_listener.assert_not_called()
 
     @patch("smplkit.logging.client.get_logger.sync_detailed")
-    def test_non_resolving_change_does_not_fire(self, mock_get):
-        """A cache mutation that does not change the resolved level for the
-        active environment must not fire any listener (negative check)."""
-        # Same own-level, only the 'staging' env override moves. The active
-        # environment is 'test', so resolved level is unchanged.
+    def test_diagnostic_4_name_only_edit_fires_nothing(self, mock_get):
+        """logger_changed whose payload differs only on a non-resolving field
+        (here: an off-environment override) fires zero listener invocations."""
+        # Active env is "test". The fetched logger keeps its own level WARN and
+        # only adds a staging override → effective level for "test" is unchanged.
         new_logger = _make_logger_response("app.db", level="WARN")
-        # Tack on an environments map that wasn't there before.
         new_logger.parsed.data.attributes.environments = MagicMock(
             additional_properties={"staging": MagicMock(level="DEBUG")},
         )
         mock_get.return_value = new_logger
 
         client = _make_logging_client()
+        client._name_map["app.db"] = "app.db"
         client._loggers_cache["app.db"] = {
             "level": "WARN",
             "group": None,
@@ -1586,6 +1614,75 @@ class TestResolvedLevelDeltaFire:
         client._handle_logger_changed({"id": "app.db"})
         global_listener.assert_not_called()
         key_listener.assert_not_called()
+
+    def test_snapshot_skips_loggers_not_in_cache_or_unmanaged(self):
+        """_snapshot_effective_levels skips a name_map entry that has no cache
+        row or whose cache row is unmanaged."""
+        client = _make_logging_client()
+        client._name_map["app.unknown"] = "app.unknown"  # no cache entry
+        client._name_map["app.unmanaged"] = "app.unmanaged"
+        client._loggers_cache["app.unmanaged"] = {
+            "level": "DEBUG",
+            "group": None,
+            "managed": False,
+            "environments": {},
+        }
+        client._name_map["app.tracked"] = "app.tracked"
+        client._loggers_cache["app.tracked"] = {
+            "level": "WARN",
+            "group": None,
+            "managed": True,
+            "environments": {},
+        }
+        snap = client._snapshot_effective_levels()
+        assert snap == {"app.tracked": "WARN"}
+
+    def test_apply_deltas_swallows_adapter_exception(self):
+        """A misbehaving adapter is logged and the fire path continues."""
+        client = _make_logging_client()
+        client._name_map["app.db"] = "app.db"
+        client._loggers_cache["app.db"] = {
+            "level": "WARN",
+            "group": None,
+            "managed": True,
+            "environments": {},
+        }
+        bad_adapter = MagicMock()
+        bad_adapter.name = "bad"
+        bad_adapter.apply_level.side_effect = RuntimeError("adapter exploded")
+        client._adapters = [bad_adapter]
+        listener = MagicMock()
+        client._global_listeners.append(listener)
+        # Pre is empty, so any current level counts as a delta — apply and fire.
+        client._apply_deltas_and_fire({}, "websocket")
+        # Adapter's apply_level was called and raised; fire still happened.
+        bad_adapter.apply_level.assert_called_once()
+        listener.assert_called_once()
+
+    def test_refresh_fires_with_source_manual(self):
+        """refresh() runs the delta path with source='manual' (not 'websocket')."""
+        client = _make_logging_client()
+        client._name_map["app.db"] = "app.db"
+        # Cache starts at WARN; mock the refresh to return ERROR.
+        client._loggers_cache["app.db"] = {
+            "level": "WARN",
+            "group": None,
+            "managed": True,
+            "environments": {},
+        }
+        with (
+            patch("smplkit.logging.client.list_loggers.sync_detailed") as mock_loggers,
+            patch("smplkit.logging.client.list_log_groups.sync_detailed") as mock_groups,
+        ):
+            attrs = _make_logger_attrs(name="app.db", level="ERROR")
+            mock_loggers.return_value = _ok_response(_make_list_parsed([_make_resource(attrs, id="app.db")]))
+            mock_groups.return_value = _ok_response(_make_list_parsed([]))
+            listener = MagicMock()
+            client._global_listeners.append(listener)
+            client.refresh()
+        listener.assert_called_once()
+        assert listener.call_args[0][0].source == "manual"
+        assert listener.call_args[0][0].level == "ERROR"
 
 
 # ---------------------------------------------------------------------------
