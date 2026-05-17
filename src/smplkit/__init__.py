@@ -22,15 +22,21 @@ from smplkit.management.types import Color, EnvironmentClassification
 
 
 class LogLevel(str, enum.Enum):
-    """Log severity levels used by the Smpl Logging service."""
+    """Log severity levels used by the Smpl Logging service.
 
-    TRACE = "TRACE"
+    Members are declared in alphabetical order. Severity ordering is
+    not derived from declaration order — see
+    :mod:`smplkit.logging._levels` for the canonical Python ↔ smplkit
+    integer mapping.
+    """
+
     DEBUG = "DEBUG"
-    INFO = "INFO"
-    WARN = "WARN"
     ERROR = "ERROR"
     FATAL = "FATAL"
+    INFO = "INFO"
     SILENT = "SILENT"
+    TRACE = "TRACE"
+    WARN = "WARN"
 
 
 __all__ = [

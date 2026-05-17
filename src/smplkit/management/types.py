@@ -20,8 +20,8 @@ class EnvironmentClassification(str, enum.Enum):
     standard ordering.
     """
 
-    STANDARD = "STANDARD"
     AD_HOC = "AD_HOC"
+    STANDARD = "STANDARD"
 
 
 _HEX_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")

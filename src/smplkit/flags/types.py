@@ -16,14 +16,14 @@ class Op(str, enum.Enum):
     compatibility.
     """
 
+    CONTAINS = "contains"
     EQ = "=="
-    NEQ = "!="
-    LT = "<"
-    LTE = "<="
     GT = ">"
     GTE = ">="
     IN = "in"
-    CONTAINS = "contains"
+    LT = "<"
+    LTE = "<="
+    NEQ = "!="
 
 
 _CONTEXT_FIELDS = frozenset(

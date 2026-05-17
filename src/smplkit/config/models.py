@@ -20,10 +20,10 @@ logger = logging.getLogger("smplkit")
 class ItemType(str, Enum):
     """Type of a :class:`ConfigItem` value."""
 
-    STRING = "STRING"
-    NUMBER = "NUMBER"
     BOOLEAN = "BOOLEAN"
     JSON = "JSON"
+    NUMBER = "NUMBER"
+    STRING = "STRING"
 
 
 class ConfigItem:

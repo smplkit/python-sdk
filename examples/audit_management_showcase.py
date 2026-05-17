@@ -15,7 +15,7 @@ Usage::
 import uuid
 
 from smplkit import SmplManagementClient
-from smplkit.audit import ForwarderType, HttpConfiguration, HttpHeader
+from smplkit.audit import ForwarderType, HttpConfiguration, HttpHeader, HttpMethod
 
 
 # JSON Logic filter — only forward ``invoice.*`` actions.
@@ -47,7 +47,7 @@ def main() -> None:
             name=forwarder_name,
             forwarder_type=ForwarderType.HTTP,
             configuration=HttpConfiguration(
-                method="POST",
+                method=HttpMethod.POST,
                 url="https://httpbin.org/post",
                 headers=[HttpHeader(name="X-Showcase", value="ok")],
                 success_status="2xx",
@@ -81,7 +81,7 @@ def main() -> None:
             name=renamed,
             forwarder_type=forwarder.forwarder_type,
             configuration=HttpConfiguration(
-                method="POST",
+                method=HttpMethod.POST,
                 url="https://httpbin.org/post",
                 headers=[HttpHeader(name="X-Showcase", value="ok")],
                 success_status="2xx",

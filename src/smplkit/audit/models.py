@@ -34,13 +34,29 @@ class ForwarderType(str, enum.Enum):
     §2.12.
     """
 
-    HTTP = "HTTP"
     DATADOG = "DATADOG"
+    ELASTIC = "ELASTIC"
+    HONEYCOMB = "HONEYCOMB"
+    HTTP = "HTTP"
+    NEW_RELIC = "NEW_RELIC"
     SPLUNK_HEC = "SPLUNK_HEC"
     SUMO_LOGIC = "SUMO_LOGIC"
-    NEW_RELIC = "NEW_RELIC"
-    HONEYCOMB = "HONEYCOMB"
-    ELASTIC = "ELASTIC"
+
+
+class HttpMethod(str, enum.Enum):
+    """HTTP verb used by a forwarder's outbound delivery.
+
+    Mirrors the audit spec's ``HttpConfigurationMethod`` enum so
+    customers get autocomplete and a typed value back from
+    ``forwarder.configuration.method``. ``str`` subclassing keeps
+    interop with raw strings transparent (``HttpMethod.POST == "POST"``).
+    """
+
+    DELETE = "DELETE"
+    GET = "GET"
+    PATCH = "PATCH"
+    POST = "POST"
+    PUT = "PUT"
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,18 +115,20 @@ class HttpHeader:
 class HttpConfiguration:
     """Forwarder destination HTTP request shape.
 
-    ``success_status`` is a 3-character string: either an exact code
-    (``"200"``, ``"204"``) or a class (``"2xx"``, ``"4xx"``).
+    ``method`` is an :class:`HttpMethod` enum member; the ``str``
+    subclass keeps raw-string callers working.  ``success_status`` is a
+    3-character string: either an exact code (``"200"``, ``"204"``) or
+    a class (``"2xx"``, ``"4xx"``).
     """
 
-    method: str = "POST"
+    method: HttpMethod = HttpMethod.POST
     url: str = ""
     headers: list[HttpHeader] = field(default_factory=list)
     success_status: str = "2xx"
 
     def _to_dict(self) -> dict[str, Any]:
         return {
-            "method": self.method,
+            "method": HttpMethod(self.method).value,
             "url": self.url,
             "headers": [h._to_dict() for h in self.headers],
             "success_status": self.success_status,
@@ -119,7 +137,7 @@ class HttpConfiguration:
     @classmethod
     def _from_dict(cls, raw: dict[str, Any]) -> "HttpConfiguration":
         return cls(
-            method=raw.get("method") or "POST",
+            method=HttpMethod(raw.get("method") or HttpMethod.POST),
             url=raw.get("url") or "",
             headers=[HttpHeader(name=h.get("name", ""), value=h.get("value", "")) for h in raw.get("headers") or []],
             success_status=raw.get("success_status") or "2xx",

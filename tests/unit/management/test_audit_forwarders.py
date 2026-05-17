@@ -19,6 +19,7 @@ from smplkit.audit import (
     Forwarder,
     HttpConfiguration,
     HttpHeader,
+    HttpMethod,
 )
 from smplkit.management.audit import AuditClient
 
@@ -87,21 +88,33 @@ class TestModels:
 
     def test_http_configuration_round_trip(self):
         h = HttpConfiguration(
-            method="PUT",
+            method=HttpMethod.PUT,
             url="https://x.example/in",
             headers=[HttpHeader(name="A", value="1")],
             success_status="200",
         )
         d = h._to_dict()
+        assert d["method"] == "PUT"
         again = HttpConfiguration._from_dict(d)
         assert again == h
+        assert isinstance(again.method, HttpMethod)
 
     def test_http_configuration_from_dict_defaults(self):
         # Empty dict should produce a sane default HttpConfiguration.
         h = HttpConfiguration._from_dict({})
-        assert h.method == "POST"
+        assert h.method == HttpMethod.POST
         assert h.headers == []
         assert h.success_status == "2xx"
+
+    def test_http_configuration_accepts_raw_string_method(self):
+        # ``HttpMethod`` is a ``str`` subclass, so callers passing the
+        # literal still type-check and round-trip cleanly.
+        h = HttpConfiguration._from_dict({"method": "PATCH", "url": "https://x"})
+        assert h.method == HttpMethod.PATCH
+
+    def test_http_method_enum_members_are_alphabetical(self):
+        names = [m.name for m in HttpMethod]
+        assert names == sorted(names)
 
     def test_forwarder_from_resource(self):
         f = Forwarder._from_resource(_forwarder_resource())
