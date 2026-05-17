@@ -29,7 +29,8 @@ class HttpConfiguration:
     ``configuration`` field of ``Forwarder``.
 
         Attributes:
-            url (str): Destination URL.
+            url (str): Destination URL. Must be an absolute `http://` or `https://` URL with a hostname (e.g.
+                `https://siem.example.com/in`).
             method (HttpConfigurationMethod | Unset): HTTP method used when delivering an event. Default: 'POST'.
             headers (list[HttpHeader] | Unset): HTTP headers attached to each delivery request.
             success_status (str | Unset): HTTP response status that indicates a successful delivery. Either a specific

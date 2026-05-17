@@ -26,7 +26,8 @@ class TestForwarderRequest:
     addition: `timeout_ms`, applied per-request and capped server-side.
 
         Attributes:
-            url (str): Destination URL.
+            url (str): Destination URL. Must be an absolute `http://` or `https://` URL with a hostname (e.g.
+                `https://siem.example.com/in`).
             method (TestForwarderRequestMethod | Unset): HTTP method used for the test request. Default: 'POST'.
             headers (list[HttpHeader] | Unset): HTTP headers attached to the test request.
             success_status (str | Unset): HTTP response status that indicates success. Either a specific status code (e.g.
