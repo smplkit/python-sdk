@@ -10,7 +10,6 @@ from ..types import UNSET, Unset
 
 from dateutil.parser import isoparse
 from typing import cast
-from uuid import UUID
 import datetime
 
 if TYPE_CHECKING:
@@ -30,24 +29,25 @@ class Event:
     `data.snapshot`, but the slot is yours to use however you like.
 
         Attributes:
-            action (str): Slug for what happened, e.g. `user.created`. Lowercase, dot-separated.
-            resource_type (str): Slug for the kind of resource the event is about, e.g. `user`. Lowercase, dot-separated.
+            action (str): What happened, e.g. `user.created`. Any non-empty string.
+            resource_type (str): Kind of resource the event is about, e.g. `user`. Any non-empty string.
             resource_id (str): Identifier of the specific resource the event is about.
             description (None | str | Unset): Free-text description of the event. Included alongside `resource_id` in the
                 `filter[search]` substring target.
             occurred_at (datetime.datetime | None | Unset): When the event actually happened. Defaults to the server receipt
                 time (`created_at`).
+            actor_type (None | str | Unset): Kind of actor that caused the event, e.g. `USER`, `API_KEY`, `SYSTEM`, or any
+                other label you choose. Free-form string; the API does not constrain or interpret it.
+            actor_id (None | str | Unset): Identifier of the actor that caused the event. Free-form string — any identifier
+                scheme is accepted.
+            actor_label (None | str | Unset): Human-readable label for the actor (e.g. an email address or API key name) at
+                the time the event was recorded.
             data (EventData | Unset): Free-form payload attached to the event. Use it for resource snapshots (by convention
                 under `data.snapshot`), request identifiers, or any other context the event needs to carry.
             do_not_forward (bool | Unset): When `true`, the event is recorded but not delivered to any forwarder. A delivery
                 log entry with status `SKIPPED_DO_NOT_FORWARD` is written for each enabled forwarder so the skip is visible in
                 the delivery log. Default: False.
             created_at (datetime.datetime | None | Unset): When the event was received and recorded.
-            actor_type (None | str | Unset): Kind of credential that emitted the event, e.g. `USER` or `API_KEY`. Resolved
-                server-side from the request credential.
-            actor_id (None | Unset | UUID): Identifier of the actor that emitted the event.
-            actor_label (None | str | Unset): Human-readable label for the actor (e.g. the user's email address or the API
-                key name) at the time the event was recorded.
             idempotency_key (None | str | Unset): The idempotency key used to deduplicate the record. Echoes the
                 `Idempotency-Key` header if one was supplied, otherwise a key derived from the event's content.
     """
@@ -57,12 +57,12 @@ class Event:
     resource_id: str
     description: None | str | Unset = UNSET
     occurred_at: datetime.datetime | None | Unset = UNSET
+    actor_type: None | str | Unset = UNSET
+    actor_id: None | str | Unset = UNSET
+    actor_label: None | str | Unset = UNSET
     data: EventData | Unset = UNSET
     do_not_forward: bool | Unset = False
     created_at: datetime.datetime | None | Unset = UNSET
-    actor_type: None | str | Unset = UNSET
-    actor_id: None | Unset | UUID = UNSET
-    actor_label: None | str | Unset = UNSET
     idempotency_key: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -87,6 +87,24 @@ class Event:
         else:
             occurred_at = self.occurred_at
 
+        actor_type: None | str | Unset
+        if isinstance(self.actor_type, Unset):
+            actor_type = UNSET
+        else:
+            actor_type = self.actor_type
+
+        actor_id: None | str | Unset
+        if isinstance(self.actor_id, Unset):
+            actor_id = UNSET
+        else:
+            actor_id = self.actor_id
+
+        actor_label: None | str | Unset
+        if isinstance(self.actor_label, Unset):
+            actor_label = UNSET
+        else:
+            actor_label = self.actor_label
+
         data: dict[str, Any] | Unset = UNSET
         if not isinstance(self.data, Unset):
             data = self.data.to_dict()
@@ -100,26 +118,6 @@ class Event:
             created_at = self.created_at.isoformat()
         else:
             created_at = self.created_at
-
-        actor_type: None | str | Unset
-        if isinstance(self.actor_type, Unset):
-            actor_type = UNSET
-        else:
-            actor_type = self.actor_type
-
-        actor_id: None | str | Unset
-        if isinstance(self.actor_id, Unset):
-            actor_id = UNSET
-        elif isinstance(self.actor_id, UUID):
-            actor_id = str(self.actor_id)
-        else:
-            actor_id = self.actor_id
-
-        actor_label: None | str | Unset
-        if isinstance(self.actor_label, Unset):
-            actor_label = UNSET
-        else:
-            actor_label = self.actor_label
 
         idempotency_key: None | str | Unset
         if isinstance(self.idempotency_key, Unset):
@@ -140,18 +138,18 @@ class Event:
             field_dict["description"] = description
         if occurred_at is not UNSET:
             field_dict["occurred_at"] = occurred_at
-        if data is not UNSET:
-            field_dict["data"] = data
-        if do_not_forward is not UNSET:
-            field_dict["do_not_forward"] = do_not_forward
-        if created_at is not UNSET:
-            field_dict["created_at"] = created_at
         if actor_type is not UNSET:
             field_dict["actor_type"] = actor_type
         if actor_id is not UNSET:
             field_dict["actor_id"] = actor_id
         if actor_label is not UNSET:
             field_dict["actor_label"] = actor_label
+        if data is not UNSET:
+            field_dict["data"] = data
+        if do_not_forward is not UNSET:
+            field_dict["do_not_forward"] = do_not_forward
+        if created_at is not UNSET:
+            field_dict["created_at"] = created_at
         if idempotency_key is not UNSET:
             field_dict["idempotency_key"] = idempotency_key
 
@@ -194,6 +192,33 @@ class Event:
 
         occurred_at = _parse_occurred_at(d.pop("occurred_at", UNSET))
 
+        def _parse_actor_type(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        actor_type = _parse_actor_type(d.pop("actor_type", UNSET))
+
+        def _parse_actor_id(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        actor_id = _parse_actor_id(d.pop("actor_id", UNSET))
+
+        def _parse_actor_label(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        actor_label = _parse_actor_label(d.pop("actor_label", UNSET))
+
         _data = d.pop("data", UNSET)
         data: EventData | Unset
         if isinstance(_data, Unset):
@@ -220,41 +245,6 @@ class Event:
 
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
-        def _parse_actor_type(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        actor_type = _parse_actor_type(d.pop("actor_type", UNSET))
-
-        def _parse_actor_id(data: object) -> None | Unset | UUID:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, str):
-                    raise TypeError()
-                actor_id_type_0 = UUID(data)
-
-                return actor_id_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(None | Unset | UUID, data)
-
-        actor_id = _parse_actor_id(d.pop("actor_id", UNSET))
-
-        def _parse_actor_label(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        actor_label = _parse_actor_label(d.pop("actor_label", UNSET))
-
         def _parse_idempotency_key(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -270,12 +260,12 @@ class Event:
             resource_id=resource_id,
             description=description,
             occurred_at=occurred_at,
-            data=data,
-            do_not_forward=do_not_forward,
-            created_at=created_at,
             actor_type=actor_type,
             actor_id=actor_id,
             actor_label=actor_label,
+            data=data,
+            do_not_forward=do_not_forward,
+            created_at=created_at,
             idempotency_key=idempotency_key,
         )
 
