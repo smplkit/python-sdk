@@ -7,11 +7,11 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-T = TypeVar("T", bound="SearchScanMeta")
+T = TypeVar("T", bound="EventSearchScanMeta")
 
 
 @_attrs_define
-class SearchScanMeta:
+class EventSearchScanMeta:
     """Scan statistics for a search response.
 
     Exposed so a selective JSON Logic filter doesn't silently look like
@@ -60,14 +60,14 @@ class SearchScanMeta:
 
         exhausted = d.pop("exhausted")
 
-        search_scan_meta = cls(
+        event_search_scan_meta = cls(
             scanned=scanned,
             matched=matched,
             exhausted=exhausted,
         )
 
-        search_scan_meta.additional_properties = d
-        return search_scan_meta
+        event_search_scan_meta.additional_properties = d
+        return event_search_scan_meta
 
     @property
     def additional_keys(self) -> list[str]:

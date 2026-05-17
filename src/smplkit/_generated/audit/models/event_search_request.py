@@ -10,14 +10,14 @@ from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
-    from ..models.search_events_request_filter_type_0 import SearchEventsRequestFilterType0
+    from ..models.event_search_request_filter_type_0 import EventSearchRequestFilterType0
 
 
-T = TypeVar("T", bound="SearchEventsRequest")
+T = TypeVar("T", bound="EventSearchRequest")
 
 
 @_attrs_define
-class SearchEventsRequest:
+class EventSearchRequest:
     """Request body for ``POST /api/v1/search/events``.
 
     Mirrors every column filter accepted by ``GET /api/v1/events`` with
@@ -39,7 +39,7 @@ class SearchEventsRequest:
       unbounded substring scan is rejected.
 
         Attributes:
-            filter_ (None | SearchEventsRequestFilterType0 | Unset): Optional JSON Logic expression evaluated against each
+            filter_ (EventSearchRequestFilterType0 | None | Unset): Optional JSON Logic expression evaluated against each
                 row after column filters narrow the candidate set. Null, absent, or an empty object disables JSON Logic
                 filtering. When present, the search is silently capped to the last 30 days by `occurred_at` (intersected with
                 any explicit `filter[occurred_at]` the caller supplied).
@@ -63,7 +63,7 @@ class SearchEventsRequest:
                 order. Default `-occurred_at` (newest first). Default: '-occurred_at'.
     """
 
-    filter_: None | SearchEventsRequestFilterType0 | Unset = UNSET
+    filter_: EventSearchRequestFilterType0 | None | Unset = UNSET
     filteraction: None | str | Unset = UNSET
     filterresource_type: None | str | Unset = UNSET
     filterresource_id: None | str | Unset = UNSET
@@ -76,12 +76,12 @@ class SearchEventsRequest:
     sort: str | Unset = "-occurred_at"
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.search_events_request_filter_type_0 import SearchEventsRequestFilterType0
+        from ..models.event_search_request_filter_type_0 import EventSearchRequestFilterType0
 
         filter_: dict[str, Any] | None | Unset
         if isinstance(self.filter_, Unset):
             filter_ = UNSET
-        elif isinstance(self.filter_, SearchEventsRequestFilterType0):
+        elif isinstance(self.filter_, EventSearchRequestFilterType0):
             filter_ = self.filter_.to_dict()
         else:
             filter_ = self.filter_
@@ -168,11 +168,11 @@ class SearchEventsRequest:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.search_events_request_filter_type_0 import SearchEventsRequestFilterType0
+        from ..models.event_search_request_filter_type_0 import EventSearchRequestFilterType0
 
         d = dict(src_dict)
 
-        def _parse_filter_(data: object) -> None | SearchEventsRequestFilterType0 | Unset:
+        def _parse_filter_(data: object) -> EventSearchRequestFilterType0 | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -180,12 +180,12 @@ class SearchEventsRequest:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                filter_type_0 = SearchEventsRequestFilterType0.from_dict(data)
+                filter_type_0 = EventSearchRequestFilterType0.from_dict(data)
 
                 return filter_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(None | SearchEventsRequestFilterType0 | Unset, data)
+            return cast(EventSearchRequestFilterType0 | None | Unset, data)
 
         filter_ = _parse_filter_(d.pop("filter", UNSET))
 
@@ -265,7 +265,7 @@ class SearchEventsRequest:
 
         sort = d.pop("sort", UNSET)
 
-        search_events_request = cls(
+        event_search_request = cls(
             filter_=filter_,
             filteraction=filteraction,
             filterresource_type=filterresource_type,
@@ -279,4 +279,4 @@ class SearchEventsRequest:
             sort=sort,
         )
 
-        return search_events_request
+        return event_search_request

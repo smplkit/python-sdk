@@ -7,11 +7,11 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-T = TypeVar("T", bound="SearchEventsRequestFilterType0")
+T = TypeVar("T", bound="EventSearchRequestFilterType0")
 
 
 @_attrs_define
-class SearchEventsRequestFilterType0:
+class EventSearchRequestFilterType0:
     """ """
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -26,10 +26,10 @@ class SearchEventsRequestFilterType0:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        search_events_request_filter_type_0 = cls()
+        event_search_request_filter_type_0 = cls()
 
-        search_events_request_filter_type_0.additional_properties = d
-        return search_events_request_filter_type_0
+        event_search_request_filter_type_0.additional_properties = d
+        return event_search_request_filter_type_0
 
     @property
     def additional_keys(self) -> list[str]:
