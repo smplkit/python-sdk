@@ -114,11 +114,20 @@ def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) ->
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class LoggerChangeEvent:
-    """Describes a logger or group definition change.  Frozen — fields are set at construction."""
+    """Fired once per managed logger whose effective level the SDK just applied.
+
+    Fields:
+    - ``id``: the affected logger's normalized id.
+    - ``level``: the newly-applied effective smplkit level string (e.g.
+      ``"INFO"``, ``"DEBUG"``); same value the resolution algorithm
+      returns and that ``smpl_level_to_python`` converts.
+    - ``source``: short string identifying the trigger — typically
+      ``"websocket"`` or ``"manual"`` (a :meth:`refresh` call).
+    """
 
     id: str
+    level: str
     source: str
-    deleted: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -299,10 +308,75 @@ class LoggingClient:
 
         self._connected = True
 
+    def _snapshot_effective_levels(self) -> dict[str, str]:
+        """Effective level for every locally-tracked managed logger.
+
+        This is the universe of loggers the adapter applies levels to —
+        the only loggers whose listener can fire. A logger not in
+        ``_name_map`` (never instantiated locally) or marked
+        ``managed=False`` in the cache is excluded.
+        """
+        snapshot: dict[str, str] = {}
+        for normalized_id in self._name_map.values():
+            entry = self._loggers_cache.get(normalized_id)
+            if entry is None or not entry.get("managed"):
+                continue
+            snapshot[normalized_id] = resolve_level(
+                normalized_id, self._environment, self._loggers_cache, self._groups_cache
+            )
+        return snapshot
+
+    def _apply_deltas_and_fire(self, pre: dict[str, str], source: str) -> None:
+        """Apply + fire per-logger whenever the effective level moved.
+
+        For every locally-tracked managed logger, recompute the effective
+        level and compare to ``pre``. On a delta: call ``apply_level`` on
+        every adapter AND fire one :class:`LoggerChangeEvent` per affected
+        logger — once to each matching key-scoped listener and once to
+        every global listener (a global is semantically a key-scoped
+        subscription on every logger). No-op when nothing moved: no apply,
+        no fire.
+        """
+        for original_name, normalized_id in self._name_map.items():
+            entry = self._loggers_cache.get(normalized_id)
+            if entry is None or not entry.get("managed"):
+                continue
+            new = resolve_level(normalized_id, self._environment, self._loggers_cache, self._groups_cache)
+            if pre.get(normalized_id) == new:
+                continue
+            python_level = smpl_level_to_python(new)
+            for adapter in self._adapters:
+                try:
+                    adapter.apply_level(original_name, python_level)
+                except Exception:
+                    logger.warning("Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True)
+            metrics = self._metrics
+            if metrics is not None:
+                metrics.record("logging.level_changes", unit="changes", dimensions={"logger": normalized_id})
+            self._fire_for_logger(normalized_id, new, source)
+
+    def _fire_for_logger(self, logger_id: str, level: str, source: str) -> None:
+        """Fire one :class:`LoggerChangeEvent` to every matching subscriber.
+
+        Both the key-scoped listeners registered for ``logger_id`` and
+        every global listener receive the same payload.
+        """
+        event = LoggerChangeEvent(id=logger_id, level=level, source=source)
+        for cb in self._global_listeners:
+            try:
+                cb(event)
+            except Exception:
+                logger.error("Exception in global logging on_change listener", exc_info=True)
+        for cb in self._key_listeners.get(logger_id, []):
+            try:
+                cb(event)
+            except Exception:
+                logger.error("Exception in key-scoped logging on_change listener", exc_info=True)
+
     def _handle_logger_changed(self, data: dict) -> None:
         key = data.get("id", "")
         debug("websocket", f"logger_changed: fetching logger {key!r}")
-        pre = dict(self._loggers_cache)
+        pre = self._snapshot_effective_levels()
         try:
             response = get_logger.sync_detailed(key, client=self._logging_http)
             _check_response_status(response.status_code, response.content)
@@ -320,24 +394,19 @@ class LoggingClient:
                 "managed": _unset_to_none(attrs.managed),
                 "environments": _extract_environments(attrs.environments),
             }
-        self._apply_levels()
-        post = self._loggers_cache
-        changed = [k for k in set(pre) | set(post) if pre.get(k) != post.get(k)]
-        self._fire_change_listeners(changed, "websocket")
+        self._apply_deltas_and_fire(pre, "websocket")
 
     def _handle_logger_deleted(self, data: dict) -> None:
         key = data.get("id", "")
         debug("websocket", f"logger_deleted: removing logger {key!r}")
-        existed = key in self._loggers_cache
+        pre = self._snapshot_effective_levels()
         self._loggers_cache.pop(key, None)
-        self._apply_levels()
-        if existed:
-            self._fire_change_listeners([key], "websocket", deleted=True)
+        self._apply_deltas_and_fire(pre, "websocket")
 
     def _handle_group_changed(self, data: dict) -> None:
         key = data.get("id", "")
         debug("websocket", f"group_changed: fetching group {key!r}")
-        pre = dict(self._groups_cache)
+        pre = self._snapshot_effective_levels()
         try:
             response = get_log_group.sync_detailed(key, client=self._logging_http)
             _check_response_status(response.status_code, response.content)
@@ -354,59 +423,27 @@ class LoggingClient:
                 "group": _unset_to_none(attrs.parent_id),
                 "environments": _extract_environments(attrs.environments),
             }
-        self._apply_levels()
-        post = self._groups_cache
-        changed = [k for k in set(pre) | set(post) if pre.get(k) != post.get(k)]
-        self._fire_change_listeners(changed, "websocket")
+        self._apply_deltas_and_fire(pre, "websocket")
 
     def _handle_group_deleted(self, data: dict) -> None:
         key = data.get("id", "")
         debug("websocket", f"group_deleted: removing group {key!r}")
-        existed = key in self._groups_cache
+        pre = self._snapshot_effective_levels()
         self._groups_cache.pop(key, None)
-        self._apply_levels()
-        if existed:
-            self._fire_change_listeners([key], "websocket", deleted=True)
+        self._apply_deltas_and_fire(pre, "websocket")
 
     def _handle_loggers_changed(self, data: dict) -> None:
         debug("websocket", "loggers_changed: full re-fetch")
-        pre_loggers = dict(self._loggers_cache)
-        pre_groups = dict(self._groups_cache)
         try:
-            self._fetch_and_apply(trigger="loggers_changed WS event")
+            self._fetch_and_apply_deltas(trigger="loggers_changed WS event", source="websocket")
         except Exception as exc:
             logger.warning("Failed to re-fetch/apply logging levels after loggers_changed event: %s", exc)
             debug("websocket", traceback.format_exc().strip())
-            return
-        post_loggers = self._loggers_cache
-        post_groups = self._groups_cache
-        all_keys = (set(pre_loggers) | set(post_loggers)) | (set(pre_groups) | set(post_groups))
-        changed = [
-            k for k in all_keys if pre_loggers.get(k, pre_groups.get(k)) != post_loggers.get(k, post_groups.get(k))
-        ]
-        self._fire_change_listeners(changed, "websocket")
-
-    def _fire_change_listeners(self, changed_keys: list[str], source: str, *, deleted: bool = False) -> None:
-        if not changed_keys:
-            return
-        first_event = LoggerChangeEvent(id=changed_keys[0], source=source, deleted=deleted)
-        for cb in self._global_listeners:
-            try:
-                cb(first_event)
-            except Exception:
-                logger.error("Exception in global logging on_change listener", exc_info=True)
-        for k in changed_keys:
-            event = LoggerChangeEvent(id=k, source=source, deleted=deleted)
-            for cb in self._key_listeners.get(k, []):
-                try:
-                    cb(event)
-                except Exception:
-                    logger.error("Exception in key-scoped logging on_change listener", exc_info=True)
 
     def refresh(self) -> None:
-        """Re-fetch all loggers and groups and update log levels."""
+        """Re-fetch all loggers and groups and fire listener events for any deltas."""
         debug("resolution", "refresh() called, triggering full resolution pass")
-        self._fetch_and_apply(trigger="refresh()")
+        self._fetch_and_apply_deltas(trigger="refresh()", source="manual")
 
     def _close(self) -> None:
         """Called by ``SmplClient.close()``."""
@@ -463,8 +500,8 @@ class LoggingClient:
                     except Exception:
                         logger.warning("Adapter %s apply_level() failed for %s", adapter.name, name, exc_info=True)
 
-    def _fetch_and_apply(self, trigger: str = "unknown") -> None:
-        """Fetch all loggers/groups, resolve levels, apply to runtime."""
+    def _fetch_cache(self, trigger: str) -> None:
+        """Re-fetch loggers/groups into the cache (no apply, no fire)."""
         debug("resolution", f"full resolution pass starting (trigger: {trigger})")
 
         def fetch_loggers_page(page_number: int, page_size: int) -> list[tuple[str, dict[str, Any]]]:
@@ -541,8 +578,21 @@ class LoggingClient:
         self._loggers_cache = loggers_data
         self._groups_cache = groups_data
 
-        # Resolve and apply
+    def _fetch_and_apply(self, trigger: str = "unknown") -> None:
+        """Fetch loggers/groups and unconditionally apply levels (initial install path).
+
+        Silent — does not fire change-listener events. Use
+        :meth:`_fetch_and_apply_deltas` from the WS / refresh paths to get
+        per-logger fanout.
+        """
+        self._fetch_cache(trigger)
         self._apply_levels()
+
+    def _fetch_and_apply_deltas(self, trigger: str, source: str) -> None:
+        """Fetch loggers/groups; apply + fire listeners only on effective-level deltas."""
+        pre = self._snapshot_effective_levels()
+        self._fetch_cache(trigger)
+        self._apply_deltas_and_fire(pre, source)
 
     def _apply_levels(self) -> None:
         """Apply resolved levels to all managed, locally-present loggers."""
@@ -719,19 +769,20 @@ class AsyncLoggingClient:
     def _handle_logger_changed(self, data: dict) -> None:
         key = data.get("id", "")
         debug("websocket", f"logger_changed: fetching logger {key!r}")
-        self._run_ws_handler(self._fetch_logger_and_apply, key)
+        pre = self._snapshot_effective_levels()
+        self._run_ws_handler(self._fetch_logger_and_apply, key, pre)
 
     def _handle_logger_deleted(self, data: dict) -> None:
         key = data.get("id", "")
         debug("websocket", f"logger_deleted: removing logger {key!r}")
-        existed = key in self._loggers_cache
+        pre = self._snapshot_effective_levels()
         self._loggers_cache.pop(key, None)
-        # Re-apply synchronously since we already have all cached data
+        # Apply + fire on the worker thread so the WS dispatch returns quickly.
         import asyncio as _asyncio
 
         def _run() -> None:
             try:
-                _asyncio.run(self._async_apply_and_fire_deleted(key, existed))
+                _asyncio.run(self._async_apply_deltas_and_fire(pre, "websocket"))
             except Exception as exc:
                 logger.warning("Failed to apply levels after logger_deleted event: %s", exc)
 
@@ -740,18 +791,19 @@ class AsyncLoggingClient:
     def _handle_group_changed(self, data: dict) -> None:
         key = data.get("id", "")
         debug("websocket", f"group_changed: fetching group {key!r}")
-        self._run_ws_handler(self._fetch_group_and_apply, key)
+        pre = self._snapshot_effective_levels()
+        self._run_ws_handler(self._fetch_group_and_apply, key, pre)
 
     def _handle_group_deleted(self, data: dict) -> None:
         key = data.get("id", "")
         debug("websocket", f"group_deleted: removing group {key!r}")
-        existed = key in self._groups_cache
+        pre = self._snapshot_effective_levels()
         self._groups_cache.pop(key, None)
         import asyncio as _asyncio
 
         def _run() -> None:
             try:
-                _asyncio.run(self._async_apply_and_fire_deleted(key, existed))
+                _asyncio.run(self._async_apply_deltas_and_fire(pre, "websocket"))
             except Exception as exc:
                 logger.warning("Failed to apply levels after group_deleted event: %s", exc)
 
@@ -761,24 +813,17 @@ class AsyncLoggingClient:
         debug("websocket", "loggers_changed: full re-fetch")
         api_key = self._parent._api_key
         logging_base_url = self._logging_base_url
-        pre_loggers = dict(self._loggers_cache)
-        pre_groups = dict(self._groups_cache)
+        pre = self._snapshot_effective_levels()
 
         async def _do_refresh() -> None:
             http = AuthenticatedClient(base_url=logging_base_url, token=api_key)
             try:
-                await self._fetch_and_apply(trigger="loggers_changed WS event", http_client=http)
+                await self._fetch_cache(trigger="loggers_changed WS event", http_client=http)
             finally:
                 ac = http._async_client
                 if ac is not None:
                     await ac.aclose()
-            post_loggers = self._loggers_cache
-            post_groups = self._groups_cache
-            all_keys = (set(pre_loggers) | set(post_loggers)) | (set(pre_groups) | set(post_groups))
-            changed = [
-                k for k in all_keys if pre_loggers.get(k, pre_groups.get(k)) != post_loggers.get(k, post_groups.get(k))
-            ]
-            self._fire_change_listeners(changed, "websocket")
+            self._apply_deltas_and_fire(pre, "websocket")
 
         import asyncio as _asyncio
 
@@ -791,8 +836,13 @@ class AsyncLoggingClient:
 
         threading.Thread(target=_run, name="smplkit-logging-ws-refresh", daemon=True).start()
 
-    def _run_ws_handler(self, coro_fn: Any, key: str) -> None:
-        """Run an async handler in a fresh event loop (WS thread pattern)."""
+    def _run_ws_handler(self, coro_fn: Any, key: str, pre: dict[str, str]) -> None:
+        """Run an async handler in a fresh event loop (WS thread pattern).
+
+        ``pre`` is the effective-level snapshot taken on the main thread
+        before this handler kicks off any mutation; the worker uses it as
+        the baseline for the post-update apply + fire pass.
+        """
         api_key = self._parent._api_key
         logging_base_url = self._logging_base_url
         import asyncio as _asyncio
@@ -800,7 +850,7 @@ class AsyncLoggingClient:
         async def _run_async() -> None:
             http = AuthenticatedClient(base_url=logging_base_url, token=api_key)
             try:
-                await coro_fn(key, http)
+                await coro_fn(key, http, pre)
             finally:
                 ac = http._async_client
                 if ac is not None:
@@ -815,8 +865,7 @@ class AsyncLoggingClient:
 
         threading.Thread(target=_run, name="smplkit-logging-ws-handler", daemon=True).start()
 
-    async def _fetch_logger_and_apply(self, key: str, http: AuthenticatedClient) -> None:
-        pre = dict(self._loggers_cache)
+    async def _fetch_logger_and_apply(self, key: str, http: AuthenticatedClient, pre: dict[str, str]) -> None:
         try:
             response = await get_logger.asyncio_detailed(key, client=http)
             _check_response_status(response.status_code, response.content)
@@ -833,13 +882,9 @@ class AsyncLoggingClient:
                 "managed": _unset_to_none(attrs.managed),
                 "environments": _extract_environments(attrs.environments),
             }
-        self._apply_levels()
-        post = self._loggers_cache
-        changed = [k for k in set(pre) | set(post) if pre.get(k) != post.get(k)]
-        self._fire_change_listeners(changed, "websocket")
+        self._apply_deltas_and_fire(pre, "websocket")
 
-    async def _fetch_group_and_apply(self, key: str, http: AuthenticatedClient) -> None:
-        pre = dict(self._groups_cache)
+    async def _fetch_group_and_apply(self, key: str, http: AuthenticatedClient, pre: dict[str, str]) -> None:
         try:
             response = await get_log_group.asyncio_detailed(key, client=http)
             _check_response_status(response.status_code, response.content)
@@ -855,37 +900,72 @@ class AsyncLoggingClient:
                 "group": _unset_to_none(attrs.parent_id),
                 "environments": _extract_environments(attrs.environments),
             }
-        self._apply_levels()
-        post = self._groups_cache
-        changed = [k for k in set(pre) | set(post) if pre.get(k) != post.get(k)]
-        self._fire_change_listeners(changed, "websocket")
+        self._apply_deltas_and_fire(pre, "websocket")
 
-    async def _async_apply_and_fire_deleted(self, key: str, existed: bool) -> None:
-        self._apply_levels()
-        if existed:
-            self._fire_change_listeners([key], "websocket", deleted=True)
+    async def _async_apply_deltas_and_fire(self, pre: dict[str, str], source: str) -> None:
+        self._apply_deltas_and_fire(pre, source)
 
-    def _fire_change_listeners(self, changed_keys: list[str], source: str, *, deleted: bool = False) -> None:
-        if not changed_keys:
-            return
-        first_event = LoggerChangeEvent(id=changed_keys[0], source=source, deleted=deleted)
+    def _snapshot_effective_levels(self) -> dict[str, str]:
+        """Effective level for every locally-tracked managed logger.
+
+        This is the universe of loggers the adapter applies levels to —
+        the only loggers whose listener can fire. A logger not in
+        ``_name_map`` (never instantiated locally) or marked
+        ``managed=False`` in the cache is excluded.
+        """
+        snapshot: dict[str, str] = {}
+        for normalized_id in self._name_map.values():
+            entry = self._loggers_cache.get(normalized_id)
+            if entry is None or not entry.get("managed"):
+                continue
+            snapshot[normalized_id] = resolve_level(
+                normalized_id, self._environment, self._loggers_cache, self._groups_cache
+            )
+        return snapshot
+
+    def _apply_deltas_and_fire(self, pre: dict[str, str], source: str) -> None:
+        """Apply + fire per-logger whenever the effective level moved.
+
+        See :meth:`LoggingClient._apply_deltas_and_fire` for full semantics.
+        """
+        for original_name, normalized_id in self._name_map.items():
+            entry = self._loggers_cache.get(normalized_id)
+            if entry is None or not entry.get("managed"):
+                continue
+            new = resolve_level(normalized_id, self._environment, self._loggers_cache, self._groups_cache)
+            if pre.get(normalized_id) == new:
+                continue
+            python_level = smpl_level_to_python(new)
+            for adapter in self._adapters:
+                try:
+                    adapter.apply_level(original_name, python_level)
+                except Exception:
+                    logger.warning("Adapter %s apply_level() failed for %s", adapter.name, original_name, exc_info=True)
+            metrics = self._metrics
+            if metrics is not None:
+                metrics.record("logging.level_changes", unit="changes", dimensions={"logger": normalized_id})
+            self._fire_for_logger(normalized_id, new, source)
+
+    def _fire_for_logger(self, logger_id: str, level: str, source: str) -> None:
+        """Fire one :class:`LoggerChangeEvent` to every matching subscriber."""
+        event = LoggerChangeEvent(id=logger_id, level=level, source=source)
         for cb in self._global_listeners:
             try:
-                cb(first_event)
+                cb(event)
             except Exception:
                 logger.error("Exception in global logging on_change listener", exc_info=True)
-        for k in changed_keys:
-            event = LoggerChangeEvent(id=k, source=source, deleted=deleted)
-            for cb in self._key_listeners.get(k, []):
-                try:
-                    cb(event)
-                except Exception:
-                    logger.error("Exception in key-scoped logging on_change listener", exc_info=True)
+        for cb in self._key_listeners.get(logger_id, []):
+            try:
+                cb(event)
+            except Exception:
+                logger.error("Exception in key-scoped logging on_change listener", exc_info=True)
 
     async def refresh(self) -> None:
-        """Re-fetch all loggers and groups and update log levels."""
+        """Re-fetch all loggers and groups and fire listener events for any deltas."""
         debug("resolution", "refresh() called, triggering full resolution pass")
-        await self._fetch_and_apply(trigger="refresh()")
+        pre = self._snapshot_effective_levels()
+        await self._fetch_cache(trigger="refresh()")
+        self._apply_deltas_and_fire(pre, "manual")
 
     def _close(self) -> None:
         """Called by ``AsyncSmplClient.close()``."""
@@ -953,8 +1033,8 @@ class AsyncLoggingClient:
                 logger.warning("Bulk logger registration failed (logging: %s): %s", self._logging_base_url, exc)
             debug("registration", traceback.format_exc().strip())
 
-    async def _fetch_and_apply(self, trigger: str = "unknown", http_client: AuthenticatedClient | None = None) -> None:
-        """Fetch all loggers/groups, resolve levels, apply to runtime.
+    async def _fetch_cache(self, trigger: str, http_client: AuthenticatedClient | None = None) -> None:
+        """Re-fetch loggers/groups into the cache (no apply, no fire).
 
         ``http_client``, when supplied, is used instead of ``self._logging_http``.
         Pass a fresh client when calling from a temporary event loop (e.g. the
@@ -1036,6 +1116,15 @@ class AsyncLoggingClient:
 
         self._loggers_cache = loggers_data
         self._groups_cache = groups_data
+
+    async def _fetch_and_apply(self, trigger: str = "unknown", http_client: AuthenticatedClient | None = None) -> None:
+        """Fetch loggers/groups and unconditionally apply levels (initial install path).
+
+        Silent — does not fire change-listener events. Use the
+        :meth:`_apply_deltas_and_fire` path from WS handlers / :meth:`refresh`
+        to get per-logger fanout.
+        """
+        await self._fetch_cache(trigger, http_client=http_client)
         self._apply_levels()
 
     def _apply_levels(self) -> None:
