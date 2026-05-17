@@ -69,23 +69,24 @@ class Event:
     ADR-047 §2.3.1. Field set mirrors the JSON:API resource attributes
     plus the resource ``id``.
 
-    :ivar id: Server-assigned UUID for this event.
-    :ivar action: Action slug — e.g. ``"user.created"``, ``"invoice.paid"``.
-    :ivar resource_type: Type of resource the action operated on — e.g. ``"invoice"``.
-    :ivar resource_id: Customer-facing id of the resource the action operated on.
-    :ivar actor_type: Type of the actor that performed the action (``"user"``,
+    :ivar UUID id: Server-assigned UUID for this event.
+    :ivar str action: Action slug — e.g. ``"user.created"``, ``"invoice.paid"``.
+    :ivar str resource_type: Type of resource the action operated on — e.g. ``"invoice"``.
+    :ivar str resource_id: Customer-facing id of the resource the action operated on.
+    :ivar str actor_type: Type of the actor that performed the action (``"user"``,
         ``"api_key"``, ``"system"``, …). Empty string when unknown.
-    :ivar actor_label: Display label for the actor — typically a name or email.
+    :ivar str actor_label: Display label for the actor — typically a name or email.
         Empty string when unknown.
-    :ivar occurred_at: When the action actually happened, as reported by the source.
-    :ivar created_at: When the audit service first ingested this event.
-    :ivar actor_id: UUID of the actor, when the actor is a tracked entity (user,
-        api_key). ``None`` for system actors or anonymous events.
-    :ivar data: Free-form per-event payload defined by the customer. Surfaced
-        on the audit-event resource as a structured JSONB column.
-    :ivar idempotency_key: Customer-supplied dedupe key. Empty when the customer
-        didn't supply one.
-    :ivar do_not_forward: When ``True``, skip this event from SIEM forwarder
+    :ivar datetime occurred_at: When the action actually happened, as reported by
+        the source.
+    :ivar datetime created_at: When the audit service first ingested this event.
+    :ivar UUID | None actor_id: UUID of the actor, when the actor is a tracked
+        entity (user, api_key). ``None`` for system actors or anonymous events.
+    :ivar dict[str, Any] data: Free-form per-event payload defined by the customer.
+        Surfaced on the audit-event resource as a structured JSONB column.
+    :ivar str idempotency_key: Customer-supplied dedupe key. Empty when the
+        customer didn't supply one.
+    :ivar bool do_not_forward: When ``True``, skip this event from SIEM forwarder
         delivery regardless of any matching forwarder filter.
     """
 
@@ -126,8 +127,8 @@ class Event:
 class HttpHeader:
     """A single name/value HTTP header on a forwarder destination.
 
-    :ivar name: Header name (e.g. ``"Authorization"``, ``"DD-API-KEY"``).
-    :ivar value: Header value, plaintext on writes. The audit service encrypts
+    :ivar str name: Header name (e.g. ``"Authorization"``, ``"DD-API-KEY"``).
+    :ivar str value: Header value, plaintext on writes. The audit service encrypts
         values at rest; reads return them as ``"<redacted>"``.
     """
 
@@ -142,12 +143,12 @@ class HttpHeader:
 class HttpConfiguration:
     """Forwarder destination HTTP request shape.
 
-    :ivar method: HTTP verb used for delivery. Defaults to ``HttpMethod.POST``.
-    :ivar url: Destination URL the audit service POSTs each event to.
-    :ivar headers: Headers attached to every outbound request. Values carry
-        credentials and are encrypted at rest server-side; reads return them
-        redacted.
-    :ivar success_status: Status the destination must return for delivery to
+    :ivar HttpMethod method: HTTP verb used for delivery. Defaults to ``HttpMethod.POST``.
+    :ivar str url: Destination URL the audit service POSTs each event to.
+    :ivar list[HttpHeader] headers: Headers attached to every outbound request.
+        Values carry credentials and are encrypted at rest server-side; reads
+        return them redacted.
+    :ivar str success_status: Status the destination must return for delivery to
         count as success — either an exact code (``"200"``, ``"204"``) or a
         class (``"2xx"``, ``"4xx"``). Defaults to ``"2xx"``.
     """
@@ -185,27 +186,29 @@ class Forwarder:
     ``"<redacted>"``. Re-supply the real values before calling
     :meth:`save` (the SDK does not cache them client-side).
 
-    :ivar id: Server-assigned UUID for this forwarder. ``None`` until
+    :ivar UUID | None id: Server-assigned UUID for this forwarder. ``None`` until
         :meth:`save` has run for the first time.
-    :ivar name: Display name. Free-form.
-    :ivar forwarder_type: Destination type — see :class:`ForwarderType`.
-    :ivar enabled: When ``False``, the audit service skips delivery for this
+    :ivar str name: Display name. Free-form.
+    :ivar ForwarderType forwarder_type: Destination type — see :class:`ForwarderType`.
+    :ivar bool enabled: When ``False``, the audit service skips delivery for this
         forwarder but still records ``filtered_out`` deliveries.
-    :ivar configuration: Destination request configuration.
-    :ivar description: Optional free-text description.
-    :ivar filter: Optional JSON Logic expression evaluated per event. When
-        set, events that don't match are recorded as ``filtered_out``
-        deliveries instead of being POSTed to the destination.
-    :ivar transform: Optional template applied to each event before delivery.
-        Shape depends on :attr:`transform_type`; for ``"JSONATA"``, a JSONata
-        expression. ``None`` delivers the event JSON as-is.
-    :ivar transform_type: Engine used to evaluate :attr:`transform`. Currently
-        only ``"JSONATA"`` is supported.
-    :ivar created_at: When the audit service first persisted this forwarder.
-        ``None`` for an unsaved instance.
-    :ivar updated_at: When this forwarder was last mutated.
-    :ivar deleted_at: Soft-delete timestamp. ``None`` for live forwarders.
-    :ivar version: Monotonic version counter; bumped on every server-side write.
+    :ivar HttpConfiguration configuration: Destination request configuration.
+    :ivar str | None description: Optional free-text description.
+    :ivar dict[str, Any] | None filter: Optional JSON Logic expression evaluated
+        per event. When set, events that don't match are recorded as
+        ``filtered_out`` deliveries instead of being POSTed to the destination.
+    :ivar str | None transform: Optional template applied to each event before
+        delivery. Shape depends on :attr:`transform_type`; for ``"JSONATA"``, a
+        JSONata expression. ``None`` delivers the event JSON as-is.
+    :ivar str | None transform_type: Engine used to evaluate :attr:`transform`.
+        Currently only ``"JSONATA"`` is supported.
+    :ivar datetime | None created_at: When the audit service first persisted this
+        forwarder. ``None`` for an unsaved instance.
+    :ivar datetime | None updated_at: When this forwarder was last mutated.
+    :ivar datetime | None deleted_at: Soft-delete timestamp. ``None`` for live
+        forwarders.
+    :ivar int | None version: Monotonic version counter; bumped on every
+        server-side write.
     """
 
     def __init__(
@@ -317,9 +320,10 @@ class ResourceType:
     the id field when filtering UI controls; pick whichever name reads
     better in context.
 
-    :ivar id: The resource-type slug, surfaced as the JSON:API resource id.
-    :ivar resource_type: Same value as :attr:`id`; provided for readability.
-    :ivar created_at: Earliest sighting of this resource_type for the account.
+    :ivar str id: The resource-type slug, surfaced as the JSON:API resource id.
+    :ivar str resource_type: Same value as :attr:`id`; provided for readability.
+    :ivar datetime created_at: Earliest sighting of this resource_type for the
+        account.
     """
 
     id: str
@@ -345,10 +349,11 @@ class Action:
     ``created_at`` is the first sighting of that specific (action,
     resource_type) triple, not the action overall.
 
-    :ivar id: The action slug, surfaced as the JSON:API resource id.
-    :ivar action: Same value as :attr:`id`; provided for readability.
-    :ivar created_at: Earliest sighting of this action (or action/resource_type
-        pair when the list call was filtered) for the account.
+    :ivar str id: The action slug, surfaced as the JSON:API resource id.
+    :ivar str action: Same value as :attr:`id`; provided for readability.
+    :ivar datetime created_at: Earliest sighting of this action (or
+        action/resource_type pair when the list call was filtered) for the
+        account.
     """
 
     id: str
