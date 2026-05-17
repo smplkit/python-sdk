@@ -17,7 +17,7 @@ from smplkit import Error, NotFoundError, PaymentRequiredError
 from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 from smplkit.audit import (
     Forwarder,
-    ForwarderHttp,
+    HttpConfiguration,
     HttpHeader,
 )
 from smplkit.management.audit import AuditClient
@@ -32,26 +32,28 @@ def _forwarder_resource(
     *,
     id_: UUID = FWD_ID,
     name: str = "Datadog production",
+    description: str | None = None,
     enabled: bool = True,
     forwarder_type: str = "DATADOG",
     filter_: dict[str, Any] | None = None,
     transform: str | None = None,
+    transform_type: str | None = None,
 ) -> dict[str, Any]:
     return {
         "id": str(id_),
         "type": "forwarder",
         "attributes": {
             "name": name,
-            "slug": name.lower().replace(" ", "_"),
             "forwarder_type": forwarder_type,
             "enabled": enabled,
+            "description": description,
             "filter": filter_,
             "transform": transform,
-            "http": {
+            "transform_type": transform_type,
+            "configuration": {
                 "method": "POST",
                 "url": "https://siem.example.com/in",
                 "headers": [{"name": "DD-API-KEY", "value": "<redacted>"}],
-                "body": None,
                 "success_status": "2xx",
             },
             "created_at": "2026-05-07T12:00:00+00:00",
@@ -83,21 +85,20 @@ class TestModels:
         h = HttpHeader(name="X-K", value="v")
         assert h._to_dict() == {"name": "X-K", "value": "v"}
 
-    def test_forwarder_http_round_trip(self):
-        h = ForwarderHttp(
+    def test_http_configuration_round_trip(self):
+        h = HttpConfiguration(
             method="PUT",
             url="https://x.example/in",
             headers=[HttpHeader(name="A", value="1")],
-            body='{"a":1}',
             success_status="200",
         )
         d = h._to_dict()
-        again = ForwarderHttp._from_dict(d)
+        again = HttpConfiguration._from_dict(d)
         assert again == h
 
-    def test_forwarder_http_from_dict_defaults(self):
-        # Empty dict should produce a sane default ForwarderHttp.
-        h = ForwarderHttp._from_dict({})
+    def test_http_configuration_from_dict_defaults(self):
+        # Empty dict should produce a sane default HttpConfiguration.
+        h = HttpConfiguration._from_dict({})
         assert h.method == "POST"
         assert h.headers == []
         assert h.success_status == "2xx"
@@ -105,10 +106,12 @@ class TestModels:
     def test_forwarder_from_resource(self):
         f = Forwarder._from_resource(_forwarder_resource())
         assert f.id == FWD_ID
-        assert f.slug == "datadog_production"
-        assert f.http.headers[0].value == "<redacted>"
+        assert f.name == "Datadog production"
+        assert f.configuration.headers[0].value == "<redacted>"
         assert f.version == 1
         assert f.deleted_at is None
+        assert f.description is None
+        assert f.transform_type is None
 
 
 # ---------------------------------------------------------------------------
@@ -130,21 +133,25 @@ class TestForwardersCrud:
         fwd = c.forwarders.create(
             name="Datadog production",
             forwarder_type="DATADOG",
-            http=ForwarderHttp(
+            configuration=HttpConfiguration(
                 url="https://siem.example.com/in",
                 headers=[HttpHeader(name="DD-API-KEY", value="real-secret")],
             ),
+            description="Forwards user.* events.",
             filter={"==": [{"var": "action"}, "user.created"]},
             transform="$",
         )
-        assert fwd.slug == "datadog_production"
+        assert fwd.name == "Datadog production"
         assert captured["method"] == "POST"
         assert "/api/v1/forwarders" in captured["url"]
         # The transform survives the round-trip; the on-the-wire body must
-        # carry it before the server redacts headers on the read.
+        # carry it before the server redacts headers on the read. The
+        # description and transform_type also need to reach the server.
         assert "user.created" in captured["body"]
+        assert "Forwards user.* events." in captured["body"]
+        assert "JSONATA" in captured["body"]
 
-    def test_create_accepts_dict_http(self):
+    def test_create_accepts_dict_configuration(self):
         def handler(req):
             return httpx.Response(201, json={"data": _forwarder_resource()})
 
@@ -152,11 +159,10 @@ class TestForwardersCrud:
         fwd = c.forwarders.create(
             name="x",
             forwarder_type="HTTP",
-            http={
+            configuration={
                 "method": "POST",
                 "url": "https://x",
                 "headers": [{"name": "h", "value": "v"}],
-                "body": None,
                 "success_status": "2xx",
             },
         )
@@ -175,7 +181,7 @@ class TestForwardersCrud:
             c.forwarders.create(
                 name="x",
                 forwarder_type="HTTP",
-                http=ForwarderHttp(url="https://x"),
+                configuration=HttpConfiguration(url="https://x"),
             )
 
     def test_list_paginates(self):
@@ -235,7 +241,7 @@ class TestForwardersCrud:
             FWD_ID,
             name="Renamed",
             forwarder_type="DATADOG",
-            http=ForwarderHttp(url="https://x"),
+            configuration=HttpConfiguration(url="https://x"),
             enabled=False,
             filter={"==": [1, 1]},
             transform="$",
@@ -282,7 +288,7 @@ class TestForwardersCrud:
             c.forwarders.create(
                 name="x",
                 forwarder_type="HTTP",
-                http=ForwarderHttp(url="https://x"),
+                configuration=HttpConfiguration(url="https://x"),
             )
 
 

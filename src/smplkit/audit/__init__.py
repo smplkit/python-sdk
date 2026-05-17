@@ -16,7 +16,7 @@ when. The runtime client owns event recording and read-side queries:
 SIEM forwarder CRUD lives on :class:`smplkit.SmplManagementClient`
 under ``mgmt.audit.forwarders.*``. See ``smplkit.management.audit``.
 
-The shared dataclasses (``Event``, ``Forwarder``, ``ForwarderHttp``,
+The shared dataclasses (``Event``, ``Forwarder``, ``HttpConfiguration``,
 ``HttpHeader``, ``ResourceType``, ``Action``) live in
 :mod:`smplkit.audit.models` and are re-exported here for convenience —
 both the runtime and the management clients return them.
@@ -27,8 +27,8 @@ from smplkit.audit.models import (
     Action,
     Event,
     Forwarder,
-    ForwarderHttp,
     ForwarderType,
+    HttpConfiguration,
     HttpHeader,
     ResourceType,
 )
@@ -39,8 +39,8 @@ __all__ = [
     "AuditClient",
     "Event",
     "Forwarder",
-    "ForwarderHttp",
     "ForwarderType",
+    "HttpConfiguration",
     "HttpHeader",
     "ResourceType",
 ]

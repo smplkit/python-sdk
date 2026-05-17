@@ -15,7 +15,7 @@ Usage::
 import uuid
 
 from smplkit import SmplManagementClient
-from smplkit.audit import ForwarderHttp, ForwarderType, HttpHeader
+from smplkit.audit import ForwarderType, HttpConfiguration, HttpHeader
 
 
 # JSON Logic filter — only forward ``invoice.*`` actions.
@@ -46,7 +46,7 @@ def main() -> None:
         forwarder = manage.audit.forwarders.create(
             name=forwarder_name,
             forwarder_type=ForwarderType.HTTP,
-            http=ForwarderHttp(
+            configuration=HttpConfiguration(
                 method="POST",
                 url="https://httpbin.org/post",
                 headers=[HttpHeader(name="X-Showcase", value="ok")],
@@ -59,7 +59,7 @@ def main() -> None:
         assert forwarder.enabled is True
         assert forwarder.filter == INVOICE_FILTER
         assert forwarder.transform == SIEM_TRANSFORM
-        print(f"Created forwarder: {forwarder.slug}")
+        print(f"Created forwarder: {forwarder.name}")
 
         # fetch a forwarder
         fetched = manage.audit.forwarders.get(forwarder.id)
@@ -80,7 +80,7 @@ def main() -> None:
             forwarder.id,
             name=renamed,
             forwarder_type=forwarder.forwarder_type,
-            http=ForwarderHttp(
+            configuration=HttpConfiguration(
                 method="POST",
                 url="https://httpbin.org/post",
                 headers=[HttpHeader(name="X-Showcase", value="ok")],
@@ -98,7 +98,7 @@ def main() -> None:
         manage.audit.forwarders.delete(forwarder.id)
         remaining = manage.audit.forwarders.list()
         assert forwarder.id not in {f.id for f in remaining.forwarders}
-        print(f"Deleted forwarder: {forwarder.slug}")
+        print(f"Deleted forwarder: {forwarder.name}")
 
         print("Done!")
 
