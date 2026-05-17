@@ -164,23 +164,6 @@ class TestForwardersCrud:
         assert "Forwards user.* events." in captured["body"]
         assert "JSONATA" in captured["body"]
 
-    def test_create_accepts_dict_configuration(self):
-        def handler(req):
-            return httpx.Response(201, json={"data": _forwarder_resource()})
-
-        c = _client_with_handler(handler)
-        fwd = c.forwarders.create(
-            name="x",
-            forwarder_type="HTTP",
-            configuration={
-                "method": "POST",
-                "url": "https://x",
-                "headers": [{"name": "h", "value": "v"}],
-                "success_status": "2xx",
-            },
-        )
-        assert fwd.id == FWD_ID
-
     def test_create_402_raises_payment_required(self):
         # The audit service no longer returns 402 on forwarder creation
         # (configuration is plan-agnostic — see ADR-047), but the

@@ -110,18 +110,20 @@ class ForwarderListPage:
         return len(self.forwarders)
 
 
-def _http_to_gen(configuration: HttpConfiguration | dict[str, Any]) -> _GenHttpConfiguration:
-    """Convert a wrapper HttpConfiguration (or its dict equivalent) to the
-    typed generated model. Going through the typed constructor means a
-    spec change that drops a field will fail to compile here, instead of
-    silently passing through on the wire."""
-    src = configuration._to_dict() if isinstance(configuration, HttpConfiguration) else dict(configuration)
-    headers = [_GenHttpHeader(name=h["name"], value=h["value"]) for h in (src.get("headers") or [])]
+def _http_to_gen(configuration: HttpConfiguration) -> _GenHttpConfiguration:
+    """Convert a wrapper HttpConfiguration to the typed generated model.
+
+    Going through the typed constructor means a spec change that drops a
+    field will fail to compile here, instead of silently passing through
+    on the wire.
+    """
+    src = configuration._to_dict()
+    headers = [_GenHttpHeader(name=h["name"], value=h["value"]) for h in src["headers"]]
     return _GenHttpConfiguration(
         url=src["url"],
-        method=src.get("method", "POST"),
+        method=src["method"],
         headers=headers,
-        success_status=src.get("success_status", "2xx"),
+        success_status=src["success_status"],
     )
 
 
@@ -129,7 +131,7 @@ def _build_forwarder_attrs(
     *,
     name: str,
     forwarder_type: ForwarderType,
-    configuration: HttpConfiguration | dict[str, Any],
+    configuration: HttpConfiguration,
     enabled: bool,
     description: str | None,
     filter: dict[str, Any] | None,
@@ -165,7 +167,7 @@ class ForwardersClient:
         *,
         name: str,
         forwarder_type: ForwarderType,
-        configuration: HttpConfiguration | dict[str, Any],
+        configuration: HttpConfiguration,
         enabled: bool = True,
         description: str | None = None,
         filter: dict[str, Any] | None = None,
@@ -181,9 +183,10 @@ class ForwardersClient:
                 the literal string (``"http"``) still type-check
                 cleanly; the enum is the recommended form for IDE
                 autocomplete and grep-ability.
-            configuration: Destination HTTP request configuration.
-                Headers carry credentials and are encrypted at rest
-                server-side; reads return them redacted.
+            configuration: Destination HTTP request configuration —
+                an :class:`HttpConfiguration` instance. Headers carry
+                credentials and are encrypted at rest server-side;
+                reads return them redacted.
             enabled: Whether the forwarder is active. Defaults true.
             description: Optional free-text description.
             filter: Optional JSON Logic filter; events that don't match
@@ -250,7 +253,7 @@ class ForwardersClient:
         *,
         name: str,
         forwarder_type: ForwarderType,
-        configuration: HttpConfiguration | dict[str, Any],
+        configuration: HttpConfiguration,
         enabled: bool = True,
         description: str | None = None,
         filter: dict[str, Any] | None = None,
