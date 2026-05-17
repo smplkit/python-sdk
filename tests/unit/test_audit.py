@@ -318,9 +318,7 @@ def test_record_passes_actor_fields_to_wire():
 
     transport = httpx.MockTransport(handler)
     client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    client._auth.set_httpx_client(
-        httpx.Client(transport=transport, base_url="https://audit.example.com")
-    )
+    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         client.events.record(
             action="user.created",
