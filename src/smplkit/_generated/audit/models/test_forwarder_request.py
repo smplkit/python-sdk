@@ -29,7 +29,6 @@ class TestForwarderRequest:
             url (str): Destination URL.
             method (TestForwarderRequestMethod | Unset): HTTP method used for the test request. Default: 'POST'.
             headers (list[HttpHeader] | Unset): HTTP headers attached to the test request.
-            body (None | str | Unset): Request body. If omitted, an empty body is sent.
             success_status (str | Unset): HTTP response status that indicates success. Either a specific status code (e.g.
                 `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`). Default: '2xx'.
             timeout_ms (int | None | Unset): Per-request timeout in milliseconds. Capped at 30 seconds.
@@ -38,7 +37,6 @@ class TestForwarderRequest:
     url: str
     method: TestForwarderRequestMethod | Unset = "POST"
     headers: list[HttpHeader] | Unset = UNSET
-    body: None | str | Unset = UNSET
     success_status: str | Unset = "2xx"
     timeout_ms: int | None | Unset = UNSET
 
@@ -55,12 +53,6 @@ class TestForwarderRequest:
             for headers_item_data in self.headers:
                 headers_item = headers_item_data.to_dict()
                 headers.append(headers_item)
-
-        body: None | str | Unset
-        if isinstance(self.body, Unset):
-            body = UNSET
-        else:
-            body = self.body
 
         success_status = self.success_status
 
@@ -81,8 +73,6 @@ class TestForwarderRequest:
             field_dict["method"] = method
         if headers is not UNSET:
             field_dict["headers"] = headers
-        if body is not UNSET:
-            field_dict["body"] = body
         if success_status is not UNSET:
             field_dict["success_status"] = success_status
         if timeout_ms is not UNSET:
@@ -113,15 +103,6 @@ class TestForwarderRequest:
 
                 headers.append(headers_item)
 
-        def _parse_body(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        body = _parse_body(d.pop("body", UNSET))
-
         success_status = d.pop("success_status", UNSET)
 
         def _parse_timeout_ms(data: object) -> int | None | Unset:
@@ -137,7 +118,6 @@ class TestForwarderRequest:
             url=url,
             method=method,
             headers=headers,
-            body=body,
             success_status=success_status,
             timeout_ms=timeout_ms,
         )

@@ -36,19 +36,21 @@ from smplkit._generated.audit.models.forwarder import Forwarder as _GenForwarder
 from smplkit._generated.audit.models.forwarder_filter_type_0 import (
     ForwarderFilterType0 as _GenForwarderFilter,
 )
-from smplkit._generated.audit.models.forwarder_http import ForwarderHttp as _GenForwarderHttp
+from smplkit._generated.audit.models.forwarder_request import (
+    ForwarderRequest as _GenForwarderRequest,
+)
 from smplkit._generated.audit.models.forwarder_resource import (
     ForwarderResource as _GenForwarderResource,
 )
-from smplkit._generated.audit.models.forwarder_response import (
-    ForwarderResponse as _GenForwarderResponse,
+from smplkit._generated.audit.models.http_configuration import (
+    HttpConfiguration as _GenHttpConfiguration,
 )
 from smplkit._generated.audit.models.http_header import HttpHeader as _GenHttpHeader
 from smplkit._generated.audit.types import UNSET
 from smplkit.audit.models import (
     Forwarder,
-    ForwarderHttp,
     ForwarderType,
+    HttpConfiguration,
 )
 
 
@@ -108,18 +110,17 @@ class ForwarderListPage:
         return len(self.forwarders)
 
 
-def _http_to_gen(http: ForwarderHttp | dict[str, Any]) -> _GenForwarderHttp:
-    """Convert a wrapper ForwarderHttp (or its dict equivalent) to the
+def _http_to_gen(configuration: HttpConfiguration | dict[str, Any]) -> _GenHttpConfiguration:
+    """Convert a wrapper HttpConfiguration (or its dict equivalent) to the
     typed generated model. Going through the typed constructor means a
     spec change that drops a field will fail to compile here, instead of
     silently passing through on the wire."""
-    src = http._to_dict() if isinstance(http, ForwarderHttp) else dict(http)
+    src = configuration._to_dict() if isinstance(configuration, HttpConfiguration) else dict(configuration)
     headers = [_GenHttpHeader(name=h["name"], value=h["value"]) for h in (src.get("headers") or [])]
-    return _GenForwarderHttp(
+    return _GenHttpConfiguration(
         url=src["url"],
         method=src.get("method", "POST"),
         headers=headers,
-        body=src.get("body"),
         success_status=src.get("success_status", "2xx"),
     )
 
@@ -128,8 +129,9 @@ def _build_forwarder_attrs(
     *,
     name: str,
     forwarder_type: ForwarderType,
-    http: ForwarderHttp | dict[str, Any],
+    configuration: HttpConfiguration | dict[str, Any],
     enabled: bool,
+    description: str | None,
     filter: dict[str, Any] | None,
     transform: str | None,
 ) -> _GenForwarder:
@@ -139,13 +141,16 @@ def _build_forwarder_attrs(
     attrs = _GenForwarder(
         name=name,
         forwarder_type=ForwarderType(forwarder_type).value,
-        http=_http_to_gen(http),
+        configuration=_http_to_gen(configuration),
         enabled=enabled,
     )
+    if description is not None:
+        attrs.description = description
     if filter is not None:
         attrs.filter_ = _GenForwarderFilter.from_dict(filter)
     if transform is not None:
         attrs.transform = transform
+        attrs.transform_type = "JSONATA"
     return attrs
 
 
@@ -160,8 +165,9 @@ class ForwardersClient:
         *,
         name: str,
         forwarder_type: ForwarderType,
-        http: ForwarderHttp | dict[str, Any],
+        configuration: HttpConfiguration | dict[str, Any],
         enabled: bool = True,
+        description: str | None = None,
         filter: dict[str, Any] | None = None,
         transform: str | None = None,
     ) -> Forwarder:
@@ -175,10 +181,11 @@ class ForwardersClient:
                 the literal string (``"http"``) still type-check
                 cleanly; the enum is the recommended form for IDE
                 autocomplete and grep-ability.
-            http: Destination configuration. Headers carry credentials
-                and are encrypted at rest server-side; reads return them
-                redacted.
+            configuration: Destination HTTP request configuration.
+                Headers carry credentials and are encrypted at rest
+                server-side; reads return them redacted.
             enabled: Whether the forwarder is active. Defaults true.
+            description: Optional free-text description.
             filter: Optional JSON Logic filter; events that don't match
                 are recorded as ``filtered_out`` deliveries.
             transform: Optional JSONata template applied to the event
@@ -187,12 +194,13 @@ class ForwardersClient:
         attrs = _build_forwarder_attrs(
             name=name,
             forwarder_type=forwarder_type,
-            http=http,
+            configuration=configuration,
             enabled=enabled,
+            description=description,
             filter=filter,
             transform=transform,
         )
-        body = _GenForwarderResponse(data=_GenForwarderResource(id="", attributes=attrs))
+        body = _GenForwarderRequest(data=_GenForwarderResource(id="", attributes=attrs))
         resp = _gen_create_forwarder.sync_detailed(client=self._auth, body=body)
         _expect_status(resp, 201)
         return Forwarder._from_resource(resp.parsed.to_dict()["data"])
@@ -242,8 +250,9 @@ class ForwardersClient:
         *,
         name: str,
         forwarder_type: ForwarderType,
-        http: ForwarderHttp | dict[str, Any],
+        configuration: HttpConfiguration | dict[str, Any],
         enabled: bool = True,
+        description: str | None = None,
         filter: dict[str, Any] | None = None,
         transform: str | None = None,
     ) -> Forwarder:
@@ -258,12 +267,13 @@ class ForwardersClient:
         attrs = _build_forwarder_attrs(
             name=name,
             forwarder_type=forwarder_type,
-            http=http,
+            configuration=configuration,
             enabled=enabled,
+            description=description,
             filter=filter,
             transform=transform,
         )
-        body = _GenForwarderResponse(data=_GenForwarderResource(id=str(fid), attributes=attrs))
+        body = _GenForwarderRequest(data=_GenForwarderResource(id=str(fid), attributes=attrs))
         resp = _gen_update_forwarder.sync_detailed(forwarder_id=fid, client=self._auth, body=body)
         _expect_status(resp, 200)
         return Forwarder._from_resource(resp.parsed.to_dict()["data"])

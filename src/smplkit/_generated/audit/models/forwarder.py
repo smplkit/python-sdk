@@ -12,11 +12,12 @@ from ..models.forwarder_type import check_forwarder_type
 from ..models.forwarder_type import ForwarderType
 from dateutil.parser import isoparse
 from typing import cast
+from typing import Literal
 import datetime
 
 if TYPE_CHECKING:
     from ..models.forwarder_filter_type_0 import ForwarderFilterType0
-    from ..models.forwarder_http import ForwarderHttp
+    from ..models.http_configuration import HttpConfiguration
 
 
 T = TypeVar("T", bound="Forwarder")
@@ -28,22 +29,30 @@ class Forwarder:
 
     Each event recorded for the account is evaluated against every enabled
     forwarder. If the filter expression evaluates truthy — or is absent —
-    the event is delivered to the destination using the configured HTTP
-    request. The slug, derived from `name` at create time, is the stable
-    identifier used by the console and other tooling.
+    the event is shaped by the configured transform and delivered to the
+    destination defined by ``configuration``.
 
         Attributes:
             name (str): Human-readable name for the forwarder.
             forwarder_type (ForwarderType): Supported forwarder destination types.
-            http (ForwarderHttp): HTTP request configuration used to deliver an event to the destination.
+            configuration (HttpConfiguration): HTTP request configuration used to deliver an event to the destination.
+
+                Used when the parent forwarder's ``forwarder_type`` is one of the
+                HTTP-family destinations (``HTTP``, ``DATADOG``, ``SPLUNK_HEC``,
+                ``SUMO_LOGIC``, ``NEW_RELIC``, ``HONEYCOMB``, ``ELASTIC``). When other
+                transports land (``FTP``, ``SQS``, …) their own configuration schemas
+                will join this one as members of a discriminated union under the
+                ``configuration`` field of ``Forwarder``.
+            description (None | str | Unset): Free-text description for the forwarder.
             enabled (bool | Unset): Whether the forwarder is currently delivering events. Set to `false` to pause deliveries
                 without deleting the forwarder. Default: True.
             filter_ (ForwarderFilterType0 | None | Unset): JSON Logic expression evaluated against each event. The event is
                 delivered only if the expression returns truthy. Omit to deliver every event.
-            transform (None | str | Unset): JSONata template applied to each event before delivery. Omit to deliver the
-                event unchanged.
-            slug (None | str | Unset): URL-safe identifier derived from `name` at create time. Stable for the lifetime of
-                the forwarder.
+            transform_type (Literal['JSONATA'] | None | Unset): Engine used to evaluate ``transform``. Must be set whenever
+                ``transform`` is set. Today only `JSONATA` is supported.
+            transform (Any | None | Unset): Template applied to each event before delivery. The shape depends on
+                ``transform_type``: for `JSONATA`, a string containing a JSONata expression. Omit to deliver the event JSON
+                unchanged.
             created_at (datetime.datetime | None | Unset): When the forwarder was created.
             updated_at (datetime.datetime | None | Unset): When the forwarder was last modified.
             deleted_at (datetime.datetime | None | Unset): When the forwarder was deleted. `null` for active forwarders.
@@ -52,11 +61,12 @@ class Forwarder:
 
     name: str
     forwarder_type: ForwarderType
-    http: ForwarderHttp
+    configuration: HttpConfiguration
+    description: None | str | Unset = UNSET
     enabled: bool | Unset = True
     filter_: ForwarderFilterType0 | None | Unset = UNSET
-    transform: None | str | Unset = UNSET
-    slug: None | str | Unset = UNSET
+    transform_type: Literal["JSONATA"] | None | Unset = UNSET
+    transform: Any | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     deleted_at: datetime.datetime | None | Unset = UNSET
@@ -70,7 +80,13 @@ class Forwarder:
 
         forwarder_type: str = self.forwarder_type
 
-        http = self.http.to_dict()
+        configuration = self.configuration.to_dict()
+
+        description: None | str | Unset
+        if isinstance(self.description, Unset):
+            description = UNSET
+        else:
+            description = self.description
 
         enabled = self.enabled
 
@@ -82,17 +98,17 @@ class Forwarder:
         else:
             filter_ = self.filter_
 
-        transform: None | str | Unset
+        transform_type: Literal["JSONATA"] | None | Unset
+        if isinstance(self.transform_type, Unset):
+            transform_type = UNSET
+        else:
+            transform_type = self.transform_type
+
+        transform: Any | None | Unset
         if isinstance(self.transform, Unset):
             transform = UNSET
         else:
             transform = self.transform
-
-        slug: None | str | Unset
-        if isinstance(self.slug, Unset):
-            slug = UNSET
-        else:
-            slug = self.slug
 
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
@@ -130,17 +146,19 @@ class Forwarder:
             {
                 "name": name,
                 "forwarder_type": forwarder_type,
-                "http": http,
+                "configuration": configuration,
             }
         )
+        if description is not UNSET:
+            field_dict["description"] = description
         if enabled is not UNSET:
             field_dict["enabled"] = enabled
         if filter_ is not UNSET:
             field_dict["filter"] = filter_
+        if transform_type is not UNSET:
+            field_dict["transform_type"] = transform_type
         if transform is not UNSET:
             field_dict["transform"] = transform
-        if slug is not UNSET:
-            field_dict["slug"] = slug
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
         if updated_at is not UNSET:
@@ -155,14 +173,23 @@ class Forwarder:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.forwarder_filter_type_0 import ForwarderFilterType0
-        from ..models.forwarder_http import ForwarderHttp
+        from ..models.http_configuration import HttpConfiguration
 
         d = dict(src_dict)
         name = d.pop("name")
 
         forwarder_type = check_forwarder_type(d.pop("forwarder_type"))
 
-        http = ForwarderHttp.from_dict(d.pop("http"))
+        configuration = HttpConfiguration.from_dict(d.pop("configuration"))
+
+        def _parse_description(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        description = _parse_description(d.pop("description", UNSET))
 
         enabled = d.pop("enabled", UNSET)
 
@@ -183,23 +210,27 @@ class Forwarder:
 
         filter_ = _parse_filter_(d.pop("filter", UNSET))
 
-        def _parse_transform(data: object) -> None | str | Unset:
+        def _parse_transform_type(data: object) -> Literal["JSONATA"] | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            transform_type_type_0 = cast(Literal["JSONATA"], data)
+            if transform_type_type_0 != "JSONATA":
+                raise ValueError(f"transform_type_type_0 must match const 'JSONATA', got '{transform_type_type_0}'")
+            return transform_type_type_0
+            return cast(Literal["JSONATA"] | None | Unset, data)
+
+        transform_type = _parse_transform_type(d.pop("transform_type", UNSET))
+
+        def _parse_transform(data: object) -> Any | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Any | None | Unset, data)
 
         transform = _parse_transform(d.pop("transform", UNSET))
-
-        def _parse_slug(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        slug = _parse_slug(d.pop("slug", UNSET))
 
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -264,11 +295,12 @@ class Forwarder:
         forwarder = cls(
             name=name,
             forwarder_type=forwarder_type,
-            http=http,
+            configuration=configuration,
+            description=description,
             enabled=enabled,
             filter_=filter_,
+            transform_type=transform_type,
             transform=transform,
-            slug=slug,
             created_at=created_at,
             updated_at=updated_at,
             deleted_at=deleted_at,

@@ -1,9 +1,10 @@
 """Audit resource models exposed by the SDK.
 
 The wrapper layer's domain types — ``Event``, ``Forwarder``,
-``ForwarderHttp``, ``HttpHeader``, ``ResourceType``, ``Action`` — sit
-on top of the auto-generated ``smplkit._generated.audit.models``. The
-split keeps the public-facing SDK surface stable across regenerations.
+``HttpConfiguration``, ``HttpHeader``, ``ResourceType``, ``Action`` —
+sit on top of the auto-generated ``smplkit._generated.audit.models``.
+The split keeps the public-facing SDK surface stable across
+regenerations.
 """
 
 from __future__ import annotations
@@ -95,7 +96,7 @@ class HttpHeader:
 
 
 @dataclass(frozen=True, slots=True)
-class ForwarderHttp:
+class HttpConfiguration:
     """Forwarder destination HTTP request shape.
 
     ``success_status`` is a 3-character string: either an exact code
@@ -105,7 +106,6 @@ class ForwarderHttp:
     method: str = "POST"
     url: str = ""
     headers: list[HttpHeader] = field(default_factory=list)
-    body: str | None = None
     success_status: str = "2xx"
 
     def _to_dict(self) -> dict[str, Any]:
@@ -113,17 +113,15 @@ class ForwarderHttp:
             "method": self.method,
             "url": self.url,
             "headers": [h._to_dict() for h in self.headers],
-            "body": self.body,
             "success_status": self.success_status,
         }
 
     @classmethod
-    def _from_dict(cls, raw: dict[str, Any]) -> "ForwarderHttp":
+    def _from_dict(cls, raw: dict[str, Any]) -> "HttpConfiguration":
         return cls(
             method=raw.get("method") or "POST",
             url=raw.get("url") or "",
             headers=[HttpHeader(name=h.get("name", ""), value=h.get("value", "")) for h in raw.get("headers") or []],
-            body=raw.get("body"),
             success_status=raw.get("success_status") or "2xx",
         )
 
@@ -132,20 +130,21 @@ class ForwarderHttp:
 class Forwarder:
     """A SIEM streaming forwarder configured on the customer's account.
 
-    Header values from ``http.headers`` are always returned redacted on
-    reads — the GET path on the audit API replaces every header value
-    with ``"<redacted>"``. Re-supply the real values when calling
-    ``update`` (the SDK does not cache them client-side).
+    Header values from ``configuration.headers`` are always returned
+    redacted on reads — the GET path on the audit API replaces every
+    header value with ``"<redacted>"``. Re-supply the real values when
+    calling ``update`` (the SDK does not cache them client-side).
     """
 
     id: UUID
     name: str
-    slug: str
     forwarder_type: ForwarderType
     enabled: bool
-    http: ForwarderHttp
+    configuration: HttpConfiguration
+    description: str | None = None
     filter: dict[str, Any] | None = None
     transform: str | None = None
+    transform_type: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
     deleted_at: datetime | None = None
@@ -157,15 +156,16 @@ class Forwarder:
         return cls(
             id=UUID(resource["id"]),
             name=attrs.get("name") or "",
-            slug=attrs.get("slug") or "",
             # Server-side validation already enforces enum membership;
             # we still pass through ForwarderType() so callers get a
             # typed value (and identity-equality with enum members).
             forwarder_type=ForwarderType(attrs["forwarder_type"]),
             enabled=bool(attrs.get("enabled", True)),
+            description=attrs.get("description"),
             filter=attrs.get("filter"),
             transform=attrs.get("transform"),
-            http=ForwarderHttp._from_dict(attrs.get("http") or {}),
+            transform_type=attrs.get("transform_type"),
+            configuration=HttpConfiguration._from_dict(attrs.get("configuration") or {}),
             created_at=_parse_iso_or_none(attrs.get("created_at")),
             updated_at=_parse_iso_or_none(attrs.get("updated_at")),
             deleted_at=_parse_iso_or_none(attrs.get("deleted_at")),

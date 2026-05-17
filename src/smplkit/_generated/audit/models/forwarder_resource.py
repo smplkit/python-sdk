@@ -19,26 +19,26 @@ T = TypeVar("T", bound="ForwarderResource")
 
 @_attrs_define
 class ForwarderResource:
-    """JSON:API resource envelope for a forwarder.
+    r"""JSON:API resource envelope for a forwarder.
 
     `id` must not be specified for create requests (the server assigns it).
 
         Example:
-            {'attributes': {'created_at': '2026-05-07T12:00:00Z', 'enabled': True, 'filter': {'==': [{'var': 'action'},
-                'user.created']}, 'forwarder_type': 'DATADOG', 'http': {'headers': [{'name': 'DD-API-KEY', 'value': 'dd-api-key-
-                plaintext'}], 'method': 'POST', 'success_status': '2xx', 'url': 'https://http-
-                intake.logs.datadoghq.com/api/v2/logs'}, 'name': 'Datadog production', 'slug': 'datadog_production',
-                'updated_at': '2026-05-07T12:00:00Z', 'version': 1}, 'id': '11111111-2222-3333-4444-555555555555', 'type':
-                'forwarder'}
+            {'attributes': {'configuration': {'headers': [{'name': 'DD-API-KEY', 'value': 'dd-api-key-plaintext'}],
+                'method': 'POST', 'success_status': '2xx', 'url': 'https://http-intake.logs.datadoghq.com/api/v2/logs'},
+                'created_at': '2026-05-07T12:00:00Z', 'description': 'Forwards user.* events to the prod Datadog tenant.',
+                'enabled': True, 'filter': {'==': [{'var': 'action'}, 'user.created']}, 'forwarder_type': 'DATADOG', 'name':
+                'Datadog production', 'transform': '{ "message": action & \' on \' & resource_type }', 'transform_type':
+                'JSONATA', 'updated_at': '2026-05-07T12:00:00Z', 'version': 1}, 'id': '11111111-2222-3333-4444-555555555555',
+                'type': 'forwarder'}
 
         Attributes:
             attributes (Forwarder): A destination that receives audit events recorded for the account.
 
                 Each event recorded for the account is evaluated against every enabled
                 forwarder. If the filter expression evaluates truthy — or is absent —
-                the event is delivered to the destination using the configured HTTP
-                request. The slug, derived from `name` at create time, is the stable
-                identifier used by the console and other tooling.
+                the event is shaped by the configured transform and delivered to the
+                destination defined by ``configuration``.
             id (None | str | Unset):
             type_ (str | Unset):  Default: 'forwarder'.
     """
