@@ -43,7 +43,7 @@ class Flag:
                 '2026-03-27T10:00:00Z', 'values': [{'name': 'on', 'value': True}, {'name': 'off', 'value': False}]}
 
         Attributes:
-            name (str): Human-readable display name for the flag.
+            name (str): Human-readable display name for the flag. Cannot be empty or whitespace-only.
             type_ (FlagType): Value type of the flag. Accepted case-insensitively. Changing the type cascades to `values`,
                 `default`, and every environment's rules and default.
             default (Any): Default value returned when no environment rule fires and the environment has no `default`. For
