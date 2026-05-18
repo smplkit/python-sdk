@@ -8,16 +8,26 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
+from ...models.put_user_settings_body import PutUserSettingsBody
 from ...models.put_user_settings_response_put_user_settings import PutUserSettingsResponsePutUserSettings
 
 
-def _get_kwargs() -> dict[str, Any]:
+def _get_kwargs(
+    *,
+    body: PutUserSettingsBody,
+) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
         "method": "put",
         "url": "/api/v1/users/current/settings",
     }
 
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/vnd.api+json"
+
+    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -69,10 +79,14 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    body: PutUserSettingsBody,
 ) -> Response[ErrorResponse | PutUserSettingsResponsePutUserSettings]:
     """Update User Settings
 
      Replace the current user's settings with the provided JSON object.
+
+    Args:
+        body (PutUserSettingsBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -82,7 +96,9 @@ def sync_detailed(
         Response[ErrorResponse | PutUserSettingsResponsePutUserSettings]
     """
 
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        body=body,
+    )
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -94,10 +110,14 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    body: PutUserSettingsBody,
 ) -> ErrorResponse | PutUserSettingsResponsePutUserSettings | None:
     """Update User Settings
 
      Replace the current user's settings with the provided JSON object.
+
+    Args:
+        body (PutUserSettingsBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -109,16 +129,21 @@ def sync(
 
     return sync_detailed(
         client=client,
+        body=body,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    body: PutUserSettingsBody,
 ) -> Response[ErrorResponse | PutUserSettingsResponsePutUserSettings]:
     """Update User Settings
 
      Replace the current user's settings with the provided JSON object.
+
+    Args:
+        body (PutUserSettingsBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -128,7 +153,9 @@ async def asyncio_detailed(
         Response[ErrorResponse | PutUserSettingsResponsePutUserSettings]
     """
 
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        body=body,
+    )
 
     response = await client.get_async_httpx_client().request(**kwargs)
 
@@ -138,10 +165,14 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    body: PutUserSettingsBody,
 ) -> ErrorResponse | PutUserSettingsResponsePutUserSettings | None:
     """Update User Settings
 
      Replace the current user's settings with the provided JSON object.
+
+    Args:
+        body (PutUserSettingsBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -154,5 +185,6 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            body=body,
         )
     ).parsed
