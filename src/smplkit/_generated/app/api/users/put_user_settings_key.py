@@ -9,12 +9,16 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
+from ...models.put_user_settings_key_body import PutUserSettingsKeyBody
 from ...models.put_user_settings_key_response_put_user_settings_key import PutUserSettingsKeyResponsePutUserSettingsKey
 
 
 def _get_kwargs(
     key: str,
+    *,
+    body: PutUserSettingsKeyBody,
 ) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
         "method": "put",
@@ -23,6 +27,11 @@ def _get_kwargs(
         ),
     }
 
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/vnd.api+json"
+
+    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -75,6 +84,7 @@ def sync_detailed(
     key: str,
     *,
     client: AuthenticatedClient,
+    body: PutUserSettingsKeyBody,
 ) -> Response[ErrorResponse | PutUserSettingsKeyResponsePutUserSettingsKey]:
     """Update User Setting by Key
 
@@ -83,6 +93,7 @@ def sync_detailed(
 
     Args:
         key (str):
+        body (PutUserSettingsKeyBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -94,6 +105,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         key=key,
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -107,6 +119,7 @@ def sync(
     key: str,
     *,
     client: AuthenticatedClient,
+    body: PutUserSettingsKeyBody,
 ) -> ErrorResponse | PutUserSettingsKeyResponsePutUserSettingsKey | None:
     """Update User Setting by Key
 
@@ -115,6 +128,7 @@ def sync(
 
     Args:
         key (str):
+        body (PutUserSettingsKeyBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -127,6 +141,7 @@ def sync(
     return sync_detailed(
         key=key,
         client=client,
+        body=body,
     ).parsed
 
 
@@ -134,6 +149,7 @@ async def asyncio_detailed(
     key: str,
     *,
     client: AuthenticatedClient,
+    body: PutUserSettingsKeyBody,
 ) -> Response[ErrorResponse | PutUserSettingsKeyResponsePutUserSettingsKey]:
     """Update User Setting by Key
 
@@ -142,6 +158,7 @@ async def asyncio_detailed(
 
     Args:
         key (str):
+        body (PutUserSettingsKeyBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -153,6 +170,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         key=key,
+        body=body,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -164,6 +182,7 @@ async def asyncio(
     key: str,
     *,
     client: AuthenticatedClient,
+    body: PutUserSettingsKeyBody,
 ) -> ErrorResponse | PutUserSettingsKeyResponsePutUserSettingsKey | None:
     """Update User Setting by Key
 
@@ -172,6 +191,7 @@ async def asyncio(
 
     Args:
         key (str):
+        body (PutUserSettingsKeyBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -185,5 +205,6 @@ async def asyncio(
         await asyncio_detailed(
             key=key,
             client=client,
+            body=body,
         )
     ).parsed
