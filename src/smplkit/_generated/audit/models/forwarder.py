@@ -33,7 +33,7 @@ class Forwarder:
     destination defined by ``configuration``.
 
         Attributes:
-            name (str): Human-readable name for the forwarder.
+            name (str): Human-readable name for the forwarder. Must contain at least one non-whitespace character.
             forwarder_type (ForwarderType): Supported forwarder destination types.
             configuration (HttpConfiguration): HTTP request configuration used to deliver an event to the destination.
 
