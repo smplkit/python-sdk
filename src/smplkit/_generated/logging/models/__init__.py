@@ -21,6 +21,7 @@ from .logger_bulk_item import LoggerBulkItem
 from .logger_bulk_request import LoggerBulkRequest
 from .logger_bulk_response import LoggerBulkResponse
 from .logger_effective_levels_type_0 import LoggerEffectiveLevelsType0
+from .logger_effective_levels_type_0_additional_property_item import LoggerEffectiveLevelsType0AdditionalPropertyItem
 from .logger_environments_type_0 import LoggerEnvironmentsType0
 from .logger_level_type_0 import LoggerLevelType0
 from .logger_list_response import LoggerListResponse
@@ -54,6 +55,7 @@ __all__ = (
     "LoggerBulkRequest",
     "LoggerBulkResponse",
     "LoggerEffectiveLevelsType0",
+    "LoggerEffectiveLevelsType0AdditionalPropertyItem",
     "LoggerEnvironmentsType0",
     "LoggerLevelType0",
     "LoggerListResponse",
