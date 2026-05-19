@@ -47,6 +47,10 @@ from .context_value_list_response import ContextValueListResponse
 from .context_value_resource import ContextValueResource
 from .context_value_resource_type import ContextValueResourceType
 from .create_email_registration_body import CreateEmailRegistrationBody
+from .discount_tier import DiscountTier
+from .discount_tier_list_response import DiscountTierListResponse
+from .discount_tier_resource import DiscountTierResource
+from .discount_tier_resource_type import DiscountTierResourceType
 from .email import Email
 from .email_resource import EmailResource
 from .email_resource_type import EmailResourceType
@@ -84,6 +88,7 @@ from .limit_definition import LimitDefinition
 from .list_api_keys_sort import ListApiKeysSort
 from .list_context_types_sort import ListContextTypesSort
 from .list_contexts_sort import ListContextsSort
+from .list_discount_tiers_sort import ListDiscountTiersSort
 from .list_environments_sort import ListEnvironmentsSort
 from .list_invitations_sort import ListInvitationsSort
 from .list_invoices_sort import ListInvoicesSort
@@ -227,6 +232,10 @@ __all__ = (
     "ContextValueResource",
     "ContextValueResourceType",
     "CreateEmailRegistrationBody",
+    "DiscountTier",
+    "DiscountTierListResponse",
+    "DiscountTierResource",
+    "DiscountTierResourceType",
     "Email",
     "EmailResource",
     "EmailResourceType",
@@ -264,6 +273,7 @@ __all__ = (
     "ListApiKeysSort",
     "ListContextsSort",
     "ListContextTypesSort",
+    "ListDiscountTiersSort",
     "ListEnvironmentsSort",
     "ListInvitationsSort",
     "ListInvoicesSort",
