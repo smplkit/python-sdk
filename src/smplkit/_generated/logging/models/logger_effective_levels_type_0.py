@@ -7,12 +7,8 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-from ..models.logger_effective_levels_type_0_additional_property_item import (
-    check_logger_effective_levels_type_0_additional_property_item,
-)
-from ..models.logger_effective_levels_type_0_additional_property_item import (
-    LoggerEffectiveLevelsType0AdditionalPropertyItem,
-)
+from ..models.log_level import check_log_level
+from ..models.log_level import LogLevel
 
 
 T = TypeVar("T", bound="LoggerEffectiveLevelsType0")
@@ -22,9 +18,7 @@ T = TypeVar("T", bound="LoggerEffectiveLevelsType0")
 class LoggerEffectiveLevelsType0:
     """ """
 
-    additional_properties: dict[str, list[LoggerEffectiveLevelsType0AdditionalPropertyItem]] = _attrs_field(
-        init=False, factory=dict
-    )
+    additional_properties: dict[str, list[LogLevel]] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
 
@@ -47,9 +41,7 @@ class LoggerEffectiveLevelsType0:
             additional_property = []
             _additional_property = prop_dict
             for additional_property_item_data in _additional_property:
-                additional_property_item = check_logger_effective_levels_type_0_additional_property_item(
-                    additional_property_item_data
-                )
+                additional_property_item = check_log_level(additional_property_item_data)
 
                 additional_property.append(additional_property_item)
 
@@ -62,10 +54,10 @@ class LoggerEffectiveLevelsType0:
     def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
-    def __getitem__(self, key: str) -> list[LoggerEffectiveLevelsType0AdditionalPropertyItem]:
+    def __getitem__(self, key: str) -> list[LogLevel]:
         return self.additional_properties[key]
 
-    def __setitem__(self, key: str, value: list[LoggerEffectiveLevelsType0AdditionalPropertyItem]) -> None:
+    def __setitem__(self, key: str, value: list[LogLevel]) -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:

@@ -11,19 +11,17 @@ from .list_meta import ListMeta
 from .list_services_sort import ListServicesSort
 from .log_group import LogGroup
 from .log_group_environments_type_0 import LogGroupEnvironmentsType0
-from .log_group_level_type_0 import LogGroupLevelType0
 from .log_group_list_response import LogGroupListResponse
 from .log_group_request import LogGroupRequest
 from .log_group_resource import LogGroupResource
 from .log_group_response import LogGroupResponse
+from .log_level import LogLevel
 from .logger import Logger
 from .logger_bulk_item import LoggerBulkItem
 from .logger_bulk_request import LoggerBulkRequest
 from .logger_bulk_response import LoggerBulkResponse
 from .logger_effective_levels_type_0 import LoggerEffectiveLevelsType0
-from .logger_effective_levels_type_0_additional_property_item import LoggerEffectiveLevelsType0AdditionalPropertyItem
 from .logger_environments_type_0 import LoggerEnvironmentsType0
-from .logger_level_type_0 import LoggerLevelType0
 from .logger_list_response import LoggerListResponse
 from .logger_request import LoggerRequest
 from .logger_resource import LoggerResource
@@ -55,9 +53,7 @@ __all__ = (
     "LoggerBulkRequest",
     "LoggerBulkResponse",
     "LoggerEffectiveLevelsType0",
-    "LoggerEffectiveLevelsType0AdditionalPropertyItem",
     "LoggerEnvironmentsType0",
-    "LoggerLevelType0",
     "LoggerListResponse",
     "LoggerRequest",
     "LoggerResource",
@@ -68,11 +64,11 @@ __all__ = (
     "LoggerSourcesType0Item",
     "LogGroup",
     "LogGroupEnvironmentsType0",
-    "LogGroupLevelType0",
     "LogGroupListResponse",
     "LogGroupRequest",
     "LogGroupResource",
     "LogGroupResponse",
+    "LogLevel",
     "PaginationMeta",
     "ServiceAttributes",
     "ServiceListResponse",
