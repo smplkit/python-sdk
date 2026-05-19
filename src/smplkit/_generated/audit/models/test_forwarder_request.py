@@ -33,6 +33,9 @@ class TestForwarderRequest:
             success_status (str | Unset): HTTP response status that indicates success. Either a specific status code (e.g.
                 `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`). Default: '2xx'.
             timeout_ms (int | None | Unset): Per-request timeout in milliseconds. Capped at 30 seconds.
+            body (None | str | Unset): Request body sent to the destination. When omitted, an empty body is sent (suitable
+                for connectivity probes). When set, the body is sent verbatim — pair with an appropriate `Content-Type` entry in
+                `headers` so the destination interprets it correctly. Limit 1 MiB.
     """
 
     url: str
@@ -40,6 +43,7 @@ class TestForwarderRequest:
     headers: list[HttpHeader] | Unset = UNSET
     success_status: str | Unset = "2xx"
     timeout_ms: int | None | Unset = UNSET
+    body: None | str | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         url = self.url
@@ -63,6 +67,12 @@ class TestForwarderRequest:
         else:
             timeout_ms = self.timeout_ms
 
+        body: None | str | Unset
+        if isinstance(self.body, Unset):
+            body = UNSET
+        else:
+            body = self.body
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update(
@@ -78,6 +88,8 @@ class TestForwarderRequest:
             field_dict["success_status"] = success_status
         if timeout_ms is not UNSET:
             field_dict["timeout_ms"] = timeout_ms
+        if body is not UNSET:
+            field_dict["body"] = body
 
         return field_dict
 
@@ -115,12 +127,22 @@ class TestForwarderRequest:
 
         timeout_ms = _parse_timeout_ms(d.pop("timeout_ms", UNSET))
 
+        def _parse_body(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        body = _parse_body(d.pop("body", UNSET))
+
         test_forwarder_request = cls(
             url=url,
             method=method,
             headers=headers,
             success_status=success_status,
             timeout_ms=timeout_ms,
+            body=body,
         )
 
         return test_forwarder_request

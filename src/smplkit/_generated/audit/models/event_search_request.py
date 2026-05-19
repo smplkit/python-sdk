@@ -54,6 +54,9 @@ class EventSearchRequest:
                 provided. When a JSON Logic `filter` is present, the effective range is intersected with the last 30 days.
             filtersearch (None | str | Unset): Case-insensitive substring match on `resource_id` or `description`. Must be
                 accompanied by either `filter[occurred_at]` or `filter[resource_type]` + `filter[resource_id]`.
+            filterdo_not_forward (bool | None | Unset): When set, restrict to events whose `do_not_forward` flag matches the
+                given boolean. Forwarder previews typically pass `false` to match live-pipeline semantics (events flagged
+                `do_not_forward=true` are skipped by the forwarder pipeline).
             pagesize (int | Unset): Maximum events to return. Range 1..1000, default 1000 — matches every other list /
                 search endpoint on the platform. Set explicitly to a smaller value when the consumer is rendering results card-
                 by-card. Default: 1000.
@@ -71,6 +74,7 @@ class EventSearchRequest:
     filteractor_id: None | str | Unset = UNSET
     filteroccurred_at: None | str | Unset = UNSET
     filtersearch: None | str | Unset = UNSET
+    filterdo_not_forward: bool | None | Unset = UNSET
     pagesize: int | Unset = 1000
     pageafter: None | str | Unset = UNSET
     sort: str | Unset = "-occurred_at"
@@ -128,6 +132,12 @@ class EventSearchRequest:
         else:
             filtersearch = self.filtersearch
 
+        filterdo_not_forward: bool | None | Unset
+        if isinstance(self.filterdo_not_forward, Unset):
+            filterdo_not_forward = UNSET
+        else:
+            filterdo_not_forward = self.filterdo_not_forward
+
         pagesize = self.pagesize
 
         pageafter: None | str | Unset
@@ -157,6 +167,8 @@ class EventSearchRequest:
             field_dict["filter[occurred_at]"] = filteroccurred_at
         if filtersearch is not UNSET:
             field_dict["filter[search]"] = filtersearch
+        if filterdo_not_forward is not UNSET:
+            field_dict["filter[do_not_forward]"] = filterdo_not_forward
         if pagesize is not UNSET:
             field_dict["page[size]"] = pagesize
         if pageafter is not UNSET:
@@ -252,6 +264,15 @@ class EventSearchRequest:
 
         filtersearch = _parse_filtersearch(d.pop("filter[search]", UNSET))
 
+        def _parse_filterdo_not_forward(data: object) -> bool | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(bool | None | Unset, data)
+
+        filterdo_not_forward = _parse_filterdo_not_forward(d.pop("filter[do_not_forward]", UNSET))
+
         pagesize = d.pop("page[size]", UNSET)
 
         def _parse_pageafter(data: object) -> None | str | Unset:
@@ -274,6 +295,7 @@ class EventSearchRequest:
             filteractor_id=filteractor_id,
             filteroccurred_at=filteroccurred_at,
             filtersearch=filtersearch,
+            filterdo_not_forward=filterdo_not_forward,
             pagesize=pagesize,
             pageafter=pageafter,
             sort=sort,

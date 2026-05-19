@@ -21,6 +21,7 @@ def _get_kwargs(
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
+    filterdo_not_forward: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListEventsSort | Unset = "-occurred_at",
@@ -76,6 +77,13 @@ def _get_kwargs(
     else:
         json_filtersearch = filtersearch
     params["filter[search]"] = json_filtersearch
+
+    json_filterdo_not_forward: bool | None | Unset
+    if isinstance(filterdo_not_forward, Unset):
+        json_filterdo_not_forward = UNSET
+    else:
+        json_filterdo_not_forward = filterdo_not_forward
+    params["filter[do_not_forward]"] = json_filterdo_not_forward
 
     json_pagesize: int | None | Unset
     if isinstance(pagesize, Unset):
@@ -139,6 +147,7 @@ def sync_detailed(
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
+    filterdo_not_forward: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListEventsSort | Unset = "-occurred_at",
@@ -179,6 +188,10 @@ def sync_detailed(
         filterresource_id (None | str | Unset):
         filtersearch (None | str | Unset): Case-insensitive substring match against `resource_id`
             or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.
+        filterdo_not_forward (bool | None | Unset): When set, restrict to events whose
+            `do_not_forward` flag matches the given boolean. Forwarder previews typically pass `false`
+            to match live-pipeline semantics (events flagged `do_not_forward=true` are skipped by the
+            forwarder pipeline).
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
         sort (ListEventsSort | Unset): Field to sort by. Prefix with `-` for descending order.
@@ -201,6 +214,7 @@ def sync_detailed(
         filterresource_type=filterresource_type,
         filterresource_id=filterresource_id,
         filtersearch=filtersearch,
+        filterdo_not_forward=filterdo_not_forward,
         pagesize=pagesize,
         pageafter=pageafter,
         sort=sort,
@@ -223,6 +237,7 @@ def sync(
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
+    filterdo_not_forward: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListEventsSort | Unset = "-occurred_at",
@@ -263,6 +278,10 @@ def sync(
         filterresource_id (None | str | Unset):
         filtersearch (None | str | Unset): Case-insensitive substring match against `resource_id`
             or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.
+        filterdo_not_forward (bool | None | Unset): When set, restrict to events whose
+            `do_not_forward` flag matches the given boolean. Forwarder previews typically pass `false`
+            to match live-pipeline semantics (events flagged `do_not_forward=true` are skipped by the
+            forwarder pipeline).
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
         sort (ListEventsSort | Unset): Field to sort by. Prefix with `-` for descending order.
@@ -286,6 +305,7 @@ def sync(
         filterresource_type=filterresource_type,
         filterresource_id=filterresource_id,
         filtersearch=filtersearch,
+        filterdo_not_forward=filterdo_not_forward,
         pagesize=pagesize,
         pageafter=pageafter,
         sort=sort,
@@ -302,6 +322,7 @@ async def asyncio_detailed(
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
+    filterdo_not_forward: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListEventsSort | Unset = "-occurred_at",
@@ -342,6 +363,10 @@ async def asyncio_detailed(
         filterresource_id (None | str | Unset):
         filtersearch (None | str | Unset): Case-insensitive substring match against `resource_id`
             or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.
+        filterdo_not_forward (bool | None | Unset): When set, restrict to events whose
+            `do_not_forward` flag matches the given boolean. Forwarder previews typically pass `false`
+            to match live-pipeline semantics (events flagged `do_not_forward=true` are skipped by the
+            forwarder pipeline).
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
         sort (ListEventsSort | Unset): Field to sort by. Prefix with `-` for descending order.
@@ -364,6 +389,7 @@ async def asyncio_detailed(
         filterresource_type=filterresource_type,
         filterresource_id=filterresource_id,
         filtersearch=filtersearch,
+        filterdo_not_forward=filterdo_not_forward,
         pagesize=pagesize,
         pageafter=pageafter,
         sort=sort,
@@ -384,6 +410,7 @@ async def asyncio(
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
+    filterdo_not_forward: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListEventsSort | Unset = "-occurred_at",
@@ -424,6 +451,10 @@ async def asyncio(
         filterresource_id (None | str | Unset):
         filtersearch (None | str | Unset): Case-insensitive substring match against `resource_id`
             or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.
+        filterdo_not_forward (bool | None | Unset): When set, restrict to events whose
+            `do_not_forward` flag matches the given boolean. Forwarder previews typically pass `false`
+            to match live-pipeline semantics (events flagged `do_not_forward=true` are skipped by the
+            forwarder pipeline).
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
         sort (ListEventsSort | Unset): Field to sort by. Prefix with `-` for descending order.
@@ -448,6 +479,7 @@ async def asyncio(
             filterresource_type=filterresource_type,
             filterresource_id=filterresource_id,
             filtersearch=filtersearch,
+            filterdo_not_forward=filterdo_not_forward,
             pagesize=pagesize,
             pageafter=pageafter,
             sort=sort,
