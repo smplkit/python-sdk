@@ -23,12 +23,12 @@ class ForwarderType(str, enum.Enum):
     """Supported SIEM forwarder destination types.
 
     The audit service's OpenAPI spec declares ``forwarder_type`` as a
-    string-with-enum-constraint (per ADR-047 §2.12); this Python-side
-    Enum mirrors that constraint so customers get autocomplete and
-    type-checked values instead of stringly-typed inputs. ``str``
-    subclassing keeps interop with the auto-generated client transparent
-    — a ``ForwarderType`` member compares equal to its string literal
-    (``ForwarderType.HTTP == "HTTP"``).
+    string-with-enum-constraint (per ADR-047 §2.12, refined by ADR-050);
+    this Python-side Enum mirrors that constraint so customers get
+    autocomplete and type-checked values instead of stringly-typed
+    inputs. ``str`` subclassing keeps interop with the auto-generated
+    client transparent — a ``ForwarderType`` member compares equal to
+    its string literal (``ForwarderType.HTTP == "http"``).
 
     The available types are real-time HTTP destinations sharing one
     outbound plumbing path. Object-storage archival (S3, GCS, etc.) has
@@ -37,13 +37,13 @@ class ForwarderType(str, enum.Enum):
     §2.12.
     """
 
-    DATADOG = "DATADOG"
-    ELASTIC = "ELASTIC"
-    HONEYCOMB = "HONEYCOMB"
-    HTTP = "HTTP"
-    NEW_RELIC = "NEW_RELIC"
-    SPLUNK_HEC = "SPLUNK_HEC"
-    SUMO_LOGIC = "SUMO_LOGIC"
+    DATADOG = "datadog"
+    ELASTIC = "elastic"
+    HONEYCOMB = "honeycomb"
+    HTTP = "http"
+    NEW_RELIC = "new_relic"
+    SPLUNK_HEC = "splunk_hec"
+    SUMO_LOGIC = "sumo_logic"
 
 
 class HttpMethod(str, enum.Enum):
