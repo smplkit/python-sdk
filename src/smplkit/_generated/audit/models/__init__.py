@@ -32,6 +32,15 @@ from .forwarder_request import ForwarderRequest
 from .forwarder_resource import ForwarderResource
 from .forwarder_response import ForwarderResponse
 from .forwarder_type import ForwarderType
+from .forwarder_type_attributes import ForwarderTypeAttributes
+from .forwarder_type_attributes_placeholders import ForwarderTypeAttributesPlaceholders
+from .forwarder_type_header import ForwarderTypeHeader
+from .forwarder_type_http_configuration import ForwarderTypeHttpConfiguration
+from .forwarder_type_list_response import ForwarderTypeListResponse
+from .forwarder_type_placeholder import ForwarderTypePlaceholder
+from .forwarder_type_resource import ForwarderTypeResource
+from .forwarder_type_response import ForwarderTypeResponse
+from .forwarder_type_transform import ForwarderTypeTransform
 from .http_configuration import HttpConfiguration
 from .http_configuration_method import HttpConfigurationMethod
 from .http_header import HttpHeader
@@ -87,6 +96,15 @@ __all__ = (
     "ForwarderResource",
     "ForwarderResponse",
     "ForwarderType",
+    "ForwarderTypeAttributes",
+    "ForwarderTypeAttributesPlaceholders",
+    "ForwarderTypeHeader",
+    "ForwarderTypeHttpConfiguration",
+    "ForwarderTypeListResponse",
+    "ForwarderTypePlaceholder",
+    "ForwarderTypeResource",
+    "ForwarderTypeResponse",
+    "ForwarderTypeTransform",
     "HttpConfiguration",
     "HttpConfigurationMethod",
     "HttpHeader",

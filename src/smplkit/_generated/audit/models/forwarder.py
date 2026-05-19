@@ -34,7 +34,7 @@ class Forwarder:
 
         Attributes:
             name (str): Human-readable name for the forwarder. Must contain at least one non-whitespace character.
-            forwarder_type (ForwarderType): Supported forwarder destination types.
+            forwarder_type (ForwarderType): Supported forwarder destination types (ADR-050).
             configuration (HttpConfiguration): HTTP request configuration used to deliver an event to the destination.
 
                 Used when the parent forwarder's ``forwarder_type`` is one of the

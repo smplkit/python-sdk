@@ -37,7 +37,7 @@ def _forwarder_resource(
     name: str = "Datadog production",
     description: str | None = None,
     enabled: bool = True,
-    forwarder_type: str = "DATADOG",
+    forwarder_type: str = "datadog",
     filter_: dict[str, Any] | None = None,
     transform: Any = None,
     transform_type: str | None = None,
@@ -161,7 +161,7 @@ class TestForwardersCrud:
         c = _client_with_handler(lambda req: httpx.Response(204))
         fwd = c.forwarders.new(
             name="Datadog production",
-            forwarder_type="DATADOG",
+            forwarder_type="datadog",
             configuration=HttpConfiguration(url="https://x"),
         )
         assert isinstance(fwd, Forwarder)
@@ -181,7 +181,7 @@ class TestForwardersCrud:
         c = _client_with_handler(handler)
         fwd = c.forwarders.new(
             name="Datadog production",
-            forwarder_type="DATADOG",
+            forwarder_type="datadog",
             configuration=HttpConfiguration(
                 url="https://siem.example.com/in",
                 headers=[HttpHeader(name="DD-API-KEY", value="real-secret")],
@@ -207,7 +207,7 @@ class TestForwardersCrud:
         with pytest.raises(ValueError, match="must be specified together"):
             c.forwarders.new(
                 name="x",
-                forwarder_type="HTTP",
+                forwarder_type="http",
                 configuration=HttpConfiguration(url="https://x"),
                 transform="$",
             )
@@ -217,7 +217,7 @@ class TestForwardersCrud:
         with pytest.raises(ValueError, match="must be specified together"):
             c.forwarders.new(
                 name="x",
-                forwarder_type="HTTP",
+                forwarder_type="http",
                 configuration=HttpConfiguration(url="https://x"),
                 transform_type=TransformType.JSONATA,
             )
@@ -230,7 +230,7 @@ class TestForwardersCrud:
         with pytest.raises(ValueError, match="must be a string when transform_type is JSONATA"):
             c.forwarders.new(
                 name="x",
-                forwarder_type="HTTP",
+                forwarder_type="http",
                 configuration=HttpConfiguration(url="https://x"),
                 transform={"wrap": "$"},
                 transform_type=TransformType.JSONATA,
@@ -246,7 +246,7 @@ class TestForwardersCrud:
         c = _client_with_handler(handler)
         fwd = c.forwarders.new(
             name="x",
-            forwarder_type="HTTP",
+            forwarder_type="http",
             configuration=HttpConfiguration(url="https://x"),
         )
         fwd.save()
@@ -259,7 +259,7 @@ class TestForwardersCrud:
         fwd = Forwarder(
             None,
             name="x",
-            forwarder_type=ForwarderType("HTTP"),
+            forwarder_type=ForwarderType("http"),
             configuration=HttpConfiguration(url="https://x"),
         )
         with pytest.raises(RuntimeError, match="without a client"):
@@ -288,7 +288,7 @@ class TestForwardersCrud:
             page_size=1,
             page_number=1,
             meta_total=True,
-            forwarder_type="DATADOG",
+            forwarder_type="datadog",
             enabled=True,
         )
         assert len(first.forwarders) == 1
@@ -343,7 +343,7 @@ class TestForwardersCrud:
         fwd = Forwarder(
             c.forwarders,
             name="x",
-            forwarder_type=ForwarderType("HTTP"),
+            forwarder_type=ForwarderType("http"),
             configuration=HttpConfiguration(url="https://x"),
             created_at=None,
         )
@@ -372,7 +372,7 @@ class TestForwardersCrud:
         c = _client_with_handler(lambda req: httpx.Response(204))
         fwd = c.forwarders.new(
             name="x",
-            forwarder_type="HTTP",
+            forwarder_type="http",
             configuration=HttpConfiguration(url="https://x"),
         )
         with pytest.raises(RuntimeError, match="without a client or id"):
@@ -420,7 +420,7 @@ class TestForwardersCrud:
         c = _client_with_handler(handler)
         fwd = c.forwarders.new(
             name="x",
-            forwarder_type="HTTP",
+            forwarder_type="http",
             configuration=HttpConfiguration(url="https://x"),
         )
         with pytest.raises(Error):

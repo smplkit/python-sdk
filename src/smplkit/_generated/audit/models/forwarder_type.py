@@ -1,15 +1,15 @@
 from typing import Literal, cast
 
-ForwarderType = Literal["DATADOG", "ELASTIC", "HONEYCOMB", "HTTP", "NEW_RELIC", "SPLUNK_HEC", "SUMO_LOGIC"]
+ForwarderType = Literal["datadog", "elastic", "honeycomb", "http", "new_relic", "splunk_hec", "sumo_logic"]
 
 FORWARDER_TYPE_VALUES: set[ForwarderType] = {
-    "DATADOG",
-    "ELASTIC",
-    "HONEYCOMB",
-    "HTTP",
-    "NEW_RELIC",
-    "SPLUNK_HEC",
-    "SUMO_LOGIC",
+    "datadog",
+    "elastic",
+    "honeycomb",
+    "http",
+    "new_relic",
+    "splunk_hec",
+    "sumo_logic",
 }
 
 
