@@ -56,9 +56,11 @@ class Logger:
                 environment may be present with no `level` to record that the logger applies there without changing the resolved
                 level.
             effective_levels (LoggerEffectiveLevelsType0 | None | Unset): Per-environment summary of what runtimes are
-                reporting for this logger. Keyed by environment name; each entry is one of `{"status": "none"}`, `{"status":
-                "agrees", "level": "<LEVEL>"}`, or `{"status": "varies"}`. `agrees` means every observed source in that
-                environment reports the same resolved level; `varies` means at least two sources disagree.
+                reporting for this logger. Keyed by environment name; each value is the list of distinct resolved levels
+                observed across all source rows in that environment, ordered from most-verbose (`TRACE`) to least-verbose
+                (`SILENT`). A single-element list means every source agrees; a multi-element list means sources disagree.
+                Environments with no observed sources are omitted — cross-reference `environments` to find environments that are
+                configured but have not yet been reported in.
             created_at (datetime.datetime | None | Unset): When the logger was first created or discovered.
             updated_at (datetime.datetime | None | Unset): When the logger was last modified.
     """
