@@ -8,8 +8,8 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from ..models.logger_level_type_0 import check_logger_level_type_0
-from ..models.logger_level_type_0 import LoggerLevelType0
+from ..models.log_level import check_log_level
+from ..models.log_level import LogLevel
 from dateutil.parser import isoparse
 from typing import cast
 import datetime
@@ -40,8 +40,8 @@ class Logger:
 
         Attributes:
             name (str): Human-readable label for the logger.
-            level (LoggerLevelType0 | None | Unset): Account-wide log level applied to this logger. `null` means no override
-                at the logger level — the level is inherited from the logger's group or the framework default.
+            level (LogLevel | None | Unset): Account-wide log level applied to this logger. `null` means no override at the
+                logger level — the level is inherited from the logger's group or the framework default.
             group (None | str | Unset): Key of the log group this logger belongs to, or `null` if the logger is not grouped.
                 Assigning a logger to a group promotes it to managed; assigning a group cascades to unmanaged descendants by
                 clearing their group reference.
@@ -66,7 +66,7 @@ class Logger:
     """
 
     name: str
-    level: LoggerLevelType0 | None | Unset = UNSET
+    level: LogLevel | None | Unset = UNSET
     group: None | str | Unset = UNSET
     managed: bool | None | Unset = UNSET
     sources: list[LoggerSourcesType0Item] | None | Unset = UNSET
@@ -181,7 +181,7 @@ class Logger:
         d = dict(src_dict)
         name = d.pop("name")
 
-        def _parse_level(data: object) -> LoggerLevelType0 | None | Unset:
+        def _parse_level(data: object) -> LogLevel | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -189,12 +189,12 @@ class Logger:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                level_type_0 = check_logger_level_type_0(data)
+                level_type_0 = check_log_level(data)
 
                 return level_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(LoggerLevelType0 | None | Unset, data)
+            return cast(LogLevel | None | Unset, data)
 
         level = _parse_level(d.pop("level", UNSET))
 
