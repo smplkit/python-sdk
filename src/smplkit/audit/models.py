@@ -1,7 +1,7 @@
 """Audit resource models exposed by the SDK.
 
 The wrapper layer's domain types — ``Event``, ``Forwarder``,
-``HttpConfiguration``, ``HttpHeader``, ``ResourceType``, ``Action`` —
+``HttpConfiguration``, ``HttpHeader``, ``ResourceType``, ``EventType`` —
 sit on top of the auto-generated ``smplkit._generated.audit.models``.
 The split keeps the public-facing SDK surface stable across
 regenerations.
@@ -89,13 +89,13 @@ class Event:
 
     Attributes:
         id (UUID): Server-assigned UUID for this event.
-        action (str): What happened (e.g. ``"user.created"``,
+        event_type (str): What happened (e.g. ``"user.created"``,
             ``"invoice.paid"``). Any non-empty string.
         resource_type (str): Kind of resource the event is about
             (e.g. ``"invoice"``). Any non-empty string.
         resource_id (str): Identifier of the specific resource the
             event is about.
-        occurred_at (datetime): When the action actually happened, as
+        occurred_at (datetime): When the event actually happened, as
             reported by the source.
         created_at (datetime): When the audit service first ingested
             this event.
@@ -119,7 +119,7 @@ class Event:
     """
 
     id: UUID
-    action: str
+    event_type: str
     resource_type: str
     resource_id: str
     occurred_at: datetime
@@ -136,7 +136,7 @@ class Event:
         attrs = resource.get("attributes", {})
         return cls(
             id=UUID(resource["id"]),
-            action=attrs["action"],
+            event_type=attrs["event_type"],
             resource_type=attrs["resource_type"],
             resource_id=attrs["resource_id"],
             actor_type=attrs.get("actor_type"),
@@ -376,32 +376,33 @@ class ResourceType:
 
 
 @dataclass(frozen=True, slots=True)
-class Action:
-    """A distinct action slug seen for the account.
+class EventType:
+    """A distinct event_type slug seen for the account.
 
-    Same shape as :class:`ResourceType` — ``id`` and ``action`` are the
-    same value. When the parent list call filtered by ``resource_type``,
-    ``created_at`` is the first sighting of that specific (action,
-    resource_type) triple, not the action overall.
+    Same shape as :class:`ResourceType` — ``id`` and ``event_type`` are
+    the same value. When the parent list call filtered by
+    ``resource_type``, ``created_at`` is the first sighting of that
+    specific (event_type, resource_type) triple, not the event_type
+    overall.
 
     Attributes:
-        id (str): The action slug, surfaced as the JSON:API resource id.
-        action (str): Same value as :attr:`id`; provided for readability.
-        created_at (datetime): Earliest sighting of this action (or
-            action/resource_type pair when the list call was filtered) for the
-            account.
+        id (str): The event_type slug, surfaced as the JSON:API resource id.
+        event_type (str): Same value as :attr:`id`; provided for readability.
+        created_at (datetime): Earliest sighting of this event_type (or
+            event_type/resource_type pair when the list call was filtered) for
+            the account.
     """
 
     id: str
-    action: str
+    event_type: str
     created_at: datetime
 
     @classmethod
-    def _from_resource(cls, resource: dict[str, Any]) -> "Action":
+    def _from_resource(cls, resource: dict[str, Any]) -> "EventType":
         attrs = resource.get("attributes", {})
         return cls(
             id=resource["id"],
-            action=attrs.get("action") or resource["id"],
+            event_type=attrs.get("event_type") or resource["id"],
             created_at=_parse_iso(attrs["created_at"]),
         )
 

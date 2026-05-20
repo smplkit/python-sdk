@@ -2,12 +2,12 @@
 
 Public surface (runtime):
 
-    client.audit.events.record(action, resource_type, resource_id, ..., flush=False)
+    client.audit.events.record(event_type, resource_type, resource_id, ..., flush=False)
     client.audit.events.flush(timeout=5.0)
     client.audit.events.list(...)
     client.audit.events.get(event_id)
     client.audit.resource_types.list(...)
-    client.audit.actions.list(filter_resource_type=None, ...)
+    client.audit.event_types.list(filter_resource_type=None, ...)
 
 The runtime audit client owns event recording and read-side queries —
 fire-and-forget ``record``, plus the audit-log list/get and the
@@ -39,8 +39,8 @@ from uuid import UUID
 
 import httpx
 
-from smplkit._generated.audit.api.actions import (
-    list_actions as _gen_list_actions,
+from smplkit._generated.audit.api.event_types import (
+    list_event_types as _gen_list_event_types,
 )
 from smplkit._generated.audit.api.events import (
     get_event as _gen_get_event,
@@ -58,7 +58,7 @@ from smplkit._generated.audit.models.event_resource import EventResource as _Gen
 from smplkit._generated.audit.models.event_response import EventResponse as _GenEventResponse
 from smplkit._generated.audit.types import UNSET
 from smplkit.audit._buffer import AuditEventBuffer, _PendingEvent
-from smplkit.audit.models import Action, Event, ResourceType
+from smplkit.audit.models import Event, EventType, ResourceType
 
 logger = logging.getLogger("smplkit.audit")
 
@@ -139,30 +139,30 @@ class ResourceTypeListPage:
         return len(self.resource_types)
 
 
-class ActionListPage:
-    """A single page from ``client.audit.actions.list(...)``.
+class EventTypeListPage:
+    """A single page from ``client.audit.event_types.list(...)``.
 
-    ``actions`` is the page; ``pagination`` is the response's
+    ``event_types`` is the page; ``pagination`` is the response's
     ``meta.pagination`` block (`page`, `size`, and — only when the
     caller passed `meta_total=True` — `total` and `total_pages`).
     """
 
-    __slots__ = ("actions", "pagination")
+    __slots__ = ("event_types", "pagination")
 
     def __init__(
         self,
         *,
-        actions: list[Action],
+        event_types: list[EventType],
         pagination: dict[str, int],
     ) -> None:
-        self.actions = actions
+        self.event_types = event_types
         self.pagination = pagination
 
     def __iter__(self):
-        return iter(self.actions)
+        return iter(self.event_types)
 
     def __len__(self) -> int:
-        return len(self.actions)
+        return len(self.event_types)
 
 
 class _EventsClient:
@@ -187,7 +187,7 @@ class _EventsClient:
 
     def record(
         self,
-        action: str,
+        event_type: str,
         resource_type: str,
         resource_id: str,
         *,
@@ -215,7 +215,7 @@ class _EventsClient:
         choice on the request-handling hot path.
 
         Args:
-            action: What happened (e.g. ``"invoice.created"``). Any
+            event_type: What happened (e.g. ``"invoice.created"``). Any
                 non-empty string.
             resource_type: Kind of resource the event is about (e.g.
                 ``"invoice"``). Any non-empty string. Customer events
@@ -247,7 +247,7 @@ class _EventsClient:
 
             idempotency_key: Optional caller-supplied idempotency key.
                 If omitted, the server derives one from event content
-                (account_id + action + resource_type + resource_id +
+                (account_id + event_type + resource_type + resource_id +
                 occurred_at + actor_* + data).
             do_not_forward: When True, the audit service records the
                 event normally but does NOT POST it through any
@@ -262,7 +262,7 @@ class _EventsClient:
                 indefinitely.
         """
         attrs = _GenEvent(
-            action=action,
+            event_type=event_type,
             resource_type=resource_type,
             resource_id=resource_id,
         )
@@ -297,7 +297,7 @@ class _EventsClient:
     def list(
         self,
         *,
-        action: str | None = None,
+        event_type: str | None = None,
         resource_type: str | None = None,
         resource_id: str | None = None,
         actor_type: str | None = None,
@@ -315,7 +315,7 @@ class _EventsClient:
         """
         resp = _gen_list_events.sync_detailed(
             client=self._auth,
-            filteraction=action if action is not None else UNSET,
+            filterevent_type=event_type if event_type is not None else UNSET,
             filterresource_type=resource_type if resource_type is not None else UNSET,
             filterresource_id=resource_id if resource_id is not None else UNSET,
             filteractor_type=actor_type if actor_type is not None else UNSET,
@@ -379,8 +379,8 @@ class _ResourceTypesClient:
         )
 
 
-class _ActionsClient:
-    """Surface for ``client.audit.actions.*``."""
+class _EventTypesClient:
+    """Surface for ``client.audit.event_types.*``."""
 
     def __init__(self, *, auth_client: AuthenticatedClient) -> None:
         self._auth = auth_client
@@ -392,19 +392,19 @@ class _ActionsClient:
         page_number: int | None = None,
         page_size: int | None = None,
         meta_total: bool | None = None,
-    ) -> ActionListPage:
-        """List the distinct ``action`` slugs seen in the account.
+    ) -> EventTypeListPage:
+        """List the distinct ``event_type`` slugs seen in the account.
 
         Without ``filter_resource_type``, returns one row per distinct
-        action — an action recorded with multiple resource_types appears
-        once. With the filter, returns the actions seen with that
-        specific resource_type, powering the cascading-filter behavior
-        on the Activity tab.
+        event_type — an event_type recorded with multiple resource_types
+        appears once. With the filter, returns the event_types seen with
+        that specific resource_type, powering the cascading-filter
+        behavior on the Activity tab.
 
         ADR-047 §2.5. Sorted alphabetically; offset paginated per
         ADR-014.
         """
-        resp = _gen_list_actions.sync_detailed(
+        resp = _gen_list_event_types.sync_detailed(
             client=self._auth,
             filterresource_type=(filter_resource_type if filter_resource_type is not None else UNSET),
             pagenumber=page_number if page_number is not None else UNSET,
@@ -413,9 +413,9 @@ class _ActionsClient:
         )
         _expect_status(resp, 200)
         body_dict = resp.parsed.to_dict()
-        rows = [Action._from_resource(r) for r in body_dict.get("data", [])]
-        return ActionListPage(
-            actions=rows,
+        rows = [EventType._from_resource(r) for r in body_dict.get("data", [])]
+        return EventTypeListPage(
+            event_types=rows,
             pagination=_extract_pagination(body_dict),
         )
 
@@ -429,7 +429,7 @@ class AuditClient:
 
     events: _EventsClient
     resource_types: _ResourceTypesClient
-    actions: _ActionsClient
+    event_types: _EventTypesClient
 
     def __init__(self, *, api_key: str, base_url: str, extra_headers: dict[str, str] | None = None) -> None:
         self._api_key = api_key
@@ -442,7 +442,7 @@ class AuditClient:
         )
         self.events = _EventsClient(auth_client=self._auth)
         self.resource_types = _ResourceTypesClient(auth_client=self._auth)
-        self.actions = _ActionsClient(auth_client=self._auth)
+        self.event_types = _EventTypesClient(auth_client=self._auth)
 
     def _close(self) -> None:
         try:
@@ -466,13 +466,13 @@ class AsyncAuditClient:
 
     events: _EventsClient
     resource_types: _ResourceTypesClient
-    actions: _ActionsClient
+    event_types: _EventTypesClient
 
     def __init__(self, *, api_key: str, base_url: str, extra_headers: dict[str, str] | None = None) -> None:
         self._inner = AuditClient(api_key=api_key, base_url=base_url, extra_headers=extra_headers)
         self.events = self._inner.events
         self.resource_types = self._inner.resource_types
-        self.actions = self._inner.actions
+        self.event_types = self._inner.event_types
 
     async def _close(self) -> None:
         self._inner._close()

@@ -119,7 +119,7 @@ def test_create_returns_immediately(monkeypatch):
             "id": "00000000-0000-0000-0000-000000000001",
             "type": "event",
             "attributes": {
-                "action": "invoice.created",
+                "event_type": "invoice.created",
                 "resource_type": "invoice",
                 "resource_id": "inv-x",
                 "occurred_at": "2026-05-06T12:00:00+00:00",
@@ -141,7 +141,7 @@ def test_create_returns_immediately(monkeypatch):
     started = time.monotonic()
     for i in range(20):
         client.events.record(
-            action="invoice.created",
+            event_type="invoice.created",
             resource_type="invoice",
             resource_id=f"inv-{i}",
         )
@@ -160,7 +160,7 @@ def test_record_do_not_forward_serialized_on_wire():
             "id": "00000000-0000-0000-0000-000000000001",
             "type": "event",
             "attributes": {
-                "action": "user.created",
+                "event_type": "user.created",
                 "resource_type": "user",
                 "resource_id": "u-1",
                 "occurred_at": "2026-05-06T12:00:00+00:00",
@@ -184,7 +184,7 @@ def test_record_do_not_forward_serialized_on_wire():
     client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         client.events.record(
-            action="user.created",
+            event_type="user.created",
             resource_type="user",
             resource_id="u-1",
             do_not_forward=True,
@@ -206,7 +206,7 @@ def test_record_flush_true_blocks_until_drained():
             "id": "00000000-0000-0000-0000-000000000001",
             "type": "event",
             "attributes": {
-                "action": "invoice.created",
+                "event_type": "invoice.created",
                 "resource_type": "invoice",
                 "resource_id": "inv-x",
                 "occurred_at": "2026-05-06T12:00:00+00:00",
@@ -240,7 +240,7 @@ def test_record_flush_true_blocks_until_drained():
         # flush=True drains synchronously — by the time the call returns,
         # the buffer has either succeeded or exhausted retries.
         client.events.record(
-            action="invoice.created",
+            event_type="invoice.created",
             resource_type="invoice",
             resource_id="inv-flush-1",
             flush=True,
@@ -298,7 +298,7 @@ def test_record_passes_actor_fields_to_wire():
             "id": "00000000-0000-0000-0000-000000000001",
             "type": "event",
             "attributes": {
-                "action": "user.created",
+                "event_type": "user.created",
                 "resource_type": "user",
                 "resource_id": "u-1",
                 "occurred_at": "2026-05-06T12:00:00+00:00",
@@ -321,7 +321,7 @@ def test_record_passes_actor_fields_to_wire():
     client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         client.events.record(
-            action="user.created",
+            event_type="user.created",
             resource_type="user",
             resource_id="u-1",
             actor_type="EXTERNAL_SERVICE",
@@ -359,7 +359,7 @@ def _make_resource(
         "id": event_id,
         "type": "event",
         "attributes": {
-            "action": "invoice.created",
+            "event_type": "invoice.created",
             "resource_type": "invoice",
             "resource_id": "inv-1",
             "occurred_at": occurred_at,

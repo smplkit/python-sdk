@@ -187,7 +187,7 @@ class TestForwardersCrud:
                 headers=[HttpHeader(name="DD-API-KEY", value="real-secret")],
             ),
             description="Forwards user.* events.",
-            filter={"==": [{"var": "action"}, "user.created"]},
+            filter={"==": [{"var": "event_type"}, "user.created"]},
             transform="$",
             transform_type=TransformType.JSONATA,
         )
