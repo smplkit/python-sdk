@@ -29,7 +29,7 @@ async def main() -> None:
 
         # record an event with full customer-supplied actor attribution
         client.audit.events.record(
-            action="invoice.created",
+            event_type="invoice.created",
             resource_type="invoice",
             resource_id=some_resource_id,
             occurred_at=datetime.now(timezone.utc),
@@ -56,11 +56,11 @@ async def main() -> None:
         event = client.audit.events.get(recorded_event_id)
         assert event.id == recorded_event_id
         assert event.resource_id == some_resource_id
-        assert event.action == "invoice.created"
+        assert event.event_type == "invoice.created"
         assert event.actor_id == "billing-bot:42"
         assert event.actor_label == "finance@example.com"
         print(
-            f"Fetched event {event.id}: {event.action} by {event.actor_label}"
+            f"Fetched event {event.id}: {event.event_type} by {event.actor_label}"
         )
 
         # list resource types observed
@@ -68,10 +68,10 @@ async def main() -> None:
         assert "invoice" in {rt.id for rt in resource_types}
         print(f"Observed resource types: {[rt.id for rt in resource_types]}")
 
-        # list actions observed
-        actions = client.audit.actions.list()
-        assert "invoice.created" in {a.id for a in actions}
-        print(f"Observed actions: {[a.id for a in actions]}")
+        # list event types observed
+        event_types = client.audit.event_types.list()
+        assert "invoice.created" in {et.id for et in event_types}
+        print(f"Observed event types: {[et.id for et in event_types]}")
 
         print("Done!")
 
