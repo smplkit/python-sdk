@@ -15,6 +15,8 @@ from ...types import Unset
 
 def _get_kwargs(
     *,
+    filtersearch: None | str | Unset = UNSET,
+    filterclassification: None | str | Unset = UNSET,
     sort: ListEnvironmentsSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -22,6 +24,20 @@ def _get_kwargs(
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
+
+    json_filtersearch: None | str | Unset
+    if isinstance(filtersearch, Unset):
+        json_filtersearch = UNSET
+    else:
+        json_filtersearch = filtersearch
+    params["filter[search]"] = json_filtersearch
+
+    json_filterclassification: None | str | Unset
+    if isinstance(filterclassification, Unset):
+        json_filterclassification = UNSET
+    else:
+        json_filterclassification = filterclassification
+    params["filter[classification]"] = json_filterclassification
 
     json_sort: str | Unset = UNSET
     if not isinstance(sort, Unset):
@@ -94,6 +110,8 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    filtersearch: None | str | Unset = UNSET,
+    filterclassification: None | str | Unset = UNSET,
     sort: ListEnvironmentsSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -101,9 +119,16 @@ def sync_detailed(
 ) -> Response[EnvironmentListResponse | ErrorResponse]:
     """List Environments
 
-     List all environments for the authenticated account.
+     List all environments for the authenticated account. `filter[search]` does a case-insensitive
+    substring match against the environment `key` and `name`. `filter[classification]` narrows the
+    result to one classification (`STANDARD` or `AD_HOC`).
 
     Args:
+        filtersearch (None | str | Unset): Case-insensitive substring match against the
+            environment `key` and `name`. An environment is returned if either field contains the
+            search term.
+        filterclassification (None | str | Unset): Narrow the result to environments with the
+            given classification. One of `STANDARD` or `AD_HOC`.
         sort (ListEnvironmentsSort | Unset): Field to sort by. Prefix with `-` for descending
             order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`,
             `name`, `-name`, `updated_at`, `-updated_at`. Default: 'name'.
@@ -127,6 +152,8 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        filtersearch=filtersearch,
+        filterclassification=filterclassification,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -143,6 +170,8 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    filtersearch: None | str | Unset = UNSET,
+    filterclassification: None | str | Unset = UNSET,
     sort: ListEnvironmentsSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -150,9 +179,16 @@ def sync(
 ) -> EnvironmentListResponse | ErrorResponse | None:
     """List Environments
 
-     List all environments for the authenticated account.
+     List all environments for the authenticated account. `filter[search]` does a case-insensitive
+    substring match against the environment `key` and `name`. `filter[classification]` narrows the
+    result to one classification (`STANDARD` or `AD_HOC`).
 
     Args:
+        filtersearch (None | str | Unset): Case-insensitive substring match against the
+            environment `key` and `name`. An environment is returned if either field contains the
+            search term.
+        filterclassification (None | str | Unset): Narrow the result to environments with the
+            given classification. One of `STANDARD` or `AD_HOC`.
         sort (ListEnvironmentsSort | Unset): Field to sort by. Prefix with `-` for descending
             order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`,
             `name`, `-name`, `updated_at`, `-updated_at`. Default: 'name'.
@@ -177,6 +213,8 @@ def sync(
 
     return sync_detailed(
         client=client,
+        filtersearch=filtersearch,
+        filterclassification=filterclassification,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -187,6 +225,8 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    filtersearch: None | str | Unset = UNSET,
+    filterclassification: None | str | Unset = UNSET,
     sort: ListEnvironmentsSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -194,9 +234,16 @@ async def asyncio_detailed(
 ) -> Response[EnvironmentListResponse | ErrorResponse]:
     """List Environments
 
-     List all environments for the authenticated account.
+     List all environments for the authenticated account. `filter[search]` does a case-insensitive
+    substring match against the environment `key` and `name`. `filter[classification]` narrows the
+    result to one classification (`STANDARD` or `AD_HOC`).
 
     Args:
+        filtersearch (None | str | Unset): Case-insensitive substring match against the
+            environment `key` and `name`. An environment is returned if either field contains the
+            search term.
+        filterclassification (None | str | Unset): Narrow the result to environments with the
+            given classification. One of `STANDARD` or `AD_HOC`.
         sort (ListEnvironmentsSort | Unset): Field to sort by. Prefix with `-` for descending
             order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`,
             `name`, `-name`, `updated_at`, `-updated_at`. Default: 'name'.
@@ -220,6 +267,8 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        filtersearch=filtersearch,
+        filterclassification=filterclassification,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -234,6 +283,8 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    filtersearch: None | str | Unset = UNSET,
+    filterclassification: None | str | Unset = UNSET,
     sort: ListEnvironmentsSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -241,9 +292,16 @@ async def asyncio(
 ) -> EnvironmentListResponse | ErrorResponse | None:
     """List Environments
 
-     List all environments for the authenticated account.
+     List all environments for the authenticated account. `filter[search]` does a case-insensitive
+    substring match against the environment `key` and `name`. `filter[classification]` narrows the
+    result to one classification (`STANDARD` or `AD_HOC`).
 
     Args:
+        filtersearch (None | str | Unset): Case-insensitive substring match against the
+            environment `key` and `name`. An environment is returned if either field contains the
+            search term.
+        filterclassification (None | str | Unset): Narrow the result to environments with the
+            given classification. One of `STANDARD` or `AD_HOC`.
         sort (ListEnvironmentsSort | Unset): Field to sort by. Prefix with `-` for descending
             order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`,
             `name`, `-name`, `updated_at`, `-updated_at`. Default: 'name'.
@@ -269,6 +327,8 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            filtersearch=filtersearch,
+            filterclassification=filterclassification,
             sort=sort,
             pagenumber=pagenumber,
             pagesize=pagesize,
