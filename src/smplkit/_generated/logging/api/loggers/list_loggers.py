@@ -18,6 +18,7 @@ def _get_kwargs(
     filtermanaged: bool | None | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
     filterlast_seen: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListLoggersSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -46,6 +47,13 @@ def _get_kwargs(
     else:
         json_filterlast_seen = filterlast_seen
     params["filter[last_seen]"] = json_filterlast_seen
+
+    json_filtersearch: None | str | Unset
+    if isinstance(filtersearch, Unset):
+        json_filtersearch = UNSET
+    else:
+        json_filtersearch = filtersearch
+    params["filter[search]"] = json_filtersearch
 
     json_sort: str | Unset = UNSET
     if not isinstance(sort, Unset):
@@ -121,6 +129,7 @@ def sync_detailed(
     filtermanaged: bool | None | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
     filterlast_seen: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListLoggersSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -132,9 +141,10 @@ def sync_detailed(
 
     Default sort is `key` ascending. Supports `filter[managed]` to narrow
     to managed (or unmanaged) loggers, `filter[service]` to keep only
-    loggers observed in a specific service, and `filter[last_seen]`
+    loggers observed in a specific service, `filter[last_seen]`
     (interval notation `[<from>,*)`) to keep only loggers with a source
-    observation at or after the given timestamp.
+    observation at or after the given timestamp, and `filter[search]`
+    for a case-insensitive substring match against `key` or `name`.
 
     ``filter[service]`` and ``filter[last_seen]`` are applied via a
     cross-table membership check in Python after the SQL fetch, so
@@ -145,6 +155,8 @@ def sync_detailed(
         filtermanaged (bool | None | Unset):
         filterservice (None | str | Unset):
         filterlast_seen (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match against the logger
+            `key` and `name`. A logger is returned if either field contains the search term.
         sort (ListLoggersSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
             `-name`, `updated_at`, `-updated_at`. Default: 'key'.
@@ -171,6 +183,7 @@ def sync_detailed(
         filtermanaged=filtermanaged,
         filterservice=filterservice,
         filterlast_seen=filterlast_seen,
+        filtersearch=filtersearch,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -190,6 +203,7 @@ def sync(
     filtermanaged: bool | None | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
     filterlast_seen: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListLoggersSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -201,9 +215,10 @@ def sync(
 
     Default sort is `key` ascending. Supports `filter[managed]` to narrow
     to managed (or unmanaged) loggers, `filter[service]` to keep only
-    loggers observed in a specific service, and `filter[last_seen]`
+    loggers observed in a specific service, `filter[last_seen]`
     (interval notation `[<from>,*)`) to keep only loggers with a source
-    observation at or after the given timestamp.
+    observation at or after the given timestamp, and `filter[search]`
+    for a case-insensitive substring match against `key` or `name`.
 
     ``filter[service]`` and ``filter[last_seen]`` are applied via a
     cross-table membership check in Python after the SQL fetch, so
@@ -214,6 +229,8 @@ def sync(
         filtermanaged (bool | None | Unset):
         filterservice (None | str | Unset):
         filterlast_seen (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match against the logger
+            `key` and `name`. A logger is returned if either field contains the search term.
         sort (ListLoggersSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
             `-name`, `updated_at`, `-updated_at`. Default: 'key'.
@@ -241,6 +258,7 @@ def sync(
         filtermanaged=filtermanaged,
         filterservice=filterservice,
         filterlast_seen=filterlast_seen,
+        filtersearch=filtersearch,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -254,6 +272,7 @@ async def asyncio_detailed(
     filtermanaged: bool | None | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
     filterlast_seen: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListLoggersSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -265,9 +284,10 @@ async def asyncio_detailed(
 
     Default sort is `key` ascending. Supports `filter[managed]` to narrow
     to managed (or unmanaged) loggers, `filter[service]` to keep only
-    loggers observed in a specific service, and `filter[last_seen]`
+    loggers observed in a specific service, `filter[last_seen]`
     (interval notation `[<from>,*)`) to keep only loggers with a source
-    observation at or after the given timestamp.
+    observation at or after the given timestamp, and `filter[search]`
+    for a case-insensitive substring match against `key` or `name`.
 
     ``filter[service]`` and ``filter[last_seen]`` are applied via a
     cross-table membership check in Python after the SQL fetch, so
@@ -278,6 +298,8 @@ async def asyncio_detailed(
         filtermanaged (bool | None | Unset):
         filterservice (None | str | Unset):
         filterlast_seen (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match against the logger
+            `key` and `name`. A logger is returned if either field contains the search term.
         sort (ListLoggersSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
             `-name`, `updated_at`, `-updated_at`. Default: 'key'.
@@ -304,6 +326,7 @@ async def asyncio_detailed(
         filtermanaged=filtermanaged,
         filterservice=filterservice,
         filterlast_seen=filterlast_seen,
+        filtersearch=filtersearch,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -321,6 +344,7 @@ async def asyncio(
     filtermanaged: bool | None | Unset = UNSET,
     filterservice: None | str | Unset = UNSET,
     filterlast_seen: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListLoggersSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -332,9 +356,10 @@ async def asyncio(
 
     Default sort is `key` ascending. Supports `filter[managed]` to narrow
     to managed (or unmanaged) loggers, `filter[service]` to keep only
-    loggers observed in a specific service, and `filter[last_seen]`
+    loggers observed in a specific service, `filter[last_seen]`
     (interval notation `[<from>,*)`) to keep only loggers with a source
-    observation at or after the given timestamp.
+    observation at or after the given timestamp, and `filter[search]`
+    for a case-insensitive substring match against `key` or `name`.
 
     ``filter[service]`` and ``filter[last_seen]`` are applied via a
     cross-table membership check in Python after the SQL fetch, so
@@ -345,6 +370,8 @@ async def asyncio(
         filtermanaged (bool | None | Unset):
         filterservice (None | str | Unset):
         filterlast_seen (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match against the logger
+            `key` and `name`. A logger is returned if either field contains the search term.
         sort (ListLoggersSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
             `-name`, `updated_at`, `-updated_at`. Default: 'key'.
@@ -373,6 +400,7 @@ async def asyncio(
             filtermanaged=filtermanaged,
             filterservice=filterservice,
             filterlast_seen=filterlast_seen,
+            filtersearch=filtersearch,
             sort=sort,
             pagenumber=pagenumber,
             pagesize=pagesize,
