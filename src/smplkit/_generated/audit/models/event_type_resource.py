@@ -6,68 +6,73 @@ from typing import Any, TypeVar, TYPE_CHECKING
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..types import UNSET, Unset
+
 
 if TYPE_CHECKING:
-    from ..models.action_resource import ActionResource
-    from ..models.list_meta import ListMeta
+    from ..models.event_type_attributes import EventTypeAttributes
 
 
-T = TypeVar("T", bound="ActionListResponse")
+T = TypeVar("T", bound="EventTypeResource")
 
 
 @_attrs_define
-class ActionListResponse:
+class EventTypeResource:
     """
+    Example:
+        {'attributes': {'created_at': '2026-04-12T15:23:01Z', 'event_type': 'smpl.flag.created'}, 'id':
+            'smpl.flag.created', 'type': 'event_type'}
+
     Attributes:
-        data (list[ActionResource]):
-        meta (ListMeta): Top-level ``meta`` block included on every JSON:API list response.
+        id (str): The event_type slug.
+        attributes (EventTypeAttributes):
+        type_ (str | Unset):  Default: 'event_type'.
     """
 
-    data: list[ActionResource]
-    meta: ListMeta
+    id: str
+    attributes: EventTypeAttributes
+    type_: str | Unset = "event_type"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        data = []
-        for data_item_data in self.data:
-            data_item = data_item_data.to_dict()
-            data.append(data_item)
+        id = self.id
 
-        meta = self.meta.to_dict()
+        attributes = self.attributes.to_dict()
+
+        type_ = self.type_
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "data": data,
-                "meta": meta,
+                "id": id,
+                "attributes": attributes,
             }
         )
+        if type_ is not UNSET:
+            field_dict["type"] = type_
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.action_resource import ActionResource
-        from ..models.list_meta import ListMeta
+        from ..models.event_type_attributes import EventTypeAttributes
 
         d = dict(src_dict)
-        data = []
-        _data = d.pop("data")
-        for data_item_data in _data:
-            data_item = ActionResource.from_dict(data_item_data)
+        id = d.pop("id")
 
-            data.append(data_item)
+        attributes = EventTypeAttributes.from_dict(d.pop("attributes"))
 
-        meta = ListMeta.from_dict(d.pop("meta"))
+        type_ = d.pop("type", UNSET)
 
-        action_list_response = cls(
-            data=data,
-            meta=meta,
+        event_type_resource = cls(
+            id=id,
+            attributes=attributes,
+            type_=type_,
         )
 
-        action_list_response.additional_properties = d
-        return action_list_response
+        event_type_resource.additional_properties = d
+        return event_type_resource
 
     @property
     def additional_keys(self) -> list[str]:

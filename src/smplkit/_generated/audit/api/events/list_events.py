@@ -17,7 +17,7 @@ def _get_kwargs(
     filteroccurred_at: None | str | Unset = UNSET,
     filteractor_type: None | str | Unset = UNSET,
     filteractor_id: None | str | Unset = UNSET,
-    filteraction: None | str | Unset = UNSET,
+    filterevent_type: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
@@ -50,12 +50,12 @@ def _get_kwargs(
         json_filteractor_id = filteractor_id
     params["filter[actor_id]"] = json_filteractor_id
 
-    json_filteraction: None | str | Unset
-    if isinstance(filteraction, Unset):
-        json_filteraction = UNSET
+    json_filterevent_type: None | str | Unset
+    if isinstance(filterevent_type, Unset):
+        json_filterevent_type = UNSET
     else:
-        json_filteraction = filteraction
-    params["filter[action]"] = json_filteraction
+        json_filterevent_type = filterevent_type
+    params["filter[event_type]"] = json_filterevent_type
 
     json_filterresource_type: None | str | Unset
     if isinstance(filterresource_type, Unset):
@@ -143,7 +143,7 @@ def sync_detailed(
     filteroccurred_at: None | str | Unset = UNSET,
     filteractor_type: None | str | Unset = UNSET,
     filteractor_id: None | str | Unset = UNSET,
-    filteraction: None | str | Unset = UNSET,
+    filterevent_type: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
@@ -183,7 +183,7 @@ def sync_detailed(
         filteroccurred_at (None | str | Unset):
         filteractor_type (None | str | Unset):
         filteractor_id (None | str | Unset):
-        filteraction (None | str | Unset):
+        filterevent_type (None | str | Unset):
         filterresource_type (None | str | Unset):
         filterresource_id (None | str | Unset):
         filtersearch (None | str | Unset): Case-insensitive substring match against `resource_id`
@@ -210,7 +210,7 @@ def sync_detailed(
         filteroccurred_at=filteroccurred_at,
         filteractor_type=filteractor_type,
         filteractor_id=filteractor_id,
-        filteraction=filteraction,
+        filterevent_type=filterevent_type,
         filterresource_type=filterresource_type,
         filterresource_id=filterresource_id,
         filtersearch=filtersearch,
@@ -233,7 +233,7 @@ def sync(
     filteroccurred_at: None | str | Unset = UNSET,
     filteractor_type: None | str | Unset = UNSET,
     filteractor_id: None | str | Unset = UNSET,
-    filteraction: None | str | Unset = UNSET,
+    filterevent_type: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
@@ -273,7 +273,7 @@ def sync(
         filteroccurred_at (None | str | Unset):
         filteractor_type (None | str | Unset):
         filteractor_id (None | str | Unset):
-        filteraction (None | str | Unset):
+        filterevent_type (None | str | Unset):
         filterresource_type (None | str | Unset):
         filterresource_id (None | str | Unset):
         filtersearch (None | str | Unset): Case-insensitive substring match against `resource_id`
@@ -301,7 +301,7 @@ def sync(
         filteroccurred_at=filteroccurred_at,
         filteractor_type=filteractor_type,
         filteractor_id=filteractor_id,
-        filteraction=filteraction,
+        filterevent_type=filterevent_type,
         filterresource_type=filterresource_type,
         filterresource_id=filterresource_id,
         filtersearch=filtersearch,
@@ -318,7 +318,7 @@ async def asyncio_detailed(
     filteroccurred_at: None | str | Unset = UNSET,
     filteractor_type: None | str | Unset = UNSET,
     filteractor_id: None | str | Unset = UNSET,
-    filteraction: None | str | Unset = UNSET,
+    filterevent_type: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
@@ -358,7 +358,7 @@ async def asyncio_detailed(
         filteroccurred_at (None | str | Unset):
         filteractor_type (None | str | Unset):
         filteractor_id (None | str | Unset):
-        filteraction (None | str | Unset):
+        filterevent_type (None | str | Unset):
         filterresource_type (None | str | Unset):
         filterresource_id (None | str | Unset):
         filtersearch (None | str | Unset): Case-insensitive substring match against `resource_id`
@@ -385,7 +385,7 @@ async def asyncio_detailed(
         filteroccurred_at=filteroccurred_at,
         filteractor_type=filteractor_type,
         filteractor_id=filteractor_id,
-        filteraction=filteraction,
+        filterevent_type=filterevent_type,
         filterresource_type=filterresource_type,
         filterresource_id=filterresource_id,
         filtersearch=filtersearch,
@@ -406,7 +406,7 @@ async def asyncio(
     filteroccurred_at: None | str | Unset = UNSET,
     filteractor_type: None | str | Unset = UNSET,
     filteractor_id: None | str | Unset = UNSET,
-    filteraction: None | str | Unset = UNSET,
+    filterevent_type: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
@@ -446,7 +446,7 @@ async def asyncio(
         filteroccurred_at (None | str | Unset):
         filteractor_type (None | str | Unset):
         filteractor_id (None | str | Unset):
-        filteraction (None | str | Unset):
+        filterevent_type (None | str | Unset):
         filterresource_type (None | str | Unset):
         filterresource_id (None | str | Unset):
         filtersearch (None | str | Unset): Case-insensitive substring match against `resource_id`
@@ -475,7 +475,7 @@ async def asyncio(
             filteroccurred_at=filteroccurred_at,
             filteractor_type=filteractor_type,
             filteractor_id=filteractor_id,
-            filteraction=filteraction,
+            filterevent_type=filterevent_type,
             filterresource_type=filterresource_type,
             filterresource_id=filterresource_id,
             filtersearch=filtersearch,

@@ -7,15 +7,15 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.action_list_response import ActionListResponse
-from ...models.list_actions_sort import ListActionsSort
+from ...models.event_type_list_response import EventTypeListResponse
+from ...models.list_event_types_sort import ListEventTypesSort
 from ...types import Unset
 
 
 def _get_kwargs(
     *,
     filterresource_type: None | str | Unset = UNSET,
-    sort: ListActionsSort | Unset = "key",
+    sort: ListEventTypesSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
@@ -46,16 +46,16 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/api/v1/actions",
+        "url": "/api/v1/event_types",
         "params": params,
     }
 
     return _kwargs
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ActionListResponse | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> EventTypeListResponse | None:
     if response.status_code == 200:
-        response_200 = ActionListResponse.from_dict(response.json())
+        response_200 = EventTypeListResponse.from_dict(response.json())
 
         return response_200
 
@@ -65,7 +65,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ActionListResponse]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[EventTypeListResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -78,23 +80,23 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     filterresource_type: None | str | Unset = UNSET,
-    sort: ListActionsSort | Unset = "key",
+    sort: ListEventTypesSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
-) -> Response[ActionListResponse]:
-    """List Actions
+) -> Response[EventTypeListResponse]:
+    """List Event Types
 
-     List the distinct `action` slugs recorded for this account.
+     List the distinct `event_type` slugs recorded for this account.
 
     Default sort is `key` ascending; pass `sort=-key` for descending.
     Without `filter[resource_type]`, returns one row per distinct
-    action. With `filter[resource_type]`, returns the actions recorded
-    for that specific resource type.
+    event_type. With `filter[resource_type]`, returns the event_types
+    recorded for that specific resource type.
 
     Args:
         filterresource_type (None | str | Unset):
-        sort (ListActionsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+        sort (ListEventTypesSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
@@ -112,7 +114,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ActionListResponse]
+        Response[EventTypeListResponse]
     """
 
     kwargs = _get_kwargs(
@@ -134,23 +136,23 @@ def sync(
     *,
     client: AuthenticatedClient,
     filterresource_type: None | str | Unset = UNSET,
-    sort: ListActionsSort | Unset = "key",
+    sort: ListEventTypesSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
-) -> ActionListResponse | None:
-    """List Actions
+) -> EventTypeListResponse | None:
+    """List Event Types
 
-     List the distinct `action` slugs recorded for this account.
+     List the distinct `event_type` slugs recorded for this account.
 
     Default sort is `key` ascending; pass `sort=-key` for descending.
     Without `filter[resource_type]`, returns one row per distinct
-    action. With `filter[resource_type]`, returns the actions recorded
-    for that specific resource type.
+    event_type. With `filter[resource_type]`, returns the event_types
+    recorded for that specific resource type.
 
     Args:
         filterresource_type (None | str | Unset):
-        sort (ListActionsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+        sort (ListEventTypesSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
@@ -168,7 +170,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ActionListResponse
+        EventTypeListResponse
     """
 
     return sync_detailed(
@@ -185,23 +187,23 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     filterresource_type: None | str | Unset = UNSET,
-    sort: ListActionsSort | Unset = "key",
+    sort: ListEventTypesSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
-) -> Response[ActionListResponse]:
-    """List Actions
+) -> Response[EventTypeListResponse]:
+    """List Event Types
 
-     List the distinct `action` slugs recorded for this account.
+     List the distinct `event_type` slugs recorded for this account.
 
     Default sort is `key` ascending; pass `sort=-key` for descending.
     Without `filter[resource_type]`, returns one row per distinct
-    action. With `filter[resource_type]`, returns the actions recorded
-    for that specific resource type.
+    event_type. With `filter[resource_type]`, returns the event_types
+    recorded for that specific resource type.
 
     Args:
         filterresource_type (None | str | Unset):
-        sort (ListActionsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+        sort (ListEventTypesSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
@@ -219,7 +221,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ActionListResponse]
+        Response[EventTypeListResponse]
     """
 
     kwargs = _get_kwargs(
@@ -239,23 +241,23 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     filterresource_type: None | str | Unset = UNSET,
-    sort: ListActionsSort | Unset = "key",
+    sort: ListEventTypesSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
-) -> ActionListResponse | None:
-    """List Actions
+) -> EventTypeListResponse | None:
+    """List Event Types
 
-     List the distinct `action` slugs recorded for this account.
+     List the distinct `event_type` slugs recorded for this account.
 
     Default sort is `key` ascending; pass `sort=-key` for descending.
     Without `filter[resource_type]`, returns one row per distinct
-    action. With `filter[resource_type]`, returns the actions recorded
-    for that specific resource type.
+    event_type. With `filter[resource_type]`, returns the event_types
+    recorded for that specific resource type.
 
     Args:
         filterresource_type (None | str | Unset):
-        sort (ListActionsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+        sort (ListEventTypesSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
@@ -273,7 +275,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ActionListResponse
+        EventTypeListResponse
     """
 
     return (

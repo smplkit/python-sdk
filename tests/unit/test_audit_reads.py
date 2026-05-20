@@ -1,6 +1,6 @@
 """Tests for the audit runtime read surfaces — ``client.audit.events.list``,
 ``client.audit.events.get``, ``client.audit.resource_types.list``, and
-``client.audit.actions.list``.
+``client.audit.event_types.list``.
 
 The fire-and-forget ``record`` path is covered in ``test_audit.py`` and
 ``test_audit_coverage.py``; this file covers the synchronous read
@@ -16,12 +16,12 @@ import httpx
 import pytest
 
 from smplkit import Error, NotFoundError
-from smplkit.audit import Action, Event, ResourceType
+from smplkit.audit import Event, EventType, ResourceType
 from smplkit.audit.client import (
-    ActionListPage,
     AsyncAuditClient,
     AuditClient,
     EventListPage,
+    EventTypeListPage,
     ResourceTypeListPage,
 )
 
@@ -42,7 +42,7 @@ def _event_resource(event_id: str = "11111111-2222-3333-4444-555555555555") -> d
         "id": event_id,
         "type": "event",
         "attributes": {
-            "action": "user.created",
+            "event_type": "user.created",
             "resource_type": "user",
             "resource_id": "u-1",
             "occurred_at": "2026-05-06T12:00:00+00:00",
@@ -64,11 +64,11 @@ def _resource_type_resource(*, key: str, created_at: str = "2026-04-12T15:23:01Z
     }
 
 
-def _action_resource(*, key: str, created_at: str = "2026-04-12T15:23:01Z") -> dict[str, Any]:
+def _event_type_resource(*, key: str, created_at: str = "2026-04-12T15:23:01Z") -> dict[str, Any]:
     return {
         "id": key,
-        "type": "action",
-        "attributes": {"action": key, "created_at": created_at},
+        "type": "event_type",
+        "attributes": {"event_type": key, "created_at": created_at},
     }
 
 
@@ -91,7 +91,7 @@ class TestEventsList:
         client = _client_with_handler(handler)
         try:
             client.events.list(
-                action="user.created",
+                event_type="user.created",
                 resource_type="user",
                 resource_id="u-1",
                 actor_type="USER",
@@ -102,7 +102,7 @@ class TestEventsList:
             )
             u = seen_urls[0]
             for needle in [
-                "filter%5Baction%5D=user.created",
+                "filter%5Bevent_type%5D=user.created",
                 "filter%5Bresource_type%5D=user",
                 "filter%5Bresource_id%5D=u-1",
                 "filter%5Bactor_type%5D=USER",
@@ -185,7 +185,7 @@ class TestEventsGet:
         try:
             ev = client.events.get(event_id)
             assert ev.id == event_id
-            assert ev.action == "user.created"
+            assert ev.event_type == "user.created"
         finally:
             client._close()
 
@@ -214,7 +214,7 @@ class TestEventsGet:
                 "id": "11111111-1111-1111-1111-111111111111",
                 "type": "event",
                 "attributes": {
-                    "action": "x",
+                    "event_type": "x",
                     "resource_type": "y",
                     "resource_id": "z",
                     "occurred_at": "2026-05-06T12:00:00Z",
@@ -324,23 +324,23 @@ class TestResourceTypesList:
 
 
 # ---------------------------------------------------------------------------
-# actions.list
+# event_types.list
 # ---------------------------------------------------------------------------
 
 
-class TestActionsList:
+class TestEventTypesList:
     def test_unfiltered(self):
         def handler(req):
             url = str(req.url)
-            assert "/api/v1/actions" in url
+            assert "/api/v1/event_types" in url
             assert "filter%5Bresource_type%5D" not in url
             assert "filter[resource_type]" not in url
             return httpx.Response(
                 200,
                 json={
                     "data": [
-                        _action_resource(key="account.updated"),
-                        _action_resource(key="user.login"),
+                        _event_type_resource(key="account.updated"),
+                        _event_type_resource(key="user.login"),
                     ],
                     "meta": {"pagination": {"page": 1, "size": 1000}},
                 },
@@ -348,8 +348,8 @@ class TestActionsList:
 
         c = _client_with_handler(handler)
         try:
-            page = c.actions.list()
-            assert isinstance(page, ActionListPage)
+            page = c.event_types.list()
+            assert isinstance(page, EventTypeListPage)
             assert [a.id for a in page] == ["account.updated", "user.login"]
         finally:
             c._close()
@@ -362,14 +362,14 @@ class TestActionsList:
             return httpx.Response(
                 200,
                 json={
-                    "data": [_action_resource(key="user.login")],
+                    "data": [_event_type_resource(key="user.login")],
                     "meta": {"pagination": {"page": 1, "size": 1000}},
                 },
             )
 
         c = _client_with_handler(handler)
         try:
-            page = c.actions.list(filter_resource_type="user")
+            page = c.event_types.list(filter_resource_type="user")
             url = captured_url[0]
             assert "filter%5Bresource_type%5D=user" in url or "filter[resource_type]=user" in url
             assert [a.id for a in page] == ["user.login"]
@@ -384,14 +384,14 @@ class TestActionsList:
             return httpx.Response(
                 200,
                 json={
-                    "data": [_action_resource(key="a.x")],
+                    "data": [_event_type_resource(key="a.x")],
                     "meta": {"pagination": {"page": 2, "size": 1, "total": 5, "total_pages": 5}},
                 },
             )
 
         c = _client_with_handler(handler)
         try:
-            page = c.actions.list(
+            page = c.event_types.list(
                 page_size=1,
                 page_number=2,
                 meta_total=True,
@@ -413,17 +413,17 @@ class TestActionsList:
 
         c = _client_with_handler(handler)
         try:
-            page = c.actions.list()
+            page = c.event_types.list()
             assert page.pagination == {"page": 1, "size": 1000}
         finally:
             c._close()
 
-    def test_action_list_page_len_and_iter(self):
+    def test_event_type_list_page_len_and_iter(self):
         # Direct __len__ check — coverage gate requires every wrapper line.
-        page = ActionListPage(
-            actions=[
-                Action._from_resource(_action_resource(key="a.x")),
-                Action._from_resource(_action_resource(key="b.y")),
+        page = EventTypeListPage(
+            event_types=[
+                EventType._from_resource(_event_type_resource(key="a.x")),
+                EventType._from_resource(_event_type_resource(key="b.y")),
             ],
             pagination={"page": 1, "size": 2},
         )
@@ -448,10 +448,10 @@ class TestModels:
         rt = ResourceType._from_resource(body)
         assert rt.resource_type == "smpl.flag"
 
-    def test_action_falls_back_to_id_when_attribute_missing(self):
+    def test_event_type_falls_back_to_id_when_attribute_missing(self):
         body = {"id": "x.y", "attributes": {"created_at": "2026-04-12T15:23:01Z"}}
-        a = Action._from_resource(body)
-        assert a.action == "x.y"
+        a = EventType._from_resource(body)
+        assert a.event_type == "x.y"
 
 
 # ---------------------------------------------------------------------------
@@ -461,12 +461,12 @@ class TestModels:
 
 def test_async_client_exposes_read_namespaces():
     """The runtime ``AsyncAuditClient`` mirrors the sync one — the same
-    events / resource_types / actions surfaces must reach async callers."""
+    events / resource_types / event_types surfaces must reach async callers."""
     client = AsyncAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     try:
         assert client.events is not None
         assert client.resource_types is not None
-        assert client.actions is not None
+        assert client.event_types is not None
     finally:
         import asyncio
 

@@ -43,7 +43,7 @@ class EventSearchRequest:
                 row after column filters narrow the candidate set. Null, absent, or an empty object disables JSON Logic
                 filtering. When present, the search is silently capped to the last 30 days by `occurred_at` (intersected with
                 any explicit `filter[occurred_at]` the caller supplied).
-            filteraction (None | str | Unset): Exact match on the event's `action` field.
+            filterevent_type (None | str | Unset): Exact match on the event's `event_type` field.
             filterresource_type (None | str | Unset): Exact match on the event's `resource_type` field.
             filterresource_id (None | str | Unset): Exact match on the event's `resource_id` field. Must be accompanied by
                 `filter[resource_type]`.
@@ -67,7 +67,7 @@ class EventSearchRequest:
     """
 
     filter_: EventSearchRequestFilterType0 | None | Unset = UNSET
-    filteraction: None | str | Unset = UNSET
+    filterevent_type: None | str | Unset = UNSET
     filterresource_type: None | str | Unset = UNSET
     filterresource_id: None | str | Unset = UNSET
     filteractor_type: None | str | Unset = UNSET
@@ -90,11 +90,11 @@ class EventSearchRequest:
         else:
             filter_ = self.filter_
 
-        filteraction: None | str | Unset
-        if isinstance(self.filteraction, Unset):
-            filteraction = UNSET
+        filterevent_type: None | str | Unset
+        if isinstance(self.filterevent_type, Unset):
+            filterevent_type = UNSET
         else:
-            filteraction = self.filteraction
+            filterevent_type = self.filterevent_type
 
         filterresource_type: None | str | Unset
         if isinstance(self.filterresource_type, Unset):
@@ -153,8 +153,8 @@ class EventSearchRequest:
         field_dict.update({})
         if filter_ is not UNSET:
             field_dict["filter"] = filter_
-        if filteraction is not UNSET:
-            field_dict["filter[action]"] = filteraction
+        if filterevent_type is not UNSET:
+            field_dict["filter[event_type]"] = filterevent_type
         if filterresource_type is not UNSET:
             field_dict["filter[resource_type]"] = filterresource_type
         if filterresource_id is not UNSET:
@@ -201,14 +201,14 @@ class EventSearchRequest:
 
         filter_ = _parse_filter_(d.pop("filter", UNSET))
 
-        def _parse_filteraction(data: object) -> None | str | Unset:
+        def _parse_filterevent_type(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             return cast(None | str | Unset, data)
 
-        filteraction = _parse_filteraction(d.pop("filter[action]", UNSET))
+        filterevent_type = _parse_filterevent_type(d.pop("filter[event_type]", UNSET))
 
         def _parse_filterresource_type(data: object) -> None | str | Unset:
             if data is None:
@@ -288,7 +288,7 @@ class EventSearchRequest:
 
         event_search_request = cls(
             filter_=filter_,
-            filteraction=filteraction,
+            filterevent_type=filterevent_type,
             filterresource_type=filterresource_type,
             filterresource_id=filterresource_id,
             filteractor_type=filteractor_type,

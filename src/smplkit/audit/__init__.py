@@ -10,23 +10,23 @@ when. The runtime client owns event recording and read-side queries:
 * ``client.audit.events.list(...)`` / ``client.audit.events.get(id)`` —
   query the audit log.
 * ``client.audit.resource_types.list(...)`` and
-  ``client.audit.actions.list(...)`` — distinct-value listings that
+  ``client.audit.event_types.list(...)`` — distinct-value listings that
   back the Activity tab filter dropdowns.
 
 SIEM forwarder CRUD lives on :class:`smplkit.SmplManagementClient`
 under ``mgmt.audit.forwarders.*``. See ``smplkit.management.audit``.
 
 The shared dataclasses (``Event``, ``Forwarder``, ``HttpConfiguration``,
-``HttpHeader``, ``ResourceType``, ``Action``) plus the ``ForwarderType``,
-``HttpMethod``, and ``TransformType`` enums live in
+``HttpHeader``, ``ResourceType``, ``EventType``) plus the
+``ForwarderType``, ``HttpMethod``, and ``TransformType`` enums live in
 :mod:`smplkit.audit.models` and are re-exported here for convenience —
 both the runtime and the management clients return them.
 """
 
 from smplkit.audit.client import AsyncAuditClient, AuditClient
 from smplkit.audit.models import (
-    Action,
     Event,
+    EventType,
     Forwarder,
     ForwarderType,
     HttpConfiguration,
@@ -37,10 +37,10 @@ from smplkit.audit.models import (
 )
 
 __all__ = [
-    "Action",
     "AsyncAuditClient",
     "AuditClient",
     "Event",
+    "EventType",
     "Forwarder",
     "ForwarderType",
     "HttpConfiguration",

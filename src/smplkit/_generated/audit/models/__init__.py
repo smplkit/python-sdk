@@ -1,8 +1,5 @@
 """Contains all the data models used in inputs/outputs"""
 
-from .action_attributes import ActionAttributes
-from .action_list_response import ActionListResponse
-from .action_resource import ActionResource
 from .event import Event
 from .event_data import EventData
 from .event_list_links import EventListLinks
@@ -17,6 +14,9 @@ from .event_search_request import EventSearchRequest
 from .event_search_request_filter_type_0 import EventSearchRequestFilterType0
 from .event_search_response import EventSearchResponse
 from .event_search_scan_meta import EventSearchScanMeta
+from .event_type_attributes import EventTypeAttributes
+from .event_type_list_response import EventTypeListResponse
+from .event_type_resource import EventTypeResource
 from .forwarder import Forwarder
 from .forwarder_delivery import ForwarderDelivery
 from .forwarder_delivery_list_links import ForwarderDeliveryListLinks
@@ -44,7 +44,7 @@ from .forwarder_type_transform import ForwarderTypeTransform
 from .http_configuration import HttpConfiguration
 from .http_configuration_method import HttpConfigurationMethod
 from .http_header import HttpHeader
-from .list_actions_sort import ListActionsSort
+from .list_event_types_sort import ListEventTypesSort
 from .list_events_sort import ListEventsSort
 from .list_forwarder_deliveries_sort import ListForwarderDeliveriesSort
 from .list_forwarders_sort import ListForwardersSort
@@ -64,9 +64,6 @@ from .usage_resource import UsageResource
 from .usage_response import UsageResponse
 
 __all__ = (
-    "ActionAttributes",
-    "ActionListResponse",
-    "ActionResource",
     "Event",
     "EventData",
     "EventListLinks",
@@ -81,6 +78,9 @@ __all__ = (
     "EventSearchRequestFilterType0",
     "EventSearchResponse",
     "EventSearchScanMeta",
+    "EventTypeAttributes",
+    "EventTypeListResponse",
+    "EventTypeResource",
     "Forwarder",
     "ForwarderDelivery",
     "ForwarderDeliveryListLinks",
@@ -108,8 +108,8 @@ __all__ = (
     "HttpConfiguration",
     "HttpConfigurationMethod",
     "HttpHeader",
-    "ListActionsSort",
     "ListEventsSort",
+    "ListEventTypesSort",
     "ListForwarderDeliveriesSort",
     "ListForwardersSort",
     "ListMeta",

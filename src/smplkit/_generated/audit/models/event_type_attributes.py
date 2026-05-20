@@ -11,25 +11,25 @@ from dateutil.parser import isoparse
 import datetime
 
 
-T = TypeVar("T", bound="ActionAttributes")
+T = TypeVar("T", bound="EventTypeAttributes")
 
 
 @_attrs_define
-class ActionAttributes:
+class EventTypeAttributes:
     """
     Attributes:
-        action (str): The action slug. Same as the JSON:API ``id``.
-        created_at (datetime.datetime): First sighting of this action for the account. When the request includes
-            ``filter[resource_type]``, this is the first sighting of the (action, resource_type) triple rather than the
-            action overall.
+        event_type (str): The event_type slug. Same as the JSON:API ``id``.
+        created_at (datetime.datetime): First sighting of this event_type for the account. When the request includes
+            ``filter[resource_type]``, this is the first sighting of the (event_type, resource_type) triple rather than the
+            event_type overall.
     """
 
-    action: str
+    event_type: str
     created_at: datetime.datetime
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        action = self.action
+        event_type = self.event_type
 
         created_at = self.created_at.isoformat()
 
@@ -37,7 +37,7 @@ class ActionAttributes:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "action": action,
+                "event_type": event_type,
                 "created_at": created_at,
             }
         )
@@ -47,17 +47,17 @@ class ActionAttributes:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        action = d.pop("action")
+        event_type = d.pop("event_type")
 
         created_at = isoparse(d.pop("created_at"))
 
-        action_attributes = cls(
-            action=action,
+        event_type_attributes = cls(
+            event_type=event_type,
             created_at=created_at,
         )
 
-        action_attributes.additional_properties = d
-        return action_attributes
+        event_type_attributes.additional_properties = d
+        return event_type_attributes
 
     @property
     def additional_keys(self) -> list[str]:

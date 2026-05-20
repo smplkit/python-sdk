@@ -117,7 +117,7 @@ def test_create_nests_snapshot_inside_data() -> None:
                     "id": "00000000-0000-0000-0000-000000000001",
                     "type": "event",
                     "attributes": {
-                        "action": "invoice.created",
+                        "event_type": "invoice.created",
                         "resource_type": "invoice",
                         "resource_id": "inv-1",
                         "occurred_at": "2026-05-06T12:00:00+00:00",
@@ -137,7 +137,7 @@ def test_create_nests_snapshot_inside_data() -> None:
     client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         client.events.record(
-            action="invoice.created",
+            event_type="invoice.created",
             resource_type="invoice",
             resource_id="inv-1",
             occurred_at=datetime(2026, 5, 6, 12, 0, tzinfo=timezone.utc),
@@ -175,7 +175,7 @@ def test_post_wrapper_returns_httpx_error_on_connection_failure() -> None:
     client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
-        client.events.record(action="x", resource_type="y", resource_id="1")
+        client.events.record(event_type="x", resource_type="y", resource_id="1")
         # Force a drain pass via flush; the wrapper's except clause runs.
         client.events.flush(timeout=0.5)
         assert calls[0] >= 1

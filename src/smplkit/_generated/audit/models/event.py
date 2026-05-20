@@ -29,7 +29,7 @@ class Event:
     `data.snapshot`, but the slot is yours to use however you like.
 
         Attributes:
-            action (str): What happened, e.g. `user.created`. Any non-empty string.
+            event_type (str): What happened, e.g. `user.created`. Any non-empty string.
             resource_type (str): Kind of resource the event is about, e.g. `user`. Any non-empty string.
             resource_id (str): Identifier of the specific resource the event is about.
             description (None | str | Unset): Free-text description of the event. Included alongside `resource_id` in the
@@ -52,7 +52,7 @@ class Event:
                 `Idempotency-Key` header if one was supplied, otherwise a key derived from the event's content.
     """
 
-    action: str
+    event_type: str
     resource_type: str
     resource_id: str
     description: None | str | Unset = UNSET
@@ -67,7 +67,7 @@ class Event:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        action = self.action
+        event_type = self.event_type
 
         resource_type = self.resource_type
 
@@ -129,7 +129,7 @@ class Event:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "action": action,
+                "event_type": event_type,
                 "resource_type": resource_type,
                 "resource_id": resource_id,
             }
@@ -160,7 +160,7 @@ class Event:
         from ..models.event_data import EventData
 
         d = dict(src_dict)
-        action = d.pop("action")
+        event_type = d.pop("event_type")
 
         resource_type = d.pop("resource_type")
 
@@ -255,7 +255,7 @@ class Event:
         idempotency_key = _parse_idempotency_key(d.pop("idempotency_key", UNSET))
 
         event = cls(
-            action=action,
+            event_type=event_type,
             resource_type=resource_type,
             resource_id=resource_id,
             description=description,

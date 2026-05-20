@@ -27,7 +27,7 @@ class ForwarderTypeResource:
             'https://docs.datadoghq.com/api/latest/logs/', 'icon':
             'https://audit.smplkit.com/api/v1/forwarder_types/datadog.svg', 'is_custom': False, 'name': 'Datadog Logs',
             'placeholders': {'api_key': {'label': 'Datadog API key', 'secret': True}}, 'transform': {'default': '{
-            "ddsource": "smplkit", "message": action }', 'type': 'JSONATA'}}, 'id': 'datadog', 'type': 'forwarder_type'}
+            "ddsource": "smplkit", "message": event_type }', 'type': 'JSONATA'}}, 'id': 'datadog', 'type': 'forwarder_type'}
 
     Attributes:
         id (str): Lowercase forwarder type id — matches `forwarder.forwarder_type` values and is the filename stem of
