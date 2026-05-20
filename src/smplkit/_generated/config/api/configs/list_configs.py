@@ -15,6 +15,7 @@ from ...types import Unset
 def _get_kwargs(
     *,
     filterparent: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListConfigsSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -29,6 +30,13 @@ def _get_kwargs(
     else:
         json_filterparent = filterparent
     params["filter[parent]"] = json_filterparent
+
+    json_filtersearch: None | str | Unset
+    if isinstance(filtersearch, Unset):
+        json_filtersearch = UNSET
+    else:
+        json_filtersearch = filtersearch
+    params["filter[search]"] = json_filtersearch
 
     json_sort: str | Unset = UNSET
     if not isinstance(sort, Unset):
@@ -78,6 +86,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     filterparent: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListConfigsSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -88,10 +97,14 @@ def sync_detailed(
      List configs for this account.
 
     Default sort is `key` ascending. Pass `filter[parent]=<parent_key>`
-    to return only the direct children of a specific config.
+    to return only the direct children of a specific config, or
+    `filter[search]=<term>` to filter by a case-insensitive substring
+    against `key` or `name`.
 
     Args:
         filterparent (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match against the config
+            `key` and `name`. A config is returned if either field contains the search term.
         sort (ListConfigsSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
             `-name`, `updated_at`, `-updated_at`. Default: 'key'.
@@ -116,6 +129,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         filterparent=filterparent,
+        filtersearch=filtersearch,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -133,6 +147,7 @@ def sync(
     *,
     client: AuthenticatedClient,
     filterparent: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListConfigsSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -143,10 +158,14 @@ def sync(
      List configs for this account.
 
     Default sort is `key` ascending. Pass `filter[parent]=<parent_key>`
-    to return only the direct children of a specific config.
+    to return only the direct children of a specific config, or
+    `filter[search]=<term>` to filter by a case-insensitive substring
+    against `key` or `name`.
 
     Args:
         filterparent (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match against the config
+            `key` and `name`. A config is returned if either field contains the search term.
         sort (ListConfigsSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
             `-name`, `updated_at`, `-updated_at`. Default: 'key'.
@@ -172,6 +191,7 @@ def sync(
     return sync_detailed(
         client=client,
         filterparent=filterparent,
+        filtersearch=filtersearch,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -183,6 +203,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     filterparent: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListConfigsSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -193,10 +214,14 @@ async def asyncio_detailed(
      List configs for this account.
 
     Default sort is `key` ascending. Pass `filter[parent]=<parent_key>`
-    to return only the direct children of a specific config.
+    to return only the direct children of a specific config, or
+    `filter[search]=<term>` to filter by a case-insensitive substring
+    against `key` or `name`.
 
     Args:
         filterparent (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match against the config
+            `key` and `name`. A config is returned if either field contains the search term.
         sort (ListConfigsSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
             `-name`, `updated_at`, `-updated_at`. Default: 'key'.
@@ -221,6 +246,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         filterparent=filterparent,
+        filtersearch=filtersearch,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -236,6 +262,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     filterparent: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListConfigsSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -246,10 +273,14 @@ async def asyncio(
      List configs for this account.
 
     Default sort is `key` ascending. Pass `filter[parent]=<parent_key>`
-    to return only the direct children of a specific config.
+    to return only the direct children of a specific config, or
+    `filter[search]=<term>` to filter by a case-insensitive substring
+    against `key` or `name`.
 
     Args:
         filterparent (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match against the config
+            `key` and `name`. A config is returned if either field contains the search term.
         sort (ListConfigsSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
             `-name`, `updated_at`, `-updated_at`. Default: 'key'.
@@ -276,6 +307,7 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             filterparent=filterparent,
+            filtersearch=filtersearch,
             sort=sort,
             pagenumber=pagenumber,
             pagesize=pagesize,
