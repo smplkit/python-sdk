@@ -16,6 +16,7 @@ from ...types import Unset
 def _get_kwargs(
     *,
     filterstatus: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListApiKeysSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -30,6 +31,13 @@ def _get_kwargs(
     else:
         json_filterstatus = filterstatus
     params["filter[status]"] = json_filterstatus
+
+    json_filtersearch: None | str | Unset
+    if isinstance(filtersearch, Unset):
+        json_filtersearch = UNSET
+    else:
+        json_filtersearch = filtersearch
+    params["filter[search]"] = json_filtersearch
 
     json_sort: str | Unset = UNSET
     if not isinstance(sort, Unset):
@@ -103,6 +111,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListApiKeysSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -110,10 +119,13 @@ def sync_detailed(
 ) -> Response[ApiKeyListResponse | ErrorResponse]:
     """List API Keys
 
-     List all API keys for the authenticated account.
+     List all API keys for the authenticated account. `filter[search]` does a case-insensitive substring
+    match against the API key `name`.
 
     Args:
         filterstatus (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match against the API key
+            `name`.
         sort (ListApiKeysSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `name`. Allowed values: `created_at`, `-created_at`, `expires_at`, `-expires_at`,
             `last_used_at`, `-last_used_at`, `name`, `-name`, `status`, `-status`. Default: 'name'.
@@ -138,6 +150,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         filterstatus=filterstatus,
+        filtersearch=filtersearch,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -155,6 +168,7 @@ def sync(
     *,
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListApiKeysSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -162,10 +176,13 @@ def sync(
 ) -> ApiKeyListResponse | ErrorResponse | None:
     """List API Keys
 
-     List all API keys for the authenticated account.
+     List all API keys for the authenticated account. `filter[search]` does a case-insensitive substring
+    match against the API key `name`.
 
     Args:
         filterstatus (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match against the API key
+            `name`.
         sort (ListApiKeysSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `name`. Allowed values: `created_at`, `-created_at`, `expires_at`, `-expires_at`,
             `last_used_at`, `-last_used_at`, `name`, `-name`, `status`, `-status`. Default: 'name'.
@@ -191,6 +208,7 @@ def sync(
     return sync_detailed(
         client=client,
         filterstatus=filterstatus,
+        filtersearch=filtersearch,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -202,6 +220,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListApiKeysSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -209,10 +228,13 @@ async def asyncio_detailed(
 ) -> Response[ApiKeyListResponse | ErrorResponse]:
     """List API Keys
 
-     List all API keys for the authenticated account.
+     List all API keys for the authenticated account. `filter[search]` does a case-insensitive substring
+    match against the API key `name`.
 
     Args:
         filterstatus (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match against the API key
+            `name`.
         sort (ListApiKeysSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `name`. Allowed values: `created_at`, `-created_at`, `expires_at`, `-expires_at`,
             `last_used_at`, `-last_used_at`, `name`, `-name`, `status`, `-status`. Default: 'name'.
@@ -237,6 +259,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         filterstatus=filterstatus,
+        filtersearch=filtersearch,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -252,6 +275,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListApiKeysSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -259,10 +283,13 @@ async def asyncio(
 ) -> ApiKeyListResponse | ErrorResponse | None:
     """List API Keys
 
-     List all API keys for the authenticated account.
+     List all API keys for the authenticated account. `filter[search]` does a case-insensitive substring
+    match against the API key `name`.
 
     Args:
         filterstatus (None | str | Unset):
+        filtersearch (None | str | Unset): Case-insensitive substring match against the API key
+            `name`.
         sort (ListApiKeysSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `name`. Allowed values: `created_at`, `-created_at`, `expires_at`, `-expires_at`,
             `last_used_at`, `-last_used_at`, `name`, `-name`, `status`, `-status`. Default: 'name'.
@@ -289,6 +316,7 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             filterstatus=filterstatus,
+            filtersearch=filtersearch,
             sort=sort,
             pagenumber=pagenumber,
             pagesize=pagesize,
