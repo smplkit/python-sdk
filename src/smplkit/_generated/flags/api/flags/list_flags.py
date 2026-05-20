@@ -18,6 +18,7 @@ def _get_kwargs(
     filtermanaged: bool | None | Unset = UNSET,
     filterreferences_context: None | str | Unset = UNSET,
     filterreferences_context_type: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListFlagsSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -53,6 +54,13 @@ def _get_kwargs(
     else:
         json_filterreferences_context_type = filterreferences_context_type
     params["filter[references_context_type]"] = json_filterreferences_context_type
+
+    json_filtersearch: None | str | Unset
+    if isinstance(filtersearch, Unset):
+        json_filtersearch = UNSET
+    else:
+        json_filtersearch = filtersearch
+    params["filter[search]"] = json_filtersearch
 
     json_sort: str | Unset = UNSET
     if not isinstance(sort, Unset):
@@ -105,6 +113,7 @@ def sync_detailed(
     filtermanaged: bool | None | Unset = UNSET,
     filterreferences_context: None | str | Unset = UNSET,
     filterreferences_context_type: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListFlagsSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -127,6 +136,8 @@ def sync_detailed(
             context instance. Format: {type}:{key}
         filterreferences_context_type (None | str | Unset): Return flags whose rules reference any
             attribute of the given context type.
+        filtersearch (None | str | Unset): Case-insensitive substring match against the flag `key`
+            and `name`. A flag is returned if either field contains the search term.
         sort (ListFlagsSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
             `-name`, `type`, `-type`, `updated_at`, `-updated_at`. Default: 'key'.
@@ -154,6 +165,7 @@ def sync_detailed(
         filtermanaged=filtermanaged,
         filterreferences_context=filterreferences_context,
         filterreferences_context_type=filterreferences_context_type,
+        filtersearch=filtersearch,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -174,6 +186,7 @@ def sync(
     filtermanaged: bool | None | Unset = UNSET,
     filterreferences_context: None | str | Unset = UNSET,
     filterreferences_context_type: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListFlagsSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -196,6 +209,8 @@ def sync(
             context instance. Format: {type}:{key}
         filterreferences_context_type (None | str | Unset): Return flags whose rules reference any
             attribute of the given context type.
+        filtersearch (None | str | Unset): Case-insensitive substring match against the flag `key`
+            and `name`. A flag is returned if either field contains the search term.
         sort (ListFlagsSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
             `-name`, `type`, `-type`, `updated_at`, `-updated_at`. Default: 'key'.
@@ -224,6 +239,7 @@ def sync(
         filtermanaged=filtermanaged,
         filterreferences_context=filterreferences_context,
         filterreferences_context_type=filterreferences_context_type,
+        filtersearch=filtersearch,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -238,6 +254,7 @@ async def asyncio_detailed(
     filtermanaged: bool | None | Unset = UNSET,
     filterreferences_context: None | str | Unset = UNSET,
     filterreferences_context_type: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListFlagsSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -260,6 +277,8 @@ async def asyncio_detailed(
             context instance. Format: {type}:{key}
         filterreferences_context_type (None | str | Unset): Return flags whose rules reference any
             attribute of the given context type.
+        filtersearch (None | str | Unset): Case-insensitive substring match against the flag `key`
+            and `name`. A flag is returned if either field contains the search term.
         sort (ListFlagsSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
             `-name`, `type`, `-type`, `updated_at`, `-updated_at`. Default: 'key'.
@@ -287,6 +306,7 @@ async def asyncio_detailed(
         filtermanaged=filtermanaged,
         filterreferences_context=filterreferences_context,
         filterreferences_context_type=filterreferences_context_type,
+        filtersearch=filtersearch,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -305,6 +325,7 @@ async def asyncio(
     filtermanaged: bool | None | Unset = UNSET,
     filterreferences_context: None | str | Unset = UNSET,
     filterreferences_context_type: None | str | Unset = UNSET,
+    filtersearch: None | str | Unset = UNSET,
     sort: ListFlagsSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -327,6 +348,8 @@ async def asyncio(
             context instance. Format: {type}:{key}
         filterreferences_context_type (None | str | Unset): Return flags whose rules reference any
             attribute of the given context type.
+        filtersearch (None | str | Unset): Case-insensitive substring match against the flag `key`
+            and `name`. A flag is returned if either field contains the search term.
         sort (ListFlagsSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`,
             `-name`, `type`, `-type`, `updated_at`, `-updated_at`. Default: 'key'.
@@ -356,6 +379,7 @@ async def asyncio(
             filtermanaged=filtermanaged,
             filterreferences_context=filterreferences_context,
             filterreferences_context_type=filterreferences_context_type,
+            filtersearch=filtersearch,
             sort=sort,
             pagenumber=pagenumber,
             pagesize=pagesize,
