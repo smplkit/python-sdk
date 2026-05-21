@@ -48,6 +48,11 @@ class Config:
                 key on an ancestor.
             environments (ConfigEnvironmentsType0 | None | Unset): Map of environment keys to per-environment override sets.
                 An environment override applies when this config is resolved against that environment.
+            managed (bool | None | Unset): Whether this config is admin-managed (`true`) or auto-discovered by an SDK and
+                not yet claimed (`false`). Configs created through the console or `POST /api/v1/configs` are always managed.
+                Configs registered via `POST /api/v1/configs/bulk` land unmanaged. Setting this field to `true` on a PUT
+                promotes a discovered config to managed, which consumes a slot of the `config.managed_configurations`
+                entitlement.
             created_at (datetime.datetime | None | Unset): When the config was created.
             updated_at (datetime.datetime | None | Unset): When the config was last modified.
     """
@@ -57,6 +62,7 @@ class Config:
     parent: None | str | Unset = UNSET
     items: ConfigItemsType0 | None | Unset = UNSET
     environments: ConfigEnvironmentsType0 | None | Unset = UNSET
+    managed: bool | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -95,6 +101,12 @@ class Config:
         else:
             environments = self.environments
 
+        managed: bool | None | Unset
+        if isinstance(self.managed, Unset):
+            managed = UNSET
+        else:
+            managed = self.managed
+
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
             created_at = UNSET
@@ -126,6 +138,8 @@ class Config:
             field_dict["items"] = items
         if environments is not UNSET:
             field_dict["environments"] = environments
+        if managed is not UNSET:
+            field_dict["managed"] = managed
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
         if updated_at is not UNSET:
@@ -193,6 +207,15 @@ class Config:
 
         environments = _parse_environments(d.pop("environments", UNSET))
 
+        def _parse_managed(data: object) -> bool | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(bool | None | Unset, data)
+
+        managed = _parse_managed(d.pop("managed", UNSET))
+
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
@@ -233,6 +256,7 @@ class Config:
             parent=parent,
             items=items,
             environments=environments,
+            managed=managed,
             created_at=created_at,
             updated_at=updated_at,
         )
