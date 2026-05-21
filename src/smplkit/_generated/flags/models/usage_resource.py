@@ -22,7 +22,7 @@ class UsageResource:
     """JSON:API resource envelope for a usage counter.
 
     Example:
-        {'attributes': {'limit_key': 'flags.items', 'period': 'current', 'value': 5}, 'id':
+        {'attributes': {'limit_key': 'flags.managed_flags', 'period': 'current', 'value': 5}, 'id':
             '550e8400-e29b-41d4-a716-446655440000', 'type': 'usage'}
 
     Attributes:
