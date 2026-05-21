@@ -1,6 +1,12 @@
 """
 Demonstrates the smplkit runtime SDK for Smpl Config.
 
+The canonical runtime pattern is ``get_or_create``: declare each
+configuration from code with in-code defaults, then use typed getters
+to read values. The SDK registers every declaration with smplkit so
+the admin sees what configs and keys your service uses and can
+override them per environment without a code change.
+
 Prerequisites:
     - ``pip install smplkit-sdk``
     - A valid smplkit API key, provided via one of:
@@ -14,147 +20,86 @@ Usage::
 
 import asyncio
 
-from pydantic import BaseModel
-
 from smplkit import AsyncSmplClient
-
-from setup.config_runtime_setup import (
-    setup_runtime_showcase,
-    cleanup_runtime_showcase,
-)
-
-
-class Database(BaseModel):
-    host: str
-    port: int
-    name: str
-    pool_size: int
-
-
-class CommonConfig(BaseModel):
-    app_name: str | None = None
-    support_email: str | None = None
-    max_retries: int = 3
-    request_timeout_ms: int = 5000
-
-
-class UserServiceConfig(CommonConfig):
-    database: Database
-    cache_ttl_seconds: int
-    enable_signup: bool
-    pagination_default_page_size: int
 
 
 async def main() -> None:
 
     # create the client (use SmplClient for synchronous use)
     async with AsyncSmplClient(
-        environment="production", service="showcase-service"
+        environment="production", service="showcase-billing"
     ) as client:
-        await setup_runtime_showcase(client.manage)
-        await client.wait_until_ready()
-
-        # get a config as a plain dict
-        user_svc_config_dict = await client.config.get("showcase-user-service")
-        print(f"Total resolved keys: {len(user_svc_config_dict)}")
-        print(f"database.host = {user_svc_config_dict.get('database.host')}")
-        print(f"max_retries = {user_svc_config_dict.get('max_retries')}")
-        print(
-            f"cache_ttl_seconds = {user_svc_config_dict.get('cache_ttl_seconds')}"
-        )
-        print(
-            f"pagination_default_page_size = "
-            f"{user_svc_config_dict.get('pagination_default_page_size')}"
-        )
-        print(f"enable_signup = {user_svc_config_dict.get('enable_signup')}")
-        print(
-            f"nonexistent_key = {user_svc_config_dict.get('nonexistent_key')}"
-        )
-
-        # production overrides resolve through the inheritance chain
-        assert (
-            user_svc_config_dict.get("database.host")
-            == "prod-users-rds.internal.acme.dev"
-        )
-        assert user_svc_config_dict.get("nonexistent_key") is None
-
-        # get a config as a typed model
-        user_svc_config = await client.config.get(
-            "showcase-user-service", UserServiceConfig
-        )
-        print(f"cfg.database.host = {user_svc_config.database.host}")
-        print(f"cfg.database.pool_size = {user_svc_config.database.pool_size}")
-        print(f"cfg.cache_ttl_seconds = {user_svc_config.cache_ttl_seconds}")
-        print(f"cfg.enable_signup = {user_svc_config.enable_signup}")
-        print(f"cfg.max_retries = {user_svc_config.max_retries}")
-        print(f"cfg.app_name = {user_svc_config.app_name}")
-
-        assert isinstance(user_svc_config.database, Database)
-        assert user_svc_config.max_retries == 5
-        assert user_svc_config.app_name == "Acme SaaS Platform"
-
-        changes: list = []
-        retries_changes: list = []
-
-        # global listener — fires when ANY config item changes
-        @client.config.on_change
-        def on_any_change(event):
-            changes.append(event)
-            print(
-                f"    [CHANGE] {event.config_id}.{event.item_key}: "
-                f"{event.old_value!r} -> {event.new_value!r}"
+        try:
+            # declare a root config and an inheriting child via direct
+            # object reference — no string id required for the parent link
+            common = await client.config.get_or_create(
+                "showcase-common",
+                description="Shared defaults for showcase services.",
+            )
+            billing = await client.config.get_or_create(
+                "showcase-billing",
+                parent=common,
+                description="Plan-limit configuration discovered from code.",
             )
 
-        # item-scoped listener via the live-proxy handle
-        common_cfg = await client.config.get("showcase-common")
+            # typed getters register each item once and return the
+            # current resolved value (or the in-code default when the
+            # item is not yet set on the server)
+            app_name = common.get_string("app.name", default="Acme SaaS")
+            support_email = common.get_string("support.email", default="support@acme.dev")
+            max_seats = billing.get_int(
+                "plan.max_seats", default=5, description="Maximum seats per organization."
+            )
+            trial_days = billing.get_int("plan.trial_days", default=14)
+            tier = billing.get_string("plan.tier", default="free")
 
-        @common_cfg.on_change("max_retries")
-        def on_retries_change(event):
-            retries_changes.append(event)
+            print(f"app.name = {app_name}")
+            print(f"support.email = {support_email}")
+            print(f"plan.max_seats = {max_seats}")
+            print(f"plan.trial_days = {trial_days}")
+            print(f"plan.tier = {tier}")
 
-        # simulate someone making a change to trigger listeners
-        await _update_max_retries(client, 7)
+            # push discoveries to smplkit so admin overrides land against
+            # the right keys
+            await client.manage.config.flush()
 
-        # wait for the WebSocket push to deliver the change
-        deadline = asyncio.get_event_loop().time() + 10.0
-        while (
-            user_svc_config.max_retries != 7
-            and asyncio.get_event_loop().time() < deadline
-        ):
-            await asyncio.sleep(0.1)
+            # listen for admin overrides delivered over the WebSocket
+            changes: list = []
 
-        # user_svc_config always reflects the latest values
-        print(f"max_retries after update = {user_svc_config.max_retries}")
-        print(f"Global changes received: {len(changes)}")
-        print(f"Retries-specific changes received: {len(retries_changes)}")
+            @billing.on_change("plan.max_seats")
+            def on_max_seats(event):
+                changes.append(event)
+                print(
+                    f"    [CHANGE] {event.config_id}.{event.item_key}: "
+                    f"{event.old_value!r} -> {event.new_value!r}"
+                )
 
-        assert user_svc_config.max_retries == 7
-        assert len(changes) >= 1
-        assert len(retries_changes) >= 1
+            # simulate someone overriding a value in the console (the
+            # management API and the console UI go through the same
+            # PUT endpoint)
+            mgmt = await client.manage.config.get("showcase-billing")
+            mgmt.set_number("plan.max_seats", 25, environment="production")
+            await mgmt.save()
 
-        # author a configuration from code via discovery
-        billing = await client.config.get_or_create(
-            "showcase-discovered-billing",
-            description="Plan-limit configuration discovered from code.",
-        )
-        max_seats = billing.get_int("plan.max_seats", default=5, description="Maximum seats per organization.")
-        trial_days = billing.get_int("plan.trial_days", default=14)
-        tier = billing.get_string("plan.tier", default="free")
-        print(f"Discovered billing: max_seats={max_seats}, trial_days={trial_days}, tier={tier}")
-        await client.manage.config.flush()
-        try:
-            await client.manage.config.delete("showcase-discovered-billing")
-        except Exception:
-            pass
+            # wait for the WebSocket push to deliver the change
+            deadline = asyncio.get_event_loop().time() + 10.0
+            while not changes and asyncio.get_event_loop().time() < deadline:
+                await asyncio.sleep(0.1)
 
-        await cleanup_runtime_showcase(client.manage)
+            # same typed getter, new value
+            updated_seats = billing.get_int("plan.max_seats", default=5)
+            print(f"plan.max_seats after override = {updated_seats}")
+            assert updated_seats == 25, f"Expected 25, got {updated_seats}"
+            assert len(changes) >= 1, "Expected at least one change event"
+        finally:
+            # delete child before parent (parents cannot be deleted while
+            # children reference them)
+            for cid in ("showcase-billing", "showcase-common"):
+                try:
+                    await client.manage.config.delete(cid)
+                except Exception:
+                    pass
         print("Done!")
-
-
-async def _update_max_retries(client: AsyncSmplClient, max_retries: int):
-    common_cfg = await client.manage.config.get("showcase-common")
-    common_cfg.set_number("max_retries", max_retries, environment="production")
-    await common_cfg.save()
 
 
 if __name__ == "__main__":

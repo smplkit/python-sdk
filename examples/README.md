@@ -19,12 +19,12 @@ Runnable examples demonstrating the [smplkit Python SDK](https://github.com/smpl
 
 ## Structure
 
-Each product has two showcases — **management** and **runtime** — plus a setup helper that creates server-side state for the runtime showcase.
+Each product has two showcases — **management** and **runtime** — plus, where applicable, a setup helper that creates server-side state for the runtime showcase.
 
 | Product | Management | Runtime | Setup |
 |---------|-----------|---------|-------|
 | **Flags** | `flags_management_showcase.py` | `flags_runtime_showcase.py` | `flags_runtime_setup.py` |
-| **Config** | `config_management_showcase.py` | `config_runtime_showcase.py` | `config_runtime_setup.py` |
+| **Config** | `config_management_showcase.py` | `config_runtime_showcase.py` | _(none — configs are declared from code)_ |
 | **Logging** | `logging_management_showcase.py` | `logging_runtime_showcase.py` | `logging_runtime_setup.py` |
 | **Audit** | _(no management API)_ | `audit_runtime_showcase.py` | _(none — events created at runtime)_ |
 

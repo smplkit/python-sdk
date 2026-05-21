@@ -59,9 +59,11 @@ def _check_response_status(status_code: HTTPStatus, content: bytes) -> None:
 def _pydantic_field_type(annotation: Any) -> str:
     """Map a Pydantic field annotation to a smplkit Config item type.
 
-    Falls back to ``JSON`` for any annotation that isn't a clear scalar —
-    including unions, lists, dicts, and unknown types. The server treats
-    JSON as an escape hatch (ADR-024 §2.5).
+    Falls back to ``STRING`` for any annotation that isn't a clear
+    primitive — unions, lists, dicts, and unknown types. STRING is the
+    safest universal fallback: any value coerces cleanly to a string in
+    the console, and the admin can retype the item to ``JSON``,
+    ``NUMBER``, or ``BOOLEAN`` later.
     """
     if annotation is bool:
         return "BOOLEAN"
@@ -69,7 +71,7 @@ def _pydantic_field_type(annotation: Any) -> str:
         return "NUMBER"
     if annotation is str:
         return "STRING"
-    return "JSON"
+    return "STRING"
 
 
 def _is_pydantic_model(cls: Any) -> bool:

@@ -217,10 +217,10 @@ class TestPydanticHelpers:
         assert _pydantic_field_type(int) == "NUMBER"
         assert _pydantic_field_type(float) == "NUMBER"
         assert _pydantic_field_type(str) == "STRING"
-        # Anything else → JSON escape hatch.
-        assert _pydantic_field_type(dict) == "JSON"
-        assert _pydantic_field_type(list) == "JSON"
-        assert _pydantic_field_type(object) == "JSON"
+        # Anything else → STRING (universal fallback; admin can retype).
+        assert _pydantic_field_type(dict) == "STRING"
+        assert _pydantic_field_type(list) == "STRING"
+        assert _pydantic_field_type(object) == "STRING"
 
     def test_is_pydantic_model_negative(self):
         assert not _is_pydantic_model(int)
@@ -288,7 +288,8 @@ class TestPydanticHelpers:
             tags: list = Field(default_factory=list)
 
         items = _iter_pydantic_items(WithFactory)
-        assert items[0] == ("tags", "JSON", [], None)
+        # list annotation isn't a primitive → falls back to STRING.
+        assert items[0] == ("tags", "STRING", [], None)
 
     def test_iter_items_drops_field_with_failing_factory(self):
         from pydantic import BaseModel, Field
