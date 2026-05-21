@@ -1,6 +1,10 @@
 """Contains all the data models used in inputs/outputs"""
 
 from .config import Config
+from .config_bulk_item import ConfigBulkItem
+from .config_bulk_item_items_type_0 import ConfigBulkItemItemsType0
+from .config_bulk_request import ConfigBulkRequest
+from .config_bulk_response import ConfigBulkResponse
 from .config_environments_type_0 import ConfigEnvironmentsType0
 from .config_item_definition import ConfigItemDefinition
 from .config_item_definition_type_type_0 import ConfigItemDefinitionTypeType0
@@ -21,6 +25,10 @@ from .usage_resource import UsageResource
 
 __all__ = (
     "Config",
+    "ConfigBulkItem",
+    "ConfigBulkItemItemsType0",
+    "ConfigBulkRequest",
+    "ConfigBulkResponse",
     "ConfigEnvironmentsType0",
     "ConfigItemDefinition",
     "ConfigItemDefinitionTypeType0",
