@@ -15,7 +15,8 @@ class UsageAttributes:
     """Usage counter for a single metered limit.
 
     Attributes:
-        limit_key (str): Identifier of the metered limit, e.g. `config.items` or `config.inheritance_depth`.
+        limit_key (str): Identifier of the metered limit, e.g. `config.managed_configurations` or
+            `config.inheritance_depth`.
         period (str): Period the counter covers. `current` is the only supported value.
         value (int): Count for the period.
     """

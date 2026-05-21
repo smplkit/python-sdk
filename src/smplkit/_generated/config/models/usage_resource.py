@@ -22,7 +22,7 @@ class UsageResource:
     """JSON:API resource envelope for a usage counter.
 
     Example:
-        {'attributes': {'limit_key': 'config.items', 'period': 'current', 'value': 3}, 'id':
+        {'attributes': {'limit_key': 'config.managed_configurations', 'period': 'current', 'value': 3}, 'id':
             '550e8400-e29b-41d4-a716-446655440000', 'type': 'usage'}
 
     Attributes:
