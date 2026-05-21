@@ -77,6 +77,7 @@ from smplkit._generated.app.models import (
     EnvironmentResource as _GenEnvironmentResource,
 )
 from smplkit._generated.config.api.configs import (
+    bulk_register_configs as _gen_bulk_register_configs,
     create_config as _gen_create_config,
     delete_config as _gen_delete_config,
     get_config as _gen_get_config,
@@ -84,6 +85,19 @@ from smplkit._generated.config.api.configs import (
     update_config as _gen_update_config,
 )
 from smplkit._generated.config.client import AuthenticatedClient as _ConfigAuthClient
+from smplkit._generated.config.models.config_bulk_item import (
+    ConfigBulkItem as _GenConfigBulkItem,
+)
+from smplkit._generated.config.models.config_bulk_item_items_type_0 import (
+    ConfigBulkItemItemsType0 as _GenConfigBulkItemItems,
+)
+from smplkit._generated.config.models.config_bulk_request import (
+    ConfigBulkRequest as _GenConfigBulkRequest,
+)
+from smplkit._generated.config.models.config_item_definition import (
+    ConfigItemDefinition as _GenConfigItemDefinition,
+)
+from smplkit._generated.config.types import UNSET as _CONFIG_UNSET
 from smplkit._generated.flags.api.flags import (
     bulk_register_flags as _gen_bulk_register_flags,
     create_flag as _gen_create_flag,
@@ -160,7 +174,9 @@ from smplkit.management.models import (
     ContextType,
     Environment,
 )
-from smplkit.management._buffer import (
+from smplkit.management._buffer import (  # noqa: F401  (some imports below)
+    _CONFIG_BATCH_FLUSH_SIZE,
+    _ConfigRegistrationBuffer,
     _CONTEXT_BATCH_FLUSH_SIZE,
     _FLAG_BATCH_FLUSH_SIZE,
     _LOGGER_BATCH_FLUSH_SIZE,
@@ -760,6 +776,42 @@ def _build_logger_bulk_request(buffer: Any) -> Any:
     return LoggerBulkRequest(loggers=items)
 
 
+def _build_config_bulk_request(batch: list[dict[str, Any]]) -> _GenConfigBulkRequest | None:
+    """Build a JSON:API bulk request body from a list of pending config entries.
+
+    Returns ``None`` when *batch* is empty.  Each entry's ``items`` is a
+    ``{item_key: {value, type, description?}}`` dict that the generated
+    client expects as ``ConfigBulkItemItemsType0`` with the items as
+    ``additional_properties``.
+    """
+    if not batch:
+        return None
+    configs: list[_GenConfigBulkItem] = []
+    for entry in batch:
+        items_field: Any = _CONFIG_UNSET
+        if entry.get("items"):
+            items_obj = _GenConfigBulkItemItems()
+            for item_key, item_def in entry["items"].items():
+                items_obj.additional_properties[item_key] = _GenConfigItemDefinition(
+                    value=item_def["value"],
+                    type_=item_def["type"],
+                    description=item_def.get("description", _CONFIG_UNSET),
+                )
+            items_field = items_obj
+        configs.append(
+            _GenConfigBulkItem(
+                id=entry["id"],
+                name=entry.get("name", _CONFIG_UNSET),
+                description=entry.get("description", _CONFIG_UNSET),
+                parent=entry.get("parent", _CONFIG_UNSET),
+                items=items_field,
+                service=entry.get("service", _CONFIG_UNSET),
+                environment=entry.get("environment", _CONFIG_UNSET),
+            )
+        )
+    return _GenConfigBulkRequest(configs=configs)
+
+
 def _build_flag_bulk_request(batch: list[dict[str, Any]]) -> _GenFlagBulkRequest | None:
     """Build a JSON:API bulk request body from a list of pending flag items.
 
@@ -1083,10 +1135,85 @@ def _resolve_parent(parent: str | Config | AsyncConfig | None) -> str | None:
 
 
 class ConfigClient:
-    """Sync config CRUD (``mgmt.config``)."""
+    """Sync config CRUD (``mgmt.config``).
+
+    Also owns the config-discovery buffer that the runtime client
+    populates when customer code calls ``client.config.get_or_create``
+    or typed getters on a live config proxy.
+    """
 
     def __init__(self, http_client: _ConfigAuthClient) -> None:
         self._http_client = http_client
+        self._buffer = _ConfigRegistrationBuffer()
+
+    # ------------------------------------------------------------------
+    # Discovery: declare + add_item + flush
+    # ------------------------------------------------------------------
+
+    def register_config(
+        self,
+        config_id: str,
+        *,
+        service: str | None,
+        environment: str | None,
+        parent: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> None:
+        """Queue a configuration declaration for bulk-discovery upload."""
+        self._buffer.declare(
+            config_id,
+            service=service,
+            environment=environment,
+            parent=parent,
+            name=name,
+            description=description,
+        )
+        if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def register_config_item(
+        self,
+        config_id: str,
+        item_key: str,
+        item_type: str,
+        default: Any,
+        description: str | None = None,
+    ) -> None:
+        """Queue a config item declaration. ``register_config`` must run first."""
+        self._buffer.add_item(config_id, item_key, item_type, default, description)
+        if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def _threshold_flush(self) -> None:
+        try:
+            self.flush()
+        except Exception as exc:
+            logger.warning("Config registration flush failed: %s", exc)
+
+    def flush(self) -> None:
+        """POST pending declarations to ``/api/v1/configs/bulk``.
+
+        Per ADR-024 §2.9, bulk registration always lands rows as
+        ``managed=false`` and is plan-limit-exempt — failures here never
+        propagate to customer code. Drained entries are not requeued;
+        the SDK will re-observe on the next process start.
+        """
+        batch = self._buffer.drain()
+        body = _build_config_bulk_request(batch)
+        if body is None:
+            return
+        try:
+            response = _gen_bulk_register_configs.sync_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    @property
+    def pending_count(self) -> int:
+        """Number of pending config declarations awaiting flush."""
+        return self._buffer.pending_count
 
     def new(
         self,
@@ -1190,10 +1317,92 @@ class ConfigClient:
 
 
 class AsyncConfigClient:
-    """Async config CRUD (``mgmt.config``)."""
+    """Async config CRUD (``mgmt.config``).
+
+    Also owns the config-discovery buffer that the runtime client
+    populates when customer code calls ``client.config.get_or_create``
+    or typed getters on a live config proxy.
+    """
 
     def __init__(self, http_client: _ConfigAuthClient) -> None:
         self._http_client = http_client
+        self._buffer = _ConfigRegistrationBuffer()
+
+    # ------------------------------------------------------------------
+    # Discovery: declare + add_item + flush
+    # ------------------------------------------------------------------
+
+    def register_config(
+        self,
+        config_id: str,
+        *,
+        service: str | None,
+        environment: str | None,
+        parent: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> None:
+        """Queue a configuration declaration for bulk-discovery upload."""
+        self._buffer.declare(
+            config_id,
+            service=service,
+            environment=environment,
+            parent=parent,
+            name=name,
+            description=description,
+        )
+        if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush_sync, daemon=True).start()
+
+    def register_config_item(
+        self,
+        config_id: str,
+        item_key: str,
+        item_type: str,
+        default: Any,
+        description: str | None = None,
+    ) -> None:
+        """Queue a config item declaration. ``register_config`` must run first."""
+        self._buffer.add_item(config_id, item_key, item_type, default, description)
+        if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush_sync, daemon=True).start()
+
+    def _threshold_flush_sync(self) -> None:
+        try:
+            self.flush_sync()
+        except Exception as exc:
+            logger.warning("Config registration flush failed: %s", exc)
+
+    async def flush(self) -> None:
+        """POST pending declarations to ``/api/v1/configs/bulk`` (async)."""
+        batch = self._buffer.drain()
+        body = _build_config_bulk_request(batch)
+        if body is None:
+            return
+        try:
+            response = await _gen_bulk_register_configs.asyncio_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    def flush_sync(self) -> None:
+        """Synchronous flush from a background thread (final flush, threshold flush)."""
+        batch = self._buffer.drain()
+        body = _build_config_bulk_request(batch)
+        if body is None:
+            return
+        try:
+            response = _gen_bulk_register_configs.sync_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http_client._base_url)
+            raise
+        _check_status(int(response.status_code), response.content)
+
+    @property
+    def pending_count(self) -> int:
+        """Number of pending config declarations awaiting flush."""
+        return self._buffer.pending_count
 
     def new(
         self,

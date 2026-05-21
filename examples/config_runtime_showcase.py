@@ -132,6 +132,21 @@ async def main() -> None:
         assert len(changes) >= 1
         assert len(retries_changes) >= 1
 
+        # author a configuration from code via discovery
+        billing = await client.config.get_or_create(
+            "showcase-discovered-billing",
+            description="Plan-limit configuration discovered from code.",
+        )
+        max_seats = billing.get_int("plan.max_seats", default=5, description="Maximum seats per organization.")
+        trial_days = billing.get_int("plan.trial_days", default=14)
+        tier = billing.get_string("plan.tier", default="free")
+        print(f"Discovered billing: max_seats={max_seats}, trial_days={trial_days}, tier={tier}")
+        await client.manage.config.flush()
+        try:
+            await client.manage.config.delete("showcase-discovered-billing")
+        except Exception:
+            pass
+
         await cleanup_runtime_showcase(client.manage)
         print("Done!")
 

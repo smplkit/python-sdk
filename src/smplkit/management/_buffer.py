@@ -29,6 +29,7 @@ _CONTEXT_REGISTRATION_LRU_SIZE = 10_000
 _CONTEXT_BATCH_FLUSH_SIZE = 100
 _FLAG_BATCH_FLUSH_SIZE = 50
 _LOGGER_BATCH_FLUSH_SIZE = 50
+_CONFIG_BATCH_FLUSH_SIZE = 50
 
 
 class _ContextRegistrationBuffer:
@@ -129,6 +130,122 @@ class _FlagRegistrationBuffer:
     def pending_count(self) -> int:
         with self._lock:
             return len(self._pending)
+
+
+class _ConfigRegistrationBuffer:
+    """Thread-safe batch buffer for config declarations.
+
+    Configs differ from flags/loggers because each entry carries a
+    nested ``items`` dict that grows incrementally as the customer's
+    code touches more typed getters on a declared handle. The buffer
+    therefore stores per-config metadata permanently (so post-flush
+    deltas can be re-attributed to the right service/environment) and
+    dedups items per ``(config_id, item_key)`` so we never re-send an
+    item that the server has already accepted.
+
+    Call sites:
+
+    - :meth:`declare` once per ``client.config.get_or_create(id, ...)``.
+    - :meth:`add_item` for every typed getter call. Repeated calls with
+      the same ``(config_id, item_key)`` after a successful flush are
+      no-ops.
+    - :meth:`drain` returns the pending payload list, clears the
+      pending buffer, and records what was sent.
+
+    The buffer never drops metadata — only ``_pending`` is cleared on
+    flush. If the customer's code declares new items via typed getters
+    after a flush, a fresh pending entry is created using the stored
+    metadata so the server can route the delta to the right source row.
+    """
+
+    def __init__(self) -> None:
+        # Pending payloads keyed by config id — drained on flush.
+        self._pending: OrderedDict[str, dict[str, Any]] = OrderedDict()
+        # Per-config metadata (service/environment/parent/name/description).
+        # Kept across flushes so post-flush deltas carry the right attribution.
+        self._meta: OrderedDict[str, dict[str, Any]] = OrderedDict()
+        # Permanent dedup of items already sent at least once.
+        self._sent_items: set[tuple[str, str]] = set()
+        self._lock = threading.Lock()
+
+    def declare(
+        self,
+        config_id: str,
+        *,
+        service: str | None,
+        environment: str | None,
+        parent: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> None:
+        """Register a configuration. Idempotent within a process."""
+        with self._lock:
+            if config_id in self._meta:
+                # Already known — keep the original metadata.
+                return
+            self._meta[config_id] = {
+                "service": service,
+                "environment": environment,
+                "parent": parent,
+                "name": name,
+                "description": description,
+            }
+            self._pending[config_id] = self._build_entry(config_id, items={})
+
+    def add_item(
+        self,
+        config_id: str,
+        item_key: str,
+        item_type: str,
+        default: Any,
+        description: str | None = None,
+    ) -> None:
+        """Queue an item declaration if not already sent.
+
+        Must be preceded by :meth:`declare` for the same ``config_id``;
+        otherwise the call is dropped (no implicit declaration).
+        """
+        with self._lock:
+            if config_id not in self._meta:
+                return
+            if (config_id, item_key) in self._sent_items:
+                return
+            entry = self._pending.get(config_id)
+            if entry is None:
+                # Post-flush delta — rebuild a pending entry from stored metadata.
+                entry = self._build_entry(config_id, items={})
+                self._pending[config_id] = entry
+            if item_key in entry["items"]:
+                return
+            item_def: dict[str, Any] = {"value": default, "type": item_type}
+            if description is not None:
+                item_def["description"] = description
+            entry["items"][item_key] = item_def
+
+    def _build_entry(self, config_id: str, items: dict[str, Any]) -> dict[str, Any]:
+        meta = self._meta[config_id]
+        entry: dict[str, Any] = {"id": config_id, "items": items}
+        for key in ("service", "environment", "parent", "name", "description"):
+            value = meta.get(key)
+            if value is not None:
+                entry[key] = value
+        return entry
+
+    def drain(self) -> list[dict[str, Any]]:
+        """Return and clear the pending batch; record sent items."""
+        with self._lock:
+            entries = list(self._pending.values())
+            for entry in entries:
+                cid = entry["id"]
+                for item_key in entry["items"]:
+                    self._sent_items.add((cid, item_key))
+            self._pending.clear()
+            return entries
+
+    @property
+    def pending_count(self) -> int:
+        with self._lock:
+            return sum(1 for _ in self._pending)
 
 
 class _LoggerRegistrationBuffer:

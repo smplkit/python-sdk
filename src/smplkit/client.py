@@ -191,6 +191,7 @@ class SmplClient:
                 self.manage.contexts.flush()
                 self.manage.flags.flush()
                 self.manage.loggers.flush()
+                self.manage.config.flush()
             except Exception as exc:
                 logger.warning("Periodic registration flush failed: %s", exc)
                 debug("registration", traceback.format_exc().strip())
@@ -203,7 +204,12 @@ class SmplClient:
 
     def _final_flush(self) -> None:
         """Drain every registration buffer one last time on close."""
-        for fn in (self.manage.contexts.flush, self.manage.flags.flush, self.manage.loggers.flush):
+        for fn in (
+            self.manage.contexts.flush,
+            self.manage.flags.flush,
+            self.manage.loggers.flush,
+            self.manage.config.flush,
+        ):
             try:
                 fn()
             except Exception as exc:
@@ -444,6 +450,7 @@ class AsyncSmplClient:
                 self.manage.contexts.flush_sync,
                 self.manage.flags.flush_sync,
                 self.manage.loggers.flush_sync,
+                self.manage.config.flush_sync,
             ):
                 try:
                     fn()
@@ -459,7 +466,12 @@ class AsyncSmplClient:
 
     async def _final_flush(self) -> None:
         """Drain every registration buffer one last time on close."""
-        for fn in (self.manage.contexts.flush, self.manage.flags.flush, self.manage.loggers.flush):
+        for fn in (
+            self.manage.contexts.flush,
+            self.manage.flags.flush,
+            self.manage.loggers.flush,
+            self.manage.config.flush,
+        ):
             try:
                 await fn()
             except Exception as exc:
