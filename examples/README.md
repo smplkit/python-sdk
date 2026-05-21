@@ -24,7 +24,7 @@ Each product has two showcases — **management** and **runtime** — plus, wher
 | Product | Management | Runtime | Setup |
 |---------|-----------|---------|-------|
 | **Flags** | `flags_management_showcase.py` | `flags_runtime_showcase.py` | `flags_runtime_setup.py` |
-| **Config** | `config_management_showcase.py` | `config_runtime_showcase.py` | _(none — configs are declared from code)_ |
+| **Config** | `config_management_showcase.py` | `config_runtime_showcase.py` | `config_runtime_setup.py` |
 | **Logging** | `logging_management_showcase.py` | `logging_runtime_showcase.py` | `logging_runtime_setup.py` |
 | **Audit** | _(no management API)_ | `audit_runtime_showcase.py` | _(none — events created at runtime)_ |
 
