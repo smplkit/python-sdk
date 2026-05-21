@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from smplkit._errors import NotFoundError
 from smplkit.client import AsyncSmplClient, SmplClient
 from smplkit.config.client import ConfigChangeEvent, LiveConfigProxy
 
@@ -71,9 +72,10 @@ class TestResolveSyncPrescriptive:
             "ratio": 0.75,
         }
 
-    def test_resolve_returns_empty_for_missing_config(self):
+    def test_resolve_raises_not_found_for_missing_config(self):
         client = _make_connected_client()
-        assert dict(client.config.get("nonexistent")) == {}
+        with pytest.raises(NotFoundError, match="Config with id 'nonexistent' not found"):
+            client.config.get("nonexistent")
 
     def test_resolve_with_dataclass_model(self):
         client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
@@ -138,11 +140,12 @@ class TestResolveAsyncPrescriptive:
 
         asyncio.run(_run())
 
-    def test_resolve_returns_empty_for_missing_config(self):
+    def test_resolve_raises_not_found_for_missing_config(self):
         client = _make_connected_async_client()
 
         async def _run():
-            assert dict(await client.config.get("nonexistent")) == {}
+            with pytest.raises(NotFoundError, match="Config with id 'nonexistent' not found"):
+                await client.config.get("nonexistent")
 
         asyncio.run(_run())
 
@@ -235,12 +238,10 @@ class TestGetProxyBehaviorSync:
         assert "LiveConfigProxy" in r
         assert "DbConfig" in r
 
-    def test_proxy_for_missing_config_returns_empty(self):
+    def test_get_for_missing_config_raises_not_found(self):
         client = _make_connected_client()
-        proxy = client.config.get("nonexistent")
-        # getitem on empty cache
-        with pytest.raises(KeyError):
-            _ = proxy["anything"]
+        with pytest.raises(NotFoundError, match="Config with id 'nonexistent' not found"):
+            client.config.get("nonexistent")
 
     def test_proxy_contains(self):
         client = _make_connected_client()

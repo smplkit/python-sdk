@@ -357,8 +357,16 @@ class ConfigClient:
 
         Returns:
             A :class:`LiveConfigProxy` (typed as *model* when supplied).
+
+        Raises:
+            NotFoundError: If no config with the given id exists. The check
+                runs against the cache populated by :meth:`start`, which is
+                kept current by WebSocket events; call :meth:`refresh` if a
+                config was just created out-of-band and may not yet be visible.
         """
         self.start()
+        if id not in self._config_cache:
+            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
         metrics = self._metrics
         if metrics is not None:
             metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
@@ -616,8 +624,16 @@ class AsyncConfigClient:
 
         Returns:
             A :class:`LiveConfigProxy` (typed as *model* when supplied).
+
+        Raises:
+            NotFoundError: If no config with the given id exists. The check
+                runs against the cache populated by :meth:`start`, which is
+                kept current by WebSocket events; call :meth:`refresh` if a
+                config was just created out-of-band and may not yet be visible.
         """
         await self.start()
+        if id not in self._config_cache:
+            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
         metrics = self._metrics
         if metrics is not None:
             metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})

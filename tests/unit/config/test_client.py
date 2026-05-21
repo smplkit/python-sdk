@@ -385,12 +385,13 @@ class TestConfigClientResolve:
         assert isinstance(result, LiveConfigProxy)
         assert dict(result) == {"host": "localhost", "port": 5432}
 
-    def test_resolve_returns_empty_for_missing_id(self):
+    def test_resolve_raises_not_found_for_missing_id(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         client.config._connected = True
         client.config._config_cache = {}
 
-        assert dict(client.config.get("missing")) == {}
+        with pytest.raises(NotFoundError, match="Config with id 'missing' not found"):
+            client.config.get("missing")
 
     def test_resolve_triggers_connect(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
@@ -1134,12 +1135,13 @@ class TestAsyncConfigClientResolve:
 
         asyncio.run(_run())
 
-    def test_resolve_returns_empty_for_missing_id(self):
+    def test_resolve_raises_not_found_for_missing_id(self):
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             client.config._connected = True
             client.config._config_cache = {}
-            assert dict(await client.config.get("missing")) == {}
+            with pytest.raises(NotFoundError, match="Config with id 'missing' not found"):
+                await client.config.get("missing")
 
         asyncio.run(_run())
 
