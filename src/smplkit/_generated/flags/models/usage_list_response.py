@@ -20,7 +20,7 @@ class UsageListResponse:
     """JSON:API collection response envelope for usage counters.
 
     Example:
-        {'data': [{'attributes': {'limit_key': 'flags.items', 'period': 'current', 'value': 5}, 'id':
+        {'data': [{'attributes': {'limit_key': 'flags.managed_flags', 'period': 'current', 'value': 5}, 'id':
             '550e8400-e29b-41d4-a716-446655440000', 'type': 'usage'}]}
 
     Attributes:
