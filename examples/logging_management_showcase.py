@@ -48,20 +48,17 @@ async def main() -> None:
         print(f"Created: {payments.id} (level={payments.level})")
         assert payments.level == LogLevel.WARN
 
-        # override log level for different environments
+        # override log level for the production environment
         root.set_level(LogLevel.ERROR, environment="production")
-        root.set_level(LogLevel.DEBUG, environment="staging")
         await root.save()
         print(f"Set environment overrides: {root.environments}")
         assert root.environments["production"].level == LogLevel.ERROR
-        assert root.environments["staging"].level == LogLevel.DEBUG
 
         # clear environment override (inherits from the default level again)
-        root.clear_level(environment="staging")
+        root.clear_level(environment="production")
         await root.save()
-        print(f"Cleared staging override: {root.environments}")
-        assert "staging" not in root.environments
-        assert root.environments["production"].level == LogLevel.ERROR
+        print(f"Cleared production override: {root.environments}")
+        assert "production" not in root.environments
 
         # fetch a logger by id
         fetched = await manage.loggers.get("showcase")

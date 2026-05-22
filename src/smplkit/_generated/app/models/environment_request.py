@@ -22,8 +22,8 @@ class EnvironmentRequest:
         data (EnvironmentResource): JSON:API resource envelope for an environment.
 
             `id` must not be specified for create requests (the server assigns it). Example: {'attributes':
-            {'classification': 'STANDARD', 'color': '#2ecc71', 'created_at': '2026-03-20T11:02:16.616Z', 'name':
-            'Production', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id': 'production', 'type': 'environment'}.
+            {'classification': 'STANDARD', 'color': '#2ecc71', 'created_at': '2026-03-20T11:02:16.616Z', 'managed': True,
+            'name': 'Production', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id': 'production', 'type': 'environment'}.
     """
 
     data: EnvironmentResource

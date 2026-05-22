@@ -84,7 +84,7 @@ async def main() -> None:
 
     # create the client (use SmplClient for synchronous use)
     async with AsyncSmplClient(
-        environment="staging", service="showcase-service"
+        environment="production", service="showcase-service"
     ) as client:
         await setup_runtime_showcase(client.manage)
         await client.wait_until_ready()
@@ -201,7 +201,7 @@ async def main() -> None:
 async def _update_rules(client: AsyncSmplClient):
     current_banner = await client.manage.flags.get("banner-color")
     current_banner.add_rule(
-        Rule("Red for small companies", environment="staging")
+        Rule("Red for small companies", environment="production")
         .when("account.employee_count", Op.LT, 50)
         .serve("red")
     )

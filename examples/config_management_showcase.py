@@ -43,7 +43,6 @@ async def main() -> None:
         shared.set_number(
             "request_timeout_ms", 10000, environment="production"
         )
-        shared.set_number("max_retries", 2, environment="staging")
         await shared.save()
         print(f"Created config: {shared.id}")
 
