@@ -93,6 +93,53 @@ class TestParseErrorBody:
         assert len(errors) == 1
         assert errors[0].detail == "real"
 
+    def test_extracts_code_and_meta(self):
+        # Regression: ``code`` and ``meta`` were dropped by the parser,
+        # so callers couldn't branch on machine-readable codes like
+        # ``environment_unmanaged`` without string-matching the human
+        # ``detail``. Both must round-trip.
+        body = json.dumps(
+            {
+                "errors": [
+                    {
+                        "status": "400",
+                        "code": "environment_unmanaged",
+                        "title": "Environment is unmanaged",
+                        "detail": "Promote it first.",
+                        "meta": {"environment": "staging", "count": 2},
+                    }
+                ]
+            }
+        ).encode()
+        errors = _parse_error_body(body)
+        assert len(errors) == 1
+        assert errors[0].code == "environment_unmanaged"
+        assert errors[0].meta == {"environment": "staging", "count": 2}
+        # to_dict should round-trip the new fields too.
+        d = errors[0].to_dict()
+        assert d["code"] == "environment_unmanaged"
+        assert d["meta"] == {"environment": "staging", "count": 2}
+
+    def test_ignores_non_dict_meta_and_source(self):
+        # The parser must defensively coerce malformed meta/source
+        # (e.g. a string where the spec expects an object) to empty
+        # rather than blowing up.
+        body = json.dumps(
+            {
+                "errors": [
+                    {
+                        "status": "400",
+                        "title": "Bad",
+                        "source": "not-an-object",
+                        "meta": "also-not-an-object",
+                    }
+                ]
+            }
+        ).encode()
+        errors = _parse_error_body(body)
+        assert errors[0].source == {}
+        assert errors[0].meta == {}
+
 
 # ---------------------------------------------------------------------------
 # _derive_message

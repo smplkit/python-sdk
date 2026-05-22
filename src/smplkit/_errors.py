@@ -12,20 +12,33 @@ class ApiErrorDetail:
     """A single error object from the server's JSON:API ``errors`` array."""
 
     status: str | None = None
+    code: str | None = None
+    """
+    Application-specific machine-readable error code (e.g.
+    ``environment_unmanaged``). Per JSON:API §7 and ADR-014, smplkit
+    sets this on every error so callers can branch without
+    string-matching the human ``detail``.
+    """
     title: str | None = None
     detail: str | None = None
     source: dict[str, Any] = field(default_factory=dict)
+    meta: dict[str, Any] = field(default_factory=dict)
+    """Additional structured context (e.g. ``{"environment": "staging"}``)."""
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {}
         if self.status is not None:
             d["status"] = self.status
+        if self.code is not None:
+            d["code"] = self.code
         if self.title is not None:
             d["title"] = self.title
         if self.detail is not None:
             d["detail"] = self.detail
         if self.source:
             d["source"] = self.source
+        if self.meta:
+            d["meta"] = self.meta
         return d
 
     def to_json(self) -> str:
@@ -59,12 +72,16 @@ def _parse_error_body(content: bytes) -> list[ApiErrorDetail]:
     for item in raw_errors:
         if not isinstance(item, dict):
             continue
+        source = item.get("source")
+        meta = item.get("meta")
         result.append(
             ApiErrorDetail(
                 status=item.get("status"),
+                code=item.get("code"),
                 title=item.get("title"),
                 detail=item.get("detail"),
-                source=item.get("source") or {},
+                source=source if isinstance(source, dict) else {},
+                meta=meta if isinstance(meta, dict) else {},
             )
         )
     return result
