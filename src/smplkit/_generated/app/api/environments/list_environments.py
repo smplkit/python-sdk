@@ -17,6 +17,7 @@ def _get_kwargs(
     *,
     filtersearch: None | str | Unset = UNSET,
     filterclassification: None | str | Unset = UNSET,
+    filtermanaged: bool | None | Unset = UNSET,
     sort: ListEnvironmentsSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -38,6 +39,13 @@ def _get_kwargs(
     else:
         json_filterclassification = filterclassification
     params["filter[classification]"] = json_filterclassification
+
+    json_filtermanaged: bool | None | Unset
+    if isinstance(filtermanaged, Unset):
+        json_filtermanaged = UNSET
+    else:
+        json_filtermanaged = filtermanaged
+    params["filter[managed]"] = json_filtermanaged
 
     json_sort: str | Unset = UNSET
     if not isinstance(sort, Unset):
@@ -112,6 +120,7 @@ def sync_detailed(
     client: AuthenticatedClient,
     filtersearch: None | str | Unset = UNSET,
     filterclassification: None | str | Unset = UNSET,
+    filtermanaged: bool | None | Unset = UNSET,
     sort: ListEnvironmentsSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -121,7 +130,8 @@ def sync_detailed(
 
      List all environments for the authenticated account. `filter[search]` does a case-insensitive
     substring match against the environment `key` and `name`. `filter[classification]` narrows the
-    result to one classification (`STANDARD` or `AD_HOC`).
+    result to one classification (`STANDARD` or `AD_HOC`). `filter[managed]` narrows by managed state
+    (`true` or `false`).
 
     Args:
         filtersearch (None | str | Unset): Case-insensitive substring match against the
@@ -129,6 +139,8 @@ def sync_detailed(
             search term.
         filterclassification (None | str | Unset): Narrow the result to environments with the
             given classification. One of `STANDARD` or `AD_HOC`.
+        filtermanaged (bool | None | Unset): Narrow the result to managed (`true`) or unmanaged
+            (`false`) environments. Omit to return both.
         sort (ListEnvironmentsSort | Unset): Field to sort by. Prefix with `-` for descending
             order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`,
             `name`, `-name`, `updated_at`, `-updated_at`. Default: 'name'.
@@ -154,6 +166,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         filtersearch=filtersearch,
         filterclassification=filterclassification,
+        filtermanaged=filtermanaged,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -172,6 +185,7 @@ def sync(
     client: AuthenticatedClient,
     filtersearch: None | str | Unset = UNSET,
     filterclassification: None | str | Unset = UNSET,
+    filtermanaged: bool | None | Unset = UNSET,
     sort: ListEnvironmentsSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -181,7 +195,8 @@ def sync(
 
      List all environments for the authenticated account. `filter[search]` does a case-insensitive
     substring match against the environment `key` and `name`. `filter[classification]` narrows the
-    result to one classification (`STANDARD` or `AD_HOC`).
+    result to one classification (`STANDARD` or `AD_HOC`). `filter[managed]` narrows by managed state
+    (`true` or `false`).
 
     Args:
         filtersearch (None | str | Unset): Case-insensitive substring match against the
@@ -189,6 +204,8 @@ def sync(
             search term.
         filterclassification (None | str | Unset): Narrow the result to environments with the
             given classification. One of `STANDARD` or `AD_HOC`.
+        filtermanaged (bool | None | Unset): Narrow the result to managed (`true`) or unmanaged
+            (`false`) environments. Omit to return both.
         sort (ListEnvironmentsSort | Unset): Field to sort by. Prefix with `-` for descending
             order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`,
             `name`, `-name`, `updated_at`, `-updated_at`. Default: 'name'.
@@ -215,6 +232,7 @@ def sync(
         client=client,
         filtersearch=filtersearch,
         filterclassification=filterclassification,
+        filtermanaged=filtermanaged,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -227,6 +245,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     filtersearch: None | str | Unset = UNSET,
     filterclassification: None | str | Unset = UNSET,
+    filtermanaged: bool | None | Unset = UNSET,
     sort: ListEnvironmentsSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -236,7 +255,8 @@ async def asyncio_detailed(
 
      List all environments for the authenticated account. `filter[search]` does a case-insensitive
     substring match against the environment `key` and `name`. `filter[classification]` narrows the
-    result to one classification (`STANDARD` or `AD_HOC`).
+    result to one classification (`STANDARD` or `AD_HOC`). `filter[managed]` narrows by managed state
+    (`true` or `false`).
 
     Args:
         filtersearch (None | str | Unset): Case-insensitive substring match against the
@@ -244,6 +264,8 @@ async def asyncio_detailed(
             search term.
         filterclassification (None | str | Unset): Narrow the result to environments with the
             given classification. One of `STANDARD` or `AD_HOC`.
+        filtermanaged (bool | None | Unset): Narrow the result to managed (`true`) or unmanaged
+            (`false`) environments. Omit to return both.
         sort (ListEnvironmentsSort | Unset): Field to sort by. Prefix with `-` for descending
             order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`,
             `name`, `-name`, `updated_at`, `-updated_at`. Default: 'name'.
@@ -269,6 +291,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         filtersearch=filtersearch,
         filterclassification=filterclassification,
+        filtermanaged=filtermanaged,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -285,6 +308,7 @@ async def asyncio(
     client: AuthenticatedClient,
     filtersearch: None | str | Unset = UNSET,
     filterclassification: None | str | Unset = UNSET,
+    filtermanaged: bool | None | Unset = UNSET,
     sort: ListEnvironmentsSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -294,7 +318,8 @@ async def asyncio(
 
      List all environments for the authenticated account. `filter[search]` does a case-insensitive
     substring match against the environment `key` and `name`. `filter[classification]` narrows the
-    result to one classification (`STANDARD` or `AD_HOC`).
+    result to one classification (`STANDARD` or `AD_HOC`). `filter[managed]` narrows by managed state
+    (`true` or `false`).
 
     Args:
         filtersearch (None | str | Unset): Case-insensitive substring match against the
@@ -302,6 +327,8 @@ async def asyncio(
             search term.
         filterclassification (None | str | Unset): Narrow the result to environments with the
             given classification. One of `STANDARD` or `AD_HOC`.
+        filtermanaged (bool | None | Unset): Narrow the result to managed (`true`) or unmanaged
+            (`false`) environments. Omit to return both.
         sort (ListEnvironmentsSort | Unset): Field to sort by. Prefix with `-` for descending
             order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`,
             `name`, `-name`, `updated_at`, `-updated_at`. Default: 'name'.
@@ -329,6 +356,7 @@ async def asyncio(
             client=client,
             filtersearch=filtersearch,
             filterclassification=filterclassification,
+            filtermanaged=filtermanaged,
             sort=sort,
             pagenumber=pagenumber,
             pagesize=pagesize,

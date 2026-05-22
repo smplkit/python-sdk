@@ -27,15 +27,16 @@ class EnvironmentResource:
 
         Example:
             {'attributes': {'classification': 'STANDARD', 'color': '#2ecc71', 'created_at': '2026-03-20T11:02:16.616Z',
-                'name': 'Production', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id': 'production', 'type': 'environment'}
+                'managed': True, 'name': 'Production', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id': 'production', 'type':
+                'environment'}
 
         Attributes:
             type_ (EnvironmentResourceType):
             attributes (Environment): A named deployment context — for example, `production`, `staging`, or
                 `development`. Resources scoped to an environment (such as config items
                 and feature flags) are evaluated against environment-specific values. Example: {'classification': 'STANDARD',
-                'color': '#2ecc71', 'created_at': '2026-03-20T11:02:16.616Z', 'name': 'Production', 'updated_at':
-                '2026-03-20T11:02:16.616Z'}.
+                'color': '#2ecc71', 'created_at': '2026-03-20T11:02:16.616Z', 'managed': True, 'name': 'Production',
+                'updated_at': '2026-03-20T11:02:16.616Z'}.
             id (None | str | Unset):
     """
 
