@@ -38,14 +38,15 @@ class SubscriptionResponseAttributes:
         total_cents (int): Final monthly total in cents after the discount is applied.
         items (list[SubscriptionItemResponse]): One entry per product currently enrolled on the subscription.
         status (None | str | Unset): Lifecycle state of the subscription. `ACTIVE` while billing is current; `PAST_DUE`
-            after a failed charge; `CANCELED` once the subscription has ended; `null` when the subscription has no billing
-            object (fully comped at 100% discount).
+            after a failed charge; `CANCELED` once the subscription has ended; `null` when the subscription is fully
+            discounted (`discount_override_pct` of 100) and has no billing-provider object.
         current_period_start (None | str | Unset): ISO-8601 timestamp of the current billing period's start.
         current_period_end (None | str | Unset): ISO-8601 timestamp of the current billing period's end. Scheduled plan
             changes take effect at this moment.
         next_tier (NextTierResponse | Unset): Hint describing how the customer could unlock a better discount.
         payment_method (None | Unset | UUID): Identifier of the default payment method used to bill this subscription.
-            `null` when the subscription has no associated payment method (e.g. fully comped).
+            `null` when the subscription has no associated payment method (e.g. fully discounted via `discount_override_pct`
+            of 100).
     """
 
     discount_pct: int
