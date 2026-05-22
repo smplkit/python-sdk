@@ -82,28 +82,25 @@ async def main() -> None:
         await theme_flag.save()
         print(f"Created flag: {theme_flag.id}")
 
-        # checkout_flag (serve true in staging to enterprise US users)
-        checkout_flag.enable_rules(environment="staging")
+        # checkout_flag (serve true in production to enterprise US users)
+        checkout_flag.enable_rules(environment="production")
         checkout_flag.add_rule(
             Rule(
                 "Enable for enterprise users in US region",
-                environment="staging",
+                environment="production",
             )
             .when("user.plan", Op.EQ, "enterprise")
             .when("account.region", Op.EQ, "us")
             .serve(True)
         )
 
-        # checkout_flag (serve true in staging for beta testers)
+        # checkout_flag (serve true in production for beta testers)
         checkout_flag.add_rule(
-            Rule("Enable for beta testers", environment="staging")
+            Rule("Enable for beta testers", environment="production")
             .when("user.beta_tester", Op.EQ, True)
             .serve(True)
         )
 
-        # checkout_flag (disabled rules; serve false in production)
-        checkout_flag.disable_rules(environment="production")
-        checkout_flag.set_default(False, environment="production")
         await checkout_flag.save()
         print(f"Updated flag: {checkout_flag.id}")
 
@@ -120,9 +117,9 @@ async def main() -> None:
         # get a flag
         fetched = await manage.flags.get("checkout-v2")
         print(f"\nFetched by id: {fetched.id}")
-        staging_rules = len(fetched.environments["staging"].rules)
+        prod_rules = len(fetched.environments["production"].rules)
         prod_enabled = fetched.environments["production"].enabled
-        print(f"  staging rules: {staging_rules}")
+        print(f"  production rules: {prod_rules}")
         print(f"  production enabled: {prod_enabled}")
 
         # update a flag
@@ -138,11 +135,7 @@ async def main() -> None:
         print(f"Updated flag: {banner_flag.id}'")
 
         # delete all the rules of a flag
-        checkout_flag.clear_rules(environment="staging")
-        await checkout_flag.save()
-
-        # revert production's default value back to the flag default
-        checkout_flag.clear_default(environment="production")
+        checkout_flag.clear_rules(environment="production")
         await checkout_flag.save()
         print(f"Updated flag: {checkout_flag.id}'")
 
