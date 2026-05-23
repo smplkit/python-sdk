@@ -400,49 +400,6 @@ class TestConfigClientResolve:
                 client.config.get("db")
         mock_connect.assert_called_once()
 
-    def test_resolve_with_model_class(self):
-        client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._connected = True
-        client.config._config_cache = {"db": {"host": "localhost", "port": 5432}}
-
-        class DbConfig:
-            def __init__(self, host, port):
-                self.host = host
-                self.port = port
-
-        result = client.config.get("db", model=DbConfig)
-        assert result.host == "localhost"
-        assert result.port == 5432
-
-    def test_resolve_with_pydantic_model(self):
-        client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._connected = True
-        client.config._config_cache = {"db": {"host": "localhost", "port": 5432}}
-
-        class FakePydanticModel:
-            @classmethod
-            def model_validate(cls, data):
-                obj = cls()
-                obj.host = data["host"]
-                obj.port = data["port"]
-                return obj
-
-        result = client.config.get("db", model=FakePydanticModel)
-        assert result.host == "localhost"
-
-    def test_resolve_unflattens_dot_notation(self):
-        client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._connected = True
-        client.config._config_cache = {"svc": {"database.host": "h", "database.port": 5432}}
-
-        class SvcConfig:
-            def __init__(self, database):
-                self.database = database
-
-        result = client.config.get("svc", model=SvcConfig)
-        assert result.database == {"host": "h", "port": 5432}
-
-
 # ===================================================================
 # LiveConfigProxy — proxy.on_change(...) sugar
 # ===================================================================
@@ -1144,41 +1101,6 @@ class TestAsyncConfigClientResolve:
                 await client.config.get("missing")
 
         asyncio.run(_run())
-
-    def test_resolve_with_model_class(self):
-        async def _run():
-            client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            client.config._connected = True
-            client.config._config_cache = {"db": {"host": "localhost", "port": 5432}}
-
-            class DbConfig:
-                def __init__(self, host, port):
-                    self.host = host
-                    self.port = port
-
-            result = await client.config.get("db", model=DbConfig)
-            assert result.host == "localhost"
-
-        asyncio.run(_run())
-
-    def test_resolve_with_pydantic_model(self):
-        async def _run():
-            client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            client.config._connected = True
-            client.config._config_cache = {"db": {"host": "localhost", "port": 5432}}
-
-            class FakePydanticModel:
-                @classmethod
-                def model_validate(cls, data):
-                    obj = cls()
-                    obj.host = data["host"]
-                    return obj
-
-            result = await client.config.get("db", model=FakePydanticModel)
-            assert result.host == "localhost"
-
-        asyncio.run(_run())
-
 
 # ===================================================================
 # AsyncConfigClient — refresh()

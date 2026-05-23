@@ -1138,8 +1138,8 @@ class ConfigClient:
     """Sync config CRUD (``mgmt.config``).
 
     Also owns the config-discovery buffer that the runtime client
-    populates when customer code calls ``client.config.get_or_create``
-    or typed getters on a live config proxy.
+    populates when customer code calls ``client.config.bind`` to
+    register a Pydantic-modeled configuration.
     """
 
     def __init__(self, http_client: _ConfigAuthClient) -> None:
@@ -1320,8 +1320,8 @@ class AsyncConfigClient:
     """Async config CRUD (``mgmt.config``).
 
     Also owns the config-discovery buffer that the runtime client
-    populates when customer code calls ``client.config.get_or_create``
-    or typed getters on a live config proxy.
+    populates when customer code calls ``client.config.bind`` to
+    register a Pydantic-modeled configuration.
     """
 
     def __init__(self, http_client: _ConfigAuthClient) -> None:

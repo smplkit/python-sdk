@@ -4,6 +4,17 @@ Runtime config operations: lazy-fetch all configs for the SDK's
 current environment, resolve values down the inheritance chain, and
 emit change events when the server's WebSocket signals a refresh.
 CRUD lives on :class:`smplkit.SmplManagementClient`.
+
+The runtime client exposes two ways to read config values:
+
+- :meth:`ConfigClient.bind` — declarative, schema-first. Pass a Pydantic
+  ``BaseModel`` instance with the in-code defaults; the SDK registers the
+  schema and values, then mutates the *same* instance in place when the
+  server pushes updates. Reads are plain attribute access on a real
+  Pydantic instance — no proxy indirection, full IDE type-checking.
+- :meth:`ConfigClient.get` — lookup-only escape hatch. Returns a
+  :class:`LiveConfigProxy`, a read-only dict-like view of resolved values.
+  Raises :class:`NotFoundError` when the id is unknown.
 """
 
 from __future__ import annotations
@@ -15,6 +26,8 @@ import threading
 from collections.abc import Callable
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, TypeVar, overload
+
+from pydantic import BaseModel
 
 from smplkit._errors import (
     ConflictError,
@@ -45,10 +58,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger("smplkit")
 ws_logger = logging.getLogger("smplkit.config.ws")
 
-# Type var for the optional ``model`` arg on get() — lets customers see
-# ``cfg: UserServiceConfig`` in their IDE rather than ``LiveConfigProxy``
-# when they pass a model class.
-_M = TypeVar("_M")
+# Type var for ``bind()``: bound widens to ``BaseModel | dict[str, Any]``
+# so the IDE preserves the caller's exact type — Pydantic users see their
+# subclass on the way out, dict users see ``dict[str, Any]``.
+_T = TypeVar("_T", bound="BaseModel | dict[str, Any]")
+
+# Sentinel that distinguishes "no default supplied" from "default is None"
+# in the two-arg ``get(id, key)`` form. Using a module-level object so we
+# can identity-compare against it without any risk of collision with
+# legitimate caller-supplied values.
+_MISSING: Any = object()
 
 
 def _check_response_status(status_code: HTTPStatus, content: bytes) -> None:
@@ -74,67 +93,150 @@ def _pydantic_field_type(annotation: Any) -> str:
     return "STRING"
 
 
+def _value_to_item_type(value: Any) -> str:
+    """Map a runtime value (dict-bind or get-default) to a Config item type.
+
+    Used when there is no Pydantic annotation to consult — for dict bind
+    values and single-value ``get`` defaults. ``bool`` is checked before
+    ``int`` because ``bool`` is a subclass of ``int`` in Python.
+    """
+    if isinstance(value, bool):
+        return "BOOLEAN"
+    if isinstance(value, (int, float)):
+        return "NUMBER"
+    if isinstance(value, str):
+        return "STRING"
+    return "STRING"
+
+
 def _is_pydantic_model(cls: Any) -> bool:
     return isinstance(cls, type) and hasattr(cls, "model_fields") and hasattr(cls, "model_validate")
 
 
-def _iter_pydantic_items(model: type, prefix: str = "") -> list[tuple[str, str, Any, str | None]]:
-    """Walk a Pydantic model's fields and yield ``(key, type, default, description)`` tuples.
+def _iter_pydantic_items_from_instance(
+    instance: BaseModel,
+    *,
+    explicit_only: bool,
+    prefix: str = "",
+) -> list[tuple[str, str, Any, str | None]]:
+    """Walk a Pydantic instance and yield ``(key, type, value, description)`` tuples.
 
-    Nested Pydantic models flatten to dot-notation. A field whose default
-    is :data:`pydantic.fields.PydanticUndefined` is skipped — the SDK
-    has no value to register. Pydantic-aware callers are encouraged to
-    declare a sensible default on every field so the registration
-    payload is complete.
+    Nested Pydantic models flatten to dot-notation. Values come from the
+    *instance* (not the class default) so each bound instance carries its
+    own per-tier defaults into the discovery payload.
+
+    When ``explicit_only`` is ``True`` (the parent-bound case), only fields
+    the caller explicitly passed to the constructor are yielded —
+    determined by ``model_fields_set`` at each nesting level. Fields that
+    took their class default are skipped so the resolver inherits them
+    from the parent config. When ``explicit_only`` is ``False`` (the root
+    case, no parent), every field is yielded — there is nowhere to
+    inherit from.
     """
-    if not _is_pydantic_model(model):
+    model_class = type(instance)
+    if not _is_pydantic_model(model_class):
         return []
 
-    try:
-        from pydantic.fields import PydanticUndefined
-    except ImportError:  # pragma: no cover - pydantic always present
-        PydanticUndefined = object()  # type: ignore[assignment]
-
+    set_fields: set[str] | None = instance.model_fields_set if explicit_only else None
     items: list[tuple[str, str, Any, str | None]] = []
-    for field_name, field_info in model.model_fields.items():
-        annotation = field_info.annotation
-        flat_key = f"{prefix}{field_name}"
-
-        if _is_pydantic_model(annotation):
-            items.extend(_iter_pydantic_items(annotation, prefix=f"{flat_key}."))
+    for field_name, field_info in model_class.model_fields.items():
+        if set_fields is not None and field_name not in set_fields:
             continue
 
-        if field_info.default is not PydanticUndefined:
-            default = field_info.default
-        elif field_info.default_factory is not None:
-            try:
-                default = field_info.default_factory()
-            except Exception:
-                continue
-        else:
+        flat_key = f"{prefix}{field_name}"
+        value = getattr(instance, field_name)
+        annotation = field_info.annotation
+
+        if isinstance(value, BaseModel):
+            items.extend(
+                _iter_pydantic_items_from_instance(
+                    value,
+                    explicit_only=explicit_only,
+                    prefix=f"{flat_key}.",
+                )
+            )
             continue
 
         item_type = _pydantic_field_type(annotation)
         description = field_info.description
-        items.append((flat_key, item_type, default, description))
-
+        items.append((flat_key, item_type, value, description))
     return items
 
 
-def _unflatten(flat: dict[str, Any]) -> dict[str, Any]:
-    """Convert dot-notation keys to a nested dict.
+def _iter_dict_items(
+    d: dict[str, Any],
+    *,
+    prefix: str = "",
+) -> list[tuple[str, str, Any, str | None]]:
+    """Walk a dict bound to a config; yield ``(key, type, value, description)`` tuples.
 
-    ``{"database.host": "localhost", "database.port": 5432}``
-    becomes ``{"database": {"host": "localhost", "port": 5432}}``.
+    Nested dicts flatten to dot-notation (matching the Pydantic-instance
+    walk). Every key in the dict is treated as explicit — dicts have no
+    notion of "took the class default," so the omitted-equals-inherited
+    semantic comes from keys the caller simply *didn't put in the dict*.
+
+    Item types are inferred from each value. No descriptions are produced
+    (dicts carry no per-key metadata); operators add descriptions in the
+    smplkit console.
     """
-    nested: dict[str, Any] = {}
-    for key, value in flat.items():
-        parts = key.split(".")
-        current = nested
-        for part in parts[:-1]:
-            current = current.setdefault(part, {})
-        current[parts[-1]] = value
-    return nested
+    items: list[tuple[str, str, Any, str | None]] = []
+    for raw_key, value in d.items():
+        key_str = str(raw_key)
+        flat_key = f"{prefix}{key_str}"
+        if isinstance(value, dict):
+            items.extend(_iter_dict_items(value, prefix=f"{flat_key}."))
+            continue
+        item_type = _value_to_item_type(value)
+        items.append((flat_key, item_type, value, None))
+    return items
+
+
+def _apply_change_to_target(
+    target: BaseModel | dict[str, Any],
+    dotted_key: str,
+    value: Any,
+) -> None:
+    """Apply a server-pushed value to a bound target in place.
+
+    Handles both Pydantic instances (mutates via :func:`object.__setattr__`
+    to bypass ``frozen=True`` / ``validate_assignment=True``) and dicts
+    (mutates via ``__setitem__``). Walks the dotted key path to the
+    leaf's parent, gracefully bailing if any intermediate is missing.
+
+    The server has already enforced types and constraints, so the SDK
+    trusts the value as-is on either path.
+    """
+    parts = dotted_key.split(".")
+    current: Any = target
+    for part in parts[:-1]:
+        if isinstance(current, BaseModel):
+            try:
+                current = getattr(current, part)
+            except AttributeError:
+                return
+        elif isinstance(current, dict):
+            if part not in current:
+                return
+            current = current[part]
+        else:
+            return
+
+    last = parts[-1]
+    if isinstance(current, BaseModel):
+        try:
+            object.__setattr__(current, last, value)
+            fields_set = getattr(current, "__pydantic_fields_set__", None)
+            if isinstance(fields_set, set):
+                fields_set.add(last)
+        except Exception:  # pragma: no cover - defensive: object.__setattr__ on BaseModel for a known field is not expected to raise
+            logger.warning(
+                "Failed to apply config change %r=%r to bound instance",
+                dotted_key,
+                value,
+                exc_info=True,
+            )
+    elif isinstance(current, dict):
+        current[last] = value
 
 
 def _build_chain_sync(model: Any, models_by_id: dict[str, Any]) -> list[dict[str, Any]]:
@@ -192,46 +294,33 @@ class LiveConfigProxy:
     Always reflects the latest server-pushed state — every read sees
     current values.
 
-    Attribute access returns the current resolved value for the given
-    item key. If a *model* was provided, the model is reconstructed
-    from the latest values on each access (so attribute access type-checks
-    against the model).
+    Implements the ``Mapping`` API: ``proxy["key"]``, ``key in proxy``,
+    ``len(proxy)``, ``for k in proxy``, ``proxy.keys()``, ``proxy.values()``,
+    ``proxy.items()``, ``proxy.get(key, default)``. Read-only; any write
+    attempt raises.
 
-    Also implements the standard ``Mapping`` API: ``proxy["key"]``,
-    ``key in proxy``, ``len(proxy)``, ``for k in proxy``, ``proxy.keys()``,
-    ``proxy.values()``, ``proxy.items()``, ``proxy.get(key, default)``.
+    For typed access via a Pydantic schema, use :meth:`ConfigClient.bind`
+    instead — bound instances stay live on the same WebSocket cache, with
+    attribute access typed by the Pydantic class.
 
-    Note: customer config items whose names collide with dict-method names
-    (``keys``, ``values``, ``items``, ``get``) are shadowed for attribute
-    access — use subscript (``proxy["values"]``) for those.
+    Note: customer config items whose names collide with ``Mapping`` method
+    names (``keys``, ``values``, ``items``, ``get``) are shadowed for
+    attribute access — use subscript (``proxy["values"]``) for those.
     """
 
     def __init__(
         self,
         client: ConfigClient | AsyncConfigClient,
         config_id: str,
-        model: type | None = None,
     ) -> None:
         object.__setattr__(self, "_client", client)
         object.__setattr__(self, "_config_id", config_id)
-        object.__setattr__(self, "_model", model)
 
     def _current_values(self) -> dict[str, Any]:
         """Read the current resolved values from the client cache."""
         client = object.__getattribute__(self, "_client")
         config_id = object.__getattribute__(self, "_config_id")
         return dict(client._config_cache.get(config_id, {}))
-
-    def _build_model(self) -> Any:
-        """Build a model instance from current values, if a model was given."""
-        model = object.__getattribute__(self, "_model")
-        values = self._current_values()
-        if model is None:
-            return values
-        nested = _unflatten(values)
-        if hasattr(model, "model_validate"):
-            return model.model_validate(nested)
-        return model(**nested)
 
     def on_change(self, fn_or_key: Callable[[ConfigChangeEvent], None] | str | None = None) -> Any:
         """Register a change listener scoped to this config.
@@ -243,7 +332,7 @@ class LiveConfigProxy:
         - ``@proxy.on_change()`` — same as the bare-decorator form.
 
         Equivalent to ``client.config.on_change(self._config_id, ...)``;
-        offered as sugar so customers who already have a live proxy can
+        offered as sugar so callers who already have a live proxy can
         register listeners without re-stating the config id.
         """
         client = object.__getattribute__(self, "_client")
@@ -255,10 +344,6 @@ class LiveConfigProxy:
         return client.on_change(config_id)
 
     def __getattr__(self, name: str) -> Any:
-        model = object.__getattribute__(self, "_model")
-        if model is not None:
-            instance = self._build_model()
-            return getattr(instance, name)
         values = self._current_values()
         try:
             return values[name]
@@ -290,116 +375,6 @@ class LiveConfigProxy:
     def get(self, key: str, default: Any = None) -> Any:
         return self._current_values().get(key, default)
 
-    # ------------------------------------------------------------------
-    # Typed getters (ADR-037 §2.13)
-    #
-    # Each registers the item (key, type, default, description) on first
-    # call within the process, then returns the resolved value. When the
-    # resolved value cannot be coerced to the getter's type — including
-    # the "not yet set on the server" case — the in-code default is
-    # returned and a structured warning is logged. See ADR-024 §2.5.
-    # ------------------------------------------------------------------
-
-    def _register_item(self, item_key: str, item_type: str, default: Any, description: str | None) -> None:
-        client = object.__getattribute__(self, "_client")
-        config_id = object.__getattribute__(self, "_config_id")
-        client._observe_item_declaration(config_id, item_key, item_type, default, description)
-
-    def get_bool(self, key: str, default: bool, *, description: str | None = None) -> bool:
-        """Read a BOOLEAN item, registering the declaration on first call."""
-        self._register_item(key, "BOOLEAN", default, description)
-        values = self._current_values()
-        if key not in values:
-            return default
-        value = values[key]
-        if isinstance(value, bool):
-            return value
-        config_id = object.__getattribute__(self, "_config_id")
-        logger.warning(
-            "config %r item %r: expected BOOLEAN, got %s; returning default",
-            config_id,
-            key,
-            type(value).__name__,
-        )
-        return default
-
-    def get_int(self, key: str, default: int, *, description: str | None = None) -> int:
-        """Read a NUMBER item as int, registering the declaration on first call."""
-        self._register_item(key, "NUMBER", default, description)
-        values = self._current_values()
-        if key not in values:
-            return default
-        value = values[key]
-        # bool is a subclass of int in Python; reject it explicitly.
-        if isinstance(value, int) and not isinstance(value, bool):
-            return value
-        config_id = object.__getattribute__(self, "_config_id")
-        logger.warning(
-            "config %r item %r: expected NUMBER (int), got %s; returning default",
-            config_id,
-            key,
-            type(value).__name__,
-        )
-        return default
-
-    def get_float(self, key: str, default: float, *, description: str | None = None) -> float:
-        """Read a NUMBER item as float, registering the declaration on first call."""
-        self._register_item(key, "NUMBER", default, description)
-        values = self._current_values()
-        if key not in values:
-            return default
-        value = values[key]
-        if isinstance(value, bool):
-            # bool is technically int|number but typed-float expects a numeric.
-            config_id = object.__getattribute__(self, "_config_id")
-            logger.warning(
-                "config %r item %r: expected NUMBER (float), got bool; returning default",
-                config_id,
-                key,
-            )
-            return default
-        if isinstance(value, (int, float)):
-            return float(value)
-        config_id = object.__getattribute__(self, "_config_id")
-        logger.warning(
-            "config %r item %r: expected NUMBER (float), got %s; returning default",
-            config_id,
-            key,
-            type(value).__name__,
-        )
-        return default
-
-    def get_string(self, key: str, default: str, *, description: str | None = None) -> str:
-        """Read a STRING item, registering the declaration on first call."""
-        self._register_item(key, "STRING", default, description)
-        values = self._current_values()
-        if key not in values:
-            return default
-        value = values[key]
-        if isinstance(value, str):
-            return value
-        config_id = object.__getattribute__(self, "_config_id")
-        logger.warning(
-            "config %r item %r: expected STRING, got %s; returning default",
-            config_id,
-            key,
-            type(value).__name__,
-        )
-        return default
-
-    def get_json(self, key: str, default: Any, *, description: str | None = None) -> Any:
-        """Read a JSON item, registering the declaration on first call.
-
-        Unlike the other typed getters, ``get_json`` accepts any JSON
-        value type — its purpose is escape-hatch storage for arbitrary
-        structured payloads (ADR-024 §2.5).
-        """
-        self._register_item(key, "JSON", default, description)
-        values = self._current_values()
-        if key not in values:
-            return default
-        return values[key]
-
     def __setattr__(self, name: str, value: Any) -> None:
         raise AttributeError(
             f"LiveConfigProxy is read-only; cannot set {name!r}. Mutate config values via client.manage.config.*"
@@ -418,18 +393,16 @@ class LiveConfigProxy:
 
     def __repr__(self) -> str:
         config_id = object.__getattribute__(self, "_config_id")
-        model = object.__getattribute__(self, "_model")
-        if model is not None:
-            return f"LiveConfigProxy(config_id={config_id!r}, model={model.__name__})"
         return f"LiveConfigProxy(config_id={config_id!r})"
 
 
 class ConfigClient:
     """Synchronous runtime client for Smpl Config.
 
-    Obtained via ``SmplClient(...).config``. Exposes value resolution
-    (``get``) and refresh/change-listener APIs. CRUD has
-    moved to :class:`smplkit.SmplManagementClient` (``mgmt.config.*``).
+    Obtained via ``SmplClient(...).config``. Exposes :meth:`bind` (the
+    recommended declarative API), :meth:`get` (lookup-only escape hatch),
+    :meth:`refresh`, and :meth:`on_change`. CRUD lives on
+    :class:`smplkit.SmplManagementClient` (``mgmt.config.*``).
     """
 
     def __init__(
@@ -446,11 +419,11 @@ class ConfigClient:
         self._environment = parent._environment
         self._config_cache: dict[str, dict[str, Any]] = {}
         self._raw_config_cache: dict[str, Any] = {}
-        # Cache of declared/fetched LiveConfigProxy instances so repeat
-        # `get_or_create(id)` (or `get(id)` after discovery) calls return the
-        # same object — enabling inheritance via direct handle references per
-        # ADR-037 §2.13.
+        # LiveConfigProxy instances for ``get(id)`` callers; one per config id.
         self._proxies: dict[str, LiveConfigProxy] = {}
+        # Pydantic instances bound via ``bind(id, ...)``; one per config id.
+        # WebSocket dispatch mutates these in place when values change.
+        self._bindings: dict[str, BaseModel] = {}
         self._connected = False
         self._cache_lock = threading.Lock()
         self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
@@ -464,13 +437,13 @@ class ConfigClient:
         / ``config_deleted`` / ``configs_changed`` events.
 
         Idempotent — safe to call multiple times.  Called automatically on
-        first ``config.get()`` if not invoked manually.
+        first ``config.get()`` or ``config.bind()`` if not invoked manually.
         """
         if self._connected:
             return
 
-        # Per ADR-037 §2.14: flush any buffered discovery declarations BEFORE
-        # the initial fetch, so newly-discovered configs appear in the cache.
+        # Flush any buffered discovery declarations BEFORE the initial fetch,
+        # so newly-discovered configs appear in the cache on first read.
         try:
             self._manage.config.flush()
         except Exception as exc:
@@ -519,112 +492,199 @@ class ConfigClient:
         return _resource_to_config(None, response.parsed.data)
 
     # ------------------------------------------------------------------
-    # Runtime: get
+    # Public API: bind, get
     # ------------------------------------------------------------------
+
+    def bind(
+        self,
+        id: str,
+        config: _T,
+        *,
+        parent: BaseModel | dict[str, Any] | None = None,
+    ) -> _T:
+        """Bind a Pydantic instance or dict to a config id; return it live.
+
+        Declarative, code-first API. Two flavors:
+
+        - **Pydantic instance**: the class is the schema; the instance
+          carries the defaults. With ``parent`` set, only fields the
+          caller explicitly passed to the constructor are registered as
+          overrides — fields that took their class default are left to
+          inherit from the parent (driven by ``model_fields_set``).
+        - **Dict**: every key in the dict is a leaf to register, with its
+          value as the in-code default. Nested dicts flatten to
+          dot-notation. There is no class-default concept — keys the
+          caller wants to inherit are simply omitted from the dict.
+
+        On first boot the schema and values are registered with the
+        server. The bound object's values are then synced from the cache
+        (in case the server has overrides from a previous run). On every
+        WebSocket-delivered change thereafter the bound object is mutated
+        in place — Pydantic instances via ``object.__setattr__``, dicts
+        via ``__setitem__``. Readers always see the current resolved
+        value with no proxy indirection.
+
+        Idempotent. Repeated calls with the same ``id`` return the
+        originally-bound object; the new ``config`` argument is ignored.
+
+        Args:
+            id: The config id to register under.
+            config: A populated Pydantic ``BaseModel`` instance or a dict.
+                Both supply the schema (via ``type(config)`` or the dict's
+                keys) and the in-code defaults.
+            parent: Optional parent — any object previously returned from a
+                :meth:`bind` call (Pydantic or dict). Activates
+                parent-chain inheritance for fields the caller omitted.
+
+        Returns:
+            The same ``config`` object, registered and live.
+
+        Raises:
+            TypeError: If ``config`` is neither a ``BaseModel`` nor a ``dict``.
+            ValueError: If ``parent`` is provided but was not previously
+                bound via :meth:`bind`.
+        """
+        if not isinstance(config, (BaseModel, dict)):
+            raise TypeError(
+                f"bind() requires a Pydantic BaseModel instance or dict; got {type(config).__name__}"
+            )
+
+        if id in self._bindings:
+            return self._bindings[id]  # type: ignore[return-value]
+
+        parent_id: str | None = None
+        if parent is not None:
+            parent_id = self._config_id_for(parent)
+            if parent_id is None:
+                raise ValueError(
+                    "bind(): parent must be an object previously returned "
+                    "from client.config.bind(). Bind the parent first."
+                )
+
+        config_name: str | None
+        config_description: str | None
+        if isinstance(config, BaseModel):
+            model_class = type(config)
+            config_name = model_class.__name__
+            config_description = (model_class.__doc__ or "").strip() or None
+        else:
+            # Dict bind: no class to introspect for name/description.
+            config_name = None
+            config_description = None
+
+        self._observe_config_declaration(
+            id,
+            parent=parent_id,
+            name=config_name,
+            description=config_description,
+        )
+
+        if isinstance(config, BaseModel):
+            explicit_only = parent_id is not None
+            items_iter = _iter_pydantic_items_from_instance(config, explicit_only=explicit_only)
+        else:
+            items_iter = _iter_dict_items(config)
+
+        for item_key, item_type, value, description in items_iter:
+            self._observe_item_declaration(id, item_key, item_type, value, description)
+
+        # Register the binding BEFORE start() so WebSocket dispatch (which can
+        # fire during the initial fetch) finds it.
+        self._bindings[id] = config
+
+        self.start()
+        self._sync_target_from_cache(config, id)
+        return config
 
     @overload
     def get(self, id: str) -> LiveConfigProxy: ...
     @overload
-    def get(self, id: str, model: type[_M]) -> _M: ...
-    def get(self, id: str, model: type[_M] | None = None) -> Any:
-        """Return a live, dict-like view of the resolved values for *id*.
-
-        Without ``model``, returns a :class:`LiveConfigProxy` that behaves
-        like a ``dict[str, Any]`` (``proxy["key"]``, iteration, ``items()``,
-        ``len()``) and updates automatically as the server pushes changes.
-
-        With ``model``, the return value type-checks as *model* — attribute
-        access (``cfg.database.host``) walks a model rebuilt from the
-        current values on each read, so the customer sees the model's
-        type signature in their IDE while still tracking live data.
-
-        Args:
-            id: The config id to resolve.
-            model: Optional model class to project attribute access through.
-
-        Returns:
-            A :class:`LiveConfigProxy` (typed as *model* when supplied).
-
-        Raises:
-            NotFoundError: If no config with the given id exists. The check
-                runs against the cache populated by :meth:`start`, which is
-                kept current by WebSocket events; call :meth:`refresh` if a
-                config was just created out-of-band and may not yet be visible.
-        """
-        self.start()
-        if id not in self._config_cache:
-            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
-        metrics = self._metrics
-        if metrics is not None:
-            metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
-        return self._cached_proxy(id, model)
-
-    def get_or_create(
+    def get(self, id: str, key: str) -> Any: ...
+    @overload
+    def get(self, id: str, key: str, *, default: Any) -> Any: ...
+    def get(
         self,
         id: str,
+        key: str | None = None,
         *,
-        parent: str | LiveConfigProxy | None = None,
-        name: str | None = None,
-        description: str | None = None,
-        model: type[_M] | None = None,
-    ) -> LiveConfigProxy:
-        """Declare a configuration from code; return a live, dict-like view.
+        default: Any = _MISSING,
+    ) -> Any:
+        """Read a config (full) or a single value within a config.
 
-        Idempotent. Repeated calls with the same ``id`` return the same
-        :class:`LiveConfigProxy` instance. The first call queues a
-        discovery payload (the config and any items declared via typed
-        getters on the returned handle) for upload to
-        ``POST /api/v1/configs/bulk`` on next flush. If the config already
-        exists server-side, ``managed=true`` configs are left untouched;
-        ``managed=false`` configs receive the SDK's items via source-row
-        upsert per ADR-024 §2.9.
+        Three forms dispatched by argument count:
 
-        Unlike :meth:`get`, this method **does not raise** ``NotFoundError``
-        when the id is absent from the cache — discovery handles that case.
+        - ``get(id)`` returns a :class:`LiveConfigProxy` — a live dict-like
+          view of the resolved values for ``id``. Raises
+          :class:`NotFoundError` if the config is missing. No registration.
+        - ``get(id, key)`` returns the resolved value of ``key`` within
+          ``id``. Raises :class:`NotFoundError` if the config is missing
+          and :class:`KeyError` if the key is missing. No registration.
+        - ``get(id, key, default=X)`` returns the resolved value, falling
+          back to ``X`` if either the config or the key is missing.
+          Never raises. **Registers** the config (if new) and the key
+          (with ``X`` as the default value) for code-first observability,
+          so the operator sees the reference in the smplkit console.
 
-        Args:
-            id: The config id to declare.
-            parent: Optional parent reference, either as a string id or as
-                a :class:`LiveConfigProxy` returned by a prior call to
-                ``get_or_create``. Enables inheritance declared via direct
-                object references.
-            name: Optional display name (defaults to a humanized id).
-            description: Optional description.
-            model: Optional Pydantic model whose ``model_fields`` are
-                introspected to register every field as a typed item in
-                one batched payload. Nested models flatten to
-                dot-notation keys.
-
-        Returns:
-            A :class:`LiveConfigProxy` for the declared id.
+        For typed access via a Pydantic schema, use :meth:`bind` instead.
         """
-        parent_id: str | None
-        if isinstance(parent, LiveConfigProxy):
-            parent_id = object.__getattribute__(parent, "_config_id")
-        else:
-            parent_id = parent
-
-        self._observe_config_declaration(id, parent=parent_id, name=name, description=description)
-
-        if model is not None:
-            for item_key, item_type, default, item_description in _iter_pydantic_items(model):
-                self._observe_item_declaration(id, item_key, item_type, default, item_description)
-
-        # Ensure lazy init runs at least once so the cache reflects the
-        # newly-declared config (post-flush) on the very first read.
         self.start()
-        return self._cached_proxy(id, model)
 
-    def _cached_proxy(self, id: str, model: type[_M] | None) -> LiveConfigProxy:
+        if key is None:
+            # Form 1: full-config lookup.
+            if id not in self._config_cache:
+                raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
+            metrics = self._metrics
+            if metrics is not None:
+                metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
+            return self._cached_proxy(id)
+
+        # Forms 2 and 3: single-value lookup.
+        has_default = default is not _MISSING
+        if has_default:
+            # Register the config + key so the reference shows up in the
+            # console even if it's never been declared via bind(). The
+            # buffer is idempotent at the (config_id, item_key) level.
+            self._observe_config_declaration(id, parent=None, name=None, description=None)
+            self._observe_item_declaration(id, key, _value_to_item_type(default), default, None)
+
+        if id not in self._config_cache:
+            if has_default:
+                return default
+            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
+        values = self._config_cache[id]
+        if key not in values:
+            if has_default:
+                return default
+            raise KeyError(f"Config item '{key}' not found in config '{id}'")
+        return values[key]
+
+    # ------------------------------------------------------------------
+    # Internal: binding helpers
+    # ------------------------------------------------------------------
+
+    def _config_id_for(self, target: BaseModel | dict[str, Any]) -> str | None:
+        """Return the config_id this target was bound under, or None."""
+        for cid, bound in self._bindings.items():
+            if bound is target:
+                return cid
+        return None
+
+    def _sync_target_from_cache(self, target: BaseModel | dict[str, Any], config_id: str) -> None:
+        """Apply current cached values to a freshly-bound target.
+
+        Handles the existing-config case: on restart, server-side values
+        override the in-code defaults from the constructor (or dict).
+        """
+        cache = self._config_cache.get(config_id, {})
+        for dotted_key, value in cache.items():
+            _apply_change_to_target(target, dotted_key, value)
+
+    def _cached_proxy(self, id: str) -> LiveConfigProxy:
         """Return (and cache) the canonical proxy for a config id."""
         proxy = self._proxies.get(id)
         if proxy is None:
-            proxy = LiveConfigProxy(self, id, model)
+            proxy = LiveConfigProxy(self, id)
             self._proxies[id] = proxy
-        elif model is not None and object.__getattribute__(proxy, "_model") is None:
-            # First model-typed access — upgrade the proxy in place so
-            # subsequent attribute access returns the typed view.
-            object.__setattr__(proxy, "_model", model)
         return proxy
 
     def _observe_config_declaration(
@@ -695,11 +755,9 @@ class ConfigClient:
         - ``@client.config.on_change("id", item_key="field")`` — item-scoped.
         """
         if callable(fn_or_id):
-            # @on_change (bare decorator)
             self._listeners.append((fn_or_id, None, None))
             return fn_or_id
         elif isinstance(fn_or_id, str):
-            # @on_change("id") or @on_change("id", item_key="field")
             config_id = fn_or_id
 
             def decorator(fn: Callable[[ConfigChangeEvent], None]) -> Callable[[ConfigChangeEvent], None]:
@@ -708,7 +766,6 @@ class ConfigClient:
 
             return decorator
         else:
-            # @on_change() — called with parens but no args
 
             def decorator(fn: Callable[[ConfigChangeEvent], None]) -> Callable[[ConfigChangeEvent], None]:
                 self._listeners.append((fn, None, None))
@@ -723,17 +780,22 @@ class ConfigClient:
         *,
         source: str,
     ) -> None:
-        """Diff two caches and fire listeners for any changed values."""
+        """Diff two caches, apply changes to bound instances, fire listeners."""
         all_config_ids = set(old_cache.keys()) | set(new_cache.keys())
         for cfg_id in all_config_ids:
             old_items = old_cache.get(cfg_id, {})
             new_items = new_cache.get(cfg_id, {})
             all_item_keys = set(old_items.keys()) | set(new_items.keys())
+            target = self._bindings.get(cfg_id)
             for i_key in all_item_keys:
                 old_val = old_items.get(i_key)
                 new_val = new_items.get(i_key)
                 if old_val == new_val:
                     continue
+                # Apply to bound target first so listeners reading the
+                # object see the new value.
+                if target is not None:
+                    _apply_change_to_target(target, i_key, new_val)
                 metrics = self._metrics
                 if metrics is not None:
                     metrics.record("config.changes", unit="changes", dimensions={"config": cfg_id})
@@ -820,7 +882,8 @@ class ConfigClient:
 class AsyncConfigClient:
     """Asynchronous runtime client for Smpl Config.
 
-    Obtained via ``AsyncSmplClient(...).config``. CRUD has moved to
+    Obtained via ``AsyncSmplClient(...).config``. Mirrors
+    :class:`ConfigClient` with awaitable variants. CRUD lives on
     :class:`smplkit.AsyncSmplManagementClient` (``mgmt.config.*``).
     """
 
@@ -838,9 +901,8 @@ class AsyncConfigClient:
         self._environment = parent._environment
         self._config_cache: dict[str, dict[str, Any]] = {}
         self._raw_config_cache: dict[str, Any] = {}
-        # Cache of declared/fetched LiveConfigProxy instances so repeat
-        # `get_or_create(id)` calls return the same object (per ADR-037 §2.13).
         self._proxies: dict[str, LiveConfigProxy] = {}
+        self._bindings: dict[str, BaseModel] = {}
         self._connected = False
         self._cache_lock = threading.Lock()
         self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
@@ -854,20 +916,16 @@ class AsyncConfigClient:
         / ``config_deleted`` / ``configs_changed`` events.
 
         Idempotent — safe to call multiple times.  Called automatically on
-        first ``config.get()`` if not invoked manually.
+        first ``config.get()`` or ``config.bind()`` if not invoked manually.
         """
         if self._connected:
             return
 
-        # Per ADR-037 §2.14: flush any buffered discovery declarations BEFORE
-        # the initial fetch so newly-discovered configs appear in the cache.
         try:
             await self._manage.config.flush()
         except Exception as exc:
             logger.warning("Pre-start config discovery flush failed: %s", exc)
 
-        # Fetch + resolve + cache + fire change listeners (against empty old_cache,
-        # so any registered listeners see "initial" events).
         await self._do_refresh("initial")
         self._connected = True
 
@@ -895,82 +953,132 @@ class AsyncConfigClient:
         return await paginate_async(fetch_page)
 
     # ------------------------------------------------------------------
-    # Runtime: get
+    # Public API: bind, get
     # ------------------------------------------------------------------
+
+    async def bind(
+        self,
+        id: str,
+        config: _T,
+        *,
+        parent: BaseModel | dict[str, Any] | None = None,
+    ) -> _T:
+        """Bind a Pydantic instance or dict to a config id; return it live.
+
+        See :meth:`ConfigClient.bind` for the full contract.
+        """
+        if not isinstance(config, (BaseModel, dict)):
+            raise TypeError(
+                f"bind() requires a Pydantic BaseModel instance or dict; got {type(config).__name__}"
+            )
+
+        if id in self._bindings:
+            return self._bindings[id]  # type: ignore[return-value]
+
+        parent_id: str | None = None
+        if parent is not None:
+            parent_id = self._config_id_for(parent)
+            if parent_id is None:
+                raise ValueError(
+                    "bind(): parent must be an object previously returned "
+                    "from client.config.bind(). Bind the parent first."
+                )
+
+        config_name: str | None
+        config_description: str | None
+        if isinstance(config, BaseModel):
+            model_class = type(config)
+            config_name = model_class.__name__
+            config_description = (model_class.__doc__ or "").strip() or None
+        else:
+            config_name = None
+            config_description = None
+
+        self._observe_config_declaration(
+            id,
+            parent=parent_id,
+            name=config_name,
+            description=config_description,
+        )
+
+        if isinstance(config, BaseModel):
+            explicit_only = parent_id is not None
+            items_iter = _iter_pydantic_items_from_instance(config, explicit_only=explicit_only)
+        else:
+            items_iter = _iter_dict_items(config)
+
+        for item_key, item_type, value, description in items_iter:
+            self._observe_item_declaration(id, item_key, item_type, value, description)
+
+        self._bindings[id] = config
+
+        await self.start()
+        self._sync_target_from_cache(config, id)
+        return config
 
     @overload
     async def get(self, id: str) -> LiveConfigProxy: ...
     @overload
-    async def get(self, id: str, model: type[_M]) -> _M: ...
-    async def get(self, id: str, model: type[_M] | None = None) -> Any:
-        """Return a live, dict-like view of the resolved values for *id*.
-
-        Without ``model``, returns a :class:`LiveConfigProxy` that behaves
-        like a ``dict[str, Any]`` and updates automatically as the server
-        pushes changes.
-
-        With ``model``, the return value type-checks as *model* — attribute
-        access walks a model rebuilt from the current values on each read.
-
-        Args:
-            id: The config id to resolve.
-            model: Optional model class to project attribute access through.
-
-        Returns:
-            A :class:`LiveConfigProxy` (typed as *model* when supplied).
-
-        Raises:
-            NotFoundError: If no config with the given id exists. The check
-                runs against the cache populated by :meth:`start`, which is
-                kept current by WebSocket events; call :meth:`refresh` if a
-                config was just created out-of-band and may not yet be visible.
-        """
-        await self.start()
-        if id not in self._config_cache:
-            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
-        metrics = self._metrics
-        if metrics is not None:
-            metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
-        return self._cached_proxy(id, model)
-
-    async def get_or_create(
+    async def get(self, id: str, key: str) -> Any: ...
+    @overload
+    async def get(self, id: str, key: str, *, default: Any) -> Any: ...
+    async def get(
         self,
         id: str,
+        key: str | None = None,
         *,
-        parent: str | LiveConfigProxy | None = None,
-        name: str | None = None,
-        description: str | None = None,
-        model: type[_M] | None = None,
-    ) -> LiveConfigProxy:
-        """Declare a configuration from code; return a live, dict-like view.
+        default: Any = _MISSING,
+    ) -> Any:
+        """Read a config (full) or a single value within a config.
 
-        See :meth:`ConfigClient.get_or_create` for the full contract.
-        Idempotent: repeated calls with the same ``id`` return the same
-        proxy instance. Does not raise on missing id — discovery handles
-        the create case.
+        See :meth:`ConfigClient.get` for the full contract.
         """
-        parent_id: str | None
-        if isinstance(parent, LiveConfigProxy):
-            parent_id = object.__getattribute__(parent, "_config_id")
-        else:
-            parent_id = parent
-
-        self._observe_config_declaration(id, parent=parent_id, name=name, description=description)
-
-        if model is not None:
-            for item_key, item_type, default, item_description in _iter_pydantic_items(model):
-                self._observe_item_declaration(id, item_key, item_type, default, item_description)
-
         await self.start()
-        return self._cached_proxy(id, model)
 
-    def _cached_proxy(self, id: str, model: type[_M] | None) -> LiveConfigProxy:
+        if key is None:
+            if id not in self._config_cache:
+                raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
+            metrics = self._metrics
+            if metrics is not None:
+                metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
+            return self._cached_proxy(id)
+
+        has_default = default is not _MISSING
+        if has_default:
+            self._observe_config_declaration(id, parent=None, name=None, description=None)
+            self._observe_item_declaration(id, key, _value_to_item_type(default), default, None)
+
+        if id not in self._config_cache:
+            if has_default:
+                return default
+            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
+        values = self._config_cache[id]
+        if key not in values:
+            if has_default:
+                return default
+            raise KeyError(f"Config item '{key}' not found in config '{id}'")
+        return values[key]
+
+    # ------------------------------------------------------------------
+    # Internal: binding helpers
+    # ------------------------------------------------------------------
+
+    def _config_id_for(self, target: BaseModel | dict[str, Any]) -> str | None:
+        for cid, bound in self._bindings.items():
+            if bound is target:
+                return cid
+        return None
+
+    def _sync_target_from_cache(self, target: BaseModel | dict[str, Any], config_id: str) -> None:
+        cache = self._config_cache.get(config_id, {})
+        for dotted_key, value in cache.items():
+            _apply_change_to_target(target, dotted_key, value)
+
+    def _cached_proxy(self, id: str) -> LiveConfigProxy:
         proxy = self._proxies.get(id)
         if proxy is None:
-            proxy = LiveConfigProxy(self, id, model)
+            proxy = LiveConfigProxy(self, id)
             self._proxies[id] = proxy
-        elif model is not None and object.__getattribute__(proxy, "_model") is None:
-            object.__setattr__(proxy, "_model", model)
         return proxy
 
     def _observe_config_declaration(
@@ -1032,18 +1140,12 @@ class AsyncConfigClient:
     ) -> Any:
         """Register a change listener.
 
-        Supports three forms:
-
-        - ``@client.config.on_change`` — global listener (bare decorator).
-        - ``@client.config.on_change("id")`` — config-scoped listener.
-        - ``@client.config.on_change("id", item_key="field")`` — item-scoped.
+        See :meth:`ConfigClient.on_change` for the full contract.
         """
         if callable(fn_or_id):
-            # @on_change (bare decorator)
             self._listeners.append((fn_or_id, None, None))
             return fn_or_id
         elif isinstance(fn_or_id, str):
-            # @on_change("id") or @on_change("id", item_key="field")
             config_id = fn_or_id
 
             def decorator(fn: Callable[[ConfigChangeEvent], None]) -> Callable[[ConfigChangeEvent], None]:
@@ -1052,7 +1154,6 @@ class AsyncConfigClient:
 
             return decorator
         else:
-            # @on_change() — called with parens but no args
 
             def decorator(fn: Callable[[ConfigChangeEvent], None]) -> Callable[[ConfigChangeEvent], None]:
                 self._listeners.append((fn, None, None))
@@ -1067,17 +1168,20 @@ class AsyncConfigClient:
         *,
         source: str,
     ) -> None:
-        """Diff two caches and fire listeners for any changed values."""
+        """Diff two caches, apply changes to bound instances, fire listeners."""
         all_config_ids = set(old_cache.keys()) | set(new_cache.keys())
         for cfg_id in all_config_ids:
             old_items = old_cache.get(cfg_id, {})
             new_items = new_cache.get(cfg_id, {})
             all_item_keys = set(old_items.keys()) | set(new_items.keys())
+            target = self._bindings.get(cfg_id)
             for i_key in all_item_keys:
                 old_val = old_items.get(i_key)
                 new_val = new_items.get(i_key)
                 if old_val == new_val:
                     continue
+                if target is not None:
+                    _apply_change_to_target(target, i_key, new_val)
                 metrics = self._metrics
                 if metrics is not None:
                     metrics.record("config.changes", unit="changes", dimensions={"config": cfg_id})
@@ -1170,8 +1274,6 @@ class AsyncConfigClient:
                 )
                 _check_response_status(response.status_code, response.content)
                 if response.parsed is None or not hasattr(response.parsed, "data"):
-                    # Malformed response — preserve the existing cache rather
-                    # than risk wiping it from a partial refresh.
                     return
                 page_rows = [_resource_to_async_config(None, r) for r in response.parsed.data]
                 models.extend(page_rows)

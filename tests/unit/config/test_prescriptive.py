@@ -77,44 +77,6 @@ class TestResolveSyncPrescriptive:
         with pytest.raises(NotFoundError, match="Config with id 'nonexistent' not found"):
             client.config.get("nonexistent")
 
-    def test_resolve_with_dataclass_model(self):
-        client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
-
-        class DbConfig:
-            def __init__(self, host, port):
-                self.host = host
-                self.port = port
-
-        result = client.config.get("db", model=DbConfig)
-        assert result.host == "localhost"
-        assert result.port == 5432
-
-    def test_resolve_with_pydantic_model(self):
-        client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
-
-        class FakePydantic:
-            @classmethod
-            def model_validate(cls, data):
-                obj = cls()
-                obj.host = data["host"]
-                obj.port = data["port"]
-                return obj
-
-        result = client.config.get("db", model=FakePydantic)
-        assert result.host == "localhost"
-
-    def test_resolve_unflattens_dot_keys_for_model(self):
-        client = _make_connected_client({"svc": {"database.host": "h", "database.port": 5432, "retries": 3}})
-
-        class SvcConfig:
-            def __init__(self, database, retries):
-                self.database = database
-                self.retries = retries
-
-        result = client.config.get("svc", model=SvcConfig)
-        assert result.database == {"host": "h", "port": 5432}
-        assert result.retries == 3
-
     def test_resolve_triggers_lazy_connect(self):
         client = SmplClient(api_key="sk_test", environment="production", service="svc")
         with patch.object(client.config, "start") as mock_connect:
@@ -148,37 +110,6 @@ class TestResolveAsyncPrescriptive:
                 await client.config.get("nonexistent")
 
         asyncio.run(_run())
-
-    def test_resolve_with_dataclass_model(self):
-        client = _make_connected_async_client({"db": {"host": "localhost", "port": 5432}})
-
-        class DbConfig:
-            def __init__(self, host, port):
-                self.host = host
-                self.port = port
-
-        async def _run():
-            result = await client.config.get("db", model=DbConfig)
-            assert result.host == "localhost"
-
-        asyncio.run(_run())
-
-    def test_resolve_with_pydantic_model(self):
-        client = _make_connected_async_client({"db": {"host": "localhost", "port": 5432}})
-
-        class FakePydantic:
-            @classmethod
-            def model_validate(cls, data):
-                obj = cls()
-                obj.host = data["host"]
-                return obj
-
-        async def _run():
-            result = await client.config.get("db", model=FakePydantic)
-            assert result.host == "localhost"
-
-        asyncio.run(_run())
-
 
 # ===================================================================
 # 3. LiveConfigProxy returned by get() — sync
@@ -225,18 +156,6 @@ class TestGetProxyBehaviorSync:
         r = repr(proxy)
         assert "LiveConfigProxy" in r
         assert "db" in r
-
-    def test_proxy_repr_with_model(self):
-        client = _make_connected_client({"db": {"host": "localhost"}})
-
-        class DbConfig:
-            def __init__(self, host):
-                self.host = host
-
-        proxy = client.config.get("db", model=DbConfig)
-        r = repr(proxy)
-        assert "LiveConfigProxy" in r
-        assert "DbConfig" in r
 
     def test_get_for_missing_config_raises_not_found(self):
         client = _make_connected_client()
@@ -533,50 +452,6 @@ class TestLiveConfigProxyDirect:
         client = _make_connected_client({})
         proxy = LiveConfigProxy(client.config, "missing")
         assert proxy._current_values() == {}
-
-    def test_build_model_without_model(self):
-        client = _make_connected_client({"db": {"host": "h"}})
-        proxy = LiveConfigProxy(client.config, "db")
-        result = proxy._build_model()
-        assert result == {"host": "h"}
-
-    def test_build_model_with_model(self):
-        client = _make_connected_client({"db": {"host": "h", "port": 5432}})
-
-        class DbConfig:
-            def __init__(self, host, port):
-                self.host = host
-                self.port = port
-
-        proxy = LiveConfigProxy(client.config, "db", model=DbConfig)
-        result = proxy._build_model()
-        assert isinstance(result, DbConfig)
-        assert result.host == "h"
-
-    def test_build_model_with_pydantic(self):
-        client = _make_connected_client({"db": {"host": "h"}})
-
-        class FakePydantic:
-            @classmethod
-            def model_validate(cls, data):
-                obj = cls()
-                obj.host = data["host"]
-                return obj
-
-        proxy = LiveConfigProxy(client.config, "db", model=FakePydantic)
-        result = proxy._build_model()
-        assert result.host == "h"
-
-    def test_build_model_unflattens_dot_keys(self):
-        client = _make_connected_client({"db": {"database.host": "h", "database.port": 5432}})
-
-        class DbConfig:
-            def __init__(self, database):
-                self.database = database
-
-        proxy = LiveConfigProxy(client.config, "db", model=DbConfig)
-        result = proxy._build_model()
-        assert result.database == {"host": "h", "port": 5432}
 
     def test_setattr_raises(self):
         client = _make_connected_client({"db": {"host": "h"}})

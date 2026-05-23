@@ -1,5 +1,4 @@
-"""
-Demonstrates the smplkit runtime SDK for Smpl Config.
+"""Demonstrates the smplkit runtime SDK for Smpl Config.
 
 Prerequisites:
     - ``pip install smplkit-sdk``
@@ -14,55 +13,69 @@ Usage::
 
 import asyncio
 
+from pydantic import BaseModel, Field
+
 from smplkit import AsyncSmplClient
 
 from setup.config_runtime_setup import (
     cleanup_runtime_showcase,
-    setup_runtime_showcase,
     simulate_admin_override,
 )
 
+# Example Pydantic configuration classes to showcase how "code-first"
+# configuration management works
+
+class App(BaseModel):
+    name: str = Field(default="Acme SaaS", description="Display name of the application.")
+
+
+class Support(BaseModel):
+    email: str = Field(default="support@acme.dev", description="Customer support contact.")
+
+
+class Plan(BaseModel):
+    max_seats: int = Field(default=5, description="Maximum seats per organization.")
+    trial_days: int = Field(default=14, description="Trial length in days.")
+    tier: str = Field(default="free", description="Plan tier identifier.")
+
+
+class Common(BaseModel):
+    """Shared defaults for showcase services."""
+
+    app: App = Field(default_factory=App)
+    support: Support = Field(default_factory=Support)
+
+
+class Billing(BaseModel):
+    """Plan-limit configuration for billing — inherits from Common."""
+
+    app: App = Field(default_factory=App)
+    support: Support = Field(default_factory=Support)
+    plan: Plan = Field(default_factory=Plan)
+
 
 async def main() -> None:
-
     # create the client (use SmplClient for synchronous use)
     async with AsyncSmplClient(
         environment="production", service="showcase-billing"
     ) as client:
-        await setup_runtime_showcase(client.manage)
+        await cleanup_runtime_showcase(client.manage)
 
-        # declare a common/shared configuration
-        common = await client.config.get_or_create(
-            "showcase-common",
-            description="Shared defaults for showcase services.",
-        )
-
-        # declare a configuration that inherits from some parent
-        billing = await client.config.get_or_create(
+        # bind Pydantic models
+        common = await client.config.bind("showcase-common", Common())
+        billing = await client.config.bind(
             "showcase-billing",
+            Billing(plan=Plan(max_seats=5, trial_days=14, tier="free")),
             parent=common,
-            description="Plan-limit configuration discovered from code.",
         )
+        print(f"common.app.name = {common.app.name}")
+        print(f"billing.app.name = {billing.app.name}  # inherited from common")
+        print(f"billing.plan.max_seats = {billing.plan.max_seats}")
 
-        # get a configured value
-        app_name = common.get_string("app.name", default="Acme SaaS")
-        support_email = common.get_string("support.email", default="support@acme.dev")
-        max_seats = billing.get_int(
-            "plan.max_seats", default=5, description="Maximum seats per organization."
-        )
-        trial_days = billing.get_int("plan.trial_days", default=14)
-        tier = billing.get_string("plan.tier", default="free")
-
-        print(f"app.name = {app_name}")
-        print(f"support.email = {support_email}")
-        print(f"plan.max_seats = {max_seats}")
-        print(f"plan.trial_days = {trial_days}")
-        print(f"plan.tier = {tier}")
-
-        # listen for changes
+        # add listeners if desired
         changes: list = []
 
-        @billing.on_change("plan.max_seats")
+        @client.config.on_change("showcase-billing", item_key="plan.max_seats")
         def on_max_seats(event):
             changes.append(event)
             print(
@@ -70,17 +83,51 @@ async def main() -> None:
                 f"{event.old_value!r} -> {event.new_value!r}"
             )
 
-        # simulate someone overriding a value in the console
+        # simulate someone making a change in smplkit console
         await simulate_admin_override(client.manage)
-
-        # wait for the WebSocket push to deliver the change
         await asyncio.sleep(0.4)
 
-        # get the latest value
-        updated_seats = billing.get_int("plan.max_seats", default=5)
-        print(f"plan.max_seats after override = {updated_seats}")
-        assert updated_seats == 25, f"Expected 25, got {updated_seats}"
-        assert len(changes) >= 1, "Expected at least one change event"
+        # observe changes are automatically reflected in bound models
+        print(f"billing.plan.max_seats after override = {billing.plan.max_seats}")
+        assert billing.plan.max_seats == 25, f"Expected 25, got {billing.plan.max_seats}"
+        assert len(changes) >= 1
+
+        # you can also bind plain-old dictionaries
+        db = await client.config.bind(
+            "showcase-database",
+            {
+                "primary": {
+                    "host": "db.acme.example",
+                    "port": 5432,
+                },
+                "pool_size": 10,
+                "statement_timeout_ms": 30000,
+            },
+        )
+        print(f"db['primary']['host'] = {db['primary']['host']}")
+        print(f"db['pool_size'] = {db['pool_size']}")
+        assert db["primary"]["host"] == "db.acme.example"
+        assert db["pool_size"] == 10
+
+        # or get a config by ID (raises NotFoundError if not found; pass a
+        # default if you want a fallback)
+        common_view = await client.config.get("showcase-common")
+        print("showcase-common (via get):")
+        for k, v in common_view.items():
+            print(f"    {k} = {v}")
+        assert common_view["app.name"] == "Acme SaaS"
+
+        # or skip the model/dict and just fetch specific keys directly
+        slow_query_ms = await client.config.get(
+            "showcase-database",
+            "slow_query_threshold_ms",
+            default=500,
+        )
+        print(
+            f"showcase-database.slow_query_threshold_ms = {slow_query_ms}  "
+            f"# default used; now registered for visibility"
+        )
+        assert slow_query_ms == 500
 
         await cleanup_runtime_showcase(client.manage)
         print("Done!")

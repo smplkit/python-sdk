@@ -145,10 +145,10 @@ class _ConfigRegistrationBuffer:
 
     Call sites:
 
-    - :meth:`declare` once per ``client.config.get_or_create(id, ...)``.
-    - :meth:`add_item` for every typed getter call. Repeated calls with
-      the same ``(config_id, item_key)`` after a successful flush are
-      no-ops.
+    - :meth:`declare` once per ``client.config.bind(id, ...)``.
+    - :meth:`add_item` for every Pydantic-introspected leaf field, or
+      anything else the runtime client observes. Repeated calls with the
+      same ``(config_id, item_key)`` after a successful flush are no-ops.
     - :meth:`drain` returns the pending payload list, clears the
       pending buffer, and records what was sent.
 
