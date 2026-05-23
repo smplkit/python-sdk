@@ -8,13 +8,13 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
-from ...models.log_group_request import LogGroupRequest
+from ...models.log_group_create_request import LogGroupCreateRequest
 from ...models.log_group_response import LogGroupResponse
 
 
 def _get_kwargs(
     *,
-    body: LogGroupRequest,
+    body: LogGroupCreateRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -79,17 +79,21 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: LogGroupRequest,
+    body: LogGroupCreateRequest,
 ) -> Response[ErrorResponse | LogGroupResponse]:
     """Create Log Group
 
      Create a log group.
 
-    The caller may supply a key in `data.id`; if omitted, the server
-    generates one from `name`.
+    The caller supplies the log group's key as `data.id`. The id is
+    required, must be unique within the account across loggers and
+    groups, and is immutable for the lifetime of the group.
 
     Args:
-        body (LogGroupRequest): JSON:API request envelope for creating or updating a log group.
+        body (LogGroupCreateRequest): JSON:API request envelope for creating a log group.
+
+            Distinct from :class:`LogGroupRequest` because create requires
+            caller-supplied ``data.id`` while update does not.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -113,17 +117,21 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: LogGroupRequest,
+    body: LogGroupCreateRequest,
 ) -> ErrorResponse | LogGroupResponse | None:
     """Create Log Group
 
      Create a log group.
 
-    The caller may supply a key in `data.id`; if omitted, the server
-    generates one from `name`.
+    The caller supplies the log group's key as `data.id`. The id is
+    required, must be unique within the account across loggers and
+    groups, and is immutable for the lifetime of the group.
 
     Args:
-        body (LogGroupRequest): JSON:API request envelope for creating or updating a log group.
+        body (LogGroupCreateRequest): JSON:API request envelope for creating a log group.
+
+            Distinct from :class:`LogGroupRequest` because create requires
+            caller-supplied ``data.id`` while update does not.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -142,17 +150,21 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: LogGroupRequest,
+    body: LogGroupCreateRequest,
 ) -> Response[ErrorResponse | LogGroupResponse]:
     """Create Log Group
 
      Create a log group.
 
-    The caller may supply a key in `data.id`; if omitted, the server
-    generates one from `name`.
+    The caller supplies the log group's key as `data.id`. The id is
+    required, must be unique within the account across loggers and
+    groups, and is immutable for the lifetime of the group.
 
     Args:
-        body (LogGroupRequest): JSON:API request envelope for creating or updating a log group.
+        body (LogGroupCreateRequest): JSON:API request envelope for creating a log group.
+
+            Distinct from :class:`LogGroupRequest` because create requires
+            caller-supplied ``data.id`` while update does not.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -174,17 +186,21 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: LogGroupRequest,
+    body: LogGroupCreateRequest,
 ) -> ErrorResponse | LogGroupResponse | None:
     """Create Log Group
 
      Create a log group.
 
-    The caller may supply a key in `data.id`; if omitted, the server
-    generates one from `name`.
+    The caller supplies the log group's key as `data.id`. The id is
+    required, must be unique within the account across loggers and
+    groups, and is immutable for the lifetime of the group.
 
     Args:
-        body (LogGroupRequest): JSON:API request envelope for creating or updating a log group.
+        body (LogGroupCreateRequest): JSON:API request envelope for creating a log group.
+
+            Distinct from :class:`LogGroupRequest` because create requires
+            caller-supplied ``data.id`` while update does not.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
