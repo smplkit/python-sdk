@@ -8,13 +8,13 @@ from ...types import Response
 from ... import errors
 
 from ...models.error_response import ErrorResponse
-from ...models.service_request import ServiceRequest
+from ...models.service_create_request import ServiceCreateRequest
 from ...models.service_response import ServiceResponse
 
 
 def _get_kwargs(
     *,
-    body: ServiceRequest,
+    body: ServiceCreateRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -79,14 +79,17 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: ServiceRequest,
+    body: ServiceCreateRequest,
 ) -> Response[ErrorResponse | ServiceResponse]:
     """Create Service
 
      Create a new service. The caller provides the id (key) in the request body.
 
     Args:
-        body (ServiceRequest): JSON:API request envelope for creating or updating a service.
+        body (ServiceCreateRequest): JSON:API request envelope for creating a service.
+
+            Distinct from :class:`ServiceRequest` because create requires
+            caller-supplied ``data.id`` while update does not.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -110,14 +113,17 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: ServiceRequest,
+    body: ServiceCreateRequest,
 ) -> ErrorResponse | ServiceResponse | None:
     """Create Service
 
      Create a new service. The caller provides the id (key) in the request body.
 
     Args:
-        body (ServiceRequest): JSON:API request envelope for creating or updating a service.
+        body (ServiceCreateRequest): JSON:API request envelope for creating a service.
+
+            Distinct from :class:`ServiceRequest` because create requires
+            caller-supplied ``data.id`` while update does not.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -136,14 +142,17 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: ServiceRequest,
+    body: ServiceCreateRequest,
 ) -> Response[ErrorResponse | ServiceResponse]:
     """Create Service
 
      Create a new service. The caller provides the id (key) in the request body.
 
     Args:
-        body (ServiceRequest): JSON:API request envelope for creating or updating a service.
+        body (ServiceCreateRequest): JSON:API request envelope for creating a service.
+
+            Distinct from :class:`ServiceRequest` because create requires
+            caller-supplied ``data.id`` while update does not.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -165,14 +174,17 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: ServiceRequest,
+    body: ServiceCreateRequest,
 ) -> ErrorResponse | ServiceResponse | None:
     """Create Service
 
      Create a new service. The caller provides the id (key) in the request body.
 
     Args:
-        body (ServiceRequest): JSON:API request envelope for creating or updating a service.
+        body (ServiceCreateRequest): JSON:API request envelope for creating a service.
+
+            Distinct from :class:`ServiceRequest` because create requires
+            caller-supplied ``data.id`` while update does not.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
