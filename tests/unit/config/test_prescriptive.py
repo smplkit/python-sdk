@@ -111,6 +111,7 @@ class TestResolveAsyncPrescriptive:
 
         asyncio.run(_run())
 
+
 # ===================================================================
 # 3. LiveConfigProxy returned by get() — sync
 # ===================================================================

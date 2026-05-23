@@ -228,7 +228,9 @@ def _apply_change_to_target(
             fields_set = getattr(current, "__pydantic_fields_set__", None)
             if isinstance(fields_set, set):
                 fields_set.add(last)
-        except Exception:  # pragma: no cover - defensive: object.__setattr__ on BaseModel for a known field is not expected to raise
+        except (
+            Exception
+        ):  # pragma: no cover - defensive: object.__setattr__ on BaseModel for a known field is not expected to raise
             logger.warning(
                 "Failed to apply config change %r=%r to bound instance",
                 dotted_key,
@@ -545,9 +547,7 @@ class ConfigClient:
                 bound via :meth:`bind`.
         """
         if not isinstance(config, (BaseModel, dict)):
-            raise TypeError(
-                f"bind() requires a Pydantic BaseModel instance or dict; got {type(config).__name__}"
-            )
+            raise TypeError(f"bind() requires a Pydantic BaseModel instance or dict; got {type(config).__name__}")
 
         if id in self._bindings:
             return self._bindings[id]  # type: ignore[return-value]
@@ -968,9 +968,7 @@ class AsyncConfigClient:
         See :meth:`ConfigClient.bind` for the full contract.
         """
         if not isinstance(config, (BaseModel, dict)):
-            raise TypeError(
-                f"bind() requires a Pydantic BaseModel instance or dict; got {type(config).__name__}"
-            )
+            raise TypeError(f"bind() requires a Pydantic BaseModel instance or dict; got {type(config).__name__}")
 
         if id in self._bindings:
             return self._bindings[id]  # type: ignore[return-value]

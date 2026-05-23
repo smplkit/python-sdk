@@ -400,6 +400,7 @@ class TestConfigClientResolve:
                 client.config.get("db")
         mock_connect.assert_called_once()
 
+
 # ===================================================================
 # LiveConfigProxy — proxy.on_change(...) sugar
 # ===================================================================
@@ -1101,6 +1102,7 @@ class TestAsyncConfigClientResolve:
                 await client.config.get("missing")
 
         asyncio.run(_run())
+
 
 # ===================================================================
 # AsyncConfigClient — refresh()
