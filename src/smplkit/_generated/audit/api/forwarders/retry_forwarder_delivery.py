@@ -13,7 +13,7 @@ from uuid import UUID
 
 
 def _get_kwargs(
-    forwarder_id: UUID,
+    forwarder_id: str,
     delivery_id: UUID,
 ) -> dict[str, Any]:
 
@@ -54,7 +54,7 @@ def _build_response(
 
 
 def sync_detailed(
-    forwarder_id: UUID,
+    forwarder_id: str,
     delivery_id: UUID,
     *,
     client: AuthenticatedClient,
@@ -66,7 +66,7 @@ def sync_detailed(
     Returns the new delivery log entry. The prior entry is left in place.
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
         delivery_id (UUID):
 
     Raises:
@@ -90,7 +90,7 @@ def sync_detailed(
 
 
 def sync(
-    forwarder_id: UUID,
+    forwarder_id: str,
     delivery_id: UUID,
     *,
     client: AuthenticatedClient,
@@ -102,7 +102,7 @@ def sync(
     Returns the new delivery log entry. The prior entry is left in place.
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
         delivery_id (UUID):
 
     Raises:
@@ -121,7 +121,7 @@ def sync(
 
 
 async def asyncio_detailed(
-    forwarder_id: UUID,
+    forwarder_id: str,
     delivery_id: UUID,
     *,
     client: AuthenticatedClient,
@@ -133,7 +133,7 @@ async def asyncio_detailed(
     Returns the new delivery log entry. The prior entry is left in place.
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
         delivery_id (UUID):
 
     Raises:
@@ -155,7 +155,7 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    forwarder_id: UUID,
+    forwarder_id: str,
     delivery_id: UUID,
     *,
     client: AuthenticatedClient,
@@ -167,7 +167,7 @@ async def asyncio(
     Returns the new delivery log entry. The prior entry is left in place.
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
         delivery_id (UUID):
 
     Raises:

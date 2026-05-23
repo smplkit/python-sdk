@@ -9,11 +9,10 @@ from ...types import Response
 from ... import errors
 
 from ...models.forwarder_response import ForwarderResponse
-from uuid import UUID
 
 
 def _get_kwargs(
-    forwarder_id: UUID,
+    forwarder_id: str,
 ) -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
@@ -48,7 +47,7 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 
 def sync_detailed(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
 ) -> Response[ForwarderResponse]:
@@ -60,7 +59,7 @@ def sync_detailed(
     round-tripped with `GET`, mutate, `PUT` without re-entering secrets.
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -82,7 +81,7 @@ def sync_detailed(
 
 
 def sync(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
 ) -> ForwarderResponse | None:
@@ -94,7 +93,7 @@ def sync(
     round-tripped with `GET`, mutate, `PUT` without re-entering secrets.
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -111,7 +110,7 @@ def sync(
 
 
 async def asyncio_detailed(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
 ) -> Response[ForwarderResponse]:
@@ -123,7 +122,7 @@ async def asyncio_detailed(
     round-tripped with `GET`, mutate, `PUT` without re-entering secrets.
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -143,7 +142,7 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
 ) -> ForwarderResponse | None:
@@ -155,7 +154,7 @@ async def asyncio(
     round-tripped with `GET`, mutate, `PUT` without re-entering secrets.
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

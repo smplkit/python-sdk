@@ -8,11 +8,9 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
-from uuid import UUID
-
 
 def _get_kwargs(
-    forwarder_id: UUID,
+    forwarder_id: str,
 ) -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
@@ -45,7 +43,7 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 
 def sync_detailed(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
 ) -> Response[Any]:
@@ -54,10 +52,10 @@ def sync_detailed(
      Delete a forwarder.
 
     Past delivery log entries are retained. A new forwarder may be
-    created later under the same name.
+    created later under the same id.
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -79,7 +77,7 @@ def sync_detailed(
 
 
 async def asyncio_detailed(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
 ) -> Response[Any]:
@@ -88,10 +86,10 @@ async def asyncio_detailed(
      Delete a forwarder.
 
     Past delivery log entries are retained. A new forwarder may be
-    created later under the same name.
+    created later under the same id.
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

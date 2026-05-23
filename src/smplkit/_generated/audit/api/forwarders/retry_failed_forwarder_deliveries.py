@@ -9,11 +9,10 @@ from ...types import Response
 from ... import errors
 
 from ...models.retry_failed_deliveries_summary import RetryFailedDeliveriesSummary
-from uuid import UUID
 
 
 def _get_kwargs(
-    forwarder_id: UUID,
+    forwarder_id: str,
 ) -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
@@ -52,7 +51,7 @@ def _build_response(
 
 
 def sync_detailed(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
 ) -> Response[RetryFailedDeliveriesSummary]:
@@ -64,7 +63,7 @@ def sync_detailed(
     configuration and the original event. Returns the counts.
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -86,7 +85,7 @@ def sync_detailed(
 
 
 def sync(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
 ) -> RetryFailedDeliveriesSummary | None:
@@ -98,7 +97,7 @@ def sync(
     configuration and the original event. Returns the counts.
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -115,7 +114,7 @@ def sync(
 
 
 async def asyncio_detailed(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
 ) -> Response[RetryFailedDeliveriesSummary]:
@@ -127,7 +126,7 @@ async def asyncio_detailed(
     configuration and the original event. Returns the counts.
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -147,7 +146,7 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
 ) -> RetryFailedDeliveriesSummary | None:
@@ -159,7 +158,7 @@ async def asyncio(
     configuration and the original event. Returns the counts.
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
