@@ -8,27 +8,26 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.log_group_resource import LogGroupResource
+    from ..models.log_group_create_resource import LogGroupCreateResource
 
 
-T = TypeVar("T", bound="LogGroupRequest")
+T = TypeVar("T", bound="LogGroupCreateRequest")
 
 
 @_attrs_define
-class LogGroupRequest:
-    """JSON:API request envelope for updating a log group.
+class LogGroupCreateRequest:
+    """JSON:API request envelope for creating a log group.
 
-    Attributes:
-        data (LogGroupResource): JSON:API resource envelope for a log group.
+    Distinct from :class:`LogGroupRequest` because create requires
+    caller-supplied ``data.id`` while update does not.
 
-            `id` is the group's key (e.g. `database-loggers`). On a create
-            request the id may be supplied; if omitted, the server generates
-            one from `name`. Example: {'attributes': {'created_at': '2026-04-01T10:00:00Z', 'environments': {'production':
-            {'level': 'ERROR'}}, 'level': 'WARN', 'name': 'Database Loggers', 'updated_at': '2026-04-01T10:00:00Z'}, 'id':
-            'database-loggers', 'type': 'log_group'}.
+        Attributes:
+            data (LogGroupCreateResource): JSON:API resource envelope for creating a log group (id required). Example:
+                {'attributes': {'environments': {'prod': {'level': 'ERROR'}}, 'level': 'WARN', 'name': 'Payment pipeline'},
+                'id': 'payment-pipeline', 'type': 'log_group'}.
     """
 
-    data: LogGroupResource
+    data: LogGroupCreateResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -46,17 +45,17 @@ class LogGroupRequest:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.log_group_resource import LogGroupResource
+        from ..models.log_group_create_resource import LogGroupCreateResource
 
         d = dict(src_dict)
-        data = LogGroupResource.from_dict(d.pop("data"))
+        data = LogGroupCreateResource.from_dict(d.pop("data"))
 
-        log_group_request = cls(
+        log_group_create_request = cls(
             data=data,
         )
 
-        log_group_request.additional_properties = d
-        return log_group_request
+        log_group_create_request.additional_properties = d
+        return log_group_create_request
 
     @property
     def additional_keys(self) -> list[str]:

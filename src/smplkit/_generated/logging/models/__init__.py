@@ -10,6 +10,8 @@ from .list_loggers_sort import ListLoggersSort
 from .list_meta import ListMeta
 from .list_services_sort import ListServicesSort
 from .log_group import LogGroup
+from .log_group_create_request import LogGroupCreateRequest
+from .log_group_create_resource import LogGroupCreateResource
 from .log_group_environments_type_0 import LogGroupEnvironmentsType0
 from .log_group_list_response import LogGroupListResponse
 from .log_group_request import LogGroupRequest
@@ -63,6 +65,8 @@ __all__ = (
     "LoggerSourceResource",
     "LoggerSourcesType0Item",
     "LogGroup",
+    "LogGroupCreateRequest",
+    "LogGroupCreateResource",
     "LogGroupEnvironmentsType0",
     "LogGroupListResponse",
     "LogGroupRequest",
