@@ -16,7 +16,7 @@ T = TypeVar("T", bound="FlagRequest")
 
 @_attrs_define
 class FlagRequest:
-    """JSON:API request envelope for creating or updating a flag.
+    """JSON:API request envelope for updating a flag.
 
     Attributes:
         data (FlagResource): JSON:API resource envelope for a flag.
