@@ -8,28 +8,27 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.config_resource import ConfigResource
+    from ..models.config_create_resource import ConfigCreateResource
 
 
-T = TypeVar("T", bound="ConfigRequest")
+T = TypeVar("T", bound="ConfigCreateRequest")
 
 
 @_attrs_define
-class ConfigRequest:
-    """JSON:API request envelope for updating a config.
+class ConfigCreateRequest:
+    """JSON:API request envelope for creating a config.
 
-    Attributes:
-        data (ConfigResource): JSON:API resource envelope for a config.
+    Distinct from :class:`ConfigRequest` because create requires
+    caller-supplied ``data.id`` while update does not.
 
-            `id` is the human-readable key for the config and must be supplied
-            by the caller on create. It is unique within the account. Example: {'attributes': {'created_at':
-            '2026-05-11T12:00:00Z', 'description': 'Database connection settings.', 'environments': {'prod': {'values':
-            {'host': {'value': 'db-prod.internal'}}}}, 'items': {'host': {'description': 'Primary database hostname.',
-            'type': 'STRING', 'value': 'db.internal'}}, 'name': 'Database', 'parent': 'common', 'updated_at':
-            '2026-05-11T12:00:00Z'}, 'id': 'database', 'type': 'config'}.
+        Attributes:
+            data (ConfigCreateResource): JSON:API resource envelope for creating a config (id required). Example:
+                {'attributes': {'description': 'Settings for the user service.', 'environments': {'prod': {'values': {'host':
+                {'value': 'db-prod.internal'}}}}, 'items': {'host': {'description': 'Database host.', 'type': 'STRING', 'value':
+                'db.internal'}}, 'name': 'User Service', 'parent': 'common'}, 'id': 'user-service', 'type': 'config'}.
     """
 
-    data: ConfigResource
+    data: ConfigCreateResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -47,17 +46,17 @@ class ConfigRequest:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.config_resource import ConfigResource
+        from ..models.config_create_resource import ConfigCreateResource
 
         d = dict(src_dict)
-        data = ConfigResource.from_dict(d.pop("data"))
+        data = ConfigCreateResource.from_dict(d.pop("data"))
 
-        config_request = cls(
+        config_create_request = cls(
             data=data,
         )
 
-        config_request.additional_properties = d
-        return config_request
+        config_create_request.additional_properties = d
+        return config_create_request
 
     @property
     def additional_keys(self) -> list[str]:
