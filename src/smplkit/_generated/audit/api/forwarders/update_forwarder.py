@@ -10,11 +10,10 @@ from ... import errors
 
 from ...models.forwarder_request import ForwarderRequest
 from ...models.forwarder_response import ForwarderResponse
-from uuid import UUID
 
 
 def _get_kwargs(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     body: ForwarderRequest,
 ) -> dict[str, Any]:
@@ -57,7 +56,7 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 
 def sync_detailed(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
     body: ForwarderRequest,
@@ -67,8 +66,8 @@ def sync_detailed(
      Replace an existing forwarder. Every writable field is overwritten.
 
     Args:
-        forwarder_id (UUID):
-        body (ForwarderRequest): JSON:API request envelope for creating or updating a forwarder.
+        forwarder_id (str):
+        body (ForwarderRequest): JSON:API request envelope for updating a forwarder.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -91,7 +90,7 @@ def sync_detailed(
 
 
 def sync(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
     body: ForwarderRequest,
@@ -101,8 +100,8 @@ def sync(
      Replace an existing forwarder. Every writable field is overwritten.
 
     Args:
-        forwarder_id (UUID):
-        body (ForwarderRequest): JSON:API request envelope for creating or updating a forwarder.
+        forwarder_id (str):
+        body (ForwarderRequest): JSON:API request envelope for updating a forwarder.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -120,7 +119,7 @@ def sync(
 
 
 async def asyncio_detailed(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
     body: ForwarderRequest,
@@ -130,8 +129,8 @@ async def asyncio_detailed(
      Replace an existing forwarder. Every writable field is overwritten.
 
     Args:
-        forwarder_id (UUID):
-        body (ForwarderRequest): JSON:API request envelope for creating or updating a forwarder.
+        forwarder_id (str):
+        body (ForwarderRequest): JSON:API request envelope for updating a forwarder.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -152,7 +151,7 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
     body: ForwarderRequest,
@@ -162,8 +161,8 @@ async def asyncio(
      Replace an existing forwarder. Every writable field is overwritten.
 
     Args:
-        forwarder_id (UUID):
-        body (ForwarderRequest): JSON:API request envelope for creating or updating a forwarder.
+        forwarder_id (str):
+        body (ForwarderRequest): JSON:API request envelope for updating a forwarder.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

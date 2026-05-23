@@ -18,6 +18,8 @@ from .event_type_attributes import EventTypeAttributes
 from .event_type_list_response import EventTypeListResponse
 from .event_type_resource import EventTypeResource
 from .forwarder import Forwarder
+from .forwarder_create_request import ForwarderCreateRequest
+from .forwarder_create_resource import ForwarderCreateResource
 from .forwarder_delivery import ForwarderDelivery
 from .forwarder_delivery_list_links import ForwarderDeliveryListLinks
 from .forwarder_delivery_list_meta import ForwarderDeliveryListMeta
@@ -82,6 +84,8 @@ __all__ = (
     "EventTypeListResponse",
     "EventTypeResource",
     "Forwarder",
+    "ForwarderCreateRequest",
+    "ForwarderCreateResource",
     "ForwarderDelivery",
     "ForwarderDeliveryListLinks",
     "ForwarderDeliveryListMeta",

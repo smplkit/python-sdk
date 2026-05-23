@@ -11,11 +11,10 @@ from ... import errors
 from ...models.forwarder_delivery_list_response import ForwarderDeliveryListResponse
 from ...models.list_forwarder_deliveries_sort import ListForwarderDeliveriesSort
 from ...types import Unset
-from uuid import UUID
 
 
 def _get_kwargs(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     filterstatus: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
@@ -107,7 +106,7 @@ def _build_response(
 
 
 def sync_detailed(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
@@ -127,7 +126,7 @@ def sync_detailed(
     interval notation (e.g. `[2026-01-01T00:00:00Z,*)`).
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
         filterstatus (None | str | Unset):
         filtercreated_at (None | str | Unset):
         filterevent_id (None | str | Unset):
@@ -163,7 +162,7 @@ def sync_detailed(
 
 
 def sync(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
@@ -183,7 +182,7 @@ def sync(
     interval notation (e.g. `[2026-01-01T00:00:00Z,*)`).
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
         filterstatus (None | str | Unset):
         filtercreated_at (None | str | Unset):
         filterevent_id (None | str | Unset):
@@ -214,7 +213,7 @@ def sync(
 
 
 async def asyncio_detailed(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
@@ -234,7 +233,7 @@ async def asyncio_detailed(
     interval notation (e.g. `[2026-01-01T00:00:00Z,*)`).
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
         filterstatus (None | str | Unset):
         filtercreated_at (None | str | Unset):
         filterevent_id (None | str | Unset):
@@ -268,7 +267,7 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    forwarder_id: UUID,
+    forwarder_id: str,
     *,
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
@@ -288,7 +287,7 @@ async def asyncio(
     interval notation (e.g. `[2026-01-01T00:00:00Z,*)`).
 
     Args:
-        forwarder_id (UUID):
+        forwarder_id (str):
         filterstatus (None | str | Unset):
         filtercreated_at (None | str | Unset):
         filterevent_id (None | str | Unset):
