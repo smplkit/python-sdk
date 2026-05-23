@@ -16,12 +16,12 @@ T = TypeVar("T", bound="ServiceRequest")
 
 @_attrs_define
 class ServiceRequest:
-    """JSON:API request envelope for creating or updating a service.
+    """JSON:API request envelope for updating a service.
 
     Attributes:
         data (ServiceResource): JSON:API resource envelope for a service.
 
-            `id` must not be specified for create requests (the server assigns it). Example: {'attributes': {'created_at':
+            The caller supplies ``id`` (the service's key) on create. Example: {'attributes': {'created_at':
             '2026-03-20T11:02:16.616Z', 'name': 'User Service', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id':
             'user_service', 'type': 'service'}.
     """

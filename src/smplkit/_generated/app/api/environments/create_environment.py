@@ -7,14 +7,14 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
-from ...models.environment_request import EnvironmentRequest
+from ...models.environment_create_request import EnvironmentCreateRequest
 from ...models.environment_response import EnvironmentResponse
 from ...models.error_response import ErrorResponse
 
 
 def _get_kwargs(
     *,
-    body: EnvironmentRequest,
+    body: EnvironmentCreateRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -79,15 +79,18 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: EnvironmentRequest,
+    body: EnvironmentCreateRequest,
 ) -> Response[EnvironmentResponse | ErrorResponse]:
     """Create Environment
 
      Create a new environment. The caller provides the id (key) in the request body.
 
     Args:
-        body (EnvironmentRequest): JSON:API request envelope for creating or updating an
-            environment.
+        body (EnvironmentCreateRequest): JSON:API request envelope for creating an environment.
+
+            Distinct from :class:`EnvironmentRequest` because create requires
+            caller-supplied ``data.id`` while update does not (the id lives in
+            the URL path).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -111,15 +114,18 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: EnvironmentRequest,
+    body: EnvironmentCreateRequest,
 ) -> EnvironmentResponse | ErrorResponse | None:
     """Create Environment
 
      Create a new environment. The caller provides the id (key) in the request body.
 
     Args:
-        body (EnvironmentRequest): JSON:API request envelope for creating or updating an
-            environment.
+        body (EnvironmentCreateRequest): JSON:API request envelope for creating an environment.
+
+            Distinct from :class:`EnvironmentRequest` because create requires
+            caller-supplied ``data.id`` while update does not (the id lives in
+            the URL path).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -138,15 +144,18 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: EnvironmentRequest,
+    body: EnvironmentCreateRequest,
 ) -> Response[EnvironmentResponse | ErrorResponse]:
     """Create Environment
 
      Create a new environment. The caller provides the id (key) in the request body.
 
     Args:
-        body (EnvironmentRequest): JSON:API request envelope for creating or updating an
-            environment.
+        body (EnvironmentCreateRequest): JSON:API request envelope for creating an environment.
+
+            Distinct from :class:`EnvironmentRequest` because create requires
+            caller-supplied ``data.id`` while update does not (the id lives in
+            the URL path).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -168,15 +177,18 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: EnvironmentRequest,
+    body: EnvironmentCreateRequest,
 ) -> EnvironmentResponse | ErrorResponse | None:
     """Create Environment
 
      Create a new environment. The caller provides the id (key) in the request body.
 
     Args:
-        body (EnvironmentRequest): JSON:API request envelope for creating or updating an
-            environment.
+        body (EnvironmentCreateRequest): JSON:API request envelope for creating an environment.
+
+            Distinct from :class:`EnvironmentRequest` because create requires
+            caller-supplied ``data.id`` while update does not (the id lives in
+            the URL path).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

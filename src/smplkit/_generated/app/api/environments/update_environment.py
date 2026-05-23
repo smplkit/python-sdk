@@ -92,8 +92,7 @@ def sync_detailed(
 
     Args:
         id (str):
-        body (EnvironmentRequest): JSON:API request envelope for creating or updating an
-            environment.
+        body (EnvironmentRequest): JSON:API request envelope for updating an environment.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -127,8 +126,7 @@ def sync(
 
     Args:
         id (str):
-        body (EnvironmentRequest): JSON:API request envelope for creating or updating an
-            environment.
+        body (EnvironmentRequest): JSON:API request envelope for updating an environment.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -157,8 +155,7 @@ async def asyncio_detailed(
 
     Args:
         id (str):
-        body (EnvironmentRequest): JSON:API request envelope for creating or updating an
-            environment.
+        body (EnvironmentRequest): JSON:API request envelope for updating an environment.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -190,8 +187,7 @@ async def asyncio(
 
     Args:
         id (str):
-        body (EnvironmentRequest): JSON:API request envelope for creating or updating an
-            environment.
+        body (EnvironmentRequest): JSON:API request envelope for updating an environment.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

@@ -23,7 +23,7 @@ T = TypeVar("T", bound="ServiceResource")
 class ServiceResource:
     """JSON:API resource envelope for a service.
 
-    `id` must not be specified for create requests (the server assigns it).
+    The caller supplies ``id`` (the service's key) on create.
 
         Example:
             {'attributes': {'created_at': '2026-03-20T11:02:16.616Z', 'name': 'User Service', 'updated_at':

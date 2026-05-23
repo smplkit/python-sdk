@@ -8,25 +8,26 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.environment_resource import EnvironmentResource
+    from ..models.environment_create_resource import EnvironmentCreateResource
 
 
-T = TypeVar("T", bound="EnvironmentRequest")
+T = TypeVar("T", bound="EnvironmentCreateRequest")
 
 
 @_attrs_define
-class EnvironmentRequest:
-    """JSON:API request envelope for updating an environment.
+class EnvironmentCreateRequest:
+    """JSON:API request envelope for creating an environment.
 
-    Attributes:
-        data (EnvironmentResource): JSON:API resource envelope for an environment.
+    Distinct from :class:`EnvironmentRequest` because create requires
+    caller-supplied ``data.id`` while update does not (the id lives in
+    the URL path).
 
-            `id` must not be specified for create requests (the server assigns it). Example: {'attributes':
-            {'classification': 'STANDARD', 'color': '#2ecc71', 'created_at': '2026-03-20T11:02:16.616Z', 'managed': True,
-            'name': 'Production', 'updated_at': '2026-03-20T11:02:16.616Z'}, 'id': 'production', 'type': 'environment'}.
+        Attributes:
+            data (EnvironmentCreateResource): JSON:API resource envelope for creating an environment (id required). Example:
+                {'attributes': {'name': 'Production'}, 'id': 'production', 'type': 'environment'}.
     """
 
-    data: EnvironmentResource
+    data: EnvironmentCreateResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -44,17 +45,17 @@ class EnvironmentRequest:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.environment_resource import EnvironmentResource
+        from ..models.environment_create_resource import EnvironmentCreateResource
 
         d = dict(src_dict)
-        data = EnvironmentResource.from_dict(d.pop("data"))
+        data = EnvironmentCreateResource.from_dict(d.pop("data"))
 
-        environment_request = cls(
+        environment_create_request = cls(
             data=data,
         )
 
-        environment_request.additional_properties = d
-        return environment_request
+        environment_create_request.additional_properties = d
+        return environment_create_request
 
     @property
     def additional_keys(self) -> list[str]:

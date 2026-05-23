@@ -57,6 +57,9 @@ from .email_resource_type import EmailResourceType
 from .email_response import EmailResponse
 from .environment import Environment
 from .environment_classification import EnvironmentClassification
+from .environment_create_request import EnvironmentCreateRequest
+from .environment_create_resource import EnvironmentCreateResource
+from .environment_create_resource_type import EnvironmentCreateResourceType
 from .environment_list_response import EnvironmentListResponse
 from .environment_request import EnvironmentRequest
 from .environment_resource import EnvironmentResource
@@ -146,6 +149,9 @@ from .register_request import RegisterRequest
 from .register_request_entry_point import RegisterRequestEntryPoint
 from .send_contact_email_body import SendContactEmailBody
 from .service import Service
+from .service_create_request import ServiceCreateRequest
+from .service_create_resource import ServiceCreateResource
+from .service_create_resource_type import ServiceCreateResourceType
 from .service_list_response import ServiceListResponse
 from .service_request import ServiceRequest
 from .service_resource import ServiceResource
@@ -242,6 +248,9 @@ __all__ = (
     "EmailResponse",
     "Environment",
     "EnvironmentClassification",
+    "EnvironmentCreateRequest",
+    "EnvironmentCreateResource",
+    "EnvironmentCreateResourceType",
     "EnvironmentListResponse",
     "EnvironmentRequest",
     "EnvironmentResource",
@@ -331,6 +340,9 @@ __all__ = (
     "RegisterRequestEntryPoint",
     "SendContactEmailBody",
     "Service",
+    "ServiceCreateRequest",
+    "ServiceCreateResource",
+    "ServiceCreateResourceType",
     "ServiceListResponse",
     "ServiceRequest",
     "ServiceResource",
