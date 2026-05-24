@@ -7,13 +7,13 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response
 from ... import errors
 
-from ...models.config_request import ConfigRequest
+from ...models.config_create_request import ConfigCreateRequest
 from ...models.config_response import ConfigResponse
 
 
 def _get_kwargs(
     *,
-    body: ConfigRequest,
+    body: ConfigCreateRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -54,7 +54,7 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: ConfigRequest,
+    body: ConfigCreateRequest,
 ) -> Response[ConfigResponse]:
     """Create Config
 
@@ -64,7 +64,10 @@ def sync_detailed(
     within an account and immutable for the lifetime of the config.
 
     Args:
-        body (ConfigRequest): JSON:API request envelope for creating or updating a config.
+        body (ConfigCreateRequest): JSON:API request envelope for creating a config.
+
+            Distinct from :class:`ConfigRequest` because create requires
+            caller-supplied ``data.id`` while update does not.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -88,7 +91,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: ConfigRequest,
+    body: ConfigCreateRequest,
 ) -> ConfigResponse | None:
     """Create Config
 
@@ -98,7 +101,10 @@ def sync(
     within an account and immutable for the lifetime of the config.
 
     Args:
-        body (ConfigRequest): JSON:API request envelope for creating or updating a config.
+        body (ConfigCreateRequest): JSON:API request envelope for creating a config.
+
+            Distinct from :class:`ConfigRequest` because create requires
+            caller-supplied ``data.id`` while update does not.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -117,7 +123,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: ConfigRequest,
+    body: ConfigCreateRequest,
 ) -> Response[ConfigResponse]:
     """Create Config
 
@@ -127,7 +133,10 @@ async def asyncio_detailed(
     within an account and immutable for the lifetime of the config.
 
     Args:
-        body (ConfigRequest): JSON:API request envelope for creating or updating a config.
+        body (ConfigCreateRequest): JSON:API request envelope for creating a config.
+
+            Distinct from :class:`ConfigRequest` because create requires
+            caller-supplied ``data.id`` while update does not.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -149,7 +158,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: ConfigRequest,
+    body: ConfigCreateRequest,
 ) -> ConfigResponse | None:
     """Create Config
 
@@ -159,7 +168,10 @@ async def asyncio(
     within an account and immutable for the lifetime of the config.
 
     Args:
-        body (ConfigRequest): JSON:API request envelope for creating or updating a config.
+        body (ConfigCreateRequest): JSON:API request envelope for creating a config.
+
+            Distinct from :class:`ConfigRequest` because create requires
+            caller-supplied ``data.id`` while update does not.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
