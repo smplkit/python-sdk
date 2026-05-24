@@ -106,6 +106,22 @@ class TestModels:
         assert h.method == HttpMethod.POST
         assert h.headers == []
         assert h.success_status == "2xx"
+        # Pre-existing forwarders persisted before the field landed must
+        # read back as tls_verify=True so they keep their prior secure default.
+        assert h.tls_verify is True
+        assert h.ca_cert is None
+
+    def test_http_configuration_round_trips_tls_fields(self):
+        h = HttpConfiguration(
+            url="https://x",
+            tls_verify=False,
+            ca_cert="-----BEGIN CERTIFICATE-----\nfoo\n-----END CERTIFICATE-----",
+        )
+        d = h._to_dict()
+        assert d["tls_verify"] is False
+        assert "BEGIN CERTIFICATE" in d["ca_cert"]
+        again = HttpConfiguration._from_dict(d)
+        assert again == h
 
     def test_http_configuration_accepts_raw_string_method(self):
         # ``HttpMethod`` is a ``str`` subclass, so callers passing the
