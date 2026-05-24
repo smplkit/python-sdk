@@ -33,6 +33,11 @@ class TestForwarderRequest:
             success_status (str | Unset): HTTP response status that indicates success. Either a specific status code (e.g.
                 `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`). Default: '2xx'.
             timeout_ms (int | None | Unset): Per-request timeout in milliseconds. Capped at 30 seconds.
+            tls_verify (bool | Unset): Whether to verify the destination server's TLS certificate. Mirrors the parent
+                forwarder field of the same name — see its description for security guidance. Defaults to `true`. Default: True.
+            ca_cert (None | str | Unset): Optional PEM-encoded certificate (or bundle) used to verify the destination
+                server's TLS certificate. Mirrors the parent forwarder field. Must contain one or more `-----BEGIN
+                CERTIFICATE-----` blocks.
             body (None | str | Unset): Request body sent to the destination. When omitted, an empty body is sent (suitable
                 for connectivity probes). When set, the body is sent verbatim — pair with an appropriate `Content-Type` entry in
                 `headers` so the destination interprets it correctly. Limit 1 MiB.
@@ -43,6 +48,8 @@ class TestForwarderRequest:
     headers: list[HttpHeader] | Unset = UNSET
     success_status: str | Unset = "2xx"
     timeout_ms: int | None | Unset = UNSET
+    tls_verify: bool | Unset = True
+    ca_cert: None | str | Unset = UNSET
     body: None | str | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
@@ -67,6 +74,14 @@ class TestForwarderRequest:
         else:
             timeout_ms = self.timeout_ms
 
+        tls_verify = self.tls_verify
+
+        ca_cert: None | str | Unset
+        if isinstance(self.ca_cert, Unset):
+            ca_cert = UNSET
+        else:
+            ca_cert = self.ca_cert
+
         body: None | str | Unset
         if isinstance(self.body, Unset):
             body = UNSET
@@ -88,6 +103,10 @@ class TestForwarderRequest:
             field_dict["success_status"] = success_status
         if timeout_ms is not UNSET:
             field_dict["timeout_ms"] = timeout_ms
+        if tls_verify is not UNSET:
+            field_dict["tls_verify"] = tls_verify
+        if ca_cert is not UNSET:
+            field_dict["ca_cert"] = ca_cert
         if body is not UNSET:
             field_dict["body"] = body
 
@@ -127,6 +146,17 @@ class TestForwarderRequest:
 
         timeout_ms = _parse_timeout_ms(d.pop("timeout_ms", UNSET))
 
+        tls_verify = d.pop("tls_verify", UNSET)
+
+        def _parse_ca_cert(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        ca_cert = _parse_ca_cert(d.pop("ca_cert", UNSET))
+
         def _parse_body(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -142,6 +172,8 @@ class TestForwarderRequest:
             headers=headers,
             success_status=success_status,
             timeout_ms=timeout_ms,
+            tls_verify=tls_verify,
+            ca_cert=ca_cert,
             body=body,
         )
 
