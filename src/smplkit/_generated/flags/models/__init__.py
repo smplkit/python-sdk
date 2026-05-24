@@ -5,6 +5,8 @@ from .flag_bulk_item import FlagBulkItem
 from .flag_bulk_item_type import FlagBulkItemType
 from .flag_bulk_request import FlagBulkRequest
 from .flag_bulk_response import FlagBulkResponse
+from .flag_create_request import FlagCreateRequest
+from .flag_create_resource import FlagCreateResource
 from .flag_environment import FlagEnvironment
 from .flag_environments import FlagEnvironments
 from .flag_list_response import FlagListResponse
@@ -39,6 +41,8 @@ __all__ = (
     "FlagBulkItemType",
     "FlagBulkRequest",
     "FlagBulkResponse",
+    "FlagCreateRequest",
+    "FlagCreateResource",
     "FlagEnvironment",
     "FlagEnvironments",
     "FlagListResponse",
