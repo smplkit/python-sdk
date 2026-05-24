@@ -18,6 +18,11 @@ venv/
 .idea/
 src/smplkit/_version.py
 
+# Stray files from accidental ``pip install >=N.N`` shell escapes,
+# which write the version constraint to a file named ``=N.N`` instead
+# of passing it to pip.
+=*
+
 # Claude Code
 CLAUDE.md
 CLAUDE.local.md
