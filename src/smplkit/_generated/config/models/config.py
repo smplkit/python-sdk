@@ -32,10 +32,9 @@ class Config:
 
         Example:
             {'created_at': '2026-05-11T12:00:00Z', 'description': 'Database connection settings.', 'environments': {'prod':
-                {'values': {'host': {'value': 'db-prod.internal'}, 'pool_size': {'value': 20}}}}, 'items': {'host':
-                {'description': 'Primary database hostname.', 'type': 'STRING', 'value': 'db.internal'}, 'pool_size':
-                {'description': 'Connection pool size.', 'type': 'NUMBER', 'value': 10}}, 'name': 'Database', 'parent':
-                'common', 'updated_at': '2026-05-11T12:00:00Z'}
+                {'host': 'db-prod.internal', 'pool_size': 20}}, 'items': {'host': {'description': 'Primary database hostname.',
+                'type': 'STRING', 'value': 'db.internal'}, 'pool_size': {'description': 'Connection pool size.', 'type':
+                'NUMBER', 'value': 10}}, 'name': 'Database', 'parent': 'common', 'updated_at': '2026-05-11T12:00:00Z'}
 
         Attributes:
             name (str): Human-readable name for the config.
@@ -46,8 +45,11 @@ class Config:
             items (ConfigItemsType0 | None | Unset): Map of item keys to item definitions declared on this config. Keys must
                 be unique within the config; declared types are immutable once set and must match any type declared for the same
                 key on an ancestor.
-            environments (ConfigEnvironmentsType0 | None | Unset): Map of environment keys to per-environment override sets.
-                An environment override applies when this config is resolved against that environment.
+            environments (ConfigEnvironmentsType0 | None | Unset): Map of environment keys to per-environment overrides.
+                Each environment maps to a flat object of item key to override value (e.g. `{"production": {"database.host":
+                "db-prod.internal"}}`). Only the keys being overridden need to be present. Override values must conform to the
+                item's declared `type`; `type` and `description` are always resolved from the defining configuration and are
+                never redeclared on an override.
             managed (bool | None | Unset): Whether this config is admin-managed (`true`) or auto-discovered by an SDK and
                 not yet claimed (`false`). Configs created through the console or `POST /api/v1/configs` are always managed.
                 Configs registered via `POST /api/v1/configs/bulk` land unmanaged. Setting this field to `true` on a PUT

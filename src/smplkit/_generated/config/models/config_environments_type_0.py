@@ -8,7 +8,7 @@ from attrs import field as _attrs_field
 
 
 if TYPE_CHECKING:
-    from ..models.environment_override import EnvironmentOverride
+    from ..models.config_environments_type_0_additional_property import ConfigEnvironmentsType0AdditionalProperty
 
 
 T = TypeVar("T", bound="ConfigEnvironmentsType0")
@@ -18,7 +18,7 @@ T = TypeVar("T", bound="ConfigEnvironmentsType0")
 class ConfigEnvironmentsType0:
     """ """
 
-    additional_properties: dict[str, EnvironmentOverride] = _attrs_field(init=False, factory=dict)
+    additional_properties: dict[str, ConfigEnvironmentsType0AdditionalProperty] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
 
@@ -30,14 +30,14 @@ class ConfigEnvironmentsType0:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.environment_override import EnvironmentOverride
+        from ..models.config_environments_type_0_additional_property import ConfigEnvironmentsType0AdditionalProperty
 
         d = dict(src_dict)
         config_environments_type_0 = cls()
 
         additional_properties = {}
         for prop_name, prop_dict in d.items():
-            additional_property = EnvironmentOverride.from_dict(prop_dict)
+            additional_property = ConfigEnvironmentsType0AdditionalProperty.from_dict(prop_dict)
 
             additional_properties[prop_name] = additional_property
 
@@ -48,10 +48,10 @@ class ConfigEnvironmentsType0:
     def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
-    def __getitem__(self, key: str) -> EnvironmentOverride:
+    def __getitem__(self, key: str) -> ConfigEnvironmentsType0AdditionalProperty:
         return self.additional_properties[key]
 
-    def __setitem__(self, key: str, value: EnvironmentOverride) -> None:
+    def __setitem__(self, key: str, value: ConfigEnvironmentsType0AdditionalProperty) -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:
