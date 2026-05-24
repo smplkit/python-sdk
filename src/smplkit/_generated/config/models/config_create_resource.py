@@ -22,8 +22,8 @@ class ConfigCreateResource:
     """JSON:API resource envelope for creating a config (id required).
 
     Example:
-        {'attributes': {'description': 'Settings for the user service.', 'environments': {'prod': {'values': {'host':
-            {'value': 'db-prod.internal'}}}}, 'items': {'host': {'description': 'Database host.', 'type': 'STRING', 'value':
+        {'attributes': {'description': 'Settings for the user service.', 'environments': {'prod': {'host': 'db-
+            prod.internal'}}, 'items': {'host': {'description': 'Database host.', 'type': 'STRING', 'value':
             'db.internal'}}, 'name': 'User Service', 'parent': 'common'}, 'id': 'user-service', 'type': 'config'}
 
     Attributes:
@@ -36,10 +36,10 @@ class ConfigCreateResource:
             declared on the config itself or anywhere in its inheritance chain;
             resolving a config against an environment merges the chain top-down
             and then applies the matching overrides. Example: {'created_at': '2026-05-11T12:00:00Z', 'description':
-            'Database connection settings.', 'environments': {'prod': {'values': {'host': {'value': 'db-prod.internal'},
-            'pool_size': {'value': 20}}}}, 'items': {'host': {'description': 'Primary database hostname.', 'type': 'STRING',
-            'value': 'db.internal'}, 'pool_size': {'description': 'Connection pool size.', 'type': 'NUMBER', 'value': 10}},
-            'name': 'Database', 'parent': 'common', 'updated_at': '2026-05-11T12:00:00Z'}.
+            'Database connection settings.', 'environments': {'prod': {'host': 'db-prod.internal', 'pool_size': 20}},
+            'items': {'host': {'description': 'Primary database hostname.', 'type': 'STRING', 'value': 'db.internal'},
+            'pool_size': {'description': 'Connection pool size.', 'type': 'NUMBER', 'value': 10}}, 'name': 'Database',
+            'parent': 'common', 'updated_at': '2026-05-11T12:00:00Z'}.
     """
 
     id: str

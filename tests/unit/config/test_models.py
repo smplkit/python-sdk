@@ -169,7 +169,7 @@ class TestConfigApply:
             description="New desc",
             parent="parent-id",
             items={"host": {"value": "h"}},
-            environments={"prod": {"values": {"host": "prod-h"}}},
+            environments={"prod": {"host": "prod-h"}},
         )
         other.created_at = datetime.datetime(2025, 1, 1)
         other.updated_at = datetime.datetime(2025, 6, 1)
@@ -383,7 +383,7 @@ class TestAsyncConfigApply:
             description="New desc",
             parent="parent-id",
             items={"host": {"value": "h"}},
-            environments={"prod": {"values": {"host": "prod-h"}}},
+            environments={"prod": {"host": "prod-h"}},
         )
         other.created_at = datetime.datetime(2025, 1, 1)
         other.updated_at = datetime.datetime(2025, 6, 1)
@@ -594,20 +594,39 @@ class TestAsyncConfigSetRemoveItems:
 
 
 class TestConfigEnvironment:
+    """Per ADR-024 §2.4 each env entry is a flat ``{key: rawValue}`` map."""
+
     def test_construct_empty(self):
         env = ConfigEnvironment()
         assert env.values == {}
         assert env.values_raw == {}
 
-    def test_construct_with_wire_shape(self):
+    def test_construct_with_flat_values(self):
+        env = ConfigEnvironment(values={"host": "h", "port": 5432})
+        assert env.values == {"host": "h", "port": 5432}
+        assert env.values_raw == {"host": "h", "port": 5432}
+
+    def test_construct_unwraps_legacy_wrapped_value_only(self):
+        """Legacy ``{value: ...}`` wrappers are flattened for compat."""
         env = ConfigEnvironment(values={"host": {"value": "h", "type": "STRING"}})
         assert env.values == {"host": "h"}
-        assert env.values_raw["host"]["type"] == "STRING"
 
-    def test_construct_with_raw_value(self):
+    def test_construct_preserves_arbitrary_dict_value(self):
+        """A dict customer value (e.g. nested JSON) is stored as-is."""
+        env = ConfigEnvironment(values={"db": {"host": "h", "port": 5432}})
+        assert env.values == {"db": {"host": "h", "port": 5432}}
+
+    def test_values_returns_independent_copy(self):
         env = ConfigEnvironment(values={"host": "h"})
-        assert env.values == {"host": "h"}
-        assert env.values_raw["host"] == {"value": "h"}
+        view = env.values
+        view["new"] = "no leak"
+        assert "new" not in env.values
+
+    def test_values_raw_returns_independent_copy(self):
+        env = ConfigEnvironment(values={"host": "h"})
+        view = env.values_raw
+        view["new"] = "no leak"
+        assert "new" not in env.values_raw
 
     def test_repr(self):
         env = ConfigEnvironment(values={"host": "h"})
@@ -617,6 +636,8 @@ class TestConfigEnvironment:
 
 
 class TestConfigEnvironmentsAccess:
+    """Per ADR-024 §2.4 env overrides carry only the raw value, no type/desc."""
+
     def test_environments_property_starts_empty(self):
         cfg = _make_config()
         assert cfg.environments == {}
@@ -625,10 +646,8 @@ class TestConfigEnvironmentsAccess:
         cfg = _make_config()
         cfg.set_number("max_retries", 5, environment="production")
         assert isinstance(cfg.environments["production"], ConfigEnvironment)
-        assert cfg.environments["production"].values_raw["max_retries"] == {
-            "value": 5,
-            "type": "NUMBER",
-        }
+        assert cfg.environments["production"].values == {"max_retries": 5}
+        assert cfg.environments["production"].values_raw == {"max_retries": 5}
 
     def test_setter_with_environment_reuses_existing_env(self):
         cfg = _make_config()
@@ -644,6 +663,15 @@ class TestConfigEnvironmentsAccess:
         assert cfg.items_raw == {}
         assert cfg.environments["production"].values["host"] == "prod-h"
 
+    def test_set_with_environment_ignores_type_and_description(self):
+        """Env overrides on the wire are just raw values — type/desc come from the base item."""
+        cfg = _make_config(items={})
+        cfg.set(
+            ConfigItem("host", "prod-h", ItemType.STRING, description="ignored"),
+            environment="production",
+        )
+        assert cfg.environments["production"].values_raw == {"host": "prod-h"}
+
     def test_remove_with_environment_only_clears_override(self):
         cfg = _make_config()
         cfg.set_number("max_retries", 3)
@@ -652,8 +680,8 @@ class TestConfigEnvironmentsAccess:
         assert cfg.items_raw["max_retries"] == {"value": 3, "type": "NUMBER"}
         assert "max_retries" not in cfg.environments["production"].values_raw
 
-    def test_init_converts_wire_dict(self):
-        cfg = _make_config(environments={"prod": {"values": {"host": "h"}}})
+    def test_init_converts_flat_wire_dict(self):
+        cfg = _make_config(environments={"prod": {"host": "h"}})
         assert isinstance(cfg.environments["prod"], ConfigEnvironment)
         assert cfg.environments["prod"].values == {"host": "h"}
 
@@ -670,10 +698,7 @@ class TestConfigEnvironmentsAccess:
     def test_async_setter_with_environment_kwarg(self):
         cfg = _make_async_config()
         cfg.set_number("max_retries", 5, environment="production")
-        assert cfg.environments["production"].values_raw["max_retries"] == {
-            "value": 5,
-            "type": "NUMBER",
-        }
+        assert cfg.environments["production"].values_raw == {"max_retries": 5}
 
     def test_async_set_with_environment_routes_to_override(self):
         cfg = _make_async_config(items={})
@@ -687,7 +712,7 @@ class TestConfigEnvironmentsAccess:
         cfg.remove("max_retries", environment="production")
         assert "max_retries" not in cfg.environments["production"].values_raw
 
-    def test_async_init_converts_wire_dict(self):
-        cfg = _make_async_config(environments={"prod": {"values": {"host": "h"}}})
+    def test_async_init_converts_flat_wire_dict(self):
+        cfg = _make_async_config(environments={"prod": {"host": "h"}})
         assert isinstance(cfg.environments["prod"], ConfigEnvironment)
         assert cfg.environments["prod"].values == {"host": "h"}

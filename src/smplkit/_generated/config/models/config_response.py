@@ -23,10 +23,10 @@ class ConfigResponse:
 
             `id` is the human-readable key for the config and must be supplied
             by the caller on create. It is unique within the account. Example: {'attributes': {'created_at':
-            '2026-05-11T12:00:00Z', 'description': 'Database connection settings.', 'environments': {'prod': {'values':
-            {'host': {'value': 'db-prod.internal'}}}}, 'items': {'host': {'description': 'Primary database hostname.',
-            'type': 'STRING', 'value': 'db.internal'}}, 'name': 'Database', 'parent': 'common', 'updated_at':
-            '2026-05-11T12:00:00Z'}, 'id': 'database', 'type': 'config'}.
+            '2026-05-11T12:00:00Z', 'description': 'Database connection settings.', 'environments': {'prod': {'host': 'db-
+            prod.internal'}}, 'items': {'host': {'description': 'Primary database hostname.', 'type': 'STRING', 'value':
+            'db.internal'}}, 'name': 'Database', 'parent': 'common', 'updated_at': '2026-05-11T12:00:00Z'}, 'id':
+            'database', 'type': 'config'}.
     """
 
     data: ConfigResource

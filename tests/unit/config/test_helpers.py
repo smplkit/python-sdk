@@ -15,15 +15,13 @@ from smplkit._errors import (
 from smplkit._generated.config.models.config_environments_type_0 import (
     ConfigEnvironmentsType0,
 )
+from smplkit._generated.config.models.config_environments_type_0_additional_property import (
+    ConfigEnvironmentsType0AdditionalProperty,
+)
 from smplkit._generated.config.models.config_item_definition import (
     ConfigItemDefinition,
 )
-from smplkit._generated.config.models.config_item_override import ConfigItemOverride
 from smplkit._generated.config.models.config_items_type_0 import ConfigItemsType0
-from smplkit._generated.config.models.environment_override import EnvironmentOverride
-from smplkit._generated.config.models.environment_override_values_type_0 import (
-    EnvironmentOverrideValuesType0,
-)
 from smplkit.config.client import (
     _check_response_status,
     _maybe_reraise_network_error,
@@ -55,37 +53,50 @@ class TestMakeItems:
 
 
 class TestMakeEnvironments:
+    """Per ADR-024 §2.4 the wire shape is flat ``{env: {key: rawValue}}``."""
+
     def test_none_returns_none(self):
         assert _make_environments(None) is None
 
     def test_dict_returns_environments_type(self):
-        result = _make_environments({"prod": {"values": {"host": "db-prod"}}})
+        result = _make_environments({"prod": {"host": "db-prod"}})
         assert isinstance(result, ConfigEnvironmentsType0)
-        env_override = result.additional_properties["prod"]
-        assert isinstance(env_override, EnvironmentOverride)
-        assert env_override.values.additional_properties["host"].value == "db-prod"
+        env_prop = result.additional_properties["prod"]
+        assert isinstance(env_prop, ConfigEnvironmentsType0AdditionalProperty)
+        assert env_prop.additional_properties == {"host": "db-prod"}
 
-    def test_already_wrapped_values(self):
-        """Env values already in {value: raw} shape are unwrapped."""
-        result = _make_environments({"prod": {"values": {"host": {"value": "db-prod"}}}})
-        env_override = result.additional_properties["prod"]
-        assert env_override.values.additional_properties["host"].value == "db-prod"
+    def test_multiple_keys_in_one_env(self):
+        result = _make_environments({"prod": {"host": "db-prod", "port": 5432}})
+        env_prop = result.additional_properties["prod"]
+        assert env_prop.additional_properties == {"host": "db-prod", "port": 5432}
+
+    def test_multiple_environments(self):
+        result = _make_environments({"prod": {"host": "p"}, "staging": {"host": "s"}})
+        assert set(result.additional_properties.keys()) == {"prod", "staging"}
+        assert result.additional_properties["prod"].additional_properties == {"host": "p"}
+        assert result.additional_properties["staging"].additional_properties == {"host": "s"}
 
     def test_non_dict_env_data(self):
-        """Non-dict env data creates an empty EnvironmentOverride."""
+        """Non-dict env data creates an empty additional-property container."""
         result = _make_environments({"prod": "invalid"})
-        env_override = result.additional_properties["prod"]
-        assert isinstance(env_override, EnvironmentOverride)
+        env_prop = result.additional_properties["prod"]
+        assert isinstance(env_prop, ConfigEnvironmentsType0AdditionalProperty)
+        assert env_prop.additional_properties == {}
 
     def test_config_environment_instance(self):
-        """A ConfigEnvironment instance unwraps to the wire format."""
+        """A ConfigEnvironment instance is flattened to the wire format."""
         from smplkit.config.models import ConfigEnvironment
 
-        env = ConfigEnvironment(values={"host": {"value": "db-prod", "type": "STRING"}})
+        env = ConfigEnvironment(values={"host": "db-prod"})
         result = _make_environments({"prod": env})
-        env_override = result.additional_properties["prod"]
-        assert isinstance(env_override, EnvironmentOverride)
-        assert env_override.values.additional_properties["host"].value == "db-prod"
+        env_prop = result.additional_properties["prod"]
+        assert isinstance(env_prop, ConfigEnvironmentsType0AdditionalProperty)
+        assert env_prop.additional_properties == {"host": "db-prod"}
+
+    def test_empty_dict_returns_empty_container(self):
+        result = _make_environments({})
+        assert isinstance(result, ConfigEnvironmentsType0)
+        assert result.additional_properties == {}
 
 
 class TestExtractItems:
@@ -116,20 +127,49 @@ class TestExtractItems:
 
 
 class TestExtractEnvironments:
+    """Per ADR-024 §2.4 the wire shape is flat ``{env: {key: rawValue}}``."""
+
     def test_none_returns_empty(self):
         assert _extract_environments(None) == {}
 
     def test_dict_returns_copy(self):
         assert _extract_environments({"prod": {}}) == {"prod": {}}
 
-    def test_environments_type_returns_unwrapped_values(self):
-        vals = EnvironmentOverrideValuesType0()
-        vals.additional_properties = {"host": ConfigItemOverride(value="db-prod")}
-        env_override = EnvironmentOverride(values=vals)
+    def test_environments_type_returns_flat_override_map(self):
+        prop = ConfigEnvironmentsType0AdditionalProperty()
+        prop.additional_properties = {"host": "db-prod", "port": 5432}
         obj = ConfigEnvironmentsType0()
-        obj.additional_properties = {"staging": env_override}
+        obj.additional_properties = {"staging": prop}
         result = _extract_environments(obj)
-        assert result["staging"]["values"] == {"host": "db-prod"}
+        assert result == {"staging": {"host": "db-prod", "port": 5432}}
+
+    def test_environments_type_empty_per_env(self):
+        prop = ConfigEnvironmentsType0AdditionalProperty()
+        obj = ConfigEnvironmentsType0()
+        obj.additional_properties = {"staging": prop}
+        result = _extract_environments(obj)
+        assert result == {"staging": {}}
+
+    def test_environments_type_returns_independent_copy(self):
+        """The extracted map should not alias the generated object's storage."""
+        prop = ConfigEnvironmentsType0AdditionalProperty()
+        prop.additional_properties = {"host": "db-prod"}
+        obj = ConfigEnvironmentsType0()
+        obj.additional_properties = {"prod": prop}
+        result = _extract_environments(obj)
+        result["prod"]["host"] = "mutated"
+        assert prop.additional_properties == {"host": "db-prod"}
+
+    def test_environments_type_property_without_additional_properties_attr(self):
+        """Defensive: a per-env value missing additional_properties surfaces as empty."""
+
+        class Plain:
+            pass
+
+        obj = ConfigEnvironmentsType0()
+        obj.additional_properties = {"prod": Plain()}
+        result = _extract_environments(obj)
+        assert result == {"prod": {}}
 
     def test_unknown_type_returns_empty(self):
         assert _extract_environments(42) == {}
@@ -140,22 +180,6 @@ class TestExtractEnvironments:
             pass
 
         assert _extract_environments(Unset()) == {}
-
-    def test_plain_item_override_without_value_attr(self):
-        """Override items without .value attribute are used as-is."""
-
-        class PlainOverride:
-            """Simulates an override without a .value attribute."""
-
-            pass
-
-        vals = EnvironmentOverrideValuesType0()
-        vals.additional_properties = {"host": PlainOverride()}
-        env_override = EnvironmentOverride(values=vals)
-        obj = ConfigEnvironmentsType0()
-        obj.additional_properties = {"prod": env_override}
-        result = _extract_environments(obj)
-        assert isinstance(result["prod"]["values"]["host"], PlainOverride)
 
 
 class TestExtractDatetime:

@@ -78,7 +78,7 @@ class TestResolve:
             {
                 "values": {"retries": 3, "timeout": 5000},
                 "environments": {
-                    "production": {"values": {"retries": 5}},
+                    "production": {"retries": 5},
                 },
             }
         ]
@@ -90,7 +90,7 @@ class TestResolve:
             {
                 "values": {"retries": 3},
                 "environments": {
-                    "production": {"values": {"retries": 5}},
+                    "production": {"retries": 5},
                 },
             }
         ]
@@ -119,11 +119,11 @@ class TestResolve:
     def test_two_level_with_env_overrides(self):
         parent = {
             "values": {"retries": 3},
-            "environments": {"production": {"values": {"retries": 5}}},
+            "environments": {"production": {"retries": 5}},
         }
         child = {
             "values": {"db": "dev_db"},
-            "environments": {"production": {"values": {"db": "prod_db"}}},
+            "environments": {"production": {"db": "prod_db"}},
         }
         chain = [child, parent]
         result = resolve(chain, "production")
@@ -156,13 +156,11 @@ class TestResolve:
                     "secret": "base_secret",
                 }
             },
-            "environments": {
-                "production": {"values": {"credentials": {"secret": "prod_secret", "scopes": ["read", "write"]}}}
-            },
+            "environments": {"production": {"credentials": {"secret": "prod_secret", "scopes": ["read", "write"]}}},
         }
         child = {
             "values": {},
-            "environments": {"production": {"values": {"credentials": {"secret": "child_prod_secret"}}}},
+            "environments": {"production": {"credentials": {"secret": "child_prod_secret"}}},
         }
         chain = [child, parent]
         result = resolve(chain, "production")
@@ -206,14 +204,12 @@ class TestResolve:
             },
             "environments": {
                 "production": {
-                    "values": {
-                        "max_retries": 5,
-                        "request_timeout_ms": 10000,
-                        "credentials": {
-                            "client_secret": "PROD_SECRET_FROM_VAULT",
-                            "scopes": ["read", "write", "admin"],
-                        },
-                    }
+                    "max_retries": 5,
+                    "request_timeout_ms": 10000,
+                    "credentials": {
+                        "client_secret": "PROD_SECRET_FROM_VAULT",
+                        "scopes": ["read", "write", "admin"],
+                    },
                 }
             },
         }
@@ -233,19 +229,17 @@ class TestResolve:
             },
             "environments": {
                 "production": {
-                    "values": {
-                        "database": {
-                            "host": "prod-users-rds.internal.acme.dev",
-                            "name": "users_prod",
-                            "pool_size": 20,
-                            "ssl_mode": "require",
-                        },
-                        "cache_ttl_seconds": 600,
-                        "credentials": {
-                            "client_secret": "USER_SVC_PROD_SECRET",
-                        },
-                        "enable_signup": False,
-                    }
+                    "database": {
+                        "host": "prod-users-rds.internal.acme.dev",
+                        "name": "users_prod",
+                        "pool_size": 20,
+                        "ssl_mode": "require",
+                    },
+                    "cache_ttl_seconds": 600,
+                    "credentials": {
+                        "client_secret": "USER_SVC_PROD_SECRET",
+                    },
+                    "enable_signup": False,
                 }
             },
         }

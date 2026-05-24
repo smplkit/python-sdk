@@ -23,8 +23,8 @@ class ConfigCreateRequest:
 
         Attributes:
             data (ConfigCreateResource): JSON:API resource envelope for creating a config (id required). Example:
-                {'attributes': {'description': 'Settings for the user service.', 'environments': {'prod': {'values': {'host':
-                {'value': 'db-prod.internal'}}}}, 'items': {'host': {'description': 'Database host.', 'type': 'STRING', 'value':
+                {'attributes': {'description': 'Settings for the user service.', 'environments': {'prod': {'host': 'db-
+                prod.internal'}}, 'items': {'host': {'description': 'Database host.', 'type': 'STRING', 'value':
                 'db.internal'}}, 'name': 'User Service', 'parent': 'common'}, 'id': 'user-service', 'type': 'config'}.
     """
 

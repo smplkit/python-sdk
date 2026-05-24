@@ -27,9 +27,9 @@ class ConfigResource:
 
         Example:
             {'attributes': {'created_at': '2026-05-11T12:00:00Z', 'description': 'Database connection settings.',
-                'environments': {'prod': {'values': {'host': {'value': 'db-prod.internal'}}}}, 'items': {'host': {'description':
-                'Primary database hostname.', 'type': 'STRING', 'value': 'db.internal'}}, 'name': 'Database', 'parent':
-                'common', 'updated_at': '2026-05-11T12:00:00Z'}, 'id': 'database', 'type': 'config'}
+                'environments': {'prod': {'host': 'db-prod.internal'}}, 'items': {'host': {'description': 'Primary database
+                hostname.', 'type': 'STRING', 'value': 'db.internal'}}, 'name': 'Database', 'parent': 'common', 'updated_at':
+                '2026-05-11T12:00:00Z'}, 'id': 'database', 'type': 'config'}
 
         Attributes:
             type_ (Literal['config']):
@@ -40,10 +40,10 @@ class ConfigResource:
                 declared on the config itself or anywhere in its inheritance chain;
                 resolving a config against an environment merges the chain top-down
                 and then applies the matching overrides. Example: {'created_at': '2026-05-11T12:00:00Z', 'description':
-                'Database connection settings.', 'environments': {'prod': {'values': {'host': {'value': 'db-prod.internal'},
-                'pool_size': {'value': 20}}}}, 'items': {'host': {'description': 'Primary database hostname.', 'type': 'STRING',
-                'value': 'db.internal'}, 'pool_size': {'description': 'Connection pool size.', 'type': 'NUMBER', 'value': 10}},
-                'name': 'Database', 'parent': 'common', 'updated_at': '2026-05-11T12:00:00Z'}.
+                'Database connection settings.', 'environments': {'prod': {'host': 'db-prod.internal', 'pool_size': 20}},
+                'items': {'host': {'description': 'Primary database hostname.', 'type': 'STRING', 'value': 'db.internal'},
+                'pool_size': {'description': 'Connection pool size.', 'type': 'NUMBER', 'value': 10}}, 'name': 'Database',
+                'parent': 'common', 'updated_at': '2026-05-11T12:00:00Z'}.
             id (None | str | Unset):
     """
 
