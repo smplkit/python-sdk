@@ -8,12 +8,16 @@ PIP := $(VENV)/bin/pip
 # lives right here. Tests use ``pythonpath = ["src"]`` (see
 # pyproject.toml); showcases run with ``PYTHONPATH=src`` so
 # ``from smplkit import ...`` resolves to the source tree.
+# Quoted so the shell doesn't interpret ``>=`` as a redirect. Without
+# the quotes, ``pip install pytest>=7.0 …`` invocations silently
+# redirect to files named ``=7.0`` etc. in the repo root instead of
+# passing the constraints to pip — see commit c6e24da for the cleanup.
 DEV_DEPS := \
-	openapi-python-client>=0.21.0 \
-	pytest>=7.0 \
-	pytest-cov>=4.0 \
-	ruff>=0.4.0 \
-	loguru>=0.7.0
+	'openapi-python-client>=0.21.0' \
+	'pytest>=7.0' \
+	'pytest-cov>=4.0' \
+	'ruff>=0.4.0' \
+	'loguru>=0.7.0'
 
 SHOWCASE_RUN := PYTHONPATH=src $(PYTHON)
 
