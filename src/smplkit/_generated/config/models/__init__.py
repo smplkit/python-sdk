@@ -5,6 +5,8 @@ from .config_bulk_item import ConfigBulkItem
 from .config_bulk_item_items_type_0 import ConfigBulkItemItemsType0
 from .config_bulk_request import ConfigBulkRequest
 from .config_bulk_response import ConfigBulkResponse
+from .config_create_request import ConfigCreateRequest
+from .config_create_resource import ConfigCreateResource
 from .config_environments_type_0 import ConfigEnvironmentsType0
 from .config_item_definition import ConfigItemDefinition
 from .config_item_definition_type_type_0 import ConfigItemDefinitionTypeType0
@@ -29,6 +31,8 @@ __all__ = (
     "ConfigBulkItemItemsType0",
     "ConfigBulkRequest",
     "ConfigBulkResponse",
+    "ConfigCreateRequest",
+    "ConfigCreateResource",
     "ConfigEnvironmentsType0",
     "ConfigItemDefinition",
     "ConfigItemDefinitionTypeType0",
