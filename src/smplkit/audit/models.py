@@ -180,12 +180,23 @@ class HttpConfiguration:
         success_status (str): Status the destination must return for delivery
             to count as success — either an exact code (``"200"``, ``"204"``)
             or a class (``"2xx"``, ``"4xx"``). Defaults to ``"2xx"``.
+        tls_verify (bool): Whether to verify the destination's TLS certificate
+            chain. Defaults to ``True``; flip to ``False`` only for short-lived
+            testing against a destination that serves an untrusted certificate.
+            Prefer pinning the issuing CA via ``ca_cert`` for long-lived
+            self-signed setups.
+        ca_cert (str | None): Optional PEM-encoded certificate (or bundle)
+            trusted in addition to the system CA store. Ignored when
+            ``tls_verify`` is ``False``. ``None`` (the default) means
+            "use system CAs only".
     """
 
     method: HttpMethod = HttpMethod.POST
     url: str = ""
     headers: list[HttpHeader] = field(default_factory=list)
     success_status: str = "2xx"
+    tls_verify: bool = True
+    ca_cert: str | None = None
 
     def _to_dict(self) -> dict[str, Any]:
         return {
@@ -193,15 +204,23 @@ class HttpConfiguration:
             "url": self.url,
             "headers": [h._to_dict() for h in self.headers],
             "success_status": self.success_status,
+            "tls_verify": self.tls_verify,
+            "ca_cert": self.ca_cert,
         }
 
     @classmethod
     def _from_dict(cls, raw: dict[str, Any]) -> "HttpConfiguration":
+        # Absent ``tls_verify`` on the wire means a forwarder persisted
+        # before the field landed — default to verifying so its prior
+        # secure behaviour is preserved.
+        tls_verify_raw = raw.get("tls_verify")
         return cls(
             method=HttpMethod(raw.get("method") or HttpMethod.POST),
             url=raw.get("url") or "",
             headers=[HttpHeader(name=h.get("name", ""), value=h.get("value", "")) for h in raw.get("headers") or []],
             success_status=raw.get("success_status") or "2xx",
+            tls_verify=True if tls_verify_raw is None else bool(tls_verify_raw),
+            ca_cert=raw.get("ca_cert"),
         )
 
 
