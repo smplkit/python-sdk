@@ -57,26 +57,35 @@ class ConfigEnvironment:
     Read-only inspection container.  Mutation is performed via :class:`Config`'s
     setters with ``environment="..."`` (e.g. ``cfg.set_string("k", "v",
     environment="production")``).
+
+    Per ADR-024 §2.4 each env entry on the wire is the flat override map
+    ``{key: rawValue}`` — no per-override ``type`` / ``description``.
     """
 
     def __init__(self, values: dict[str, Any] | None = None) -> None:
-        self._values_raw: dict[str, dict[str, Any]] = {}
+        self._values_raw: dict[str, Any] = {}
         if values:
             for k, v in values.items():
-                if isinstance(v, dict) and "value" in v:
-                    self._values_raw[k] = v
+                # Tolerate legacy wrapped inputs ``{key: {"value": v}}`` for
+                # constructor compatibility, but store flat going forward.
+                if isinstance(v, dict) and "value" in v and set(v.keys()).issubset({"value", "type", "description"}):
+                    self._values_raw[k] = v["value"]
                 else:
-                    self._values_raw[k] = {"value": v}
+                    self._values_raw[k] = v
 
     @property
     def values(self) -> dict[str, Any]:
         """Return overrides as a plain dict ``{key: raw_value}``."""
-        return {k: v["value"] for k, v in self._values_raw.items()}
+        return dict(self._values_raw)
 
     @property
     def values_raw(self) -> dict[str, Any]:
-        """Return the full typed overrides ``{key: {value, type, description}}`` (read-only deep copy)."""
-        return {k: dict(v) if isinstance(v, dict) else v for k, v in self._values_raw.items()}
+        """Return the flat overrides ``{key: raw_value}`` (read-only shallow copy).
+
+        Aliased to :attr:`values` now that the wire shape no longer carries
+        per-override ``type`` / ``description`` metadata.
+        """
+        return dict(self._values_raw)
 
     def __repr__(self) -> str:
         return f"ConfigEnvironment(values={self.values!r})"
@@ -85,8 +94,9 @@ class ConfigEnvironment:
 def _convert_environments(value: dict[str, Any] | None) -> dict[str, ConfigEnvironment]:
     """Coerce a dict input into ``dict[str, ConfigEnvironment]``.
 
-    Accepts both pre-built :class:`ConfigEnvironment` instances and the wire-shaped
-    ``{env_id: {"values": {...}}}`` dicts produced by :func:`_extract_environments`.
+    Accepts pre-built :class:`ConfigEnvironment` instances and the flat
+    wire-shaped ``{env_id: {key: rawValue}}`` dicts produced by
+    :func:`_extract_environments`.
     """
     if not value:
         return {}
@@ -95,16 +105,20 @@ def _convert_environments(value: dict[str, Any] | None) -> dict[str, ConfigEnvir
         if isinstance(env_data, ConfigEnvironment):
             result[env_id] = env_data
         elif isinstance(env_data, dict):
-            raw_values = env_data.get("values") if "values" in env_data else env_data
-            result[env_id] = ConfigEnvironment(values=raw_values or {})
+            result[env_id] = ConfigEnvironment(values=env_data)
         else:
             result[env_id] = ConfigEnvironment()
     return result
 
 
 def _environments_to_wire(environments: dict[str, ConfigEnvironment]) -> dict[str, Any]:
-    """Convert a typed environments dict to the wire-shaped dict the resolver expects."""
-    return {env_id: {"values": env._values_raw} for env_id, env in environments.items()}
+    """Convert a typed environments dict to the flat wire-shaped dict.
+
+    Per ADR-024 §2.4 the wire shape is ``{env: {key: rawValue}}``. The same
+    shape is what the resolver consumes, so this output is suitable for both
+    the mgmt save path and chain assembly.
+    """
+    return {env_id: dict(env._values_raw) for env_id, env in environments.items()}
 
 
 class Config:
@@ -175,8 +189,14 @@ class Config:
         """
         return dict(self._environments)
 
-    def _items_target(self, environment: str | None) -> dict[str, dict[str, Any]]:
-        """Return the dict that ``set()`` / ``remove()`` should mutate."""
+    def _items_target(self, environment: str | None) -> dict[str, Any]:
+        """Return the dict that ``set()`` / ``remove()`` should mutate.
+
+        For the base config this is the typed-items dict storing
+        ``{key: {value, type, description}}``. For an environment override
+        it is the flat overrides dict storing ``{key: raw_value}`` per
+        ADR-024 §2.4.
+        """
         if environment is None:
             return self._items_raw
         env = self._environments.get(environment)
@@ -186,11 +206,20 @@ class Config:
         return env._values_raw
 
     def set(self, item: ConfigItem, *, environment: str | None = None) -> None:
-        """Set (or replace) an item.  When ``environment`` is given, sets an override on that environment."""
-        raw: dict[str, Any] = {"value": item.value, "type": item.type.value}
-        if item.description is not None:
-            raw["description"] = item.description
-        self._items_target(environment)[item.name] = raw
+        """Set (or replace) an item.  When ``environment`` is given, sets an override on that environment.
+
+        Per ADR-024 §2.4 environment overrides on the wire carry only the
+        raw value — the declared ``type`` / ``description`` come from the
+        base item — so the ``ConfigItem``'s type and description are
+        ignored when ``environment`` is supplied.
+        """
+        if environment is None:
+            raw: dict[str, Any] = {"value": item.value, "type": item.type.value}
+            if item.description is not None:
+                raw["description"] = item.description
+            self._items_target(environment)[item.name] = raw
+        else:
+            self._items_target(environment)[item.name] = item.value
 
     def remove(self, name: str, *, environment: str | None = None) -> None:
         """Remove an item by name.  When ``environment`` is given, removes the per-environment override only."""
@@ -361,8 +390,14 @@ class AsyncConfig:
         """
         return dict(self._environments)
 
-    def _items_target(self, environment: str | None) -> dict[str, dict[str, Any]]:
-        """Return the dict that ``set()`` / ``remove()`` should mutate."""
+    def _items_target(self, environment: str | None) -> dict[str, Any]:
+        """Return the dict that ``set()`` / ``remove()`` should mutate.
+
+        For the base config this is the typed-items dict storing
+        ``{key: {value, type, description}}``. For an environment override
+        it is the flat overrides dict storing ``{key: raw_value}`` per
+        ADR-024 §2.4.
+        """
         if environment is None:
             return self._items_raw
         env = self._environments.get(environment)
@@ -372,11 +407,20 @@ class AsyncConfig:
         return env._values_raw
 
     def set(self, item: ConfigItem, *, environment: str | None = None) -> None:
-        """Set (or replace) an item.  When ``environment`` is given, sets an override on that environment."""
-        raw: dict[str, Any] = {"value": item.value, "type": item.type.value}
-        if item.description is not None:
-            raw["description"] = item.description
-        self._items_target(environment)[item.name] = raw
+        """Set (or replace) an item.  When ``environment`` is given, sets an override on that environment.
+
+        Per ADR-024 §2.4 environment overrides on the wire carry only the
+        raw value — the declared ``type`` / ``description`` come from the
+        base item — so the ``ConfigItem``'s type and description are
+        ignored when ``environment`` is supplied.
+        """
+        if environment is None:
+            raw: dict[str, Any] = {"value": item.value, "type": item.type.value}
+            if item.description is not None:
+                raw["description"] = item.description
+            self._items_target(environment)[item.name] = raw
+        else:
+            self._items_target(environment)[item.name] = item.value
 
     def remove(self, name: str, *, environment: str | None = None) -> None:
         """Remove an item by name.  When ``environment`` is given, removes the per-environment override only."""

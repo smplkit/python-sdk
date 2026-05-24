@@ -15,6 +15,9 @@ from smplkit._generated.config.models.config import Config as GenConfig
 from smplkit._generated.config.models.config_environments_type_0 import (
     ConfigEnvironmentsType0,
 )
+from smplkit._generated.config.models.config_environments_type_0_additional_property import (
+    ConfigEnvironmentsType0AdditionalProperty,
+)
 from smplkit._generated.config.models.config_items_type_0 import ConfigItemsType0
 from smplkit._generated.config.models.config_resource import ConfigResource
 from smplkit._generated.config.models.config_response import ConfigResponse
@@ -54,38 +57,26 @@ def _make_items(items: dict[str, Any] | None) -> ConfigItemsType0 | None:
 def _make_environments(
     environments: dict[str, Any] | None,
 ) -> ConfigEnvironmentsType0 | None:
-    """Convert a plain dict to the generated ConfigEnvironmentsType0."""
+    """Convert a plain dict to the generated ConfigEnvironmentsType0.
+
+    Per ADR-024 §2.4 the wire shape is now flat: ``{env: {key: rawValue}}``.
+    """
     if environments is None:
         return None
-    from smplkit._generated.config.models.config_item_override import (
-        ConfigItemOverride,
-    )
-    from smplkit._generated.config.models.environment_override import (
-        EnvironmentOverride,
-    )
-    from smplkit._generated.config.models.environment_override_values_type_0 import (
-        EnvironmentOverrideValuesType0,
-    )
 
     obj = ConfigEnvironmentsType0()
-    env_props: dict[str, EnvironmentOverride] = {}
+    env_props: dict[str, ConfigEnvironmentsType0AdditionalProperty] = {}
     for env_name, env_data in environments.items():
         if isinstance(env_data, ConfigEnvironment):
-            raw_values = env_data._values_raw
+            raw_values: dict[str, Any] = dict(env_data._values_raw)
         elif isinstance(env_data, dict):
-            raw_values = env_data.get("values") or {}
+            raw_values = dict(env_data)
         else:
-            env_props[env_name] = EnvironmentOverride()
+            env_props[env_name] = ConfigEnvironmentsType0AdditionalProperty()
             continue
-        vals_obj = EnvironmentOverrideValuesType0()
-        wrapped_vals: dict[str, ConfigItemOverride] = {}
-        for k, v in raw_values.items():
-            if isinstance(v, dict) and "value" in v:
-                wrapped_vals[k] = ConfigItemOverride(value=v["value"])
-            else:
-                wrapped_vals[k] = ConfigItemOverride(value=v)
-        vals_obj.additional_properties = wrapped_vals
-        env_props[env_name] = EnvironmentOverride(values=vals_obj)
+        prop = ConfigEnvironmentsType0AdditionalProperty()
+        prop.additional_properties = raw_values
+        env_props[env_name] = prop
     obj.additional_properties = env_props
     return obj
 
@@ -115,7 +106,11 @@ def _extract_items(items: Any) -> dict[str, Any]:
 
 
 def _extract_environments(environments: Any) -> dict[str, Any]:
-    """Extract a plain dict from a generated environments object."""
+    """Extract a plain dict from a generated environments object.
+
+    Per ADR-024 §2.4 the wire shape is flat ``{env: {key: rawValue}}`` —
+    so this is a defensive shallow copy of the per-env override maps.
+    """
     if environments is None or isinstance(environments, type(None)):
         return {}
     type_name = type(environments).__name__
@@ -123,20 +118,11 @@ def _extract_environments(environments: Any) -> dict[str, Any]:
         return {}
     if isinstance(environments, ConfigEnvironmentsType0):
         result: dict[str, Any] = {}
-        for env_name, env_override in environments.additional_properties.items():
-            env_entry: dict[str, Any] = {}
-            if hasattr(env_override, "values") and env_override.values is not None:
-                vals_type = type(env_override.values).__name__
-                if vals_type != "Unset":
-                    raw_vals: dict[str, Any] = {}
-                    if hasattr(env_override.values, "additional_properties"):
-                        for k, item_override in env_override.values.additional_properties.items():
-                            if hasattr(item_override, "value"):
-                                raw_vals[k] = item_override.value
-                            else:
-                                raw_vals[k] = item_override
-                    env_entry["values"] = raw_vals
-            result[env_name] = env_entry
+        for env_name, env_prop in environments.additional_properties.items():
+            if hasattr(env_prop, "additional_properties"):
+                result[env_name] = dict(env_prop.additional_properties)
+            else:
+                result[env_name] = {}
         return result
     if isinstance(environments, dict):
         return dict(environments)

@@ -32,8 +32,7 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
 def _unwrap_items(items: dict[str, Any]) -> dict[str, Any]:
     """Unwrap typed items ``{key: {value, type, desc}}`` to ``{key: raw}``.
 
-    Also handles plain ``{key: raw}`` for backward compatibility and
-    environment overrides ``{key: {value: raw}}``.
+    Also handles plain ``{key: raw}`` for backward compatibility.
     """
     result: dict[str, Any] = {}
     for k, v in items.items():
@@ -56,6 +55,9 @@ def resolve(chain: list[dict[str, Any]], environment: str) -> dict[str, Any]:
     environment-specific values (environment wins), then that result is
     merged on top of the accumulated parent result (child wins over parent).
 
+    Per ADR-024 §2.4 each ``environments`` entry IS the flat override map
+    ``{key: rawValue}`` — no ``"values"`` envelope, no per-override wrapper.
+
     Args:
         chain: Ordered list of config data dicts from child (index 0) to
             root ancestor (last index). Each dict has ``items`` (or ``values``)
@@ -74,8 +76,7 @@ def resolve(chain: list[dict[str, Any]], environment: str) -> dict[str, Any]:
         base_values = _unwrap_items(raw_items)
 
         env_data = (config_data.get("environments") or {}).get(environment, {})
-        raw_env_values = dict(env_data.get("values") or {}) if isinstance(env_data, dict) else {}
-        env_values = _unwrap_items(raw_env_values)
+        env_values: dict[str, Any] = dict(env_data) if isinstance(env_data, dict) else {}
 
         # Merge environment overrides on top of base values
         config_resolved = deep_merge(base_values, env_values)
