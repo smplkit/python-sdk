@@ -156,9 +156,7 @@ class TestResolve:
                     "secret": "base_secret",
                 }
             },
-            "environments": {
-                "production": {"credentials": {"secret": "prod_secret", "scopes": ["read", "write"]}}
-            },
+            "environments": {"production": {"credentials": {"secret": "prod_secret", "scopes": ["read", "write"]}}},
         }
         child = {
             "values": {},
