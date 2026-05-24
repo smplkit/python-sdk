@@ -20,7 +20,6 @@ New audit-management capabilities should add classes here, not in
 from __future__ import annotations
 
 from typing import Any
-from uuid import UUID
 
 from smplkit._generated.audit.api.forwarders import (
     create_forwarder as _gen_create_forwarder,
@@ -32,6 +31,12 @@ from smplkit._generated.audit.api.forwarders import (
 from smplkit._errors import Error as _SmplError, _raise_for_status
 from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 from smplkit._generated.audit.models.forwarder import Forwarder as _GenForwarder
+from smplkit._generated.audit.models.forwarder_create_request import (
+    ForwarderCreateRequest as _GenForwarderCreateRequest,
+)
+from smplkit._generated.audit.models.forwarder_create_resource import (
+    ForwarderCreateResource as _GenForwarderCreateResource,
+)
 from smplkit._generated.audit.models.forwarder_filter_type_0 import (
     ForwarderFilterType0 as _GenForwarderFilter,
 )
@@ -165,8 +170,9 @@ class ForwardersClient:
 
     def new(
         self,
+        id: str,
         *,
-        name: str,
+        name: str | None = None,
         forwarder_type: ForwarderType,
         configuration: HttpConfiguration,
         enabled: bool = True,
@@ -178,7 +184,12 @@ class ForwardersClient:
         """Return an unsaved :class:`Forwarder`. Call :meth:`Forwarder.save` to persist.
 
         Args:
-            name: Display name. Free-form.
+            id: Caller-supplied unique identifier (the forwarder's key).
+                Unique within the account; immutable for the lifetime of
+                the forwarder. The audit service returns 409 if another
+                live forwarder already uses this id.
+            name: Display name. Free-form. Defaults to ``id`` when not
+                supplied.
             forwarder_type: A :class:`ForwarderType` enum member
                 (e.g. ``ForwarderType.HTTP``, ``ForwarderType.DATADOG``).
             configuration: Destination HTTP request configuration —
@@ -211,7 +222,8 @@ class ForwardersClient:
             raise ValueError("transform must be a string when transform_type is JSONATA")
         return Forwarder(
             self,
-            name=name,
+            id=id,
+            name=name if name is not None else id,
             forwarder_type=forwarder_type,
             configuration=configuration,
             enabled=enabled,
@@ -254,17 +266,18 @@ class ForwardersClient:
             pagination=_extract_pagination(body_dict),
         )
 
-    def get(self, forwarder_id: UUID | str) -> Forwarder:
+    def get(self, forwarder_id: str) -> Forwarder:
         """Fetch a single forwarder by id; returned instance is bound to this
         client so ``forwarder.save()`` and ``forwarder.delete()`` work."""
-        fid = forwarder_id if isinstance(forwarder_id, UUID) else UUID(str(forwarder_id))
-        resp = _gen_get_forwarder.sync_detailed(forwarder_id=fid, client=self._auth)
+        resp = _gen_get_forwarder.sync_detailed(forwarder_id=forwarder_id, client=self._auth)
         _expect_status(resp, 200)
         return Forwarder._from_resource(resp.parsed.to_dict()["data"], client=self)
 
     def _create(self, forwarder: Forwarder) -> Forwarder:
         """POST a new forwarder. Called by :meth:`Forwarder.save` on unsaved
         instances; not intended for direct use."""
+        if not forwarder.id:
+            raise ValueError("Forwarder.id is required on create (caller-supplied key)")
         attrs = _build_forwarder_attrs(
             name=forwarder.name,
             forwarder_type=forwarder.forwarder_type,
@@ -275,7 +288,9 @@ class ForwardersClient:
             transform=forwarder.transform,
             transform_type=forwarder.transform_type,
         )
-        body = _GenForwarderRequest(data=_GenForwarderResource(id="", attributes=attrs))
+        body = _GenForwarderCreateRequest(
+            data=_GenForwarderCreateResource(id=forwarder.id, attributes=attrs),
+        )
         resp = _gen_create_forwarder.sync_detailed(client=self._auth, body=body)
         _expect_status(resp, 201)
         return Forwarder._from_resource(resp.parsed.to_dict()["data"], client=self)
@@ -289,7 +304,7 @@ class ForwardersClient:
         them, so a PUT body containing ``"<redacted>"`` would persist that
         literal. Track real header values client-side and round-trip them.
         """
-        if forwarder.id is None:
+        if not forwarder.id:
             raise ValueError("cannot update a Forwarder with no id")
         attrs = _build_forwarder_attrs(
             name=forwarder.name,
@@ -301,15 +316,14 @@ class ForwardersClient:
             transform=forwarder.transform,
             transform_type=forwarder.transform_type,
         )
-        body = _GenForwarderRequest(data=_GenForwarderResource(id=str(forwarder.id), attributes=attrs))
+        body = _GenForwarderRequest(data=_GenForwarderResource(id=forwarder.id, attributes=attrs))
         resp = _gen_update_forwarder.sync_detailed(forwarder_id=forwarder.id, client=self._auth, body=body)
         _expect_status(resp, 200)
         return Forwarder._from_resource(resp.parsed.to_dict()["data"], client=self)
 
-    def delete(self, forwarder_id: UUID | str) -> None:
+    def delete(self, forwarder_id: str) -> None:
         """Soft-delete a forwarder."""
-        fid = forwarder_id if isinstance(forwarder_id, UUID) else UUID(str(forwarder_id))
-        resp = _gen_delete_forwarder.sync_detailed(forwarder_id=fid, client=self._auth)
+        resp = _gen_delete_forwarder.sync_detailed(forwarder_id=forwarder_id, client=self._auth)
         if resp.status_code != 204:
             _raise_for_status(resp.status_code, resp.content)
             raise _SmplError(

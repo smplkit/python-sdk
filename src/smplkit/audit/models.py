@@ -216,8 +216,11 @@ class Forwarder:
     :meth:`save` (the SDK does not cache them client-side).
 
     Attributes:
-        id (UUID | None): Server-assigned UUID for this forwarder. ``None``
-            until :meth:`save` has run for the first time.
+        id (str | None): Caller-supplied unique identifier (key) for this
+            forwarder. Unique within an account and immutable for the
+            lifetime of the forwarder. ``None`` only while the dataclass
+            represents an unsaved instance constructed without an id (which
+            ``save()`` would then reject).
         name (str): Display name. Free-form.
         forwarder_type (ForwarderType): Destination type — see
             :class:`ForwarderType`.
@@ -248,7 +251,7 @@ class Forwarder:
         self,
         client: ForwardersClient | None = None,
         *,
-        id: UUID | None = None,
+        id: str | None = None,
         name: str,
         forwarder_type: ForwarderType,
         configuration: HttpConfiguration,
@@ -325,7 +328,7 @@ class Forwarder:
         tt_raw = attrs.get("transform_type")
         return cls(
             client,
-            id=UUID(resource["id"]),
+            id=resource["id"],
             name=attrs.get("name") or "",
             # Server-side validation already enforces enum membership;
             # we still pass through ForwarderType() so callers get a

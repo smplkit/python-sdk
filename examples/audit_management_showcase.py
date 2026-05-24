@@ -46,11 +46,11 @@ def main() -> None:
 
     # create the client (use AsyncSmplManagementClient for asynchronous use)
     with SmplManagementClient() as manage:
-        forwarder_name = f"showcase-{uuid.uuid4().hex[:6]}"
+        forwarder_id = f"showcase-{uuid.uuid4().hex[:6]}"
 
         # create a new forwarder
         forwarder = manage.audit.forwarders.new(
-            name=forwarder_name,
+            forwarder_id,
             forwarder_type=ForwarderType.HTTP,
             configuration=HttpConfiguration(
                 method=HttpMethod.POST,
