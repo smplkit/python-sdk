@@ -17,10 +17,12 @@ from smplkit.management.client import (
     AsyncContextsClient,
     AsyncContextTypesClient,
     AsyncEnvironmentsClient,
+    AsyncServicesClient,
     AsyncSmplManagementClient,
     ContextsClient,
     ContextTypesClient,
     EnvironmentsClient,
+    ServicesClient,
     SmplManagementClient,
     _build_bulk_register_body,
     _check_status,
@@ -34,14 +36,19 @@ from smplkit.management.client import (
     _env_to_resource,
     _is_unset,
     _split_context_id,
+    _svc_from_parsed,
+    _svc_resource_from_dict,
+    _svc_to_resource,
 )
 from smplkit.management.models import (
     AccountSettings,
     AsyncAccountSettings,
     AsyncContextType,
     AsyncEnvironment,
+    AsyncService,
     ContextType,
     Environment,
+    Service,
 )
 from smplkit.management.types import Color, EnvironmentClassification
 
@@ -125,6 +132,31 @@ def _make_env_client():
 def _make_async_env_client():
     app_http = MagicMock()
     return AsyncEnvironmentsClient(app_http)
+
+
+def _make_svc_client():
+    app_http = MagicMock()
+    return ServicesClient(app_http)
+
+
+def _make_async_svc_client():
+    app_http = MagicMock()
+    return AsyncServicesClient(app_http)
+
+
+def _parsed_svc_resp(id="svc-1", name="User Service"):
+    attrs = MagicMock()
+    attrs.name = name
+    attrs.created_at = "2026-01-01T00:00:00Z"
+    attrs.updated_at = None
+
+    resource = MagicMock()
+    resource.id = id
+    resource.attributes = attrs
+
+    parsed = MagicMock()
+    parsed.data = resource
+    return parsed
 
 
 def _make_ct_client():
@@ -649,6 +681,318 @@ class TestAsyncEnvironmentsClient:
                 env = AsyncEnvironment(client, id="env-1", name="production", created_at="2026-01-01")
                 with pytest.raises(ValidationError):
                     await client._update(env)
+
+        asyncio.run(_run())
+
+
+# ---------------------------------------------------------------------------
+# Services helpers
+# ---------------------------------------------------------------------------
+
+
+class TestSvcToResource:
+    def test_basic(self):
+        svc = Service(id="user_service", name="User Service")
+        body = _svc_to_resource(svc)
+        assert body.data.id == "user_service"
+        assert body.data.attributes.name == "User Service"
+        assert body.data.type_ == "service"
+
+
+class TestSvcFromParsed:
+    def test_sync(self):
+        parsed = _parsed_svc_resp()
+        result = _svc_from_parsed(parsed, sync_client=MagicMock(), async_client=None)
+        assert isinstance(result, Service)
+        assert result.id == "svc-1"
+        assert result.name == "User Service"
+
+    def test_async(self):
+        parsed = _parsed_svc_resp()
+        result = _svc_from_parsed(parsed, sync_client=None, async_client=MagicMock())
+        assert isinstance(result, AsyncService)
+        assert result.id == "svc-1"
+
+
+class TestSvcResourceFromDict:
+    def test_sync(self):
+        item = {
+            "id": "user_service",
+            "attributes": {
+                "name": "User Service",
+                "created_at": "2026-01-01",
+            },
+        }
+        result = _svc_resource_from_dict(item, sync_client=MagicMock())
+        assert isinstance(result, Service)
+        assert result.id == "user_service"
+        assert result.name == "User Service"
+
+    def test_async(self):
+        item = {"id": "svc-2", "attributes": {"name": "Billing Service"}}
+        result = _svc_resource_from_dict(item, async_client=MagicMock())
+        assert isinstance(result, AsyncService)
+        assert result.name == "Billing Service"
+
+    def test_missing_attrs(self):
+        result = _svc_resource_from_dict({}, sync_client=MagicMock())
+        assert result.id is None
+        assert result.name == ""
+
+
+# ---------------------------------------------------------------------------
+# ServicesClient (sync)
+# ---------------------------------------------------------------------------
+
+
+class TestServicesClient:
+    def test_new(self):
+        client = _make_svc_client()
+        svc = client.new("user_service", name="User Service")
+        assert isinstance(svc, Service)
+        assert svc.id == "user_service"
+        assert svc.name == "User Service"
+        assert svc.created_at is None
+
+    @patch("smplkit.management.client._gen_list_services.sync_detailed")
+    def test_list(self, mock_list):
+        data = [
+            {"id": "svc-1", "attributes": {"name": "User Service"}},
+            {"id": "svc-2", "attributes": {"name": "Billing"}},
+        ]
+        mock_list.return_value = _ok_json_resp({"data": data})
+        client = _make_svc_client()
+        result = client.list()
+        assert len(result) == 2
+        assert result[0].name == "User Service"
+        assert result[1].id == "svc-2"
+
+    @patch("smplkit.management.client._gen_list_services.sync_detailed")
+    def test_list_with_pagination(self, mock_list):
+        mock_list.return_value = _ok_json_resp({"data": []})
+        client = _make_svc_client()
+        client.list(page_number=2, page_size=50)
+        _, kwargs = mock_list.call_args
+        assert kwargs["pagenumber"] == 2
+        assert kwargs["pagesize"] == 50
+
+    @patch("smplkit.management.client._gen_get_service.sync_detailed")
+    def test_get(self, mock_get):
+        parsed = _parsed_svc_resp()
+        mock_get.return_value = _ok_resp()
+        mock_get.return_value.parsed = parsed
+        client = _make_svc_client()
+        svc = client.get("svc-1")
+        assert svc.id == "svc-1"
+
+    @patch("smplkit.management.client._gen_get_service.sync_detailed")
+    def test_get_not_found(self, mock_get):
+        mock_get.return_value = _ok_resp()
+        mock_get.return_value.parsed = None
+        client = _make_svc_client()
+        with pytest.raises(NotFoundError):
+            client.get("nope")
+
+    @patch("smplkit.management.client._gen_delete_service.sync_detailed")
+    def test_delete(self, mock_delete):
+        mock_delete.return_value = _ok_resp(204, b"")
+        client = _make_svc_client()
+        client.delete("svc-1")
+        mock_delete.assert_called_once()
+
+    @patch("smplkit.management.client._gen_create_service.sync_detailed")
+    def test_create(self, mock_create):
+        parsed = _parsed_svc_resp()
+        mock_create.return_value = _ok_resp(201)
+        mock_create.return_value.parsed = parsed
+        client = _make_svc_client()
+        svc = Service(id="user_service", name="User Service")
+        result = client._create(svc)
+        assert result.id == "svc-1"
+
+    @patch("smplkit.management.client._gen_create_service.sync_detailed")
+    def test_create_conflict_raises(self, mock_create):
+        from smplkit._errors import ConflictError
+
+        mock_create.return_value = _ok_resp(
+            409, b'{"errors":[{"status":"409","title":"Conflict","detail":"service exists"}]}'
+        )
+        mock_create.return_value.parsed = None
+        client = _make_svc_client()
+        svc = Service(id="user_service", name="User Service")
+        with pytest.raises(ConflictError):
+            client._create(svc)
+
+    @patch("smplkit.management.client._gen_create_service.sync_detailed")
+    def test_create_null_parsed_raises(self, mock_create):
+        mock_create.return_value = _ok_resp(201)
+        mock_create.return_value.parsed = None
+        client = _make_svc_client()
+        svc = Service(id="user_service", name="User Service")
+        with pytest.raises(ValidationError):
+            client._create(svc)
+
+    @patch("smplkit.management.client._gen_update_service.sync_detailed")
+    def test_update(self, mock_update):
+        parsed = _parsed_svc_resp()
+        mock_update.return_value = _ok_resp()
+        mock_update.return_value.parsed = parsed
+        client = _make_svc_client()
+        svc = Service(client, id="svc-1", name="Renamed", created_at="2026-01-01")
+        result = client._update(svc)
+        assert result.id == "svc-1"
+
+    def test_update_null_id_raises(self):
+        client = _make_svc_client()
+        svc = Service(client, name="x", created_at="2026-01-01")
+        svc.id = None
+        with pytest.raises(ValueError, match="no id"):
+            client._update(svc)
+
+    @patch("smplkit.management.client._gen_update_service.sync_detailed")
+    def test_update_null_parsed_raises(self, mock_update):
+        mock_update.return_value = _ok_resp()
+        mock_update.return_value.parsed = None
+        client = _make_svc_client()
+        svc = Service(client, id="svc-1", name="x", created_at="2026-01-01")
+        with pytest.raises(ValidationError):
+            client._update(svc)
+
+
+# ---------------------------------------------------------------------------
+# AsyncServicesClient
+# ---------------------------------------------------------------------------
+
+
+class TestAsyncServicesClient:
+    def test_new(self):
+        client = _make_async_svc_client()
+        svc = client.new("user_service", name="User Service")
+        assert isinstance(svc, AsyncService)
+
+    def test_list(self):
+        async def _run():
+            data = [{"id": "svc-1", "attributes": {"name": "User Service"}}]
+            mock_coro = AsyncMock(return_value=_ok_json_resp({"data": data}))
+            with patch("smplkit.management.client._gen_list_services.asyncio_detailed", mock_coro):
+                client = _make_async_svc_client()
+                result = await client.list()
+                assert len(result) == 1
+                assert isinstance(result[0], AsyncService)
+
+        asyncio.run(_run())
+
+    def test_get(self):
+        async def _run():
+            parsed = _parsed_svc_resp()
+            resp = _ok_resp()
+            resp.parsed = parsed
+            mock_coro = AsyncMock(return_value=resp)
+            with patch("smplkit.management.client._gen_get_service.asyncio_detailed", mock_coro):
+                client = _make_async_svc_client()
+                svc = await client.get("svc-1")
+                assert svc.id == "svc-1"
+                assert isinstance(svc, AsyncService)
+
+        asyncio.run(_run())
+
+    def test_get_not_found(self):
+        async def _run():
+            resp = _ok_resp()
+            resp.parsed = None
+            mock_coro = AsyncMock(return_value=resp)
+            with patch("smplkit.management.client._gen_get_service.asyncio_detailed", mock_coro):
+                client = _make_async_svc_client()
+                with pytest.raises(NotFoundError):
+                    await client.get("nope")
+
+        asyncio.run(_run())
+
+    def test_delete(self):
+        async def _run():
+            mock_coro = AsyncMock(return_value=_ok_resp(204, b""))
+            with patch("smplkit.management.client._gen_delete_service.asyncio_detailed", mock_coro):
+                client = _make_async_svc_client()
+                await client.delete("svc-1")
+
+        asyncio.run(_run())
+
+    def test_create(self):
+        async def _run():
+            parsed = _parsed_svc_resp()
+            resp = _ok_resp(201)
+            resp.parsed = parsed
+            mock_coro = AsyncMock(return_value=resp)
+            with patch("smplkit.management.client._gen_create_service.asyncio_detailed", mock_coro):
+                client = _make_async_svc_client()
+                svc = AsyncService(id="user_service", name="User Service")
+                result = await client._create(svc)
+                assert result.id == "svc-1"
+
+        asyncio.run(_run())
+
+    def test_create_conflict_raises(self):
+        from smplkit._errors import ConflictError
+
+        async def _run():
+            resp = _ok_resp(409, b'{"errors":[{"status":"409","title":"Conflict"}]}')
+            resp.parsed = None
+            mock_coro = AsyncMock(return_value=resp)
+            with patch("smplkit.management.client._gen_create_service.asyncio_detailed", mock_coro):
+                client = _make_async_svc_client()
+                svc = AsyncService(id="user_service", name="User Service")
+                with pytest.raises(ConflictError):
+                    await client._create(svc)
+
+        asyncio.run(_run())
+
+    def test_create_null_parsed_raises(self):
+        async def _run():
+            resp = _ok_resp(201)
+            resp.parsed = None
+            mock_coro = AsyncMock(return_value=resp)
+            with patch("smplkit.management.client._gen_create_service.asyncio_detailed", mock_coro):
+                client = _make_async_svc_client()
+                svc = AsyncService(id="user_service", name="User Service")
+                with pytest.raises(ValidationError):
+                    await client._create(svc)
+
+        asyncio.run(_run())
+
+    def test_update(self):
+        async def _run():
+            parsed = _parsed_svc_resp()
+            resp = _ok_resp()
+            resp.parsed = parsed
+            mock_coro = AsyncMock(return_value=resp)
+            with patch("smplkit.management.client._gen_update_service.asyncio_detailed", mock_coro):
+                client = _make_async_svc_client()
+                svc = AsyncService(client, id="svc-1", name="Renamed", created_at="2026-01-01")
+                result = await client._update(svc)
+                assert result.id == "svc-1"
+
+        asyncio.run(_run())
+
+    def test_update_null_id_raises(self):
+        async def _run():
+            client = _make_async_svc_client()
+            svc = AsyncService(client, name="x", created_at="2026-01-01")
+            svc.id = None
+            with pytest.raises(ValueError, match="no id"):
+                await client._update(svc)
+
+        asyncio.run(_run())
+
+    def test_update_null_parsed_raises(self):
+        async def _run():
+            resp = _ok_resp()
+            resp.parsed = None
+            mock_coro = AsyncMock(return_value=resp)
+            with patch("smplkit.management.client._gen_update_service.asyncio_detailed", mock_coro):
+                client = _make_async_svc_client()
+                svc = AsyncService(client, id="svc-1", name="x", created_at="2026-01-01")
+                with pytest.raises(ValidationError):
+                    await client._update(svc)
 
         asyncio.run(_run())
 
@@ -1827,6 +2171,37 @@ class TestAsyncContextTypeDelete:
         async def _run():
             with pytest.raises(RuntimeError, match="cannot delete"):
                 await ct.delete()
+
+        asyncio.run(_run())
+
+
+class TestServiceDelete:
+    def test_calls_client_delete(self):
+        client = MagicMock()
+        svc = Service(client, id="user_service", name="User Service")
+        svc.delete()
+        client.delete.assert_called_once_with("user_service")
+
+    def test_without_client_raises(self):
+        svc = Service(None, id="x", name="X")
+        with pytest.raises(RuntimeError, match="cannot delete"):
+            svc.delete()
+
+
+class TestAsyncServiceDelete:
+    def test_calls_client_delete(self):
+        client = MagicMock()
+        client.delete = AsyncMock()
+        svc = AsyncService(client, id="user_service", name="User Service")
+        asyncio.run(svc.delete())
+        client.delete.assert_called_once_with("user_service")
+
+    def test_without_client_raises(self):
+        svc = AsyncService(None, id="x", name="X")
+
+        async def _run():
+            with pytest.raises(RuntimeError, match="cannot delete"):
+                await svc.delete()
 
         asyncio.run(_run())
 

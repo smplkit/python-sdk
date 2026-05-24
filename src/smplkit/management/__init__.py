@@ -11,6 +11,7 @@ Exposed namespaces:
 - ``mgmt.contexts.*``
 - ``mgmt.context_types.*``
 - ``mgmt.environments.*``
+- ``mgmt.services.*``
 - ``mgmt.account_settings.*``
 - ``mgmt.config.*``
 - ``mgmt.flags.*``
@@ -38,6 +39,7 @@ from smplkit.management.client import (
     AsyncFlagsClient,
     AsyncLogGroupsClient,
     AsyncLoggersClient,
+    AsyncServicesClient,
     AsyncSmplManagementClient,
     ConfigClient,
     ContextsClient,
@@ -46,6 +48,7 @@ from smplkit.management.client import (
     FlagsClient,
     LogGroupsClient,
     LoggersClient,
+    ServicesClient,
     SmplManagementClient,
 )
 from smplkit.management.models import (
@@ -53,8 +56,10 @@ from smplkit.management.models import (
     AsyncAccountSettings,
     AsyncContextType,
     AsyncEnvironment,
+    AsyncService,
     ContextType,
     Environment,
+    Service,
 )
 from smplkit.management.types import EnvironmentClassification
 
@@ -73,6 +78,8 @@ __all__ = [
     "AsyncLogGroupsClient",
     "AsyncLoggersClient",
     "AsyncMgmtAuditClient",
+    "AsyncService",
+    "AsyncServicesClient",
     "AsyncSmplManagementClient",
     "AuditForwarderListPage",
     "AuditForwardersClient",
@@ -88,6 +95,8 @@ __all__ = [
     "LogGroupsClient",
     "LoggersClient",
     "MgmtAuditClient",
+    "Service",
+    "ServicesClient",
     "SmplManagementClient",
     "TransformType",
 ]

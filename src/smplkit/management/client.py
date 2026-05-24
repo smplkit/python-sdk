@@ -58,6 +58,13 @@ from smplkit._generated.app.api.environments import (
     list_environments as _gen_list_environments,
     update_environment as _gen_update_environment,
 )
+from smplkit._generated.app.api.services import (
+    create_service as _gen_create_service,
+    delete_service as _gen_delete_service,
+    get_service as _gen_get_service,
+    list_services as _gen_list_services,
+    update_service as _gen_update_service,
+)
 from smplkit._generated.app.client import AuthenticatedClient as _AppAuthClient
 from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 from smplkit._generated.app.models import (
@@ -75,6 +82,9 @@ from smplkit._generated.app.models import (
     Environment as _GenEnvironment,
     EnvironmentRequest as _GenEnvironmentRequest,
     EnvironmentResource as _GenEnvironmentResource,
+    Service as _GenService,
+    ServiceRequest as _GenServiceRequest,
+    ServiceResource as _GenServiceResource,
 )
 from smplkit._generated.config.api.configs import (
     bulk_register_configs as _gen_bulk_register_configs,
@@ -171,8 +181,10 @@ from smplkit.management.models import (
     AsyncAccountSettings,
     AsyncContextType,
     AsyncEnvironment,
+    AsyncService,
     ContextType,
     Environment,
+    Service,
 )
 from smplkit.management._buffer import (  # noqa: F401  (some imports below)
     _CONFIG_BATCH_FLUSH_SIZE,
@@ -570,6 +582,200 @@ def _env_resource_from_dict(
         name=attrs.get("name", ""),
         color=attrs.get("color"),
         classification=classification,
+        created_at=attrs.get("created_at"),
+        updated_at=attrs.get("updated_at"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+
+
+def _svc_to_resource(svc: Service | AsyncService) -> _GenServiceRequest:
+    attrs = _GenService(name=svc.name)
+    resource = _GenServiceResource(
+        type_="service",
+        attributes=attrs,
+        id=svc.id,
+    )
+    return _GenServiceRequest(data=resource)
+
+
+def _svc_from_parsed(parsed: Any, sync_client: ServicesClient | None, async_client: AsyncServicesClient | None) -> Any:
+    """Build a Service / AsyncService from a parsed ServiceResponse."""
+    data = parsed.data
+    attrs = data.attributes
+    if async_client is not None:
+        return AsyncService(
+            async_client,
+            id=data.id,
+            name=attrs.name,
+            created_at=getattr(attrs, "created_at", None) or None,
+            updated_at=getattr(attrs, "updated_at", None) or None,
+        )
+    return Service(
+        sync_client,
+        id=data.id,
+        name=attrs.name,
+        created_at=getattr(attrs, "created_at", None) or None,
+        updated_at=getattr(attrs, "updated_at", None) or None,
+    )
+
+
+class ServicesClient:
+    """Sync service CRUD (``mgmt.services``)."""
+
+    def __init__(self, app_http: _AppAuthClient) -> None:
+        self._app_http = app_http
+
+    def new(
+        self,
+        id: str,
+        *,
+        name: str,
+    ) -> Service:
+        """Return an unsaved :class:`Service`. Call ``.save()`` to persist."""
+        return Service(
+            self,
+            id=id,
+            name=name,
+        )
+
+    def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[Service]:
+        kwargs = _pagination_kwargs(page_number, page_size)
+        resp = _gen_list_services.sync_detailed(client=self._app_http, **kwargs)
+        _check_status(int(resp.status_code), resp.content)
+        body = json.loads(resp.content)
+        return [_svc_resource_from_dict(item, sync_client=self) for item in body.get("data", [])]
+
+    def get(self, id: str) -> Service:
+        resp = _gen_get_service.sync_detailed(id, client=self._app_http)
+        _check_status(int(resp.status_code), resp.content)
+        if resp.parsed is None:
+            raise NotFoundError(f"Service with id {id!r} not found", status_code=404)
+        return _svc_from_parsed(resp.parsed, sync_client=self, async_client=None)
+
+    def delete(self, id: str) -> None:
+        resp = _gen_delete_service.sync_detailed(id, client=self._app_http)
+        _check_status(int(resp.status_code), resp.content)
+
+    def _create(self, svc: Service) -> Service:
+        body = _svc_to_resource(svc)
+        resp = _gen_create_service.sync_detailed(client=self._app_http, body=body)
+        _check_status(int(resp.status_code), resp.content)
+        if resp.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(resp.status_code)}: unexpected response",
+                status_code=int(resp.status_code),
+            )
+        return _svc_from_parsed(resp.parsed, sync_client=self, async_client=None)
+
+    def _update(self, svc: Service) -> Service:
+        body = _svc_to_resource(svc)
+        if svc.id is None:
+            raise ValueError("cannot update a Service with no id")
+        resp = _gen_update_service.sync_detailed(svc.id, client=self._app_http, body=body)
+        _check_status(int(resp.status_code), resp.content)
+        if resp.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(resp.status_code)}: unexpected response",
+                status_code=int(resp.status_code),
+            )
+        return _svc_from_parsed(resp.parsed, sync_client=self, async_client=None)
+
+
+class AsyncServicesClient:
+    """Async service CRUD (``mgmt.services``)."""
+
+    def __init__(self, app_http: _AppAuthClient) -> None:
+        self._app_http = app_http
+
+    def new(
+        self,
+        id: str,
+        *,
+        name: str,
+    ) -> AsyncService:
+        return AsyncService(
+            self,
+            id=id,
+            name=name,
+        )
+
+    async def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[AsyncService]:
+        kwargs = _pagination_kwargs(page_number, page_size)
+        resp = await _gen_list_services.asyncio_detailed(client=self._app_http, **kwargs)
+        _check_status(int(resp.status_code), resp.content)
+        body = json.loads(resp.content)
+        return [_svc_resource_from_dict(item, async_client=self) for item in body.get("data", [])]
+
+    async def get(self, id: str) -> AsyncService:
+        resp = await _gen_get_service.asyncio_detailed(id, client=self._app_http)
+        _check_status(int(resp.status_code), resp.content)
+        if resp.parsed is None:
+            raise NotFoundError(f"Service with id {id!r} not found", status_code=404)
+        return _svc_from_parsed(resp.parsed, sync_client=None, async_client=self)
+
+    async def delete(self, id: str) -> None:
+        resp = await _gen_delete_service.asyncio_detailed(id, client=self._app_http)
+        _check_status(int(resp.status_code), resp.content)
+
+    async def _create(self, svc: AsyncService) -> AsyncService:
+        body = _svc_to_resource(svc)
+        resp = await _gen_create_service.asyncio_detailed(client=self._app_http, body=body)
+        _check_status(int(resp.status_code), resp.content)
+        if resp.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(resp.status_code)}: unexpected response",
+                status_code=int(resp.status_code),
+            )
+        return _svc_from_parsed(resp.parsed, sync_client=None, async_client=self)
+
+    async def _update(self, svc: AsyncService) -> AsyncService:
+        body = _svc_to_resource(svc)
+        if svc.id is None:
+            raise ValueError("cannot update an AsyncService with no id")
+        resp = await _gen_update_service.asyncio_detailed(svc.id, client=self._app_http, body=body)
+        _check_status(int(resp.status_code), resp.content)
+        if resp.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(resp.status_code)}: unexpected response",
+                status_code=int(resp.status_code),
+            )
+        return _svc_from_parsed(resp.parsed, sync_client=None, async_client=self)
+
+
+def _svc_resource_from_dict(
+    item: dict[str, Any],
+    *,
+    sync_client: ServicesClient | None = None,
+    async_client: AsyncServicesClient | None = None,
+) -> Any:
+    """Build a Service from a raw JSON resource dict (used by list)."""
+    attrs = item.get("attributes") or {}
+    if async_client is not None:
+        return AsyncService(
+            async_client,
+            id=item.get("id"),
+            name=attrs.get("name", ""),
+            created_at=attrs.get("created_at"),
+            updated_at=attrs.get("updated_at"),
+        )
+    return Service(
+        sync_client,
+        id=item.get("id"),
+        name=attrs.get("name", ""),
         created_at=attrs.get("created_at"),
         updated_at=attrs.get("updated_at"),
     )
@@ -2349,6 +2555,7 @@ class SmplManagementClient:
     contexts: ContextsClient
     context_types: ContextTypesClient
     environments: EnvironmentsClient
+    services: ServicesClient
     account_settings: AccountSettingsClient
     config: ConfigClient
     flags: FlagsClient
@@ -2417,6 +2624,7 @@ class SmplManagementClient:
         self.contexts = ContextsClient(self._app_http, self._context_buffer)
         self.context_types = ContextTypesClient(self._app_http)
         self.environments = EnvironmentsClient(self._app_http)
+        self.services = ServicesClient(self._app_http)
         self.account_settings = AccountSettingsClient(app_url, cfg.api_key)
         self.config = ConfigClient(self._config_http)
         self.flags = FlagsClient(self._flags_http)
@@ -2460,6 +2668,7 @@ class AsyncSmplManagementClient:
     contexts: AsyncContextsClient
     context_types: AsyncContextTypesClient
     environments: AsyncEnvironmentsClient
+    services: AsyncServicesClient
     account_settings: AsyncAccountSettingsClient
     config: AsyncConfigClient
     flags: AsyncFlagsClient
@@ -2525,6 +2734,7 @@ class AsyncSmplManagementClient:
         self.contexts = AsyncContextsClient(self._app_http, self._context_buffer)
         self.context_types = AsyncContextTypesClient(self._app_http)
         self.environments = AsyncEnvironmentsClient(self._app_http)
+        self.services = AsyncServicesClient(self._app_http)
         self.account_settings = AsyncAccountSettingsClient(app_url, cfg.api_key)
         self.config = AsyncConfigClient(self._config_http)
         self.flags = AsyncFlagsClient(self._flags_http)

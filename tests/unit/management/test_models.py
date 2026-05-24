@@ -13,11 +13,14 @@ from smplkit.management.models import (
     AsyncAccountSettings,
     AsyncContextType,
     AsyncEnvironment,
+    AsyncService,
     ContextType,
     Environment,
+    Service,
     _AccountSettingsBase,
     _ContextTypeBase,
     _EnvironmentBase,
+    _ServiceBase,
 )
 from smplkit.management.types import Color, EnvironmentClassification
 
@@ -391,6 +394,110 @@ class TestAsyncAccountSettingsSave:
             settings = AsyncAccountSettings(mock_client, data={})
             await settings.save()
             assert settings._data == {"environment_order": ["prod"]}
+
+        asyncio.run(_run())
+
+
+# ---------------------------------------------------------------------------
+# _ServiceBase / Service / AsyncService
+# ---------------------------------------------------------------------------
+
+
+class TestServiceBase:
+    def test_default_init(self):
+        svc = _ServiceBase.__new__(_ServiceBase)
+        _ServiceBase.__init__(svc, name="User Service")
+        assert svc.id is None
+        assert svc.name == "User Service"
+        assert svc.created_at is None
+        assert svc.updated_at is None
+
+    def test_full_init(self):
+        svc = _ServiceBase.__new__(_ServiceBase)
+        _ServiceBase.__init__(
+            svc,
+            id="user_service",
+            name="User Service",
+            created_at="2026-01-01",
+            updated_at="2026-01-02",
+        )
+        assert svc.id == "user_service"
+        assert svc.name == "User Service"
+        assert svc.created_at == "2026-01-01"
+        assert svc.updated_at == "2026-01-02"
+
+    def test_repr(self):
+        svc = Service(id="user_service", name="User Service")
+        r = repr(svc)
+        assert "Service" in r
+        assert "user_service" in r
+        assert "User Service" in r
+
+    def test_apply(self):
+        svc1 = Service(id="s-1", name="One", created_at="2026-01-01")
+        svc2 = Service(id="s-2", name="Two", created_at="2026-02-01", updated_at="2026-02-02")
+        svc1._apply(svc2)
+        assert svc1.id == "s-2"
+        assert svc1.name == "Two"
+        assert svc1.created_at == "2026-02-01"
+        assert svc1.updated_at == "2026-02-02"
+
+
+class TestServiceSave:
+    def test_save_no_client_raises(self):
+        svc = Service(name="User Service")
+        with pytest.raises(RuntimeError, match="without a client"):
+            svc.save()
+
+    def test_save_creates_when_no_created_at(self):
+        mock_client = MagicMock()
+        created = Service(mock_client, id="user_service", name="User Service", created_at="2026-01-01")
+        mock_client._create.return_value = created
+        svc = Service(mock_client, id="user_service", name="User Service")
+        svc.save()
+        mock_client._create.assert_called_once_with(svc)
+        assert svc.created_at == "2026-01-01"
+
+    def test_save_updates_when_created_at_is_set(self):
+        mock_client = MagicMock()
+        updated = Service(mock_client, id="user_service", name="Renamed", created_at="2026-01-01")
+        mock_client._update.return_value = updated
+        svc = Service(mock_client, id="user_service", name="User Service", created_at="2026-01-01")
+        svc.save()
+        mock_client._update.assert_called_once_with(svc)
+        assert svc.name == "Renamed"
+
+
+class TestAsyncServiceSave:
+    def test_save_no_client_raises(self):
+        svc = AsyncService(name="User Service")
+        with pytest.raises(RuntimeError, match="without a client"):
+            asyncio.run(svc.save())
+
+    def test_save_creates(self):
+        async def _run():
+            mock_client = MagicMock()
+            created = AsyncService(mock_client, id="user_service", name="User Service", created_at="2026-01-01")
+            mock_client._create = AsyncMockReturning(created)
+            svc = AsyncService(mock_client, id="user_service", name="User Service")
+            await svc.save()
+            assert svc.created_at == "2026-01-01"
+
+        asyncio.run(_run())
+
+    def test_save_updates(self):
+        async def _run():
+            mock_client = MagicMock()
+            updated = AsyncService(mock_client, id="user_service", name="Renamed", created_at="2026-01-01")
+
+            async def fake_update(arg):
+                return updated
+
+            mock_client._update = fake_update
+
+            svc = AsyncService(mock_client, id="user_service", name="User Service", created_at="2026-01-01")
+            await svc.save()
+            assert svc.name == "Renamed"
 
         asyncio.run(_run())
 

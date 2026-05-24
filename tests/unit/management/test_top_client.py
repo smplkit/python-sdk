@@ -29,6 +29,7 @@ from smplkit.management.client import (
     AsyncFlagsClient,
     AsyncLogGroupsClient,
     AsyncLoggersClient,
+    AsyncServicesClient,
     ConfigClient,
     ContextsClient,
     ContextTypesClient,
@@ -36,6 +37,7 @@ from smplkit.management.client import (
     FlagsClient,
     LogGroupsClient,
     LoggersClient,
+    ServicesClient,
 )
 
 
@@ -43,6 +45,7 @@ _NS_ATTRS = (
     "contexts",
     "context_types",
     "environments",
+    "services",
     "account_settings",
     "configs",
     "flags",
@@ -62,6 +65,7 @@ class TestSmplManagementClientConstruction:
         assert isinstance(mgmt.contexts, ContextsClient)
         assert isinstance(mgmt.context_types, ContextTypesClient)
         assert isinstance(mgmt.environments, EnvironmentsClient)
+        assert isinstance(mgmt.services, ServicesClient)
         assert isinstance(mgmt.account_settings, AccountSettingsClient)
         assert isinstance(mgmt.config, ConfigClient)
         assert isinstance(mgmt.flags, FlagsClient)
@@ -169,6 +173,7 @@ class TestAsyncSmplManagementClientConstruction:
         assert isinstance(mgmt.contexts, AsyncContextsClient)
         assert isinstance(mgmt.context_types, AsyncContextTypesClient)
         assert isinstance(mgmt.environments, AsyncEnvironmentsClient)
+        assert isinstance(mgmt.services, AsyncServicesClient)
         assert isinstance(mgmt.account_settings, AsyncAccountSettingsClient)
         assert isinstance(mgmt.config, AsyncConfigClient)
         assert isinstance(mgmt.flags, AsyncFlagsClient)

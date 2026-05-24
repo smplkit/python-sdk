@@ -22,9 +22,11 @@ if TYPE_CHECKING:  # pragma: no cover
         AsyncAccountSettingsClient,
         AsyncContextTypesClient,
         AsyncEnvironmentsClient,
+        AsyncServicesClient,
         AccountSettingsClient,
         ContextTypesClient,
         EnvironmentsClient,
+        ServicesClient,
     )
 
 
@@ -157,6 +159,115 @@ class AsyncEnvironment(_EnvironmentBase):
         """Delete this environment from the server."""
         if self._client is None or self.id is None:
             raise RuntimeError("AsyncEnvironment was constructed without a client or id; cannot delete")
+        await self._client.delete(self.id)
+
+
+# ---------------------------------------------------------------------------
+# Service
+# ---------------------------------------------------------------------------
+
+
+class _ServiceBase:
+    """Shared state for Service / AsyncService."""
+
+    id: str | None
+    name: str
+    created_at: datetime.datetime | None
+    updated_at: datetime.datetime | None
+
+    def __init__(
+        self,
+        *,
+        id: str | None = None,
+        name: str,
+        created_at: datetime.datetime | None = None,
+        updated_at: datetime.datetime | None = None,
+    ) -> None:
+        self.id = id
+        self.name = name
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self) -> str:
+        return f"Service(id={self.id!r}, name={self.name!r})"
+
+    def _apply(self, other: _ServiceBase) -> None:
+        self.id = other.id
+        self.name = other.name
+        self.created_at = other.created_at
+        self.updated_at = other.updated_at
+
+
+class Service(_ServiceBase):
+    """Service resource (sync). Mutate fields, then call :meth:`save`."""
+
+    def __init__(
+        self,
+        client: ServicesClient | None = None,
+        *,
+        id: str | None = None,
+        name: str,
+        created_at: datetime.datetime | None = None,
+        updated_at: datetime.datetime | None = None,
+    ) -> None:
+        super().__init__(
+            id=id,
+            name=name,
+            created_at=created_at,
+            updated_at=updated_at,
+        )
+        self._client = client
+
+    def save(self) -> None:
+        """Create or update this service on the server."""
+        if self._client is None:
+            raise RuntimeError("Service was constructed without a client; cannot save")
+        if self.created_at is None:
+            other = self._client._create(self)
+        else:
+            other = self._client._update(self)
+        self._apply(other)
+
+    def delete(self) -> None:
+        """Delete this service from the server."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("Service was constructed without a client or id; cannot delete")
+        self._client.delete(self.id)
+
+
+class AsyncService(_ServiceBase):
+    """Service resource (async). Mutate fields, then ``await save()``."""
+
+    def __init__(
+        self,
+        client: AsyncServicesClient | None = None,
+        *,
+        id: str | None = None,
+        name: str,
+        created_at: datetime.datetime | None = None,
+        updated_at: datetime.datetime | None = None,
+    ) -> None:
+        super().__init__(
+            id=id,
+            name=name,
+            created_at=created_at,
+            updated_at=updated_at,
+        )
+        self._client = client
+
+    async def save(self) -> None:
+        if self._client is None:
+            raise RuntimeError("AsyncService was constructed without a client; cannot save")
+        if self.created_at is None:
+            other = await self._client._create(self)
+        else:
+            other = await self._client._update(self)
+        self._apply(other)
+
+    async def delete(self) -> None:
+        """Delete this service from the server."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("AsyncService was constructed without a client or id; cannot delete")
         await self._client.delete(self.id)
 
 
