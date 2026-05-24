@@ -72,7 +72,7 @@ Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
 Downloading jinja2-3.1.6-py3-none-any.whl (134 kB)
 Downloading pydantic-2.13.4-py3-none-any.whl (472 kB)
 Downloading pydantic_core-2.46.4-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 33.6 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 187.7 MB/s  0:00:00
 Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
 Downloading ruamel_yaml-0.19.1-py3-none-any.whl (118 kB)
 Downloading shellingham-1.5.4-py2.py3-none-any.whl (9.8 kB)
@@ -81,7 +81,7 @@ Downloading pytest-9.0.3-py3-none-any.whl (375 kB)
 Downloading pluggy-1.6.0-py3-none-any.whl (20 kB)
 Downloading pytest_cov-7.1.0-py3-none-any.whl (22 kB)
 Downloading ruff-0.15.14-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (11.5 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.5/11.5 MB 60.3 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.5/11.5 MB 267.9 MB/s  0:00:00
 Downloading loguru-0.7.3-py3-none-any.whl (61 kB)
 Downloading annotated_doc-0.0.4-py3-none-any.whl (5.3 kB)
 Downloading annotated_types-0.7.0-py3-none-any.whl (13 kB)
@@ -93,7 +93,7 @@ Downloading iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
 Downloading markupsafe-3.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (22 kB)
 Downloading packaging-26.2-py3-none-any.whl (100 kB)
 Downloading pygments-2.20.0-py3-none-any.whl (1.2 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 78.6 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 188.8 MB/s  0:00:00
 Downloading rich-15.0.0-py3-none-any.whl (310 kB)
 Downloading markdown_it_py-4.2.0-py3-none-any.whl (91 kB)
 Downloading mdurl-0.1.2-py3-none-any.whl (10.0 kB)
