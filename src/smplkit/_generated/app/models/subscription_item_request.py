@@ -19,7 +19,7 @@ class SubscriptionItemRequest:
 
         Attributes:
             product (str): Product key (e.g. `audit`, `config`, `flags`, `logging`).
-            plan (str): Target plan for this product. Must be a paid plan such as `STANDARD` or `PRO`; the free plan is
+            plan (str): Target plan for this product. Must be a paid plan such as `standard` or `pro`; the free plan is
                 implicit when a product is not listed.
     """
 

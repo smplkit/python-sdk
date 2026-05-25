@@ -20,8 +20,8 @@ class SubscriptionPreviewResponse:
 
     Attributes:
         data (SubscriptionPreviewResource): JSON:API resource object for a subscription preview. Example: {'attributes':
-            {'changes': [{'effect': 'IMMEDIATE', 'from_plan': 'FREE', 'monthly_cents': 9900, 'product': 'audit',
-            'prorated_charge_today_cents': 4521, 'to_plan': 'PRO'}], 'next_invoice_total_cents': 12580,
+            {'changes': [{'effect': 'IMMEDIATE', 'from_plan': 'free', 'monthly_cents': 9900, 'product': 'audit',
+            'prorated_charge_today_cents': 4521, 'to_plan': 'pro'}], 'next_invoice_total_cents': 12580,
             'projected_discount_amount_cents': 2220, 'projected_discount_pct': 15, 'projected_discount_source': 'VOLUME',
             'projected_subtotal_cents': 14800, 'projected_total_cents': 12580, 'total_charge_today_cents': 4521}, 'id':
             'preview', 'type': 'subscription_preview'}.

@@ -24,7 +24,7 @@ class AdminSubscriptionRequestResource:
     """Admin-scope resource object for a subscription update request.
 
     Example:
-        {'attributes': {'discount_override_pct': 100, 'items': [{'plan': 'PRO', 'product': 'audit'}]}, 'type':
+        {'attributes': {'discount_override_pct': 100, 'items': [{'plan': 'pro', 'product': 'audit'}]}, 'type':
             'subscription'}
 
     Attributes:

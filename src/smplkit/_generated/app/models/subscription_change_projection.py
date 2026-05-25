@@ -22,8 +22,8 @@ class SubscriptionChangeProjection:
 
     Attributes:
         product (str): Product key affected by this change.
-        from_plan (str): Current plan for this product, or `FREE` if it is being added.
-        to_plan (str): Plan the product will be on after the change. `FREE` indicates the enrollment will be dropped.
+        from_plan (str): Current plan for this product, or `free` if it is being added.
+        to_plan (str): Plan the product will be on after the change. `free` indicates the enrollment will be dropped.
         monthly_cents (int): Monthly cost in cents of this enrollment after the change. `0` when the enrollment will be
             dropped.
         effect (SubscriptionChangeProjectionEffect): `IMMEDIATE` when the change takes effect at confirmation time (and
