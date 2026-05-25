@@ -161,6 +161,22 @@ from .setup_intent_attributes import SetupIntentAttributes
 from .setup_intent_resource import SetupIntentResource
 from .setup_intent_resource_type import SetupIntentResourceType
 from .setup_intent_response import SetupIntentResponse
+from .sso_connection import SSOConnection
+from .sso_connection_default_role import SSOConnectionDefaultRole
+from .sso_connection_group_role_mappings import SSOConnectionGroupRoleMappings
+from .sso_connection_group_role_mappings_additional_property import SSOConnectionGroupRoleMappingsAdditionalProperty
+from .sso_connection_protocol import SSOConnectionProtocol
+from .sso_connection_request import SSOConnectionRequest
+from .sso_connection_resource import SSOConnectionResource
+from .sso_connection_resource_type import SSOConnectionResourceType
+from .sso_connection_response import SSOConnectionResponse
+from .sso_domain import SSODomain
+from .sso_domain_list_response import SSODomainListResponse
+from .sso_domain_request import SSODomainRequest
+from .sso_domain_resource import SSODomainResource
+from .sso_domain_resource_type import SSODomainResourceType
+from .sso_domain_response import SSODomainResponse
+from .sso_domain_status import SSODomainStatus
 from .subscription_change_projection import SubscriptionChangeProjection
 from .subscription_change_projection_effect import SubscriptionChangeProjectionEffect
 from .subscription_item_request import SubscriptionItemRequest
@@ -352,6 +368,22 @@ __all__ = (
     "SetupIntentResource",
     "SetupIntentResourceType",
     "SetupIntentResponse",
+    "SSOConnection",
+    "SSOConnectionDefaultRole",
+    "SSOConnectionGroupRoleMappings",
+    "SSOConnectionGroupRoleMappingsAdditionalProperty",
+    "SSOConnectionProtocol",
+    "SSOConnectionRequest",
+    "SSOConnectionResource",
+    "SSOConnectionResourceType",
+    "SSOConnectionResponse",
+    "SSODomain",
+    "SSODomainListResponse",
+    "SSODomainRequest",
+    "SSODomainResource",
+    "SSODomainResourceType",
+    "SSODomainResponse",
+    "SSODomainStatus",
     "SubscriptionChangeProjection",
     "SubscriptionChangeProjectionEffect",
     "SubscriptionItemRequest",
