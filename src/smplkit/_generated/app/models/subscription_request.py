@@ -20,7 +20,7 @@ class SubscriptionRequest:
 
     Attributes:
         data (SubscriptionRequestResource): JSON:API resource object for a subscription update request. Example:
-            {'attributes': {'items': [{'plan': 'PRO', 'product': 'audit'}, {'plan': 'PRO', 'product': 'config'}],
+            {'attributes': {'items': [{'plan': 'pro', 'product': 'audit'}, {'plan': 'pro', 'product': 'config'}],
             'payment_method': 'p1q2r3s4-5678-90ab-cdef-1234567890ab'}, 'type': 'subscription'}.
     """
 

@@ -22,12 +22,12 @@ class SubscriptionItemResponse:
     Attributes:
         id (UUID): Unique identifier for this enrollment.
         product (str): Product key (e.g. `audit`, `config`, `flags`, `logging`).
-        plan (str): Current plan for this product (e.g. `STANDARD`, `PRO`).
+        plan (str): Current plan for this product (e.g. `standard`, `pro`).
         price_monthly_cents (int): Monthly list price for this enrollment, in cents. This value is locked at the time
             the enrollment was created or last had its plan changed; subsequent changes to the public price list do not
             affect this enrollment until the customer themselves changes their plan.
         pending_plan_change (None | str | Unset): When a plan change is scheduled for the end of the current billing
-            period, this is the plan that will take effect. Otherwise `null`. The value `FREE` indicates the enrollment will
+            period, this is the plan that will take effect. Otherwise `null`. The value `free` indicates the enrollment will
             be dropped.
         scheduled_change_effective_at (None | str | Unset): ISO-8601 timestamp at which the pending plan change takes
             effect. Matches the subscription's `current_period_end`.

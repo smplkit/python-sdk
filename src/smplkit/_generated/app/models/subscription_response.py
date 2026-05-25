@@ -22,7 +22,7 @@ class SubscriptionResponse:
         data (SubscriptionResource): JSON:API resource object for a subscription. Example: {'attributes':
             {'current_period_end': '2026-06-01T00:00:00Z', 'current_period_start': '2026-05-01T00:00:00Z',
             'discount_amount_cents': 2220, 'discount_pct': 15, 'discount_source': 'VOLUME', 'items': [{'id':
-            'i1j2k3l4-5678-90ab-cdef-1234567890ab', 'plan': 'PRO', 'price_monthly_cents': 9900, 'product': 'audit'}],
+            'i1j2k3l4-5678-90ab-cdef-1234567890ab', 'plan': 'pro', 'price_monthly_cents': 9900, 'product': 'audit'}],
             'next_tier': {'additional_savings_cents': 4281, 'discount_pct': 33, 'products_needed': 1}, 'payment_method':
             'p1q2r3s4-5678-90ab-cdef-1234567890ab', 'status': 'ACTIVE', 'subtotal_cents': 14800, 'total_cents': 12580},
             'id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'type': 'subscription'}.
