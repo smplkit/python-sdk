@@ -34,6 +34,8 @@ class Invitation:
             status (None | str | Unset): Lifecycle state of the invitation. One of `PENDING`, `ACCEPTED`, `REVOKED`, or
                 `EXPIRED`.
             invited_by (None | str | Unset): UUID of the user who sent the invitation.
+            groups (list[str] | None | Unset): Environment Access Group ids the invitee will be added to on acceptance, in
+                addition to the always-applied `default` group. Empty array or `null` means default-only.
             account_name (None | str | Unset): Name of the account the recipient is being invited to join.
             inviter_display_name (None | str | Unset): Display name of the user who sent the invitation.
             token (None | str | Unset): Single-use token that the recipient redeems to accept the invitation. Echoed on
@@ -47,6 +49,7 @@ class Invitation:
     role: None | str | Unset = UNSET
     status: None | str | Unset = UNSET
     invited_by: None | str | Unset = UNSET
+    groups: list[str] | None | Unset = UNSET
     account_name: None | str | Unset = UNSET
     inviter_display_name: None | str | Unset = UNSET
     token: None | str | Unset = UNSET
@@ -79,6 +82,15 @@ class Invitation:
             invited_by = UNSET
         else:
             invited_by = self.invited_by
+
+        groups: list[str] | None | Unset
+        if isinstance(self.groups, Unset):
+            groups = UNSET
+        elif isinstance(self.groups, list):
+            groups = self.groups
+
+        else:
+            groups = self.groups
 
         account_name: None | str | Unset
         if isinstance(self.account_name, Unset):
@@ -133,6 +145,8 @@ class Invitation:
             field_dict["status"] = status
         if invited_by is not UNSET:
             field_dict["invited_by"] = invited_by
+        if groups is not UNSET:
+            field_dict["groups"] = groups
         if account_name is not UNSET:
             field_dict["account_name"] = account_name
         if inviter_display_name is not UNSET:
@@ -187,6 +201,23 @@ class Invitation:
             return cast(None | str | Unset, data)
 
         invited_by = _parse_invited_by(d.pop("invited_by", UNSET))
+
+        def _parse_groups(data: object) -> list[str] | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                groups_type_0 = cast(list[str], data)
+
+                return groups_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[str] | None | Unset, data)
+
+        groups = _parse_groups(d.pop("groups", UNSET))
 
         def _parse_account_name(data: object) -> None | str | Unset:
             if data is None:
@@ -271,6 +302,7 @@ class Invitation:
             role=role,
             status=status,
             invited_by=invited_by,
+            groups=groups,
             account_name=account_name,
             inviter_display_name=inviter_display_name,
             token=token,
