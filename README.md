@@ -129,6 +129,12 @@ The two clients can be used together in the same process — e.g. a runtime app 
 | `manage.loggers` | Smpl Logging logger CRUD |
 | `manage.log_groups` | Smpl Logging log-group CRUD |
 
+Endpoints outside this curated set — for example, Environment Access
+Groups and their memberships — are reachable via the generated client
+at `smplkit._generated.app.api.{groups,group_memberships}`. The
+generated module accepts the same authenticated client object you
+already construct for the curated namespaces.
+
 ## Logging Adapters
 
 `client.logging.install()` auto-loads adapters for every supported framework it finds installed. Two adapters ship with the SDK:
