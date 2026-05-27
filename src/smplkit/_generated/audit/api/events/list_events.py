@@ -8,6 +8,7 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.event_list_response import EventListResponse
+from ...models.list_events_format_type_0 import ListEventsFormatType0
 from ...models.list_events_sort import ListEventsSort
 from ...types import Unset
 
@@ -24,6 +25,7 @@ def _get_kwargs(
     filterdo_not_forward: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    format_: ListEventsFormatType0 | None | Unset = UNSET,
     sort: ListEventsSort | Unset = "-occurred_at",
 ) -> dict[str, Any]:
 
@@ -99,6 +101,15 @@ def _get_kwargs(
         json_pageafter = pageafter
     params["page[after]"] = json_pageafter
 
+    json_format_: None | str | Unset
+    if isinstance(format_, Unset):
+        json_format_ = UNSET
+    elif isinstance(format_, str):
+        json_format_ = format_
+    else:
+        json_format_ = format_
+    params["format"] = json_format_
+
     json_sort: str | Unset = UNSET
     if not isinstance(sort, Unset):
         json_sort = sort
@@ -150,6 +161,7 @@ def sync_detailed(
     filterdo_not_forward: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    format_: ListEventsFormatType0 | None | Unset = UNSET,
     sort: ListEventsSort | Unset = "-occurred_at",
 ) -> Response[EventListResponse]:
     """List Events
@@ -179,6 +191,11 @@ def sync_detailed(
 
     `page[size]` defaults to 1000 and must not exceed 1000.
 
+    Pass `format=CSV` or `format=JSONL` to stream a download of the full
+    filtered result set instead of a paginated JSON:API response. The
+    download honors every supplied filter and ignores `page[size]` and
+    `page[after]`.
+
     Args:
         filteroccurred_at (None | str | Unset):
         filteractor_type (None | str | Unset):
@@ -194,6 +211,13 @@ def sync_detailed(
             forwarder pipeline).
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        format_ (ListEventsFormatType0 | None | Unset): When set, stream a download of the full
+            filtered result set in the chosen format instead of returning a paginated JSON:API
+            response. `page[size]` and `page[after]` are ignored in this mode; every event matching
+            the supplied filters is emitted. `CSV` writes one row per event with the event payload
+            (`data`) serialized as a single JSON-encoded cell. `JSONL` writes one JSON object per line
+            with the event payload nested as a JSON object. Omit this parameter to receive the
+            paginated JSON:API response.
         sort (ListEventsSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`,
             `-occurred_at`. Default: '-occurred_at'.
@@ -217,6 +241,7 @@ def sync_detailed(
         filterdo_not_forward=filterdo_not_forward,
         pagesize=pagesize,
         pageafter=pageafter,
+        format_=format_,
         sort=sort,
     )
 
@@ -240,6 +265,7 @@ def sync(
     filterdo_not_forward: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    format_: ListEventsFormatType0 | None | Unset = UNSET,
     sort: ListEventsSort | Unset = "-occurred_at",
 ) -> EventListResponse | None:
     """List Events
@@ -269,6 +295,11 @@ def sync(
 
     `page[size]` defaults to 1000 and must not exceed 1000.
 
+    Pass `format=CSV` or `format=JSONL` to stream a download of the full
+    filtered result set instead of a paginated JSON:API response. The
+    download honors every supplied filter and ignores `page[size]` and
+    `page[after]`.
+
     Args:
         filteroccurred_at (None | str | Unset):
         filteractor_type (None | str | Unset):
@@ -284,6 +315,13 @@ def sync(
             forwarder pipeline).
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        format_ (ListEventsFormatType0 | None | Unset): When set, stream a download of the full
+            filtered result set in the chosen format instead of returning a paginated JSON:API
+            response. `page[size]` and `page[after]` are ignored in this mode; every event matching
+            the supplied filters is emitted. `CSV` writes one row per event with the event payload
+            (`data`) serialized as a single JSON-encoded cell. `JSONL` writes one JSON object per line
+            with the event payload nested as a JSON object. Omit this parameter to receive the
+            paginated JSON:API response.
         sort (ListEventsSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`,
             `-occurred_at`. Default: '-occurred_at'.
@@ -308,6 +346,7 @@ def sync(
         filterdo_not_forward=filterdo_not_forward,
         pagesize=pagesize,
         pageafter=pageafter,
+        format_=format_,
         sort=sort,
     ).parsed
 
@@ -325,6 +364,7 @@ async def asyncio_detailed(
     filterdo_not_forward: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    format_: ListEventsFormatType0 | None | Unset = UNSET,
     sort: ListEventsSort | Unset = "-occurred_at",
 ) -> Response[EventListResponse]:
     """List Events
@@ -354,6 +394,11 @@ async def asyncio_detailed(
 
     `page[size]` defaults to 1000 and must not exceed 1000.
 
+    Pass `format=CSV` or `format=JSONL` to stream a download of the full
+    filtered result set instead of a paginated JSON:API response. The
+    download honors every supplied filter and ignores `page[size]` and
+    `page[after]`.
+
     Args:
         filteroccurred_at (None | str | Unset):
         filteractor_type (None | str | Unset):
@@ -369,6 +414,13 @@ async def asyncio_detailed(
             forwarder pipeline).
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        format_ (ListEventsFormatType0 | None | Unset): When set, stream a download of the full
+            filtered result set in the chosen format instead of returning a paginated JSON:API
+            response. `page[size]` and `page[after]` are ignored in this mode; every event matching
+            the supplied filters is emitted. `CSV` writes one row per event with the event payload
+            (`data`) serialized as a single JSON-encoded cell. `JSONL` writes one JSON object per line
+            with the event payload nested as a JSON object. Omit this parameter to receive the
+            paginated JSON:API response.
         sort (ListEventsSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`,
             `-occurred_at`. Default: '-occurred_at'.
@@ -392,6 +444,7 @@ async def asyncio_detailed(
         filterdo_not_forward=filterdo_not_forward,
         pagesize=pagesize,
         pageafter=pageafter,
+        format_=format_,
         sort=sort,
     )
 
@@ -413,6 +466,7 @@ async def asyncio(
     filterdo_not_forward: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
+    format_: ListEventsFormatType0 | None | Unset = UNSET,
     sort: ListEventsSort | Unset = "-occurred_at",
 ) -> EventListResponse | None:
     """List Events
@@ -442,6 +496,11 @@ async def asyncio(
 
     `page[size]` defaults to 1000 and must not exceed 1000.
 
+    Pass `format=CSV` or `format=JSONL` to stream a download of the full
+    filtered result set instead of a paginated JSON:API response. The
+    download honors every supplied filter and ignores `page[size]` and
+    `page[after]`.
+
     Args:
         filteroccurred_at (None | str | Unset):
         filteractor_type (None | str | Unset):
@@ -457,6 +516,13 @@ async def asyncio(
             forwarder pipeline).
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
+        format_ (ListEventsFormatType0 | None | Unset): When set, stream a download of the full
+            filtered result set in the chosen format instead of returning a paginated JSON:API
+            response. `page[size]` and `page[after]` are ignored in this mode; every event matching
+            the supplied filters is emitted. `CSV` writes one row per event with the event payload
+            (`data`) serialized as a single JSON-encoded cell. `JSONL` writes one JSON object per line
+            with the event payload nested as a JSON object. Omit this parameter to receive the
+            paginated JSON:API response.
         sort (ListEventsSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`,
             `-occurred_at`. Default: '-occurred_at'.
@@ -482,6 +548,7 @@ async def asyncio(
             filterdo_not_forward=filterdo_not_forward,
             pagesize=pagesize,
             pageafter=pageafter,
+            format_=format_,
             sort=sort,
         )
     ).parsed

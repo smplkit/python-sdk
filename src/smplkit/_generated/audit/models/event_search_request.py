@@ -18,7 +18,7 @@ T = TypeVar("T", bound="EventSearchRequest")
 
 @_attrs_define
 class EventSearchRequest:
-    """Request body for ``POST /api/v1/search/events``.
+    """Request body for ``POST /api/v1/events/search``.
 
     Mirrors every column filter accepted by ``GET /api/v1/events`` with
     identical semantics, and adds a top-level ``filter`` field carrying
