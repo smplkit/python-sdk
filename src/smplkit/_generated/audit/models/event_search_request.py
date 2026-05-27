@@ -47,6 +47,9 @@ class EventSearchRequest:
             filterresource_type (None | str | Unset): Exact match on the event's `resource_type` field.
             filterresource_id (None | str | Unset): Exact match on the event's `resource_id` field. Must be accompanied by
                 `filter[resource_type]`.
+            filterseverity (None | str | Unset): Exact match on the event's `severity` field. One of `TRACE`, `DEBUG`,
+                `INFO`, `WARN`, `ERROR`, `FATAL`.
+            filtercategory (None | str | Unset): Exact match on the event's `category` field.
             filteractor_type (None | str | Unset): Exact match on the event's `actor_type` field.
             filteractor_id (None | str | Unset): Exact match on the event's `actor_id` field.
             filteroccurred_at (None | str | Unset): Date range using interval notation, e.g.
@@ -70,6 +73,8 @@ class EventSearchRequest:
     filterevent_type: None | str | Unset = UNSET
     filterresource_type: None | str | Unset = UNSET
     filterresource_id: None | str | Unset = UNSET
+    filterseverity: None | str | Unset = UNSET
+    filtercategory: None | str | Unset = UNSET
     filteractor_type: None | str | Unset = UNSET
     filteractor_id: None | str | Unset = UNSET
     filteroccurred_at: None | str | Unset = UNSET
@@ -107,6 +112,18 @@ class EventSearchRequest:
             filterresource_id = UNSET
         else:
             filterresource_id = self.filterresource_id
+
+        filterseverity: None | str | Unset
+        if isinstance(self.filterseverity, Unset):
+            filterseverity = UNSET
+        else:
+            filterseverity = self.filterseverity
+
+        filtercategory: None | str | Unset
+        if isinstance(self.filtercategory, Unset):
+            filtercategory = UNSET
+        else:
+            filtercategory = self.filtercategory
 
         filteractor_type: None | str | Unset
         if isinstance(self.filteractor_type, Unset):
@@ -159,6 +176,10 @@ class EventSearchRequest:
             field_dict["filter[resource_type]"] = filterresource_type
         if filterresource_id is not UNSET:
             field_dict["filter[resource_id]"] = filterresource_id
+        if filterseverity is not UNSET:
+            field_dict["filter[severity]"] = filterseverity
+        if filtercategory is not UNSET:
+            field_dict["filter[category]"] = filtercategory
         if filteractor_type is not UNSET:
             field_dict["filter[actor_type]"] = filteractor_type
         if filteractor_id is not UNSET:
@@ -228,6 +249,24 @@ class EventSearchRequest:
 
         filterresource_id = _parse_filterresource_id(d.pop("filter[resource_id]", UNSET))
 
+        def _parse_filterseverity(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        filterseverity = _parse_filterseverity(d.pop("filter[severity]", UNSET))
+
+        def _parse_filtercategory(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        filtercategory = _parse_filtercategory(d.pop("filter[category]", UNSET))
+
         def _parse_filteractor_type(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -291,6 +330,8 @@ class EventSearchRequest:
             filterevent_type=filterevent_type,
             filterresource_type=filterresource_type,
             filterresource_id=filterresource_id,
+            filterseverity=filterseverity,
+            filtercategory=filtercategory,
             filteractor_type=filteractor_type,
             filteractor_id=filteractor_id,
             filteroccurred_at=filteroccurred_at,

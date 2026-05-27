@@ -8,6 +8,8 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.severity import check_severity
+from ..models.severity import Severity
 from dateutil.parser import isoparse
 from typing import cast
 import datetime
@@ -34,6 +36,10 @@ class Event:
             resource_id (str): Identifier of the specific resource the event is about.
             description (None | str | Unset): Free-text description of the event. Included alongside `resource_id` in the
                 `filter[search]` substring target.
+            severity (None | Severity | Unset): One of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`. Omit to record
+                the event at `INFO`. Always present on read.
+            category (None | str | Unset): Free-form bucket label, e.g. `auth`, `billing`, `config-change`. Stored exactly
+                as supplied. Drives the `filter[category]` filter and the `GET /api/v1/categories` discovery endpoint.
             occurred_at (datetime.datetime | None | Unset): When the event actually happened. Defaults to the server receipt
                 time (`created_at`).
             actor_type (None | str | Unset): Kind of actor that caused the event, e.g. `USER`, `API_KEY`, `SYSTEM`, or any
@@ -56,6 +62,8 @@ class Event:
     resource_type: str
     resource_id: str
     description: None | str | Unset = UNSET
+    severity: None | Severity | Unset = UNSET
+    category: None | str | Unset = UNSET
     occurred_at: datetime.datetime | None | Unset = UNSET
     actor_type: None | str | Unset = UNSET
     actor_id: None | str | Unset = UNSET
@@ -78,6 +86,20 @@ class Event:
             description = UNSET
         else:
             description = self.description
+
+        severity: None | str | Unset
+        if isinstance(self.severity, Unset):
+            severity = UNSET
+        elif isinstance(self.severity, str):
+            severity = self.severity
+        else:
+            severity = self.severity
+
+        category: None | str | Unset
+        if isinstance(self.category, Unset):
+            category = UNSET
+        else:
+            category = self.category
 
         occurred_at: None | str | Unset
         if isinstance(self.occurred_at, Unset):
@@ -136,6 +158,10 @@ class Event:
         )
         if description is not UNSET:
             field_dict["description"] = description
+        if severity is not UNSET:
+            field_dict["severity"] = severity
+        if category is not UNSET:
+            field_dict["category"] = category
         if occurred_at is not UNSET:
             field_dict["occurred_at"] = occurred_at
         if actor_type is not UNSET:
@@ -174,6 +200,32 @@ class Event:
             return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
+
+        def _parse_severity(data: object) -> None | Severity | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                severity_type_0 = check_severity(data)
+
+                return severity_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | Severity | Unset, data)
+
+        severity = _parse_severity(d.pop("severity", UNSET))
+
+        def _parse_category(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        category = _parse_category(d.pop("category", UNSET))
 
         def _parse_occurred_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -259,6 +311,8 @@ class Event:
             resource_type=resource_type,
             resource_id=resource_id,
             description=description,
+            severity=severity,
+            category=category,
             occurred_at=occurred_at,
             actor_type=actor_type,
             actor_id=actor_id,
