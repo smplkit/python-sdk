@@ -47,6 +47,7 @@ from .http_configuration import HttpConfiguration
 from .http_configuration_method import HttpConfigurationMethod
 from .http_header import HttpHeader
 from .list_event_types_sort import ListEventTypesSort
+from .list_events_format_type_0 import ListEventsFormatType0
 from .list_events_sort import ListEventsSort
 from .list_forwarder_deliveries_sort import ListForwarderDeliveriesSort
 from .list_forwarders_sort import ListForwardersSort
@@ -112,6 +113,7 @@ __all__ = (
     "HttpConfiguration",
     "HttpConfigurationMethod",
     "HttpHeader",
+    "ListEventsFormatType0",
     "ListEventsSort",
     "ListEventTypesSort",
     "ListForwarderDeliveriesSort",

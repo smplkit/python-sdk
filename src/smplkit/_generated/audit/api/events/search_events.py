@@ -19,7 +19,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/api/v1/search/events",
+        "url": "/api/v1/events/search",
     }
 
     _kwargs["json"] = body.to_dict()
@@ -74,7 +74,7 @@ def sync_detailed(
     like \"0 matches\" when the truth is \"ceiling reached.\"
 
     Args:
-        body (EventSearchRequest): Request body for ``POST /api/v1/search/events``.
+        body (EventSearchRequest): Request body for ``POST /api/v1/events/search``.
 
             Mirrors every column filter accepted by ``GET /api/v1/events`` with
             identical semantics, and adds a top-level ``filter`` field carrying
@@ -136,7 +136,7 @@ def sync(
     like \"0 matches\" when the truth is \"ceiling reached.\"
 
     Args:
-        body (EventSearchRequest): Request body for ``POST /api/v1/search/events``.
+        body (EventSearchRequest): Request body for ``POST /api/v1/events/search``.
 
             Mirrors every column filter accepted by ``GET /api/v1/events`` with
             identical semantics, and adds a top-level ``filter`` field carrying
@@ -193,7 +193,7 @@ async def asyncio_detailed(
     like \"0 matches\" when the truth is \"ceiling reached.\"
 
     Args:
-        body (EventSearchRequest): Request body for ``POST /api/v1/search/events``.
+        body (EventSearchRequest): Request body for ``POST /api/v1/events/search``.
 
             Mirrors every column filter accepted by ``GET /api/v1/events`` with
             identical semantics, and adds a top-level ``filter`` field carrying
@@ -253,7 +253,7 @@ async def asyncio(
     like \"0 matches\" when the truth is \"ceiling reached.\"
 
     Args:
-        body (EventSearchRequest): Request body for ``POST /api/v1/search/events``.
+        body (EventSearchRequest): Request body for ``POST /api/v1/events/search``.
 
             Mirrors every column filter accepted by ``GET /api/v1/events`` with
             identical semantics, and adds a top-level ``filter`` field carrying
