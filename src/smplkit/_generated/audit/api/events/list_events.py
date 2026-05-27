@@ -21,6 +21,8 @@ def _get_kwargs(
     filterevent_type: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
+    filterseverity: None | str | Unset = UNSET,
+    filtercategory: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
     filterdo_not_forward: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
@@ -72,6 +74,20 @@ def _get_kwargs(
     else:
         json_filterresource_id = filterresource_id
     params["filter[resource_id]"] = json_filterresource_id
+
+    json_filterseverity: None | str | Unset
+    if isinstance(filterseverity, Unset):
+        json_filterseverity = UNSET
+    else:
+        json_filterseverity = filterseverity
+    params["filter[severity]"] = json_filterseverity
+
+    json_filtercategory: None | str | Unset
+    if isinstance(filtercategory, Unset):
+        json_filtercategory = UNSET
+    else:
+        json_filtercategory = filtercategory
+    params["filter[category]"] = json_filtercategory
 
     json_filtersearch: None | str | Unset
     if isinstance(filtersearch, Unset):
@@ -157,6 +173,8 @@ def sync_detailed(
     filterevent_type: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
+    filterseverity: None | str | Unset = UNSET,
+    filtercategory: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
     filterdo_not_forward: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
@@ -203,6 +221,9 @@ def sync_detailed(
         filterevent_type (None | str | Unset):
         filterresource_type (None | str | Unset):
         filterresource_id (None | str | Unset):
+        filterseverity (None | str | Unset): Exact match on the event's `severity` field. One of
+            `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
+        filtercategory (None | str | Unset): Exact match on the event's `category` field.
         filtersearch (None | str | Unset): Case-insensitive substring match against `resource_id`
             or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.
         filterdo_not_forward (bool | None | Unset): When set, restrict to events whose
@@ -237,6 +258,8 @@ def sync_detailed(
         filterevent_type=filterevent_type,
         filterresource_type=filterresource_type,
         filterresource_id=filterresource_id,
+        filterseverity=filterseverity,
+        filtercategory=filtercategory,
         filtersearch=filtersearch,
         filterdo_not_forward=filterdo_not_forward,
         pagesize=pagesize,
@@ -261,6 +284,8 @@ def sync(
     filterevent_type: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
+    filterseverity: None | str | Unset = UNSET,
+    filtercategory: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
     filterdo_not_forward: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
@@ -307,6 +332,9 @@ def sync(
         filterevent_type (None | str | Unset):
         filterresource_type (None | str | Unset):
         filterresource_id (None | str | Unset):
+        filterseverity (None | str | Unset): Exact match on the event's `severity` field. One of
+            `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
+        filtercategory (None | str | Unset): Exact match on the event's `category` field.
         filtersearch (None | str | Unset): Case-insensitive substring match against `resource_id`
             or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.
         filterdo_not_forward (bool | None | Unset): When set, restrict to events whose
@@ -342,6 +370,8 @@ def sync(
         filterevent_type=filterevent_type,
         filterresource_type=filterresource_type,
         filterresource_id=filterresource_id,
+        filterseverity=filterseverity,
+        filtercategory=filtercategory,
         filtersearch=filtersearch,
         filterdo_not_forward=filterdo_not_forward,
         pagesize=pagesize,
@@ -360,6 +390,8 @@ async def asyncio_detailed(
     filterevent_type: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
+    filterseverity: None | str | Unset = UNSET,
+    filtercategory: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
     filterdo_not_forward: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
@@ -406,6 +438,9 @@ async def asyncio_detailed(
         filterevent_type (None | str | Unset):
         filterresource_type (None | str | Unset):
         filterresource_id (None | str | Unset):
+        filterseverity (None | str | Unset): Exact match on the event's `severity` field. One of
+            `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
+        filtercategory (None | str | Unset): Exact match on the event's `category` field.
         filtersearch (None | str | Unset): Case-insensitive substring match against `resource_id`
             or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.
         filterdo_not_forward (bool | None | Unset): When set, restrict to events whose
@@ -440,6 +475,8 @@ async def asyncio_detailed(
         filterevent_type=filterevent_type,
         filterresource_type=filterresource_type,
         filterresource_id=filterresource_id,
+        filterseverity=filterseverity,
+        filtercategory=filtercategory,
         filtersearch=filtersearch,
         filterdo_not_forward=filterdo_not_forward,
         pagesize=pagesize,
@@ -462,6 +499,8 @@ async def asyncio(
     filterevent_type: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     filterresource_id: None | str | Unset = UNSET,
+    filterseverity: None | str | Unset = UNSET,
+    filtercategory: None | str | Unset = UNSET,
     filtersearch: None | str | Unset = UNSET,
     filterdo_not_forward: bool | None | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
@@ -508,6 +547,9 @@ async def asyncio(
         filterevent_type (None | str | Unset):
         filterresource_type (None | str | Unset):
         filterresource_id (None | str | Unset):
+        filterseverity (None | str | Unset): Exact match on the event's `severity` field. One of
+            `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
+        filtercategory (None | str | Unset): Exact match on the event's `category` field.
         filtersearch (None | str | Unset): Case-insensitive substring match against `resource_id`
             or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.
         filterdo_not_forward (bool | None | Unset): When set, restrict to events whose
@@ -544,6 +586,8 @@ async def asyncio(
             filterevent_type=filterevent_type,
             filterresource_type=filterresource_type,
             filterresource_id=filterresource_id,
+            filterseverity=filterseverity,
+            filtercategory=filtercategory,
             filtersearch=filtersearch,
             filterdo_not_forward=filterdo_not_forward,
             pagesize=pagesize,

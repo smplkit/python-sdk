@@ -1,5 +1,8 @@
 """Contains all the data models used in inputs/outputs"""
 
+from .category_attributes import CategoryAttributes
+from .category_list_response import CategoryListResponse
+from .category_resource import CategoryResource
 from .event import Event
 from .event_data import EventData
 from .event_list_links import EventListLinks
@@ -46,6 +49,7 @@ from .forwarder_type_transform import ForwarderTypeTransform
 from .http_configuration import HttpConfiguration
 from .http_configuration_method import HttpConfigurationMethod
 from .http_header import HttpHeader
+from .list_categories_sort import ListCategoriesSort
 from .list_event_types_sort import ListEventTypesSort
 from .list_events_format_type_0 import ListEventsFormatType0
 from .list_events_sort import ListEventsSort
@@ -58,6 +62,7 @@ from .resource_type_attributes import ResourceTypeAttributes
 from .resource_type_list_response import ResourceTypeListResponse
 from .resource_type_resource import ResourceTypeResource
 from .retry_failed_deliveries_summary import RetryFailedDeliveriesSummary
+from .severity import Severity
 from .test_forwarder_request import TestForwarderRequest
 from .test_forwarder_request_method import TestForwarderRequestMethod
 from .test_forwarder_response import TestForwarderResponse
@@ -67,6 +72,9 @@ from .usage_resource import UsageResource
 from .usage_response import UsageResponse
 
 __all__ = (
+    "CategoryAttributes",
+    "CategoryListResponse",
+    "CategoryResource",
     "Event",
     "EventData",
     "EventListLinks",
@@ -113,6 +121,7 @@ __all__ = (
     "HttpConfiguration",
     "HttpConfigurationMethod",
     "HttpHeader",
+    "ListCategoriesSort",
     "ListEventsFormatType0",
     "ListEventsSort",
     "ListEventTypesSort",
@@ -125,6 +134,7 @@ __all__ = (
     "ResourceTypeListResponse",
     "ResourceTypeResource",
     "RetryFailedDeliveriesSummary",
+    "Severity",
     "TestForwarderRequest",
     "TestForwarderRequestMethod",
     "TestForwarderResponse",
