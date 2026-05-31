@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 FlagSourceDeclaredTypeType0 = Literal["BOOLEAN", "JSON", "NUMERIC", "STRING"]
 
@@ -12,5 +12,5 @@ FLAG_SOURCE_DECLARED_TYPE_TYPE_0_VALUES: set[FlagSourceDeclaredTypeType0] = {
 
 def check_flag_source_declared_type_type_0(value: str) -> FlagSourceDeclaredTypeType0:
     if value in FLAG_SOURCE_DECLARED_TYPE_TYPE_0_VALUES:
-        return cast(FlagSourceDeclaredTypeType0, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {FLAG_SOURCE_DECLARED_TYPE_TYPE_0_VALUES!r}")

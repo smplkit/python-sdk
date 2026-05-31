@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 ApiKeyResourceType = Literal["api_key"]
 
@@ -9,5 +9,5 @@ API_KEY_RESOURCE_TYPE_VALUES: set[ApiKeyResourceType] = {
 
 def check_api_key_resource_type(value: str) -> ApiKeyResourceType:
     if value in API_KEY_RESOURCE_TYPE_VALUES:
-        return cast(ApiKeyResourceType, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {API_KEY_RESOURCE_TYPE_VALUES!r}")

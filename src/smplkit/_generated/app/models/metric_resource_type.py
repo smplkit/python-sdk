@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 MetricResourceType = Literal["metric"]
 
@@ -9,5 +9,5 @@ METRIC_RESOURCE_TYPE_VALUES: set[MetricResourceType] = {
 
 def check_metric_resource_type(value: str) -> MetricResourceType:
     if value in METRIC_RESOURCE_TYPE_VALUES:
-        return cast(MetricResourceType, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {METRIC_RESOURCE_TYPE_VALUES!r}")

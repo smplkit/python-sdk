@@ -8,7 +8,6 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from dateutil.parser import isoparse
 from typing import cast
 import datetime
 
@@ -146,7 +145,7 @@ class LoggerSource:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                first_observed_type_0 = isoparse(data)
+                first_observed_type_0 = datetime.datetime.fromisoformat(data)
 
                 return first_observed_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -163,7 +162,7 @@ class LoggerSource:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                last_seen_type_0 = isoparse(data)
+                last_seen_type_0 = datetime.datetime.fromisoformat(data)
 
                 return last_seen_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -180,7 +179,7 @@ class LoggerSource:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                created_at_type_0 = isoparse(data)
+                created_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return created_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -197,7 +196,7 @@ class LoggerSource:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                updated_at_type_0 = isoparse(data)
+                updated_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return updated_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
