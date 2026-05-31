@@ -10,7 +10,6 @@ from ..types import UNSET, Unset
 
 from ..models.environment_classification import check_environment_classification
 from ..models.environment_classification import EnvironmentClassification
-from dateutil.parser import isoparse
 from typing import cast
 import datetime
 
@@ -133,7 +132,7 @@ class Environment:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                created_at_type_0 = isoparse(data)
+                created_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return created_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -150,7 +149,7 @@ class Environment:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                updated_at_type_0 = isoparse(data)
+                updated_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return updated_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
