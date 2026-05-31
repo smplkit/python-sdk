@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 ListAllLoggerSourcesSort = Literal[
     "-created_at", "-environment", "-last_seen", "-service", "created_at", "environment", "last_seen", "service"
@@ -18,5 +18,5 @@ LIST_ALL_LOGGER_SOURCES_SORT_VALUES: set[ListAllLoggerSourcesSort] = {
 
 def check_list_all_logger_sources_sort(value: str) -> ListAllLoggerSourcesSort:
     if value in LIST_ALL_LOGGER_SOURCES_SORT_VALUES:
-        return cast(ListAllLoggerSourcesSort, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {LIST_ALL_LOGGER_SOURCES_SORT_VALUES!r}")

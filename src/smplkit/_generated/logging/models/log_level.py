@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 LogLevel = Literal["DEBUG", "ERROR", "FATAL", "INFO", "SILENT", "TRACE", "WARN"]
 
@@ -15,5 +15,5 @@ LOG_LEVEL_VALUES: set[LogLevel] = {
 
 def check_log_level(value: str) -> LogLevel:
     if value in LOG_LEVEL_VALUES:
-        return cast(LogLevel, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {LOG_LEVEL_VALUES!r}")

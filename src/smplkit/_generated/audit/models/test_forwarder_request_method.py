@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 TestForwarderRequestMethod = Literal["DELETE", "GET", "PATCH", "POST", "PUT"]
 
@@ -13,5 +13,5 @@ TEST_FORWARDER_REQUEST_METHOD_VALUES: set[TestForwarderRequestMethod] = {
 
 def check_test_forwarder_request_method(value: str) -> TestForwarderRequestMethod:
     if value in TEST_FORWARDER_REQUEST_METHOD_VALUES:
-        return cast(TestForwarderRequestMethod, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {TEST_FORWARDER_REQUEST_METHOD_VALUES!r}")
