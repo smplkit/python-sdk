@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 GroupMembershipResourceType = Literal["group_membership"]
 
@@ -9,5 +9,5 @@ GROUP_MEMBERSHIP_RESOURCE_TYPE_VALUES: set[GroupMembershipResourceType] = {
 
 def check_group_membership_resource_type(value: str) -> GroupMembershipResourceType:
     if value in GROUP_MEMBERSHIP_RESOURCE_TYPE_VALUES:
-        return cast(GroupMembershipResourceType, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {GROUP_MEMBERSHIP_RESOURCE_TYPE_VALUES!r}")

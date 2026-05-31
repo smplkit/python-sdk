@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 HttpConfigurationMethod = Literal["DELETE", "GET", "PATCH", "POST", "PUT"]
 
@@ -13,5 +13,5 @@ HTTP_CONFIGURATION_METHOD_VALUES: set[HttpConfigurationMethod] = {
 
 def check_http_configuration_method(value: str) -> HttpConfigurationMethod:
     if value in HTTP_CONFIGURATION_METHOD_VALUES:
-        return cast(HttpConfigurationMethod, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {HTTP_CONFIGURATION_METHOD_VALUES!r}")

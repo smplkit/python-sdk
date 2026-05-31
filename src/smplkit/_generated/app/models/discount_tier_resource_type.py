@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 DiscountTierResourceType = Literal["discount_tier"]
 
@@ -9,5 +9,5 @@ DISCOUNT_TIER_RESOURCE_TYPE_VALUES: set[DiscountTierResourceType] = {
 
 def check_discount_tier_resource_type(value: str) -> DiscountTierResourceType:
     if value in DISCOUNT_TIER_RESOURCE_TYPE_VALUES:
-        return cast(DiscountTierResourceType, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {DISCOUNT_TIER_RESOURCE_TYPE_VALUES!r}")

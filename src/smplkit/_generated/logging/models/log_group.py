@@ -10,7 +10,6 @@ from ..types import UNSET, Unset
 
 from ..models.log_level import check_log_level
 from ..models.log_level import LogLevel
-from dateutil.parser import isoparse
 from typing import cast
 import datetime
 
@@ -175,7 +174,7 @@ class LogGroup:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                created_at_type_0 = isoparse(data)
+                created_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return created_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -192,7 +191,7 @@ class LogGroup:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                updated_at_type_0 = isoparse(data)
+                updated_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return updated_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):

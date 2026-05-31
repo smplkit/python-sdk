@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 ListPlansSort = Literal["-display_name", "-id", "-sort_order", "display_name", "id", "sort_order"]
 
@@ -14,5 +14,5 @@ LIST_PLANS_SORT_VALUES: set[ListPlansSort] = {
 
 def check_list_plans_sort(value: str) -> ListPlansSort:
     if value in LIST_PLANS_SORT_VALUES:
-        return cast(ListPlansSort, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {LIST_PLANS_SORT_VALUES!r}")
