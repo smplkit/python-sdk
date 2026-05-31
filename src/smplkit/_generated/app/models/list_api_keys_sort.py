@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 ListApiKeysSort = Literal[
     "-created_at",
@@ -29,5 +29,5 @@ LIST_API_KEYS_SORT_VALUES: set[ListApiKeysSort] = {
 
 def check_list_api_keys_sort(value: str) -> ListApiKeysSort:
     if value in LIST_API_KEYS_SORT_VALUES:
-        return cast(ListApiKeysSort, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {LIST_API_KEYS_SORT_VALUES!r}")

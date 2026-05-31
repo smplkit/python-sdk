@@ -10,7 +10,6 @@ from ..types import UNSET, Unset
 
 from ..models.forwarder_type import check_forwarder_type
 from ..models.forwarder_type import ForwarderType
-from dateutil.parser import isoparse
 from typing import cast
 from typing import Literal
 import datetime
@@ -240,7 +239,7 @@ class Forwarder:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                created_at_type_0 = isoparse(data)
+                created_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return created_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -257,7 +256,7 @@ class Forwarder:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                updated_at_type_0 = isoparse(data)
+                updated_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return updated_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -274,7 +273,7 @@ class Forwarder:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                deleted_at_type_0 = isoparse(data)
+                deleted_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return deleted_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):

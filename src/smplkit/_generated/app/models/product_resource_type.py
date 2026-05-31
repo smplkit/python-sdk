@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 ProductResourceType = Literal["product"]
 
@@ -9,5 +9,5 @@ PRODUCT_RESOURCE_TYPE_VALUES: set[ProductResourceType] = {
 
 def check_product_resource_type(value: str) -> ProductResourceType:
     if value in PRODUCT_RESOURCE_TYPE_VALUES:
-        return cast(ProductResourceType, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {PRODUCT_RESOURCE_TYPE_VALUES!r}")

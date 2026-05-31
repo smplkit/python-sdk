@@ -10,7 +10,6 @@ from ..types import UNSET, Unset
 
 from ..models.export_format import check_export_format
 from ..models.export_format import ExportFormat
-from dateutil.parser import isoparse
 from typing import cast
 import datetime
 
@@ -263,7 +262,7 @@ class Export:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                expires_at_type_0 = isoparse(data)
+                expires_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return expires_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
