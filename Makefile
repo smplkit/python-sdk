@@ -13,7 +13,7 @@ PIP := $(VENV)/bin/pip
 # redirect to files named ``=7.0`` etc. in the repo root instead of
 # passing the constraints to pip — see commit c6e24da for the cleanup.
 DEV_DEPS := \
-	'openapi-python-client>=0.21.0' \
+	'openapi-python-client>=0.21.0,<0.29.0' \
 	'pytest>=7.0' \
 	'pytest-cov>=4.0' \
 	'ruff>=0.4.0' \
