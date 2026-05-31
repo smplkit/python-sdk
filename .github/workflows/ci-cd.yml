@@ -29,7 +29,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          # Install the dependency closure (runtime + dev tooling) WITHOUT
+          # installing smplkit-sdk itself. Tests import smplkit from src/ via
+          # `pythonpath = ["src"]` in pyproject.toml (org "no editable installs
+          # — anywhere" rule); the package must not live in the venv, editable
+          # or otherwise. Building pulls every dependency, then we drop the
+          # package, leaving only its deps for the src-tree import to resolve.
+          pip install ".[dev]"
+          pip uninstall -y smplkit-sdk
 
       - name: Lint
         run: ruff check src/ tests/
@@ -57,7 +64,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          # Install the dependency closure (runtime + dev tooling) WITHOUT
+          # installing smplkit-sdk itself. Tests import smplkit from src/ via
+          # `pythonpath = ["src"]` in pyproject.toml (org "no editable installs
+          # — anywhere" rule); the package must not live in the venv, editable
+          # or otherwise. Building pulls every dependency, then we drop the
+          # package, leaving only its deps for the src-tree import to resolve.
+          pip install ".[dev]"
+          pip uninstall -y smplkit-sdk
 
       - name: Test
         run: pytest --cov=smplkit --cov-report=term-missing --cov-report=xml
