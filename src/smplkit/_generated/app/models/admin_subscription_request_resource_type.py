@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 AdminSubscriptionRequestResourceType = Literal["subscription"]
 
@@ -9,5 +9,5 @@ ADMIN_SUBSCRIPTION_REQUEST_RESOURCE_TYPE_VALUES: set[AdminSubscriptionRequestRes
 
 def check_admin_subscription_request_resource_type(value: str) -> AdminSubscriptionRequestResourceType:
     if value in ADMIN_SUBSCRIPTION_REQUEST_RESOURCE_TYPE_VALUES:
-        return cast(AdminSubscriptionRequestResourceType, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {ADMIN_SUBSCRIPTION_REQUEST_RESOURCE_TYPE_VALUES!r}")

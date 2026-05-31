@@ -7,7 +7,6 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-from dateutil.parser import isoparse
 import datetime
 
 
@@ -47,7 +46,7 @@ class ResourceTypeAttributes:
         d = dict(src_dict)
         resource_type = d.pop("resource_type")
 
-        created_at = isoparse(d.pop("created_at"))
+        created_at = datetime.datetime.fromisoformat(d.pop("created_at"))
 
         resource_type_attributes = cls(
             resource_type=resource_type,

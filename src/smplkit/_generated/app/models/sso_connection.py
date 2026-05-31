@@ -12,7 +12,6 @@ from ..models.sso_connection_default_role import check_sso_connection_default_ro
 from ..models.sso_connection_default_role import SSOConnectionDefaultRole
 from ..models.sso_connection_protocol import check_sso_connection_protocol
 from ..models.sso_connection_protocol import SSOConnectionProtocol
-from dateutil.parser import isoparse
 from typing import cast
 import datetime
 
@@ -346,7 +345,7 @@ class SSOConnection:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                created_at_type_0 = isoparse(data)
+                created_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return created_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -363,7 +362,7 @@ class SSOConnection:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                updated_at_type_0 = isoparse(data)
+                updated_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return updated_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):

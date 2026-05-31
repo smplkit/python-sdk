@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 UserResourceType = Literal["user"]
 
@@ -9,5 +9,5 @@ USER_RESOURCE_TYPE_VALUES: set[UserResourceType] = {
 
 def check_user_resource_type(value: str) -> UserResourceType:
     if value in USER_RESOURCE_TYPE_VALUES:
-        return cast(UserResourceType, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {USER_RESOURCE_TYPE_VALUES!r}")

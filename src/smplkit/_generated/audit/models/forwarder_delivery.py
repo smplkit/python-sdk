@@ -10,7 +10,6 @@ from ..types import UNSET, Unset
 
 from ..models.forwarder_delivery_status import check_forwarder_delivery_status
 from ..models.forwarder_delivery_status import ForwarderDeliveryStatus
-from dateutil.parser import isoparse
 from typing import cast
 from uuid import UUID
 import datetime
@@ -204,7 +203,7 @@ class ForwarderDelivery:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                created_at_type_0 = isoparse(data)
+                created_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return created_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):

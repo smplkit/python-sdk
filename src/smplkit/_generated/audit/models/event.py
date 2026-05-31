@@ -10,7 +10,6 @@ from ..types import UNSET, Unset
 
 from ..models.severity import check_severity
 from ..models.severity import Severity
-from dateutil.parser import isoparse
 from typing import cast
 import datetime
 
@@ -235,7 +234,7 @@ class Event:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                occurred_at_type_0 = isoparse(data)
+                occurred_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return occurred_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -288,7 +287,7 @@ class Event:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                created_at_type_0 = isoparse(data)
+                created_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return created_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):

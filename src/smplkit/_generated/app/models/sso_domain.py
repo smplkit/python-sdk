@@ -10,7 +10,6 @@ from ..types import UNSET, Unset
 
 from ..models.sso_domain_status import check_sso_domain_status
 from ..models.sso_domain_status import SSODomainStatus
-from dateutil.parser import isoparse
 from typing import cast
 import datetime
 
@@ -121,7 +120,7 @@ class SSODomain:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                verified_at_type_0 = isoparse(data)
+                verified_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return verified_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -145,7 +144,7 @@ class SSODomain:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                created_at_type_0 = isoparse(data)
+                created_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return created_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -162,7 +161,7 @@ class SSODomain:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                updated_at_type_0 = isoparse(data)
+                updated_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return updated_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
