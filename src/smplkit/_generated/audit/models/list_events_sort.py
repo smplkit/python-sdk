@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 ListEventsSort = Literal["-created_at", "-occurred_at", "created_at", "occurred_at"]
 
@@ -12,5 +12,5 @@ LIST_EVENTS_SORT_VALUES: set[ListEventsSort] = {
 
 def check_list_events_sort(value: str) -> ListEventsSort:
     if value in LIST_EVENTS_SORT_VALUES:
-        return cast(ListEventsSort, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {LIST_EVENTS_SORT_VALUES!r}")

@@ -10,7 +10,6 @@ from ..types import UNSET, Unset
 
 from ..models.contact_topic import check_contact_topic
 from ..models.contact_topic import ContactTopic
-from dateutil.parser import isoparse
 from typing import cast
 import datetime
 
@@ -79,7 +78,7 @@ class Email:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
-                sent_at_type_0 = isoparse(data)
+                sent_at_type_0 = datetime.datetime.fromisoformat(data)
 
                 return sent_at_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
