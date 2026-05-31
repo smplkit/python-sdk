@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 ForwarderType = Literal["datadog", "elastic", "honeycomb", "http", "new_relic", "splunk_hec", "sumo_logic"]
 
@@ -15,5 +15,5 @@ FORWARDER_TYPE_VALUES: set[ForwarderType] = {
 
 def check_forwarder_type(value: str) -> ForwarderType:
     if value in FORWARDER_TYPE_VALUES:
-        return cast(ForwarderType, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {FORWARDER_TYPE_VALUES!r}")

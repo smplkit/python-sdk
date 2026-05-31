@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 ListForwardersSort = Literal["-created_at", "-updated_at", "created_at", "updated_at"]
 
@@ -12,5 +12,5 @@ LIST_FORWARDERS_SORT_VALUES: set[ListForwardersSort] = {
 
 def check_list_forwarders_sort(value: str) -> ListForwardersSort:
     if value in LIST_FORWARDERS_SORT_VALUES:
-        return cast(ListForwardersSort, value)
+        return value
     raise TypeError(f"Unexpected value {value!r}. Expected one of {LIST_FORWARDERS_SORT_VALUES!r}")
