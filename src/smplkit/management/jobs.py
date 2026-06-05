@@ -13,10 +13,12 @@ already exists) or ``delete()``. Runs are read-only views; run actions live on
 Every call delegates HTTP to the auto-generated ``smplkit._generated.jobs``
 client; this wrapper only shapes models and raises SDK exceptions.
 """
+
 from __future__ import annotations
 
 import datetime
 import json
+import re
 from typing import Any, Optional
 from uuid import UUID
 
@@ -50,7 +52,12 @@ def _parse_dt(value: Any) -> Optional[datetime.datetime]:
         return None
     if isinstance(value, datetime.datetime):
         return value
-    return datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    text = value.replace("Z", "+00:00")
+    # Python 3.10's ``fromisoformat`` only accepts 3- or 6-digit fractional
+    # seconds; normalize any precision (e.g. ".1", ".43") to 6 digits so the
+    # parse succeeds uniformly across supported runtimes.
+    text = re.sub(r"\.(\d+)", lambda m: "." + (m.group(1) + "000000")[:6], text, count=1)
+    return datetime.datetime.fromisoformat(text)
 
 
 def _check(resp: Any) -> None:
@@ -149,9 +156,7 @@ class _JobBase:
         self.version = version
 
     def _apply(self, other: "_JobBase") -> None:
-        self.__dict__.update(
-            {k: v for k, v in other.__dict__.items() if not k.startswith("_client")}
-        )
+        self.__dict__.update({k: v for k, v in other.__dict__.items() if not k.startswith("_client")})
 
     def _attributes(self) -> dict[str, Any]:
         return {
@@ -295,8 +300,13 @@ def _job_body(job: _JobBase, *, request_cls: Any) -> Any:
 
 def _new_kwargs(id, *, name, schedule, configuration, description, enabled, concurrency_policy):
     return {
-        "id": id, "name": name, "schedule": schedule, "configuration": configuration,
-        "description": description, "enabled": enabled, "concurrency_policy": concurrency_policy,
+        "id": id,
+        "name": name,
+        "schedule": schedule,
+        "configuration": configuration,
+        "description": description,
+        "enabled": enabled,
+        "concurrency_policy": concurrency_policy,
     }
 
 
@@ -328,7 +338,9 @@ class _RunsClient:
     def __init__(self, auth: _JobsAuthClient) -> None:
         self._auth = auth
 
-    def list(self, *, job: Optional[str] = None, page_size: Optional[int] = None, after: Optional[str] = None) -> list[Run]:
+    def list(
+        self, *, job: Optional[str] = None, page_size: Optional[int] = None, after: Optional[str] = None
+    ) -> list[Run]:
         resp = _gen_list_runs.sync_detailed(client=self._auth, **_run_list_kwargs(job, page_size, after))
         _check(resp)
         return [Run._from_resource(r) for r in _data(resp)]
@@ -353,7 +365,9 @@ class _AsyncRunsClient:
     def __init__(self, auth: _JobsAuthClient) -> None:
         self._auth = auth
 
-    async def list(self, *, job: Optional[str] = None, page_size: Optional[int] = None, after: Optional[str] = None) -> list[Run]:
+    async def list(
+        self, *, job: Optional[str] = None, page_size: Optional[int] = None, after: Optional[str] = None
+    ) -> list[Run]:
         resp = await _gen_list_runs.asyncio_detailed(client=self._auth, **_run_list_kwargs(job, page_size, after))
         _check(resp)
         return [Run._from_resource(r) for r in _data(resp)]
@@ -382,8 +396,15 @@ class JobsClient:
         self.runs = _RunsClient(auth_client)
 
     def new(
-        self, id: str, *, name: str, schedule: str, configuration: HttpConfig,
-        description: Optional[str] = None, enabled: bool = True, concurrency_policy: str = "ALLOW",
+        self,
+        id: str,
+        *,
+        name: str,
+        schedule: str,
+        configuration: HttpConfig,
+        description: Optional[str] = None,
+        enabled: bool = True,
+        concurrency_policy: str = "ALLOW",
     ) -> Job:
         """Return an unsaved :class:`Job`. Call ``.save()`` to create it.
 
@@ -392,10 +413,22 @@ class JobsClient:
                 the account and immutable; the service returns 409 if another
                 live job already uses this id.
         """
-        return Job(self, **_new_kwargs(id, name=name, schedule=schedule, configuration=configuration,
-                                       description=description, enabled=enabled, concurrency_policy=concurrency_policy))
+        return Job(
+            self,
+            **_new_kwargs(
+                id,
+                name=name,
+                schedule=schedule,
+                configuration=configuration,
+                description=description,
+                enabled=enabled,
+                concurrency_policy=concurrency_policy,
+            ),
+        )
 
-    def list(self, *, enabled: Optional[bool] = None, page_number: Optional[int] = None, page_size: Optional[int] = None) -> list[Job]:
+    def list(
+        self, *, enabled: Optional[bool] = None, page_number: Optional[int] = None, page_size: Optional[int] = None
+    ) -> list[Job]:
         resp = _gen_list_jobs.sync_detailed(client=self._auth, **_list_jobs_kwargs(enabled, page_number, page_size))
         _check(resp)
         return [Job._from_resource(r, self) for r in _data(resp)]
@@ -440,14 +473,35 @@ class AsyncJobsClient:
         self.runs = _AsyncRunsClient(auth_client)
 
     def new(
-        self, id: str, *, name: str, schedule: str, configuration: HttpConfig,
-        description: Optional[str] = None, enabled: bool = True, concurrency_policy: str = "ALLOW",
+        self,
+        id: str,
+        *,
+        name: str,
+        schedule: str,
+        configuration: HttpConfig,
+        description: Optional[str] = None,
+        enabled: bool = True,
+        concurrency_policy: str = "ALLOW",
     ) -> AsyncJob:
-        return AsyncJob(self, **_new_kwargs(id, name=name, schedule=schedule, configuration=configuration,
-                                            description=description, enabled=enabled, concurrency_policy=concurrency_policy))
+        return AsyncJob(
+            self,
+            **_new_kwargs(
+                id,
+                name=name,
+                schedule=schedule,
+                configuration=configuration,
+                description=description,
+                enabled=enabled,
+                concurrency_policy=concurrency_policy,
+            ),
+        )
 
-    async def list(self, *, enabled: Optional[bool] = None, page_number: Optional[int] = None, page_size: Optional[int] = None) -> list[AsyncJob]:
-        resp = await _gen_list_jobs.asyncio_detailed(client=self._auth, **_list_jobs_kwargs(enabled, page_number, page_size))
+    async def list(
+        self, *, enabled: Optional[bool] = None, page_number: Optional[int] = None, page_size: Optional[int] = None
+    ) -> list[AsyncJob]:
+        resp = await _gen_list_jobs.asyncio_detailed(
+            client=self._auth, **_list_jobs_kwargs(enabled, page_number, page_size)
+        )
         _check(resp)
         return [AsyncJob._from_resource(r, self) for r in _data(resp)]
 
@@ -471,11 +525,15 @@ class AsyncJobsClient:
         return Usage._from_resource(_data(resp))
 
     async def _create(self, job: AsyncJob) -> AsyncJob:
-        resp = await _gen_create_job.asyncio_detailed(client=self._auth, body=_job_body(job, request_cls=JobCreateRequest))
+        resp = await _gen_create_job.asyncio_detailed(
+            client=self._auth, body=_job_body(job, request_cls=JobCreateRequest)
+        )
         _check(resp)
         return AsyncJob._from_resource(_data(resp), self)
 
     async def _update(self, job: AsyncJob) -> AsyncJob:
-        resp = await _gen_update_job.asyncio_detailed(job.id, client=self._auth, body=_job_body(job, request_cls=JobRequest))
+        resp = await _gen_update_job.asyncio_detailed(
+            job.id, client=self._auth, body=_job_body(job, request_cls=JobRequest)
+        )
         _check(resp)
         return AsyncJob._from_resource(_data(resp), self)

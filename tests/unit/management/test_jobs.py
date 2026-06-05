@@ -1,4 +1,5 @@
 """Unit tests for the Smpl Jobs management namespace (mgmt.jobs) — full surface."""
+
 from __future__ import annotations
 
 import asyncio
@@ -17,38 +18,70 @@ _CFG = HttpConfig(url="https://api.example.com/hook", method="POST", headers=[("
 
 def _job_resource(job_id="my-job", *, created=True, version=1, enabled=True):
     return {
-        "id": job_id, "type": "job",
+        "id": job_id,
+        "type": "job",
         "attributes": {
-            "name": "My Job", "description": "does a thing", "enabled": enabled, "type": "http",
+            "name": "My Job",
+            "description": "does a thing",
+            "enabled": enabled,
+            "type": "http",
             "schedule": "0 * * * *",
-            "configuration": {"method": "POST", "url": "https://api.example.com/hook",
-                              "headers": [{"name": "X-Api-Key", "value": "secret"}], "body": "{}",
-                              "success_status": "2xx", "timeout": 30, "tls_verify": True, "ca_cert": None},
-            "concurrency_policy": "ALLOW", "next_run_at": "2026-06-05T00:00:00Z",
+            "configuration": {
+                "method": "POST",
+                "url": "https://api.example.com/hook",
+                "headers": [{"name": "X-Api-Key", "value": "secret"}],
+                "body": "{}",
+                "success_status": "2xx",
+                "timeout": 30,
+                "tls_verify": True,
+                "ca_cert": None,
+            },
+            "concurrency_policy": "ALLOW",
+            "next_run_at": "2026-06-05T00:00:00Z",
             "created_at": "2026-06-04T00:00:00Z" if created else None,
             "updated_at": "2026-06-04T00:00:00Z" if created else None,
-            "deleted_at": None, "version": version,
+            "deleted_at": None,
+            "version": version,
         },
     }
 
 
 def _run_resource(run_id=RUN_ID, status="SUCCEEDED", trigger="SCHEDULE", rerun_of=None):
     return {
-        "id": run_id, "type": "run",
+        "id": run_id,
+        "type": "run",
         "attributes": {
-            "job": "my-job", "job_version": 1, "trigger": trigger, "rerun_of": rerun_of,
-            "scheduled_for": "2026-06-05T00:00:00Z", "status": status,
-            "started_at": "2026-06-05T00:00:00.1Z", "finished_at": "2026-06-05T00:00:00.4Z",
-            "pending_duration_ms": 100, "run_duration_ms": 300, "total_duration_ms": 400,
-            "failure_reason": None, "error": None,
+            "job": "my-job",
+            "job_version": 1,
+            "trigger": trigger,
+            "rerun_of": rerun_of,
+            "scheduled_for": "2026-06-05T00:00:00Z",
+            "status": status,
+            "started_at": "2026-06-05T00:00:00.1Z",
+            "finished_at": "2026-06-05T00:00:00.4Z",
+            "pending_duration_ms": 100,
+            "run_duration_ms": 300,
+            "total_duration_ms": 400,
+            "failure_reason": None,
+            "error": None,
             "request": {"method": "POST", "url": "https://api.example.com/hook"},
-            "result": {"status": 200}, "created_at": "2026-06-05T00:00:00Z",
+            "result": {"status": 200},
+            "created_at": "2026-06-05T00:00:00Z",
         },
     }
 
 
-_USAGE = {"id": "current", "type": "usage", "attributes": {
-    "period": "2026-06", "runs_used": 12, "runs_included": 3000, "active_jobs": 2, "active_jobs_limit": 10}}
+_USAGE = {
+    "id": "current",
+    "type": "usage",
+    "attributes": {
+        "period": "2026-06",
+        "runs_used": 12,
+        "runs_included": 3000,
+        "active_jobs": 2,
+        "active_jobs_limit": 10,
+    },
+}
 
 
 def _handler(req: httpx.Request) -> httpx.Response:
@@ -56,8 +89,10 @@ def _handler(req: httpx.Request) -> httpx.Response:
     if path == "/api/v1/jobs" and m == "POST":
         return httpx.Response(201, json={"data": _job_resource()})
     if path == "/api/v1/jobs" and m == "GET":
-        return httpx.Response(200, json={"data": [_job_resource("a"), _job_resource("b")],
-                                         "meta": {"pagination": {"page": 1, "size": 50}}})
+        return httpx.Response(
+            200,
+            json={"data": [_job_resource("a"), _job_resource("b")], "meta": {"pagination": {"page": 1, "size": 50}}},
+        )
     if path.endswith("/actions/run"):
         return httpx.Response(200, json={"data": _run_resource(trigger="MANUAL")})
     if path.startswith("/api/v1/jobs/") and m == "GET":
@@ -80,8 +115,9 @@ def _handler(req: httpx.Request) -> httpx.Response:
 
 
 def _auth(handler=_handler, *, is_async=False) -> AuthenticatedClient:
-    a = AuthenticatedClient(base_url=BASE, token="sk_test", prefix="Bearer",
-                            headers={"Accept": "application/vnd.api+json"})
+    a = AuthenticatedClient(
+        base_url=BASE, token="sk_test", prefix="Bearer", headers={"Accept": "application/vnd.api+json"}
+    )
     if is_async:
         a.set_async_httpx_client(httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url=BASE))
     else:
@@ -115,6 +151,7 @@ class TestModels:
         from datetime import datetime, timezone
 
         from smplkit.management.jobs import _parse_dt
+
         now = datetime(2026, 1, 1, tzinfo=timezone.utc)
         assert _parse_dt(now) is now and _parse_dt(None) is None
 
@@ -133,6 +170,7 @@ class TestModels:
                 await j.save()
             with pytest.raises(RuntimeError):
                 await j.delete()
+
         asyncio.run(_run())
 
 
@@ -169,6 +207,7 @@ class TestSyncSurface:
         def h(req):
             code = 404 if req.method == "GET" else 409
             return httpx.Response(code, json={"errors": [{"detail": "x"}]})
+
         c = _sync(h)
         with pytest.raises(NotFoundError):
             c.get("missing")
@@ -191,6 +230,7 @@ class TestAsyncSurface:
             assert (await c.get("my-job")).id == "my-job"
             await c.delete("my-job")
             await job.delete()
+
         asyncio.run(_run())
 
     def test_run_runs_usage(self):
@@ -203,4 +243,5 @@ class TestAsyncSurface:
             assert (await c.runs.cancel(RUN_ID)).status == "CANCELED"
             assert (await c.runs.rerun(RUN_ID)).trigger == "RERUN"
             assert (await c.usage()).runs_used == 12
+
         asyncio.run(_run())
