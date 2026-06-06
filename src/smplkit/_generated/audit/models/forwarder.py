@@ -35,14 +35,13 @@ class Forwarder:
         Attributes:
             name (str): Human-readable name for the forwarder. Must contain at least one non-whitespace character.
             forwarder_type (ForwarderType): Supported forwarder destination types (ADR-050).
-            configuration (HttpConfiguration): HTTP request configuration used to deliver an event to the destination.
+            configuration (HttpConfiguration): HTTP request configuration for delivering a payload to a destination.
 
-                Used when the parent forwarder's ``forwarder_type`` is one of the
-                HTTP-family destinations (``HTTP``, ``DATADOG``, ``SPLUNK_HEC``,
-                ``SUMO_LOGIC``, ``NEW_RELIC``, ``HONEYCOMB``, ``ELASTIC``). When other
-                transports land (``FTP``, ``SQS``, …) their own configuration schemas
-                will join this one as members of a discriminated union under the
-                ``configuration`` field of ``Forwarder``.
+                The shared base shape for any product that posts to a customer-supplied
+                HTTP destination. Smpl Audit forwarders use it directly; Smpl Jobs
+                extends it (adding ``body`` and ``timeout``). When other transports land
+                (``FTP``, ``SQS``, …) their own configuration schemas will join this one
+                as members of a discriminated union under a ``configuration`` field.
             description (None | str | Unset): Free-text description for the forwarder.
             enabled (bool | Unset): Whether the forwarder is currently delivering events. Set to `false` to pause deliveries
                 without deleting the forwarder. Default: True.
