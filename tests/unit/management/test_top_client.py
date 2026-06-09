@@ -18,7 +18,7 @@ import pytest
 
 from smplkit import AsyncSmplClient, Error, SmplClient
 from smplkit._config import resolve_management_config
-from smplkit.management.client import (
+from smplkit.management._client import (
     AccountSettingsClient,
     AsyncAccountSettingsClient,
     AsyncConfigClient,
@@ -318,7 +318,7 @@ class TestModelsRequireClientForSave:
 class TestMaybeReraiseNetworkError:
     def test_passes_through_sdk_exceptions(self):
         from smplkit._errors import NotFoundError
-        from smplkit.management.client import _maybe_reraise_network_error
+        from smplkit.management._client import _maybe_reraise_network_error
 
         original = NotFoundError("not found", status_code=404)
         with pytest.raises(NotFoundError, match="not found"):

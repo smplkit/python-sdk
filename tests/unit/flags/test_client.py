@@ -14,7 +14,7 @@ from smplkit._errors import (
     TimeoutError,
     ValidationError,
 )
-from smplkit.client import AsyncSmplClient, SmplClient
+from smplkit._client import AsyncSmplClient, SmplClient
 from smplkit.flags.client import (
     AsyncFlagsClient,
     FlagChangeEvent,
@@ -197,8 +197,8 @@ def _ok_json_response(data, status=HTTPStatus.OK):
 def _make_flags_client():
     """Create a FlagsClient with a mocked parent that has a real `manage`."""
     from smplkit.management._buffer import _ContextRegistrationBuffer
-    from smplkit.management.client import ContextsClient
-    from smplkit.management.client import FlagsClient as _MgmtFlagsClient
+    from smplkit.management._client import ContextsClient
+    from smplkit.management._client import FlagsClient as _MgmtFlagsClient
 
     parent = MagicMock()
     parent._api_key = "sk_test"
@@ -216,8 +216,8 @@ def _make_flags_client():
 def _make_async_flags_client():
     """Create an AsyncFlagsClient with a mocked parent + real management subclients."""
     from smplkit.management._buffer import _ContextRegistrationBuffer
-    from smplkit.management.client import AsyncContextsClient
-    from smplkit.management.client import AsyncFlagsClient as _MgmtAsyncFlagsClient
+    from smplkit.management._client import AsyncContextsClient
+    from smplkit.management._client import AsyncFlagsClient as _MgmtAsyncFlagsClient
 
     parent = MagicMock()
     parent._api_key = "sk_test"
@@ -1224,7 +1224,7 @@ class TestFlagsClientOnChange:
 
 
 class TestFlagsClientLifecycle:
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_connect_internal(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -1244,7 +1244,7 @@ class TestFlagsClientLifecycle:
         assert registered_events == {"flag_changed", "flag_deleted", "flags_changed"}
         assert _TEST_UUID in client._flag_store
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_connect_internal_idempotent(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -1286,7 +1286,7 @@ class TestFlagsClientLifecycle:
 
 
 class TestFlagsClientEvaluateHandle:
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_lazy_connects_on_first_call(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -2255,7 +2255,7 @@ class TestAsyncFlagsClientOnChange:
 
 
 class TestAsyncFlagsClientLifecycle:
-    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.asyncio_detailed")
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_connect_internal(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -2276,7 +2276,7 @@ class TestAsyncFlagsClientLifecycle:
 
         asyncio.run(_run())
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.asyncio_detailed")
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_connect_internal_idempotent(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -2321,7 +2321,7 @@ class TestAsyncFlagsClientLifecycle:
 
 
 class TestAsyncFlagsClientFlushContextsAsync:
-    @patch("smplkit.management.client._gen_bulk_register_contexts.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_contexts.asyncio_detailed")
     def test_flush_contexts_async_with_pending(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
 
@@ -2333,7 +2333,7 @@ class TestAsyncFlagsClientFlushContextsAsync:
 
         asyncio.run(_run())
 
-    @patch("smplkit.management.client._gen_bulk_register_contexts.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_contexts.asyncio_detailed")
     def test_flush_contexts_async_empty(self, mock_bulk):
         async def _run():
             client = _make_async_flags_client()
@@ -2342,7 +2342,7 @@ class TestAsyncFlagsClientFlushContextsAsync:
 
         asyncio.run(_run())
 
-    @patch("smplkit.management.client._gen_bulk_register_contexts.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_contexts.asyncio_detailed")
     def test_flush_contexts_async_exception_swallowed(self, mock_bulk):
         mock_bulk.side_effect = httpx.ConnectError("fail")
 
@@ -2360,7 +2360,7 @@ class TestAsyncFlagsClientFlushContextsAsync:
 
 
 class TestAsyncFlagsClientEvaluateHandle:
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_lazy_connects_on_first_call(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -2978,7 +2978,7 @@ class TestFlagsClientFlagRegistration:
         batch = client._parent.manage.flags._buffer.drain()
         assert len(batch) == 1  # deduped
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     def test_flush_flags_sync(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_flags_client()
@@ -2995,13 +2995,13 @@ class TestFlagsClientFlagRegistration:
         assert body.flags[1].id == "f2"
         assert body.flags[1].type_ == "STRING"
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     def test_flush_flags_sync_empty_batch(self, mock_bulk):
         client = _make_flags_client()
         client._flush_flags_sync()
         mock_bulk.assert_not_called()
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     def test_flush_flags_sync_reraises_network_error(self, mock_bulk):
         """Network errors propagate so ``start()`` can schedule a retry."""
         mock_bulk.side_effect = httpx.ConnectError("fail")
@@ -3012,7 +3012,7 @@ class TestFlagsClientFlagRegistration:
         # Buffer must retain the declaration for the next attempt.
         assert client._parent.manage.flags._buffer.pending_count == 1
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     def test_flush_flags_sync_reraises_http_error(self, mock_bulk):
         """HTTP error responses propagate; declarations remain queued."""
         mock_bulk.return_value = _ok_response(status=HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -3022,7 +3022,7 @@ class TestFlagsClientFlagRegistration:
             client._flush_flags_sync()
         assert client._parent.manage.flags._buffer.pending_count == 1
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_connect_internal_flushes_before_fetch(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -3053,7 +3053,7 @@ class TestFlagsClientFlagRegistration:
         client = _make_flags_client()
         for i in range(_FLAG_BULK_FLUSH_THRESHOLD - 1):
             client.boolean_flag(f"flag-{i}", default=True)
-        with patch("smplkit.management.client.threading.Thread") as mock_thread:
+        with patch("smplkit.management._client.threading.Thread") as mock_thread:
             client.boolean_flag(f"flag-{_FLAG_BULK_FLUSH_THRESHOLD - 1}", default=True)
             mock_thread.assert_called_once()
 
@@ -3066,7 +3066,7 @@ class TestFlagsClientFlagRegistration:
 class TestFlagsClientStartRetry:
     """Pod-rebuild scenario: flags-service is unavailable when ``start()`` runs."""
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_failed_flush_keeps_queue_and_retries_on_next_start(self, mock_list, mock_bulk):
         """First flush 500s; queue is retained; second start() succeeds.
@@ -3105,7 +3105,7 @@ class TestFlagsClientStartRetry:
         assert client._parent.manage.flags._buffer.pending_count == 0
         assert mock_bulk.call_count == 2
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_backoff_skips_redundant_attempts(self, mock_list, mock_bulk):
         """Repeated calls inside the backoff window are no-ops."""
@@ -3124,7 +3124,7 @@ class TestFlagsClientStartRetry:
         assert client._connected is False
         assert client._parent.manage.flags._buffer.pending_count == 1
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_backoff_delay_doubles_then_caps(self, mock_list, mock_bulk):
         """Each failed attempt doubles the delay, capped at the configured maximum."""
@@ -3149,7 +3149,7 @@ class TestFlagsClientStartRetry:
         assert seen_delays[2] == 4.0
         assert seen_delays[-1] == _MAX_START_RETRY_DELAY
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_evaluation_falls_back_to_default_while_disconnected(self, mock_list, mock_bulk):
         """Until ``start()`` succeeds, evaluation must return the handle default."""
@@ -3167,7 +3167,7 @@ class TestFlagsClientStartRetry:
         assert client._connected is False
         assert client._parent.manage.flags._buffer.pending_count == 1
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_ws_subscribed_only_once_across_retry_attempts(self, mock_list, mock_bulk):
         """WS handlers must not be re-registered when start() retries after failure."""
@@ -3228,7 +3228,7 @@ class TestAsyncFlagsClientFlagRegistration:
         batch = client._parent.manage.flags._buffer.drain()
         assert batch[0]["type"] == "JSON"
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.asyncio_detailed")
     def test_flush_flags_async(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
 
@@ -3245,7 +3245,7 @@ class TestAsyncFlagsClientFlagRegistration:
 
         asyncio.run(_run())
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.asyncio_detailed")
     def test_flush_flags_async_empty_batch(self, mock_bulk):
         async def _run():
             client = _make_async_flags_client()
@@ -3254,7 +3254,7 @@ class TestAsyncFlagsClientFlagRegistration:
 
         asyncio.run(_run())
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.asyncio_detailed")
     def test_flush_flags_async_reraises_network_error(self, mock_bulk):
         """Network errors propagate so ``start()`` can schedule a retry."""
         mock_bulk.side_effect = httpx.ConnectError("fail")
@@ -3269,7 +3269,7 @@ class TestAsyncFlagsClientFlagRegistration:
 
         asyncio.run(_run())
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     def test_flush_flags_sync(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_async_flags_client()
@@ -3277,13 +3277,13 @@ class TestAsyncFlagsClientFlagRegistration:
         client._flush_flags_sync()
         mock_bulk.assert_called_once()
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     def test_flush_flags_sync_empty_batch(self, mock_bulk):
         client = _make_async_flags_client()
         client._flush_flags_sync()
         mock_bulk.assert_not_called()
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.asyncio_detailed")
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_connect_internal_flushes_before_fetch(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": []})
@@ -3303,7 +3303,7 @@ class TestAsyncFlagsClientFlagRegistration:
 
         asyncio.run(_run())
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_evaluate_handle_lazy_init_flushes(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -3325,7 +3325,7 @@ class TestAsyncFlagsClientFlagRegistration:
         client = _make_async_flags_client()
         client._close()  # should not raise
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.asyncio_detailed")
     def test_flush_flags_async_reraises_http_error(self, mock_bulk):
         """HTTP error responses propagate; declarations remain queued."""
         mock_bulk.return_value = _ok_response(status=HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -3339,7 +3339,7 @@ class TestAsyncFlagsClientFlagRegistration:
 
         asyncio.run(_run())
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     def test_flush_flags_sync_reraises_http_error(self, mock_bulk):
         """HTTP error responses propagate; declarations remain queued."""
         mock_bulk.return_value = _ok_response(status=HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -3349,7 +3349,7 @@ class TestAsyncFlagsClientFlagRegistration:
             client._flush_flags_sync()
         assert client._manage.flags._buffer.pending_count == 1
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     def test_flush_flags_sync_reraises_network_error(self, mock_bulk):
         """Network errors propagate so the lazy-init retry can reschedule."""
         mock_bulk.side_effect = httpx.ConnectError("fail")
@@ -3364,7 +3364,7 @@ class TestAsyncFlagsClientFlagRegistration:
         client = _make_async_flags_client()
         for i in range(_FLAG_BULK_FLUSH_THRESHOLD - 1):
             client.boolean_flag(f"flag-{i}", default=True)
-        with patch("smplkit.management.client.threading.Thread") as mock_thread:
+        with patch("smplkit.management._client.threading.Thread") as mock_thread:
             client.boolean_flag(f"flag-{_FLAG_BULK_FLUSH_THRESHOLD - 1}", default=True)
             mock_thread.assert_called_once()
 
@@ -3377,7 +3377,7 @@ class TestAsyncFlagsClientFlagRegistration:
 class TestAsyncFlagsClientStartRetry:
     """Mirror of TestFlagsClientStartRetry for the async client."""
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.asyncio_detailed")
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_failed_flush_keeps_queue_and_retries_on_next_start(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
@@ -3407,7 +3407,7 @@ class TestAsyncFlagsClientStartRetry:
 
         asyncio.run(_run())
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.sync_detailed")
     @patch("smplkit.flags.client.list_flags.sync_detailed")
     def test_evaluate_handle_lazy_init_retains_queue_on_failure(self, mock_list, mock_bulk):
         """The thread-safe lazy-init path mirrors ``start()`` semantics."""
@@ -3424,7 +3424,7 @@ class TestAsyncFlagsClientStartRetry:
         assert client._connected is False
         assert client._manage.flags._buffer.pending_count == 1
 
-    @patch("smplkit.management.client._gen_bulk_register_flags.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_flags.asyncio_detailed")
     @patch("smplkit.flags.client.list_flags.asyncio_detailed")
     def test_start_backoff_skips_redundant_attempts(self, mock_list, mock_bulk):
         """Repeated async ``start()`` calls inside the backoff window are no-ops."""

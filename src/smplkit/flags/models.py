@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from smplkit.flags.client import AsyncFlagsClient, FlagsClient
-    from smplkit.management.client import AsyncFlagsClient as AsyncMgmtFlagsClient
-    from smplkit.management.client import FlagsClient as MgmtFlagsClient
+    from smplkit.management._client import AsyncFlagsClient as AsyncMgmtFlagsClient
+    from smplkit.management._client import FlagsClient as MgmtFlagsClient
 
 
 @dataclasses.dataclass(frozen=True)

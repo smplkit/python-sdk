@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from smplkit.config.client import AsyncConfigClient, ConfigClient
-    from smplkit.management.client import (
+    from smplkit.management._client import (
         AsyncConfigClient as AsyncMgmtConfigClient,
         ConfigClient as MgmtConfigClient,
     )

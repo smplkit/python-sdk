@@ -19,7 +19,7 @@ from smplkit.audit._buffer import (
     MAX_ATTEMPTS_PER_ITEM,
     _PendingEvent,
 )
-from smplkit.audit.client import AsyncSmplAuditClient, SmplAuditClient
+from smplkit.audit._client import AsyncSmplAuditClient, SmplAuditClient
 
 
 def test_buffer_enqueue_silent_when_closed() -> None:
@@ -186,7 +186,7 @@ def test_post_wrapper_returns_httpx_error_on_connection_failure() -> None:
 def test_async_client_owns_its_own_genuinely_async_surface() -> None:
     """The async client is no longer a sync delegate — it builds its own
     transport and async sub-clients (no ``_inner``)."""
-    from smplkit.audit.client import _AsyncEventsClient
+    from smplkit.audit._client import _AsyncEventsClient
 
     client = AsyncSmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     assert not hasattr(client, "_inner")

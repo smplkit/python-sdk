@@ -54,9 +54,9 @@ from smplkit.flags.models import (
 if TYPE_CHECKING:
     from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
     from smplkit._ws import SharedWebSocket
-    from smplkit.client import AsyncSmplClient, SmplClient
+    from smplkit._client import AsyncSmplClient, SmplClient
     from smplkit.flags.types import Context
-    from smplkit.management.client import _AsyncManagementNamespace, _ManagementNamespace
+    from smplkit.management._client import _AsyncManagementNamespace, _ManagementNamespace
 
 logger = logging.getLogger("smplkit")
 ws_logger = logging.getLogger("smplkit.flags.ws")

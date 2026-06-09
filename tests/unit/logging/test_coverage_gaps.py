@@ -79,7 +79,7 @@ def _ok_response(parsed=None, status=HTTPStatus.OK):
 
 
 def _make_sync_client(**kwargs):
-    from smplkit.management.client import LoggersClient as _MgmtLoggersClient
+    from smplkit.management._client import LoggersClient as _MgmtLoggersClient
 
     parent = MagicMock()
     parent._api_key = "sk_test"
@@ -93,7 +93,7 @@ def _make_sync_client(**kwargs):
 
 
 def _make_async_client(**kwargs):
-    from smplkit.management.client import AsyncLoggersClient as _MgmtAsyncLoggersClient
+    from smplkit.management._client import AsyncLoggersClient as _MgmtAsyncLoggersClient
 
     parent = MagicMock()
     parent._api_key = "sk_test"
@@ -113,7 +113,7 @@ def _make_async_client(**kwargs):
 
 def _new_mgmt_loggers():
     """Return a LoggersClient bound to a mock http (for management-flavored tests)."""
-    from smplkit.management.client import LoggersClient
+    from smplkit.management._client import LoggersClient
     from unittest.mock import MagicMock as _MM
 
     return LoggersClient(_MM(), base_url="http://logging:8003")
@@ -121,7 +121,7 @@ def _new_mgmt_loggers():
 
 def _new_mgmt_log_groups():
     """Return a LogGroupsClient bound to a mock http."""
-    from smplkit.management.client import LogGroupsClient
+    from smplkit.management._client import LogGroupsClient
     from unittest.mock import MagicMock as _MM
 
     return LogGroupsClient(_MM(), base_url="http://logging:8003")

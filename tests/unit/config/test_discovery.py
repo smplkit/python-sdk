@@ -17,7 +17,7 @@ import pytest
 from pydantic import BaseModel, Field
 
 from smplkit._errors import NotFoundError
-from smplkit.client import AsyncSmplClient, SmplClient
+from smplkit._client import AsyncSmplClient, SmplClient
 from smplkit.config.client import (
     ConfigChangeEvent,
     LiveConfigProxy,
@@ -29,7 +29,7 @@ from smplkit.config.client import (
     _value_to_item_type,
 )
 from smplkit.management._buffer import _ConfigRegistrationBuffer
-from smplkit.management.client import _build_config_bulk_request
+from smplkit.management._client import _build_config_bulk_request
 
 
 # ===========================================================================

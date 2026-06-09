@@ -9,26 +9,22 @@ exposes the full surface and is reachable as ``client.jobs`` on
 :class:`SmplJobsClient`.
 
 The shared dataclasses (:class:`Job`, :class:`AsyncJob`, :class:`Run`,
-:class:`Usage`, :class:`HttpConfig`) live in :mod:`smplkit.jobs.client` and are
+:class:`Usage`, :class:`HttpConfig`) live in :mod:`smplkit.jobs._client` and are
 re-exported here.
 """
 
-from smplkit.jobs.client import (
+from smplkit.jobs._client import (
     AsyncJob,
-    AsyncSmplJobsClient,
     HttpConfig,
     Job,
     Run,
-    SmplJobsClient,
     Usage,
 )
 
 __all__ = [
     "AsyncJob",
-    "AsyncSmplJobsClient",
     "HttpConfig",
     "Job",
     "Run",
-    "SmplJobsClient",
     "Usage",
 ]

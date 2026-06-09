@@ -26,7 +26,7 @@ from smplkit.management.audit import (
     ForwarderListPage as AuditForwarderListPage,
     ForwardersClient as AuditForwardersClient,
 )
-from smplkit.management.client import (
+from smplkit.management._client import (
     AccountSettingsClient,
     AsyncAccountSettingsClient,
     AsyncConfigClient,

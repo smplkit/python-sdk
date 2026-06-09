@@ -208,7 +208,7 @@ def test_async_smpl_client_no_connect_method():
     assert not hasattr(client, "connect")
 
 
-@patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
+@patch("smplkit._client.gen_bulk_register_contexts.sync_detailed")
 def test_service_context_deferred_until_first_op(mock_bulk):
     """Construction is side-effect-free: no registration thread, no flush timer,
     no phone-home until the first product op triggers ``_ensure_started``."""
@@ -233,7 +233,7 @@ def test_service_context_deferred_until_first_op(mock_bulk):
         client.close()
 
 
-@patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
+@patch("smplkit._client.gen_bulk_register_contexts.sync_detailed")
 def test_service_registration_failure_is_swallowed(mock_bulk):
     """A registration failure on first op is swallowed (fire-and-forget)."""
     mock_bulk.side_effect = Exception("network error")
@@ -247,7 +247,7 @@ def test_service_registration_failure_is_swallowed(mock_bulk):
         client.close()
 
 
-@patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
+@patch("smplkit._client.gen_bulk_register_contexts.sync_detailed")
 def test_async_service_context_deferred_until_first_op(mock_bulk):
     """AsyncSmplClient also defers registration to the first op."""
     mock_bulk.return_value = MagicMock()
@@ -267,7 +267,7 @@ def test_async_service_context_deferred_until_first_op(mock_bulk):
         asyncio.run(client.close())
 
 
-@patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
+@patch("smplkit._client.gen_bulk_register_contexts.sync_detailed")
 def test_async_service_registration_failure_is_swallowed(mock_bulk):
     mock_bulk.side_effect = Exception("network error")
 
@@ -280,7 +280,7 @@ def test_async_service_registration_failure_is_swallowed(mock_bulk):
         asyncio.run(client.close())
 
 
-@patch("smplkit.client.gen_bulk_register_contexts.asyncio_detailed")
+@patch("smplkit._client.gen_bulk_register_contexts.asyncio_detailed")
 def test_async_register_service_context_success(mock_bulk):
     """The async _register_service_context coroutine works end to end."""
     mock_bulk.return_value = MagicMock()
@@ -295,7 +295,7 @@ def test_async_register_service_context_success(mock_bulk):
         asyncio.run(client.close())
 
 
-@patch("smplkit.client.gen_bulk_register_contexts.asyncio_detailed")
+@patch("smplkit._client.gen_bulk_register_contexts.asyncio_detailed")
 def test_async_register_service_context_failure_swallowed(mock_bulk):
     """The async _register_service_context swallows exceptions."""
     mock_bulk.side_effect = Exception("network error")
@@ -307,7 +307,7 @@ def test_async_register_service_context_failure_swallowed(mock_bulk):
         asyncio.run(client.close())
 
 
-@patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
+@patch("smplkit._client.gen_bulk_register_contexts.sync_detailed")
 def test_ensure_started_is_idempotent(mock_bulk):
     """_ensure_started starts the machinery exactly once."""
     mock_bulk.return_value = MagicMock()
@@ -324,7 +324,7 @@ def test_ensure_started_is_idempotent(mock_bulk):
         client.close()
 
 
-@patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
+@patch("smplkit._client.gen_bulk_register_contexts.sync_detailed")
 def test_ensure_started_is_noop_after_close(mock_bulk):
     """A late _ensure_started after close() never resurrects the machinery."""
     client = SmplClient(api_key="sk_api_test", environment="test", service="my-svc")
@@ -335,7 +335,7 @@ def test_ensure_started_is_noop_after_close(mock_bulk):
     mock_bulk.assert_not_called()
 
 
-@patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
+@patch("smplkit._client.gen_bulk_register_contexts.sync_detailed")
 def test_register_only_environment_when_service_none(mock_bulk):
     """Phone-home registers only the environment when service is unset."""
     mock_bulk.return_value = MagicMock()
@@ -350,7 +350,7 @@ def test_register_only_environment_when_service_none(mock_bulk):
         client.close()
 
 
-@patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
+@patch("smplkit._client.gen_bulk_register_contexts.sync_detailed")
 def test_register_only_service_when_environment_none(mock_bulk):
     """Phone-home registers only the service when environment is unset."""
     mock_bulk.return_value = MagicMock()
@@ -366,7 +366,7 @@ def test_register_only_service_when_environment_none(mock_bulk):
         client.close()
 
 
-@patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
+@patch("smplkit._client.gen_bulk_register_contexts.sync_detailed")
 def test_register_skipped_when_env_and_service_both_none(mock_bulk):
     """Phone-home is skipped entirely for an audit/jobs-only customer (sync)."""
     client = SmplClient(api_key="sk_api_test", environment="test", service="my-svc")
@@ -379,7 +379,7 @@ def test_register_skipped_when_env_and_service_both_none(mock_bulk):
         client.close()
 
 
-@patch("smplkit.client.gen_bulk_register_contexts.sync_detailed")
+@patch("smplkit._client.gen_bulk_register_contexts.sync_detailed")
 def test_async_register_sync_variant_skipped_when_both_none(mock_bulk):
     """The async client's sync-thread registration also skips when nothing is set."""
     client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")
@@ -392,7 +392,7 @@ def test_async_register_sync_variant_skipped_when_both_none(mock_bulk):
         asyncio.run(client.close())
 
 
-@patch("smplkit.client.gen_bulk_register_contexts.asyncio_detailed")
+@patch("smplkit._client.gen_bulk_register_contexts.asyncio_detailed")
 def test_async_register_coroutine_skipped_when_both_none(mock_bulk):
     """The async _register_service_context coroutine skips when nothing is set."""
     client = AsyncSmplClient(api_key="sk_api_test", environment="test", service="my-svc")

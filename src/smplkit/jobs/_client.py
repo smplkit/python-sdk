@@ -1,11 +1,11 @@
-"""Smpl Jobs SDK client (``client.jobs`` / ``mgmt.jobs`` / standalone ``SmplJobsClient``).
+"""Smpl Jobs SDK client (``client.jobs`` on SmplClient, or standalone ``SmplJobsClient``).
 
 Unlike Config/Flags/Logging, Jobs installs no in-process machinery — no
 environment registration, no WebSocket, no logger monkey-patching. It is a
 product you *use*, not infrastructure you *install*, so it has no
 runtime/management split: a single :class:`SmplJobsClient` (and its async
 counterpart :class:`AsyncSmplJobsClient`) exposes the full surface, reachable
-three ways:
+two ways:
 
 * ``client.jobs.*`` on :class:`smplkit.SmplClient`
 * directly — ``SmplJobsClient(api_key=...)`` — for callers that only need jobs.

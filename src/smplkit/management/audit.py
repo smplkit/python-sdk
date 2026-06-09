@@ -1,7 +1,7 @@
 """SIEM forwarder CRUD for the Smpl Audit client.
 
 Forwarders are part of the single unified audit surface — there is no
-runtime/management split for audit (see :mod:`smplkit.audit.client`). This
+runtime/management split for audit (see :mod:`smplkit.audit._client`). This
 module holds the forwarder CRUD sub-clients that the unified
 :class:`smplkit.audit.SmplAuditClient` / :class:`AsyncSmplAuditClient` expose
 as ``.forwarders``:

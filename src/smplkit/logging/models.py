@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from smplkit import LogLevel
     from smplkit.logging.client import AsyncLoggingClient, LoggingClient
-    from smplkit.management.client import (
+    from smplkit.management._client import (
         AsyncLogGroupsClient,
         AsyncLoggersClient,
         LogGroupsClient,

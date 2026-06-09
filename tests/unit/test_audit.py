@@ -14,7 +14,7 @@ from smplkit.audit._buffer import (
     MAX_BUFFER_SIZE,
     _PendingEvent,
 )
-from smplkit.audit.client import SmplAuditClient
+from smplkit.audit._client import SmplAuditClient
 from smplkit.audit.models import Event
 
 

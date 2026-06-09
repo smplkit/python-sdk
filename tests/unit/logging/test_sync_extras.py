@@ -70,7 +70,7 @@ def _ok_response(parsed=None, status=HTTPStatus.OK):
 
 
 def _make_logging_client(**kwargs):
-    from smplkit.management.client import LoggersClient as _MgmtLoggersClient
+    from smplkit.management._client import LoggersClient as _MgmtLoggersClient
 
     parent = MagicMock()
     parent._api_key = "sk_test"
@@ -86,7 +86,7 @@ def _make_logging_client(**kwargs):
 
 def _new_mgmt_loggers():
     """Return a LoggersClient bound to a mock http (for management-flavored tests)."""
-    from smplkit.management.client import LoggersClient
+    from smplkit.management._client import LoggersClient
     from unittest.mock import MagicMock as _MM
 
     return LoggersClient(_MM(), base_url="http://logging:8003")
@@ -94,7 +94,7 @@ def _new_mgmt_loggers():
 
 def _new_mgmt_log_groups():
     """Return a LogGroupsClient bound to a mock http."""
-    from smplkit.management.client import LogGroupsClient
+    from smplkit.management._client import LogGroupsClient
     from unittest.mock import MagicMock as _MM
 
     return LogGroupsClient(_MM(), base_url="http://logging:8003")
@@ -139,7 +139,7 @@ class TestSyncOnNewLogger:
         client._on_new_logger(test_name, 20, 20)
         mock_adapter.apply_level.assert_called_once_with(test_name, 40)
 
-    @patch("smplkit.management.client.threading.Thread")
+    @patch("smplkit.management._client.threading.Thread")
     def test_callback_triggers_flush_at_threshold(self, mock_thread):
         """When _on_new_logger pushes the buffer past the threshold, mgmt.loggers.register spawns a flush thread."""
         client = _make_logging_client()
@@ -156,7 +156,7 @@ class TestSyncOnNewLogger:
 class TestSyncConnectWithService:
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_with_service(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
@@ -173,7 +173,7 @@ class TestSyncConnectWithService:
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_fetch_failure_resilient(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
@@ -189,7 +189,7 @@ class TestSyncConnectWithService:
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_swallows_initial_flush_failure(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         """An HTTP error from the initial registration flush is swallowed during connect."""

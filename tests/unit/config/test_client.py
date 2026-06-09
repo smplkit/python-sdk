@@ -13,7 +13,7 @@ from smplkit._errors import (
     TimeoutError,
     ValidationError,
 )
-from smplkit.client import AsyncSmplClient, SmplClient
+from smplkit._client import AsyncSmplClient, SmplClient
 from smplkit.config.client import AsyncConfigClient, LiveConfigProxy
 from smplkit.config.helpers import _resource_to_config
 

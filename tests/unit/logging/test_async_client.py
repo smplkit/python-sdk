@@ -76,7 +76,7 @@ def _ok_response(parsed=None, status=HTTPStatus.OK):
 
 
 def _make_async_logging_client(**kwargs):
-    from smplkit.management.client import AsyncLoggersClient as _MgmtAsyncLoggersClient
+    from smplkit.management._client import AsyncLoggersClient as _MgmtAsyncLoggersClient
 
     parent = MagicMock()
     parent._api_key = "sk_test"
@@ -97,7 +97,7 @@ def _make_async_logging_client(**kwargs):
 
 def _new_mgmt_loggers():
     """Return a LoggersClient bound to a mock http (for management-flavored tests)."""
-    from smplkit.management.client import LoggersClient
+    from smplkit.management._client import LoggersClient
     from unittest.mock import MagicMock as _MM
 
     return LoggersClient(_MM(), base_url="http://logging:8003")
@@ -105,7 +105,7 @@ def _new_mgmt_loggers():
 
 def _new_mgmt_log_groups():
     """Return a LogGroupsClient bound to a mock http."""
-    from smplkit.management.client import LogGroupsClient
+    from smplkit.management._client import LogGroupsClient
     from unittest.mock import MagicMock as _MM
 
     return LogGroupsClient(_MM(), base_url="http://logging:8003")
@@ -544,7 +544,7 @@ class TestAsyncLogGroupConvenienceMethods:
 class TestAsyncStart:
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.asyncio_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_install_connects(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
@@ -561,7 +561,7 @@ class TestAsyncStart:
 
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.asyncio_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_install_is_idempotent(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
@@ -629,7 +629,7 @@ class TestAsyncOnChange:
 class TestAsyncConnectFlow:
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.asyncio_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_full_flow(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
@@ -650,7 +650,7 @@ class TestAsyncConnectFlow:
 
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.asyncio_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_with_service(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
@@ -668,7 +668,7 @@ class TestAsyncConnectFlow:
 
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.asyncio_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_fetch_failure_is_resilient(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
@@ -684,7 +684,7 @@ class TestAsyncConnectFlow:
 
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.asyncio_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_idempotent(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
@@ -738,7 +738,7 @@ class TestAsyncRefresh:
 
 
 class TestAsyncBulkFlush:
-    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.asyncio_detailed")
     def test_async_flush(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_async_logging_client()
@@ -746,20 +746,20 @@ class TestAsyncBulkFlush:
         asyncio.run(client._flush_bulk_async())
         mock_bulk.assert_called_once()
 
-    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.asyncio_detailed")
     def test_async_flush_empty(self, mock_bulk):
         client = _make_async_logging_client()
         asyncio.run(client._flush_bulk_async())
         mock_bulk.assert_not_called()
 
-    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.asyncio_detailed")
     def test_async_flush_error_swallowed(self, mock_bulk):
         mock_bulk.side_effect = Exception("fail")
         client = _make_async_logging_client()
         client._parent.manage.loggers._buffer.add("com.test", "INFO", "INFO", None, None)
         asyncio.run(client._flush_bulk_async())
 
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     def test_mgmt_flush_sync_drains_buffer(self, mock_bulk):
         """``mgmt.loggers.flush_sync()`` drains the buffer the runtime populated."""
         mock_bulk.return_value = _ok_response()
@@ -768,13 +768,13 @@ class TestAsyncBulkFlush:
         client._parent.manage.loggers.flush_sync()
         mock_bulk.assert_called_once()
 
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     def test_mgmt_flush_sync_empty(self, mock_bulk):
         client = _make_async_logging_client()
         client._parent.manage.loggers.flush_sync()
         mock_bulk.assert_not_called()
 
-    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.asyncio_detailed")
     def test_async_flush_logs_warning_on_http_error(self, mock_bulk, caplog):
         import logging as stdlib_logging
 
@@ -937,7 +937,7 @@ class TestAsyncFetchAndApply:
 class TestWebSocketEventHandling:
     @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
     @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.asyncio_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_registers_ws_handlers(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         """_connect_internal registers handlers for all five logger events."""
@@ -1418,7 +1418,7 @@ class TestAsyncRegisterAndFlush:
 
         async def _run():
             mock_coro = AsyncMock(return_value=MagicMock(status_code=200, content=b"{}"))
-            with patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed", mock_coro):
+            with patch("smplkit.management._client._gen_bulk_register_loggers.asyncio_detailed", mock_coro):
                 mgmt = _new_async_mgmt()
                 mgmt.loggers.register(
                     [
@@ -1442,7 +1442,7 @@ class TestAsyncRegisterAndFlush:
 
         async def _run():
             mock_coro = AsyncMock(return_value=MagicMock(status_code=200, content=b"{}"))
-            with patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed", mock_coro):
+            with patch("smplkit.management._client._gen_bulk_register_loggers.asyncio_detailed", mock_coro):
                 mgmt = _new_async_mgmt()
                 mgmt.loggers.register(
                     [
@@ -1464,7 +1464,7 @@ class TestAsyncRegisterAndFlush:
     def test_flush_with_empty_buffer_skips_call(self):
         async def _run():
             mock_coro = AsyncMock(return_value=MagicMock(status_code=200, content=b"{}"))
-            with patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed", mock_coro):
+            with patch("smplkit.management._client._gen_bulk_register_loggers.asyncio_detailed", mock_coro):
                 mgmt = _new_async_mgmt()
                 await mgmt.loggers.flush()
                 mock_coro.assert_not_called()
@@ -1476,7 +1476,7 @@ class TestAsyncRegisterAndFlush:
 
         async def _run():
             mock_coro = AsyncMock(side_effect=RuntimeError("unexpected"))
-            with patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed", mock_coro):
+            with patch("smplkit.management._client._gen_bulk_register_loggers.asyncio_detailed", mock_coro):
                 mgmt = _new_async_mgmt()
                 mgmt.loggers.register(
                     [

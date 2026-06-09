@@ -17,7 +17,7 @@ import pytest
 
 from smplkit import Error, NotFoundError
 from smplkit.audit import Category, Event, EventType, ResourceType
-from smplkit.audit.client import (
+from smplkit.audit._client import (
     AsyncSmplAuditClient,
     SmplAuditClient,
     CategoryListPage,
@@ -896,7 +896,7 @@ class TestCategoriesListEnvironments:
 def test_async_client_exposes_async_namespaces():
     """The async client exposes the full surface as genuinely-async sub-clients
     (events / resource_types / event_types / categories / forwarders)."""
-    from smplkit.audit.client import (
+    from smplkit.audit._client import (
         _AsyncCategoriesClient,
         _AsyncEventsClient,
         _AsyncEventTypesClient,

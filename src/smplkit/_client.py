@@ -19,12 +19,12 @@ from smplkit._generated.app.models.context_bulk_item_attributes import ContextBu
 from smplkit._generated.app.models.context_bulk_register import ContextBulkRegister
 from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
 from smplkit._ws import SharedWebSocket
-from smplkit.audit.client import AsyncSmplAuditClient, SmplAuditClient
-from smplkit.jobs.client import AsyncSmplJobsClient, SmplJobsClient
+from smplkit.audit._client import AsyncSmplAuditClient, SmplAuditClient
+from smplkit.jobs._client import AsyncSmplJobsClient, SmplJobsClient
 from smplkit.config.client import AsyncConfigClient, ConfigClient
 from smplkit.flags.client import AsyncFlagsClient, FlagsClient
 from smplkit.logging.client import AsyncLoggingClient, LoggingClient
-from smplkit.management.client import _AsyncManagementNamespace, _ManagementNamespace
+from smplkit.management._client import _AsyncManagementNamespace, _ManagementNamespace
 
 if TYPE_CHECKING:
     from smplkit.flags.types import Context

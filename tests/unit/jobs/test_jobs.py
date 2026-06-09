@@ -13,9 +13,10 @@ import asyncio
 import httpx
 import pytest
 
+from smplkit import AsyncSmplJobsClient, SmplJobsClient
 from smplkit._errors import ConflictError, NotFoundError
 from smplkit._generated.jobs.client import AuthenticatedClient
-from smplkit.jobs import AsyncJob, AsyncSmplJobsClient, HttpConfig, Job, Run, SmplJobsClient, Usage
+from smplkit.jobs import AsyncJob, HttpConfig, Job, Run, Usage
 
 BASE = "https://jobs.example.com"
 RUN_ID = "8f2b1c4a-0000-4a1b-9c3d-1e2f3a4b5c6d"
@@ -156,7 +157,7 @@ class TestModels:
     def test_parse_dt_passthrough(self):
         from datetime import datetime, timezone
 
-        from smplkit.jobs.client import _parse_dt
+        from smplkit.jobs._client import _parse_dt
 
         now = datetime(2026, 1, 1, tzinfo=timezone.utc)
         assert _parse_dt(now) is now and _parse_dt(None) is None

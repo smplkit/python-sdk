@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from smplkit._generated.flags.types import UNSET as _FLAGS_UNSET
 from smplkit._helpers import PAGE_SIZE
-from smplkit.client import AsyncSmplClient, SmplClient
+from smplkit._client import AsyncSmplClient, SmplClient
 
 
 # ---------------------------------------------------------------------------
@@ -166,8 +166,8 @@ class TestFlagsRuntimePagination:
     def _flags_client(self):
         from smplkit.management._buffer import _ContextRegistrationBuffer
         from smplkit.flags.client import FlagsClient
-        from smplkit.management.client import ContextsClient
-        from smplkit.management.client import FlagsClient as _MgmtFlagsClient
+        from smplkit.management._client import ContextsClient
+        from smplkit.management._client import FlagsClient as _MgmtFlagsClient
 
         parent = MagicMock()
         parent._api_key = "sk_test"
@@ -183,8 +183,8 @@ class TestFlagsRuntimePagination:
     def _async_flags_client(self):
         from smplkit.management._buffer import _ContextRegistrationBuffer
         from smplkit.flags.client import AsyncFlagsClient
-        from smplkit.management.client import AsyncContextsClient
-        from smplkit.management.client import AsyncFlagsClient as _MgmtAsyncFlagsClient
+        from smplkit.management._client import AsyncContextsClient
+        from smplkit.management._client import AsyncFlagsClient as _MgmtAsyncFlagsClient
 
         parent = MagicMock()
         parent._api_key = "sk_test"
@@ -342,19 +342,19 @@ class TestManagementListPaginationForwarding:
     # Environments
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management.client._gen_list_environments.sync_detailed")
+    @patch("smplkit.management._client._gen_list_environments.sync_detailed")
     def test_environments_list_defaults(self, mock_list):
         mock_list.return_value = _resp(content=b'{"data": []}')
         self._mgmt().environments.list()
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=None, page_size=None)
 
-    @patch("smplkit.management.client._gen_list_environments.sync_detailed")
+    @patch("smplkit.management._client._gen_list_environments.sync_detailed")
     def test_environments_list_forwards(self, mock_list):
         mock_list.return_value = _resp(content=b'{"data": []}')
         self._mgmt().environments.list(page_number=3, page_size=50)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=3, page_size=50)
 
-    @patch("smplkit.management.client._gen_list_environments.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.management._client._gen_list_environments.asyncio_detailed", new_callable=AsyncMock)
     def test_environments_async_list_forwards(self, mock_list):
         mock_list.return_value = _resp(content=b'{"data": []}')
         asyncio.run(self._async_mgmt().environments.list(page_number=2, page_size=25))
@@ -364,13 +364,13 @@ class TestManagementListPaginationForwarding:
     # Context types
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management.client._gen_list_context_types.sync_detailed")
+    @patch("smplkit.management._client._gen_list_context_types.sync_detailed")
     def test_context_types_list_forwards(self, mock_list):
         mock_list.return_value = _resp(content=b'{"data": []}')
         self._mgmt().context_types.list(page_number=4, page_size=10)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=4, page_size=10)
 
-    @patch("smplkit.management.client._gen_list_context_types.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.management._client._gen_list_context_types.asyncio_detailed", new_callable=AsyncMock)
     def test_context_types_async_list_forwards(self, mock_list):
         mock_list.return_value = _resp(content=b'{"data": []}')
         asyncio.run(self._async_mgmt().context_types.list(page_number=4, page_size=10))
@@ -380,14 +380,14 @@ class TestManagementListPaginationForwarding:
     # Contexts
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management.client._gen_list_contexts.sync_detailed")
+    @patch("smplkit.management._client._gen_list_contexts.sync_detailed")
     def test_contexts_list_forwards(self, mock_list):
         mock_list.return_value = _resp(content=b'{"data": []}')
         self._mgmt().contexts.list("user", page_number=5, page_size=20)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=5, page_size=20)
         assert mock_list.call_args.kwargs["filtercontext_type"] == "user"
 
-    @patch("smplkit.management.client._gen_list_contexts.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.management._client._gen_list_contexts.asyncio_detailed", new_callable=AsyncMock)
     def test_contexts_async_list_forwards(self, mock_list):
         mock_list.return_value = _resp(content=b'{"data": []}')
         asyncio.run(self._async_mgmt().contexts.list("user", page_number=5, page_size=20))
@@ -397,13 +397,13 @@ class TestManagementListPaginationForwarding:
     # Config
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management.client._gen_list_configs.sync_detailed")
+    @patch("smplkit.management._client._gen_list_configs.sync_detailed")
     def test_config_list_forwards(self, mock_list):
         mock_list.return_value = _list_resp([])
         self._mgmt().config.list(page_number=2, page_size=100)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=2, page_size=100)
 
-    @patch("smplkit.management.client._gen_list_configs.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.management._client._gen_list_configs.asyncio_detailed", new_callable=AsyncMock)
     def test_config_async_list_forwards(self, mock_list):
         mock_list.return_value = _list_resp([])
         asyncio.run(self._async_mgmt().config.list(page_number=2, page_size=100))
@@ -413,13 +413,13 @@ class TestManagementListPaginationForwarding:
     # Flags
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management.client._gen_list_flags.sync_detailed")
+    @patch("smplkit.management._client._gen_list_flags.sync_detailed")
     def test_flags_list_forwards(self, mock_list):
         mock_list.return_value = _resp(content=b'{"data": []}')
         self._mgmt().flags.list(page_number=7, page_size=42)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=7, page_size=42)
 
-    @patch("smplkit.management.client._gen_list_flags.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.management._client._gen_list_flags.asyncio_detailed", new_callable=AsyncMock)
     def test_flags_async_list_forwards(self, mock_list):
         mock_list.return_value = _resp(content=b'{"data": []}')
         asyncio.run(self._async_mgmt().flags.list(page_number=7, page_size=42))
@@ -429,13 +429,13 @@ class TestManagementListPaginationForwarding:
     # Loggers
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management.client._gen_list_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_list_loggers.sync_detailed")
     def test_loggers_list_forwards(self, mock_list):
         mock_list.return_value = _list_resp([])
         self._mgmt().loggers.list(page_number=9, page_size=11)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=9, page_size=11)
 
-    @patch("smplkit.management.client._gen_list_loggers.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.management._client._gen_list_loggers.asyncio_detailed", new_callable=AsyncMock)
     def test_loggers_async_list_forwards(self, mock_list):
         mock_list.return_value = _list_resp([])
         asyncio.run(self._async_mgmt().loggers.list(page_number=9, page_size=11))
@@ -445,13 +445,13 @@ class TestManagementListPaginationForwarding:
     # Log groups
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management.client._gen_list_log_groups.sync_detailed")
+    @patch("smplkit.management._client._gen_list_log_groups.sync_detailed")
     def test_log_groups_list_forwards(self, mock_list):
         mock_list.return_value = _list_resp([])
         self._mgmt().log_groups.list(page_number=6, page_size=8)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=6, page_size=8)
 
-    @patch("smplkit.management.client._gen_list_log_groups.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.management._client._gen_list_log_groups.asyncio_detailed", new_callable=AsyncMock)
     def test_log_groups_async_list_forwards(self, mock_list):
         mock_list.return_value = _list_resp([])
         asyncio.run(self._async_mgmt().log_groups.list(page_number=6, page_size=8))
@@ -460,12 +460,12 @@ class TestManagementListPaginationForwarding:
 
 class TestPaginationKwargsHelper:
     def test_empty_when_both_none(self):
-        from smplkit.management.client import _pagination_kwargs
+        from smplkit.management._client import _pagination_kwargs
 
         assert _pagination_kwargs(None, None) == {}
 
     def test_includes_only_set_values(self):
-        from smplkit.management.client import _pagination_kwargs
+        from smplkit.management._client import _pagination_kwargs
 
         assert _pagination_kwargs(2, None) == {"pagenumber": 2}
         assert _pagination_kwargs(None, 50) == {"pagesize": 50}

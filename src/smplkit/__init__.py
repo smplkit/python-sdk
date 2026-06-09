@@ -2,8 +2,8 @@
 
 import enum
 
-from smplkit.audit.client import AsyncSmplAuditClient, SmplAuditClient
-from smplkit.client import AsyncSmplClient, SmplClient
+from smplkit.audit._client import AsyncSmplAuditClient, SmplAuditClient
+from smplkit._client import AsyncSmplClient, SmplClient
 from smplkit._errors import (
     ApiErrorDetail,
     Error,
@@ -17,7 +17,7 @@ from smplkit._errors import (
 from smplkit.config.models import ConfigEnvironment, ConfigItem, ItemType
 from smplkit.flags.models import FlagEnvironment, FlagRule, FlagValue
 from smplkit.flags.types import AsyncContext, Context, FlagDeclaration, Op, Rule
-from smplkit.jobs.client import AsyncSmplJobsClient, SmplJobsClient
+from smplkit.jobs._client import AsyncSmplJobsClient, SmplJobsClient
 from smplkit.logging._sources import LoggerSource
 from smplkit.management.types import Color, EnvironmentClassification
 

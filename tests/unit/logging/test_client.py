@@ -94,7 +94,7 @@ def _ok_response(parsed=None, status=HTTPStatus.OK):
 
 def _make_logging_client(**kwargs):
     """Create a LoggingClient with a mocked parent + real management/loggers subclient."""
-    from smplkit.management.client import LoggersClient as _MgmtLoggersClient
+    from smplkit.management._client import LoggersClient as _MgmtLoggersClient
 
     parent = MagicMock()
     parent._api_key = "sk_test"
@@ -697,7 +697,7 @@ class TestLogGroupConvenienceMethods:
 class TestStart:
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_install_connects(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
@@ -714,7 +714,7 @@ class TestStart:
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_install_is_idempotent(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
@@ -872,7 +872,7 @@ class TestLoggerRegistrationBuffer:
 class TestBulkFlush:
     """Coverage of ``mgmt.loggers.flush()`` driven from the runtime buffer."""
 
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     def test_flush_sends_batch(self, mock_bulk):
         mock_bulk.return_value = _ok_response()
         client = _make_logging_client()
@@ -880,7 +880,7 @@ class TestBulkFlush:
         client._parent.manage.loggers.flush()
         mock_bulk.assert_called_once()
 
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     def test_flush_includes_service_and_environment(self, mock_bulk):
         """Flush payload includes service and environment when provided."""
         mock_bulk.return_value = _ok_response()
@@ -894,7 +894,7 @@ class TestBulkFlush:
         assert item.service == "my-svc"
         assert item.environment == "production"
 
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     def test_flush_noop_when_empty(self, mock_bulk):
         client = _make_logging_client()
         client._parent.manage.loggers.flush()
@@ -909,7 +909,7 @@ class TestBulkFlush:
 class TestPayloadAssembly:
     """Verify correct level/resolved_level values in the bulk registration payload."""
 
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     def test_logger_with_explicit_level_sends_both(self, mock_bulk):
         """Logger with explicit level: both level and resolved_level are non-null."""
         mock_bulk.return_value = _ok_response()
@@ -942,7 +942,7 @@ class TestPayloadAssembly:
         assert item.level == "ERROR"
         assert item.resolved_level == "ERROR"
 
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     def test_logger_without_explicit_level_sends_null_level(self, mock_bulk):
         """Logger with no explicit level: level is null, resolved_level is parent's level."""
         mock_bulk.return_value = _ok_response()
@@ -982,7 +982,7 @@ class TestPayloadAssembly:
         assert item.level is None or item.level is UNSET
         assert item.resolved_level == "WARN"
 
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     def test_root_logger_has_non_null_level(self, mock_bulk):
         """Root logger always has an explicit level."""
         mock_bulk.return_value = _ok_response()
@@ -1108,7 +1108,7 @@ class TestRefresh:
 class TestConnectFlow:
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_runs_full_flow(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
@@ -1131,7 +1131,7 @@ class TestConnectFlow:
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_applies_managed_levels(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         test_name = "test.connect.managed_apply_flow"
@@ -1156,7 +1156,7 @@ class TestConnectFlow:
 
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_idempotent(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_adapter = MagicMock()
@@ -1243,7 +1243,7 @@ def _make_group_response(key="db-loggers", level="WARN", parent_id=None):
 class TestWebSocketEventHandling:
     @patch("smplkit.logging.client.list_log_groups.sync_detailed")
     @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     @patch("smplkit.logging.client._auto_load_adapters")
     def test_connect_registers_ws_handlers(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         """_connect_internal registers handlers for all five logger events."""
@@ -1752,7 +1752,7 @@ class TestLogLevelValue:
 
 
 class TestRegisterAndFlush:
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     def test_register_with_flush_sends_immediately(self, mock_bulk):
         from smplkit.logging._sources import LoggerSource
 
@@ -1773,7 +1773,7 @@ class TestRegisterAndFlush:
         _, kwargs = mock_bulk.call_args
         assert kwargs["body"].loggers[0].service == "api"
 
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     def test_register_includes_explicit_level(self, mock_bulk):
         from smplkit.logging._sources import LoggerSource
 
@@ -1794,13 +1794,13 @@ class TestRegisterAndFlush:
         _, kwargs = mock_bulk.call_args
         assert kwargs["body"].loggers[0].level == "DEBUG"
 
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     def test_flush_with_empty_buffer_skips_call(self, mock_bulk):
         mgmt = _new_mgmt()
         mgmt.loggers.flush()
         mock_bulk.assert_not_called()
 
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.management._client._gen_bulk_register_loggers.sync_detailed")
     def test_register_with_flush_propagates_unexpected_errors(self, mock_bulk):
         from smplkit.logging._sources import LoggerSource
 
@@ -1817,7 +1817,7 @@ class TestRegisterAndFlush:
 
 def test_logging_client_extra_headers_reach_transport() -> None:
     """extra_headers are stored on LoggingClient._logging_http and applied to every request."""
-    from smplkit.client import SmplClient
+    from smplkit._client import SmplClient
 
     client = SmplClient(api_key="sk_api_test", environment="test", service="svc", extra_headers={"X-Test": "v"})
     try:

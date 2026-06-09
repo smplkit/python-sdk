@@ -25,7 +25,7 @@ from smplkit.config.models import AsyncConfig, Config, ConfigEnvironment
 
 if TYPE_CHECKING:  # pragma: no cover
     from smplkit.config.client import AsyncConfigClient, ConfigClient
-    from smplkit.management.client import (
+    from smplkit.management._client import (
         AsyncConfigClient as AsyncMgmtConfigClient,
         ConfigClient as MgmtConfigClient,
     )

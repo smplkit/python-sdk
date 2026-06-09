@@ -71,8 +71,8 @@ from smplkit.logging._sources import LoggerSource
 
 if TYPE_CHECKING:
     from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
-    from smplkit.client import AsyncSmplClient, SmplClient
-    from smplkit.management.client import _AsyncManagementNamespace, _ManagementNamespace
+    from smplkit._client import AsyncSmplClient, SmplClient
+    from smplkit.management._client import _AsyncManagementNamespace, _ManagementNamespace
 
 logger = stdlib_logging.getLogger("smplkit")
 

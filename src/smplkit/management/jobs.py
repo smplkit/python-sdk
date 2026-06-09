@@ -11,6 +11,6 @@ e.g. ``from smplkit.management.jobs import HttpConfig`` — keep resolving.
 Import from :mod:`smplkit.jobs` in new code.
 """
 
-from smplkit.jobs.client import AsyncJob, HttpConfig, Job, Run, Usage
+from smplkit.jobs._client import AsyncJob, HttpConfig, Job, Run, Usage
 
 __all__ = ["HttpConfig", "Job", "AsyncJob", "Run", "Usage"]

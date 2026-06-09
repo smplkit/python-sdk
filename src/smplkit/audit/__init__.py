@@ -26,7 +26,6 @@ The shared dataclasses (``Event``, ``Forwarder``, ``AsyncForwarder``,
 re-exported here for convenience.
 """
 
-from smplkit.audit.client import AsyncSmplAuditClient, SmplAuditClient
 from smplkit.audit.models import (
     AsyncForwarder,
     Category,
@@ -44,7 +43,6 @@ from smplkit.audit.models import (
 
 __all__ = [
     "AsyncForwarder",
-    "AsyncSmplAuditClient",
     "Category",
     "Event",
     "EventType",
@@ -55,6 +53,5 @@ __all__ = [
     "HttpHeader",
     "HttpMethod",
     "ResourceType",
-    "SmplAuditClient",
     "TransformType",
 ]
