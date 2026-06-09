@@ -2,7 +2,7 @@
 
 Runtime: declare typed handles, evaluate via JSON Logic, cache
 results, and react to live updates over a shared WebSocket. CRUD has
-moved to :class:`smplkit.SmplManagementClient` (``mgmt.flags.*``).
+moved to ``client.manage`` (``mgmt.flags.*``).
 """
 
 from __future__ import annotations
@@ -56,7 +56,7 @@ if TYPE_CHECKING:
     from smplkit._ws import SharedWebSocket
     from smplkit.client import AsyncSmplClient, SmplClient
     from smplkit.flags.types import Context
-    from smplkit.management.client import AsyncSmplManagementClient, SmplManagementClient
+    from smplkit.management.client import _AsyncManagementNamespace, _ManagementNamespace
 
 logger = logging.getLogger("smplkit")
 ws_logger = logging.getLogger("smplkit.flags.ws")
@@ -205,7 +205,7 @@ class FlagsClient:
         self,
         parent: SmplClient,
         *,
-        manage: SmplManagementClient,
+        manage: _ManagementNamespace,
         metrics: _MetricsReporter | None,
         flags_base_url: str = _DEFAULT_FLAGS_BASE_URL,
         app_base_url: str = _DEFAULT_APP_BASE_URL,
@@ -307,6 +307,7 @@ class FlagsClient:
         ``_MAX_START_RETRY_DELAY`` seconds).  Evaluations during that
         window fall back to handle defaults rather than raising.
         """
+        self._parent._ensure_started()
         if self._connected:
             return
         if time.monotonic() < self._next_start_attempt_at:
@@ -590,14 +591,14 @@ class FlagsClient:
 class AsyncFlagsClient:
     """Asynchronous flags runtime namespace.  Obtained via ``AsyncSmplClient(...).flags``.
 
-    CRUD has moved to ``AsyncSmplManagementClient.flags`` (``mgmt.flags.*``).
+    CRUD has moved to ``client.manage.flags`` (``mgmt.flags.*``).
     """
 
     def __init__(
         self,
         parent: AsyncSmplClient,
         *,
-        manage: AsyncSmplManagementClient,
+        manage: _AsyncManagementNamespace,
         metrics: _AsyncMetricsReporter | None,
         flags_base_url: str = _DEFAULT_FLAGS_BASE_URL,
         app_base_url: str = _DEFAULT_APP_BASE_URL,
@@ -690,6 +691,7 @@ class AsyncFlagsClient:
         stay queued, the client remains *not connected*, and the next
         call retries after an exponentially backed-off delay.
         """
+        self._parent._ensure_started()
         if self._connected:
             return
         if time.monotonic() < self._next_start_attempt_at:

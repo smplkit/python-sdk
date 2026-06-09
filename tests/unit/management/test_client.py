@@ -18,12 +18,10 @@ from smplkit.management.client import (
     AsyncContextTypesClient,
     AsyncEnvironmentsClient,
     AsyncServicesClient,
-    AsyncSmplManagementClient,
     ContextsClient,
     ContextTypesClient,
     EnvironmentsClient,
     ServicesClient,
-    SmplManagementClient,
     _build_bulk_register_body,
     _check_status,
     _ct_from_parsed,
@@ -1688,17 +1686,21 @@ class TestAsyncAccountSettingsClient:
 # ---------------------------------------------------------------------------
 
 
-class TestSmplManagementClient:
+class TestManagementNamespace:
     def test_init_wires_sub_clients(self, monkeypatch):
+        from smplkit import SmplClient
         from smplkit.management.client import (
             ConfigClient,
             FlagsClient as MgmtFlagsClient,
             LogGroupsClient,
             LoggersClient,
+            _ManagementNamespace,
         )
 
         monkeypatch.setenv("SMPLKIT_API_KEY", "sk_test")
-        mc = SmplManagementClient(base_domain="example.test")
+        client = SmplClient(base_domain="example.test")
+        mc = client.manage
+        assert isinstance(mc, _ManagementNamespace)
         assert isinstance(mc.environments, EnvironmentsClient)
         assert isinstance(mc.contexts, ContextsClient)
         assert isinstance(mc.context_types, ContextTypesClient)
@@ -1707,20 +1709,29 @@ class TestSmplManagementClient:
         assert isinstance(mc.flags, MgmtFlagsClient)
         assert isinstance(mc.loggers, LoggersClient)
         assert isinstance(mc.log_groups, LogGroupsClient)
-        mc.close()
+        # audit/jobs are NOT on the management namespace — they are top-level.
+        assert not hasattr(mc, "audit")
+        assert not hasattr(mc, "jobs")
+        client.close()
 
 
-class TestAsyncSmplManagementClient:
+class TestAsyncManagementNamespace:
     def test_init_wires_sub_clients(self, monkeypatch):
+        import asyncio
+
+        from smplkit import AsyncSmplClient
         from smplkit.management.client import (
             AsyncConfigClient,
             AsyncFlagsClient as AsyncMgmtFlagsClient,
             AsyncLogGroupsClient,
             AsyncLoggersClient,
+            _AsyncManagementNamespace,
         )
 
         monkeypatch.setenv("SMPLKIT_API_KEY", "sk_test")
-        mc = AsyncSmplManagementClient(base_domain="example.test")
+        client = AsyncSmplClient(base_domain="example.test")
+        mc = client.manage
+        assert isinstance(mc, _AsyncManagementNamespace)
         assert isinstance(mc.environments, AsyncEnvironmentsClient)
         assert isinstance(mc.contexts, AsyncContextsClient)
         assert isinstance(mc.context_types, AsyncContextTypesClient)
@@ -1729,6 +1740,9 @@ class TestAsyncSmplManagementClient:
         assert isinstance(mc.flags, AsyncMgmtFlagsClient)
         assert isinstance(mc.loggers, AsyncLoggersClient)
         assert isinstance(mc.log_groups, AsyncLogGroupsClient)
+        assert not hasattr(mc, "audit")
+        assert not hasattr(mc, "jobs")
+        asyncio.run(client.close())
 
 
 # ---------------------------------------------------------------------------

@@ -14,7 +14,7 @@ from smplkit.audit._buffer import (
     MAX_BUFFER_SIZE,
     _PendingEvent,
 )
-from smplkit.audit.client import AuditClient
+from smplkit.audit.client import SmplAuditClient
 from smplkit.audit.models import Event
 
 
@@ -133,7 +133,7 @@ def test_create_returns_immediately(monkeypatch):
         }
     }
     transport = httpx.MockTransport(lambda req: httpx.Response(201, json=_success_body))
-    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client = SmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     # Replace the underlying httpx client so we never actually go to the network.
     client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     # Re-bind the buffer to use the new http client's POST behavior.
@@ -180,7 +180,7 @@ def test_record_do_not_forward_serialized_on_wire():
         return httpx.Response(201, json=success_body)
 
     transport = httpx.MockTransport(handler)
-    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client = SmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         client.events.record(
@@ -224,7 +224,7 @@ def test_record_flush_true_blocks_until_drained():
         return httpx.Response(201, json=success_body)
 
     transport = httpx.MockTransport(handler)
-    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client = SmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
 
     # Stub the post_fn so the test can observe the in-flight item.
@@ -317,7 +317,7 @@ def test_record_passes_actor_fields_to_wire():
         return httpx.Response(201, json=success_body)
 
     transport = httpx.MockTransport(handler)
-    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client = SmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         client.events.record(
@@ -335,6 +335,63 @@ def test_record_passes_actor_fields_to_wire():
         assert '"actor_label":"BillingBot"' in body
     finally:
         client._close()
+
+
+def test_record_category_serialized_on_wire():
+    """``category=...`` survives the wrapper into the JSON body — the audit
+    service stores it verbatim and surfaces it via ``filter[category]`` and
+    the ``categories`` discovery listing."""
+    posts: list[str] = []
+    success_body = {
+        "data": {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "type": "event",
+            "attributes": {
+                "event_type": "invoice.created",
+                "resource_type": "invoice",
+                "resource_id": "inv-1",
+                "occurred_at": "2026-05-06T12:00:00+00:00",
+                "created_at": "2026-05-06T12:00:01+00:00",
+                "actor_type": "API_KEY",
+                "actor_id": None,
+                "actor_label": "",
+                "category": "billing",
+                "data": {},
+                "idempotency_key": "auto",
+            },
+        }
+    }
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        posts.append(req.content.decode())
+        return httpx.Response(201, json=success_body)
+
+    transport = httpx.MockTransport(handler)
+    client = SmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
+    try:
+        client.events.record(
+            event_type="invoice.created",
+            resource_type="invoice",
+            resource_id="inv-1",
+            category="billing",
+            flush=True,
+        )
+        body = "".join(posts).replace(" ", "")
+        assert '"category":"billing"' in body
+    finally:
+        client._close()
+
+
+def test_event_from_resource_surfaces_category():
+    """The read model surfaces a recorded ``category`` and leaves it ``None``
+    when the event was recorded without one."""
+    with_cat = _make_resource("66666666-6666-6666-6666-666666666666")
+    with_cat["attributes"]["category"] = "billing"
+    assert Event._from_resource(with_cat).category == "billing"
+
+    without_cat = _make_resource("77777777-7777-7777-7777-777777777777")
+    assert Event._from_resource(without_cat).category is None
 
 
 def test_event_from_resource_handles_z_suffix_timestamps():

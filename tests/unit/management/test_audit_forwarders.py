@@ -23,7 +23,7 @@ from smplkit.audit import (
     HttpMethod,
     TransformType,
 )
-from smplkit.management.audit import AuditClient
+from smplkit.audit.client import SmplAuditClient
 
 
 JSONAPI = "application/vnd.api+json"
@@ -72,7 +72,7 @@ def _forwarder_resource(
     }
 
 
-def _client_with_handler(handler) -> AuditClient:
+def _client_with_handler(handler) -> SmplAuditClient:
     auth = _AuditAuthClient(base_url="https://audit.example.com", token="sk_api_test")
     auth.set_httpx_client(
         httpx.Client(
@@ -80,7 +80,7 @@ def _client_with_handler(handler) -> AuditClient:
             base_url="https://audit.example.com",
         )
     )
-    return AuditClient(auth_client=auth)
+    return SmplAuditClient(auth_client=auth)
 
 
 # ---------------------------------------------------------------------------
@@ -748,10 +748,10 @@ class TestForwardersCrud:
 
 
 def test_async_client_exposes_forwarders():
-    """The management ``AsyncAuditClient`` mirrors the sync one — the
-    forwarders surface must reach async callers."""
-    from smplkit.management.audit import AsyncAuditClient
+    """The async audit client exposes the genuinely-async forwarders surface."""
+    from smplkit.audit.client import AsyncSmplAuditClient
+    from smplkit.management.audit import AsyncForwardersClient
 
     auth = _AuditAuthClient(base_url="https://audit.example.com", token="sk_api_test")
-    c = AsyncAuditClient(auth_client=auth)
-    assert c.forwarders is not None
+    c = AsyncSmplAuditClient(auth_client=auth)
+    assert isinstance(c.forwarders, AsyncForwardersClient)

@@ -22,17 +22,17 @@ _TEST_UUID = "550e8400-e29b-41d4-a716-446655440000"
 
 
 def _new_mgmt():
-    """Build a SmplManagementClient for management-flavored tests."""
-    from smplkit import SmplManagementClient
+    """Build a management namespace (client.manage) for management-flavored tests."""
+    from smplkit import SmplClient
 
-    return SmplManagementClient(api_key="sk_test", base_domain="example.test")
+    return SmplClient(api_key="sk_test", base_domain="example.test").manage
 
 
 def _new_async_mgmt():
-    """Build an AsyncSmplManagementClient for management-flavored tests."""
-    from smplkit import AsyncSmplManagementClient
+    """Build an async management namespace (client.manage) for management-flavored tests."""
+    from smplkit import AsyncSmplClient
 
-    return AsyncSmplManagementClient(api_key="sk_test", base_domain="example.test")
+    return AsyncSmplClient(api_key="sk_test", base_domain="example.test").manage
 
 
 def _make_logger_attrs(*, name="SQL Logger", level="DEBUG", group=None, managed=True):

@@ -1,21 +1,23 @@
-"""Audit runtime client.
+"""The Smpl Audit client.
 
-Public surface (runtime):
+Audit installs no in-process machinery, so it has no runtime/management
+split: one :class:`SmplAuditClient` (sync) / :class:`AsyncSmplAuditClient`
+(async) exposes the full surface, reachable as ``client.audit``,
+``mgmt.audit``, or standalone:
 
-    client.audit.events.record(event_type, resource_type, resource_id, ..., flush=False)
-    client.audit.events.flush(timeout=5.0)
-    client.audit.events.list(...)
-    client.audit.events.get(event_id)
-    client.audit.resource_types.list(...)
-    client.audit.event_types.list(filter_resource_type=None, ...)
+    audit.events.record(event_type, resource_type, resource_id, ..., flush=False)
+    audit.events.flush(timeout=5.0)
+    audit.events.list(...)
+    audit.events.get(event_id)
+    audit.resource_types.list(...)
+    audit.event_types.list(filter_resource_type=None, ...)
+    audit.categories.list(...)
+    audit.forwarders.new/get/list/save/delete(...)
 
-The runtime audit client owns event recording and read-side queries —
-fire-and-forget ``record``, plus the audit-log list/get and the
-distinct-value listings that back the Activity tab filter dropdowns.
-
-Management-plane operations (SIEM forwarder CRUD, ``test_forwarder``,
-``wipe``) live on :class:`smplkit.SmplManagementClient` under
-``mgmt.audit.*``. ADR-047 §2.7.
+The async client is genuinely async: reads, discovery, and forwarder CRUD
+perform their network round-trips with ``await``. Only ``events.record`` is
+fire-and-forget (it enqueues onto a background worker thread and returns
+without awaiting), which is the correct shape for the hot path.
 
 By default ``record`` enqueues onto an in-memory bounded buffer
 (``smplkit.audit._buffer``) and returns immediately; the buffer's
@@ -32,6 +34,7 @@ HTTP requests.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any
@@ -39,6 +42,11 @@ from uuid import UUID
 
 import httpx
 
+from smplkit._config import _service_url, resolve_management_config
+
+from smplkit._generated.audit.api.categories import (
+    list_categories as _gen_list_categories,
+)
 from smplkit._generated.audit.api.event_types import (
     list_event_types as _gen_list_event_types,
 )
@@ -58,7 +66,7 @@ from smplkit._generated.audit.models.event_resource import EventResource as _Gen
 from smplkit._generated.audit.models.event_response import EventResponse as _GenEventResponse
 from smplkit._generated.audit.types import UNSET
 from smplkit.audit._buffer import AuditEventBuffer, _PendingEvent
-from smplkit.audit.models import Event, EventType, ResourceType
+from smplkit.audit.models import Category, Event, EventType, ResourceType
 
 logger = logging.getLogger("smplkit.audit")
 
@@ -180,25 +188,145 @@ class EventTypeListPage:
         return len(self.event_types)
 
 
+class CategoryListPage:
+    """A single page from ``client.audit.categories.list(...)``.
+
+    ``categories`` is the page; ``pagination`` is the response's
+    ``meta.pagination`` block (`page`, `size`, and — only when the
+    caller passed `meta_total=True` — `total` and `total_pages`).
+    """
+
+    __slots__ = ("categories", "pagination")
+
+    def __init__(
+        self,
+        *,
+        categories: list[Category],
+        pagination: dict[str, int],
+    ) -> None:
+        self.categories = categories
+        self.pagination = pagination
+
+    def __iter__(self):
+        return iter(self.categories)
+
+    def __len__(self) -> int:
+        return len(self.categories)
+
+
+def _audit_transport(
+    *,
+    api_key: str | None,
+    base_url: str | None,
+    environment: str | None,
+    profile: str | None,
+    base_domain: str | None,
+    scheme: str | None,
+    debug: bool | None,
+    extra_headers: dict[str, str] | None,
+) -> AuthenticatedClient:
+    """Build a standalone audit transport from resolved config.
+
+    ``base_url``/``api_key`` are used directly when both are supplied (the
+    path a top-level client takes after it has already resolved them);
+    otherwise the management config resolver fills in whatever is missing
+    (``~/.smplkit`` / env vars / defaults). ``environment`` is optional —
+    when present it is stamped as ``X-Smplkit-Environment`` so event
+    recording and reads scope to it server-side (ADR-055); when absent the
+    client still works (forwarder CRUD and discovery are environment-agnostic,
+    and reads accept an explicit ``environments=[...]`` filter).
+    """
+    if api_key is None or base_url is None:
+        cfg = resolve_management_config(
+            profile=profile,
+            api_key=api_key,
+            base_domain=base_domain,
+            scheme=scheme,
+            debug=debug,
+        )
+        api_key = api_key if api_key is not None else cfg.api_key
+        base_url = base_url if base_url is not None else _service_url(cfg.scheme, "audit", cfg.base_domain)
+        cfg_extra = cfg.extra_headers
+    else:
+        cfg_extra = None
+    headers: dict[str, str] = {"Accept": "application/vnd.api+json"}
+    if environment is not None:
+        headers["X-Smplkit-Environment"] = environment
+    headers.update(cfg_extra or {})
+    headers.update(extra_headers or {})
+    return AuthenticatedClient(
+        base_url=base_url.rstrip("/"),
+        token=api_key,
+        timeout=httpx.Timeout(10.0),
+        headers=headers,
+    )
+
+
+def _build_record_body(
+    event_type: str,
+    resource_type: str,
+    resource_id: str,
+    *,
+    occurred_at: datetime | None,
+    actor_type: str | None,
+    actor_id: str | None,
+    actor_label: str | None,
+    category: str | None,
+    data: dict[str, Any] | None,
+    do_not_forward: bool,
+) -> _GenEventResponse:
+    """Build the generated event-record request body (shared sync/async)."""
+    attrs = _GenEvent(
+        event_type=event_type,
+        resource_type=resource_type,
+        resource_id=resource_id,
+    )
+    if occurred_at is not None:
+        attrs.occurred_at = occurred_at.astimezone(timezone.utc)
+    if actor_type is not None:
+        attrs.actor_type = actor_type
+    if actor_id is not None:
+        attrs.actor_id = actor_id
+    if actor_label is not None:
+        attrs.actor_label = actor_label
+    if category is not None:
+        attrs.category = category
+    if data is not None:
+        attrs.data = _GenEventData.from_dict(data)
+    if do_not_forward:
+        attrs.do_not_forward = True
+    return _GenEventResponse(data=_GenEventResource(id="", attributes=attrs))
+
+
+def _record_post_fn(auth: AuthenticatedClient):
+    """Build the buffer ``post_fn`` that POSTs a pending event synchronously.
+
+    The audit event buffer drains on a background worker thread, so the POST
+    is synchronous even for the async client — it runs off the event loop and
+    never blocks it.
+    """
+
+    def _post(item: _PendingEvent) -> "int | Exception":
+        try:
+            idem = item.idempotency_key if item.idempotency_key is not None else UNSET
+            resp = _gen_record_event.sync_detailed(
+                client=auth,
+                body=item.body,
+                idempotency_key=idem,
+            )
+            return resp.status_code
+        except httpx.HTTPError as exc:
+            return exc
+
+    return _post
+
+
 class _EventsClient:
-    """Surface for ``client.audit.events.*``."""
+    """Surface for ``client.audit.events.*`` (sync)."""
 
     def __init__(self, *, auth_client: AuthenticatedClient) -> None:
         self._auth = auth_client
-
-        def _post(item: _PendingEvent) -> "int | Exception":
-            try:
-                idem = item.idempotency_key if item.idempotency_key is not None else UNSET
-                resp = _gen_record_event.sync_detailed(
-                    client=self._auth,
-                    body=item.body,
-                    idempotency_key=idem,
-                )
-                return resp.status_code
-            except httpx.HTTPError as exc:
-                return exc
-
-        self._buffer = AuditEventBuffer(post_fn=_post)
+        self._buffer = AuditEventBuffer(post_fn=_record_post_fn(auth_client))
 
     def record(
         self,
@@ -210,6 +338,7 @@ class _EventsClient:
         actor_type: str | None = None,
         actor_id: str | None = None,
         actor_label: str | None = None,
+        category: str | None = None,
         data: dict[str, Any] | None = None,
         idempotency_key: str | None = None,
         do_not_forward: bool = False,
@@ -249,6 +378,12 @@ class _EventsClient:
                 event. Any string scheme is accepted.
             actor_label: Human-readable label for the actor (e.g. an
                 email address or API key name).
+            category: Optional free-form bucket label for the event (e.g.
+                ``"auth"``, ``"billing"``, ``"config-change"``). Stored
+                exactly as supplied; powers the audit log's category
+                filter and the ``categories`` discovery listing
+                (:meth:`AuditClient.categories`). Omit it to leave the
+                event uncategorized.
             data: Free-form contextual JSON. To record a resource
                 snapshot, place it inside ``data`` -- smplkit's internal
                 convention nests it at ``data["snapshot"]`` for
@@ -276,25 +411,17 @@ class _EventsClient:
                 Ignored when ``flush`` is False. ``None`` blocks
                 indefinitely.
         """
-        attrs = _GenEvent(
-            event_type=event_type,
-            resource_type=resource_type,
-            resource_id=resource_id,
-        )
-        if occurred_at is not None:
-            attrs.occurred_at = occurred_at.astimezone(timezone.utc)
-        if actor_type is not None:
-            attrs.actor_type = actor_type
-        if actor_id is not None:
-            attrs.actor_id = actor_id
-        if actor_label is not None:
-            attrs.actor_label = actor_label
-        if data is not None:
-            attrs.data = _GenEventData.from_dict(data)
-        if do_not_forward:
-            attrs.do_not_forward = True
-        body = _GenEventResponse(
-            data=_GenEventResource(id="", attributes=attrs),
+        body = _build_record_body(
+            event_type,
+            resource_type,
+            resource_id,
+            occurred_at=occurred_at,
+            actor_type=actor_type,
+            actor_id=actor_id,
+            actor_label=actor_label,
+            category=category,
+            data=data,
+            do_not_forward=do_not_forward,
         )
         self._buffer.enqueue(body, idempotency_key=idempotency_key)
         if flush:
@@ -460,89 +587,405 @@ class _EventTypesClient:
         )
 
 
-class AuditClient:
-    """``client.audit.*`` synchronous runtime surface.
+class _CategoriesClient:
+    """Surface for ``client.audit.categories.*``."""
 
-    Constructed by :class:`smplkit.SmplClient`; not intended for direct
-    instantiation.
+    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+        self._auth = auth_client
+
+    def list(
+        self,
+        *,
+        environments: list[str] | None = None,
+        page_number: int | None = None,
+        page_size: int | None = None,
+        meta_total: bool | None = None,
+    ) -> CategoryListPage:
+        """List the distinct ``category`` values seen in the account.
+
+        Backed by a maintain-by-write side table (ADR-047 §2.5), so the
+        response time is independent of how many years of events the
+        account has accumulated. Sorted alphabetically; offset paginated
+        per ADR-014.
+
+        ``environments`` scopes the listing to a set of environments:
+        pass a list of environment keys and/or the reserved ``"smplkit"``
+        control-plane bucket; the values are sent comma-separated as
+        ``filter[environment]``. Omit it (the default) to leave the
+        param off entirely.
+        """
+        resp = _gen_list_categories.sync_detailed(
+            client=self._auth,
+            filterenvironment=_join_environments(environments),
+            pagenumber=page_number if page_number is not None else UNSET,
+            pagesize=page_size if page_size is not None else UNSET,
+            metatotal=meta_total if meta_total is not None else UNSET,
+        )
+        _expect_status(resp, 200)
+        body_dict = resp.parsed.to_dict()
+        rows = [Category._from_resource(r) for r in body_dict.get("data", [])]
+        return CategoryListPage(
+            categories=rows,
+            pagination=_extract_pagination(body_dict),
+        )
+
+
+class _AsyncEventsClient:
+    """Surface for ``client.audit.events.*`` (async)."""
+
+    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+        self._auth = auth_client
+        self._buffer = AuditEventBuffer(post_fn=_record_post_fn(auth_client))
+
+    async def record(
+        self,
+        event_type: str,
+        resource_type: str,
+        resource_id: str,
+        *,
+        occurred_at: datetime | None = None,
+        actor_type: str | None = None,
+        actor_id: str | None = None,
+        actor_label: str | None = None,
+        category: str | None = None,
+        data: dict[str, Any] | None = None,
+        idempotency_key: str | None = None,
+        do_not_forward: bool = False,
+        flush: bool = False,
+        flush_timeout: float | None = 5.0,
+    ) -> None:
+        """Enqueue an audit event for asynchronous delivery.
+
+        Fire-and-forget: the event is appended to an in-memory buffer drained
+        by a background worker thread, so this returns without awaiting any
+        network round-trip — nothing blocks the event loop. The arguments
+        match :meth:`smplkit.audit.SmplAuditClient.events.record`. When
+        ``flush=True`` the buffer drain is awaited off the loop (run in a
+        thread executor) so it stays loop-safe.
+        """
+        body = _build_record_body(
+            event_type,
+            resource_type,
+            resource_id,
+            occurred_at=occurred_at,
+            actor_type=actor_type,
+            actor_id=actor_id,
+            actor_label=actor_label,
+            category=category,
+            data=data,
+            do_not_forward=do_not_forward,
+        )
+        self._buffer.enqueue(body, idempotency_key=idempotency_key)
+        if flush:
+            await self.flush(timeout=flush_timeout)
+
+    async def flush(self, timeout: float | None = 5.0) -> None:
+        """Drain the in-memory buffer, awaited off the event loop."""
+        await asyncio.get_running_loop().run_in_executor(None, self._buffer.flush, timeout)
+
+    async def list(
+        self,
+        *,
+        event_type: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        actor_type: str | None = None,
+        actor_id: str | None = None,
+        occurred_at_range: str | None = None,
+        environments: list[str] | None = None,
+        page_size: int | None = None,
+        page_after: str | None = None,
+    ) -> EventListPage:
+        """List audit events (async). See the sync client for argument semantics."""
+        resp = await _gen_list_events.asyncio_detailed(
+            client=self._auth,
+            filterevent_type=event_type if event_type is not None else UNSET,
+            filterresource_type=resource_type if resource_type is not None else UNSET,
+            filterresource_id=resource_id if resource_id is not None else UNSET,
+            filteractor_type=actor_type if actor_type is not None else UNSET,
+            filteractor_id=actor_id if actor_id is not None else UNSET,
+            filteroccurred_at=occurred_at_range if occurred_at_range is not None else UNSET,
+            filterenvironment=_join_environments(environments),
+            pagesize=page_size if page_size is not None else UNSET,
+            pageafter=page_after if page_after is not None else UNSET,
+        )
+        _expect_status(resp, 200)
+        body_dict = resp.parsed.to_dict()
+        events = [Event._from_resource(r) for r in body_dict.get("data", [])]
+        return EventListPage(events=events, next_cursor=_extract_next_cursor(body_dict))
+
+    async def get(self, event_id: UUID | str) -> Event:
+        """Retrieve a single audit event by id (async)."""
+        eid = event_id if isinstance(event_id, UUID) else UUID(str(event_id))
+        resp = await _gen_get_event.asyncio_detailed(eid, client=self._auth)
+        _expect_status(resp, 200)
+        return Event._from_resource(resp.parsed.to_dict()["data"])
+
+    def _close(self) -> None:
+        self._buffer.close()
+
+
+class _AsyncResourceTypesClient:
+    """Surface for ``client.audit.resource_types.*`` (async)."""
+
+    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+        self._auth = auth_client
+
+    async def list(
+        self,
+        *,
+        environments: list[str] | None = None,
+        page_number: int | None = None,
+        page_size: int | None = None,
+        meta_total: bool | None = None,
+    ) -> ResourceTypeListPage:
+        """List distinct ``resource_type`` slugs (async). See sync client for semantics."""
+        resp = await _gen_list_resource_types.asyncio_detailed(
+            client=self._auth,
+            filterenvironment=_join_environments(environments),
+            pagenumber=page_number if page_number is not None else UNSET,
+            pagesize=page_size if page_size is not None else UNSET,
+            metatotal=meta_total if meta_total is not None else UNSET,
+        )
+        _expect_status(resp, 200)
+        body_dict = resp.parsed.to_dict()
+        rows = [ResourceType._from_resource(r) for r in body_dict.get("data", [])]
+        return ResourceTypeListPage(resource_types=rows, pagination=_extract_pagination(body_dict))
+
+
+class _AsyncEventTypesClient:
+    """Surface for ``client.audit.event_types.*`` (async)."""
+
+    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+        self._auth = auth_client
+
+    async def list(
+        self,
+        *,
+        filter_resource_type: str | None = None,
+        environments: list[str] | None = None,
+        page_number: int | None = None,
+        page_size: int | None = None,
+        meta_total: bool | None = None,
+    ) -> EventTypeListPage:
+        """List distinct ``event_type`` slugs (async). See sync client for semantics."""
+        resp = await _gen_list_event_types.asyncio_detailed(
+            client=self._auth,
+            filterresource_type=(filter_resource_type if filter_resource_type is not None else UNSET),
+            filterenvironment=_join_environments(environments),
+            pagenumber=page_number if page_number is not None else UNSET,
+            pagesize=page_size if page_size is not None else UNSET,
+            metatotal=meta_total if meta_total is not None else UNSET,
+        )
+        _expect_status(resp, 200)
+        body_dict = resp.parsed.to_dict()
+        rows = [EventType._from_resource(r) for r in body_dict.get("data", [])]
+        return EventTypeListPage(event_types=rows, pagination=_extract_pagination(body_dict))
+
+
+class _AsyncCategoriesClient:
+    """Surface for ``client.audit.categories.*`` (async)."""
+
+    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+        self._auth = auth_client
+
+    async def list(
+        self,
+        *,
+        environments: list[str] | None = None,
+        page_number: int | None = None,
+        page_size: int | None = None,
+        meta_total: bool | None = None,
+    ) -> CategoryListPage:
+        """List distinct ``category`` values (async). See sync client for semantics."""
+        resp = await _gen_list_categories.asyncio_detailed(
+            client=self._auth,
+            filterenvironment=_join_environments(environments),
+            pagenumber=page_number if page_number is not None else UNSET,
+            pagesize=page_size if page_size is not None else UNSET,
+            metatotal=meta_total if meta_total is not None else UNSET,
+        )
+        _expect_status(resp, 200)
+        body_dict = resp.parsed.to_dict()
+        rows = [Category._from_resource(r) for r in body_dict.get("data", [])]
+        return CategoryListPage(categories=rows, pagination=_extract_pagination(body_dict))
+
+
+class SmplAuditClient:
+    """The Smpl Audit client (sync).
+
+    Audit installs no in-process machinery, so it has no runtime/management
+    split: one client exposes the full surface — event recording and reads,
+    distinct-value discovery, and SIEM forwarder CRUD — reachable as
+    ``client.audit`` (:class:`smplkit.SmplClient`) or constructed directly::
+
+        from smplkit import SmplAuditClient
+
+        with SmplAuditClient(environment="production") as audit:
+            audit.events.record("invoice.created", "invoice", "inv-1", flush=True)
+            for ft in audit.forwarders.list():
+                ...
+
+    Namespaces: ``events`` (record/flush/list/get), ``resource_types``,
+    ``event_types``, ``categories`` (discovery), and ``forwarders`` (CRUD).
+
+    Args:
+        api_key: API key. When omitted, resolved from ``SMPLKIT_API_KEY`` or
+            ``~/.smplkit``.
+        environment: Deployment environment to scope recording and reads to,
+            sent as ``X-Smplkit-Environment``. Optional — forwarder CRUD and
+            discovery are environment-agnostic, and reads accept an explicit
+            ``environments=[...]`` filter. When reached via ``SmplClient`` this
+            is the SDK's configured runtime environment; via ``mgmt.audit`` or
+            a standalone client without it, recording falls back to the
+            server-side default environment.
+        profile: Named ``~/.smplkit`` profile section.
+        base_url: Full audit-service base URL. Usually resolved from
+            ``base_domain``/``scheme``; supplied directly by the top-level
+            clients which have already computed it.
+        base_domain: Base domain for API requests (default ``"smplkit.com"``).
+        scheme: URL scheme (default ``"https"``).
+        debug: Enable SDK debug logging.
+        extra_headers: Extra headers attached to every request. An
+            ``X-Smplkit-Environment`` entry here wins over ``environment``.
+        auth_client: Internal — a pre-built transport supplied by a top-level
+            client so the audit surface shares one connection pool. Not for
+            direct use.
     """
 
     events: _EventsClient
     resource_types: _ResourceTypesClient
     event_types: _EventTypesClient
+    categories: _CategoriesClient
 
     def __init__(
         self,
+        api_key: str | None = None,
         *,
-        api_key: str,
-        base_url: str,
         environment: str | None = None,
+        base_url: str | None = None,
+        profile: str | None = None,
+        base_domain: str | None = None,
+        scheme: str | None = None,
+        debug: bool | None = None,
         extra_headers: dict[str, str] | None = None,
+        auth_client: AuthenticatedClient | None = None,
     ) -> None:
-        self._api_key = api_key
-        self._base_url = base_url.rstrip("/")
         self._environment = environment
-        # Runtime audit ops are environment-scoped: record / list / get /
-        # discovery all resolve their environment from the
-        # ``X-Smplkit-Environment`` request header (ADR-055). We stamp it
-        # once at the client level from the SDK's configured runtime
-        # environment so every generated call carries it. A caller-supplied
-        # ``extra_headers`` entry of the same name wins (explicit override).
-        headers: dict[str, str] = {"Accept": "application/vnd.api+json"}
-        if environment is not None:
-            headers["X-Smplkit-Environment"] = environment
-        headers.update(extra_headers or {})
-        self._auth = AuthenticatedClient(
-            base_url=self._base_url,
-            token=api_key,
-            timeout=httpx.Timeout(10.0),
-            headers=headers,
-        )
+        if auth_client is not None:
+            self._auth = auth_client
+            self._owns_transport = False
+        else:
+            self._auth = _audit_transport(
+                api_key=api_key,
+                base_url=base_url,
+                environment=environment,
+                profile=profile,
+                base_domain=base_domain,
+                scheme=scheme,
+                debug=debug,
+                extra_headers=extra_headers,
+            )
+            self._owns_transport = True
+        # Lazy import breaks the cycle: smplkit.management.audit imports the
+        # shared audit dataclasses from smplkit.audit.models, which is loaded
+        # before this client module.
+        from smplkit.management.audit import ForwardersClient
+
         self.events = _EventsClient(auth_client=self._auth)
         self.resource_types = _ResourceTypesClient(auth_client=self._auth)
         self.event_types = _EventTypesClient(auth_client=self._auth)
+        self.categories = _CategoriesClient(auth_client=self._auth)
+        self.forwarders = ForwardersClient(auth_client=self._auth)
 
     def _close(self) -> None:
         try:
             self.events._close()
         finally:
-            try:
-                self._auth.get_httpx_client().close()
-            except Exception:  # pragma: no cover — close is best-effort
-                pass
+            if self._owns_transport:
+                try:
+                    self._auth.get_httpx_client().close()
+                except Exception:  # pragma: no cover — close is best-effort
+                    pass
+
+    def close(self) -> None:
+        """Release HTTP resources — only when this client owns its transport."""
+        self._close()
+
+    def __enter__(self) -> "SmplAuditClient":
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
 
 
-class AsyncAuditClient:
-    """``client.audit.*`` async runtime surface — currently delegates to
-    the sync client.
+class AsyncSmplAuditClient:
+    """The Smpl Audit client (async) — counterpart of :class:`SmplAuditClient`.
 
-    Full async support uses ``httpx.AsyncClient`` and an asyncio task
-    per pending emit; that work is deferred to a follow-up because the
-    primary smpl audit consumers (FastAPI request handlers, Django
-    views, framework middleware) are mostly sync code today.
+    Genuinely async: event reads, discovery, and forwarder CRUD perform their
+    network round-trips with ``await``; only ``events.record`` is
+    fire-and-forget (it enqueues onto a background worker thread and returns
+    without awaiting), which is the correct shape for the hot path.
     """
 
-    events: _EventsClient
-    resource_types: _ResourceTypesClient
-    event_types: _EventTypesClient
+    events: _AsyncEventsClient
+    resource_types: _AsyncResourceTypesClient
+    event_types: _AsyncEventTypesClient
+    categories: _AsyncCategoriesClient
 
     def __init__(
         self,
+        api_key: str | None = None,
         *,
-        api_key: str,
-        base_url: str,
         environment: str | None = None,
+        base_url: str | None = None,
+        profile: str | None = None,
+        base_domain: str | None = None,
+        scheme: str | None = None,
+        debug: bool | None = None,
         extra_headers: dict[str, str] | None = None,
+        auth_client: AuthenticatedClient | None = None,
     ) -> None:
-        self._inner = AuditClient(
-            api_key=api_key,
-            base_url=base_url,
-            environment=environment,
-            extra_headers=extra_headers,
-        )
-        self.events = self._inner.events
-        self.resource_types = self._inner.resource_types
-        self.event_types = self._inner.event_types
+        self._environment = environment
+        if auth_client is not None:
+            self._auth = auth_client
+            self._owns_transport = False
+        else:
+            self._auth = _audit_transport(
+                api_key=api_key,
+                base_url=base_url,
+                environment=environment,
+                profile=profile,
+                base_domain=base_domain,
+                scheme=scheme,
+                debug=debug,
+                extra_headers=extra_headers,
+            )
+            self._owns_transport = True
+        from smplkit.management.audit import AsyncForwardersClient
+
+        self.events = _AsyncEventsClient(auth_client=self._auth)
+        self.resource_types = _AsyncResourceTypesClient(auth_client=self._auth)
+        self.event_types = _AsyncEventTypesClient(auth_client=self._auth)
+        self.categories = _AsyncCategoriesClient(auth_client=self._auth)
+        self.forwarders = AsyncForwardersClient(auth_client=self._auth)
 
     async def _close(self) -> None:
-        self._inner._close()
+        try:
+            self.events._close()
+        finally:
+            if self._owns_transport:
+                ac = self._auth._async_client
+                if ac is not None:
+                    await ac.aclose()
+                    self._auth._async_client = None
+
+    async def aclose(self) -> None:
+        """Release async HTTP resources — only when this client owns its transport."""
+        await self._close()
+
+    async def __aenter__(self) -> "AsyncSmplAuditClient":
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        await self.aclose()

@@ -14,7 +14,7 @@ Usage::
 
 import asyncio
 
-from smplkit import AsyncSmplManagementClient, LogLevel
+from smplkit import AsyncSmplClient, LogLevel
 
 from setup.logging_management_setup import (
     cleanup_management_showcase,
@@ -24,8 +24,10 @@ from setup.logging_management_setup import (
 
 async def main() -> None:
 
-    # create the client (use SmplManagementClient for synchronous use)
-    async with AsyncSmplManagementClient() as manage:
+    # One client (use SmplClient for synchronous use). Management/CRUD lives on
+    # the ``client.manage`` namespace.
+    async with AsyncSmplClient() as client:
+        manage = client.manage
         await setup_management_showcase(manage)
 
         # create a parent logger with a default level

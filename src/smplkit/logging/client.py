@@ -2,7 +2,7 @@
 
 Runtime: discover loggers via adapters, register them with the
 service, fetch resolved levels, and apply them. CRUD has moved to
-:class:`smplkit.SmplManagementClient` (``mgmt.loggers.*`` / ``mgmt.log_groups.*``).
+``client.manage`` (``mgmt.loggers.*`` / ``mgmt.log_groups.*``).
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ from smplkit.logging._sources import LoggerSource
 if TYPE_CHECKING:
     from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
     from smplkit.client import AsyncSmplClient, SmplClient
-    from smplkit.management.client import AsyncSmplManagementClient, SmplManagementClient
+    from smplkit.management.client import _AsyncManagementNamespace, _ManagementNamespace
 
 logger = stdlib_logging.getLogger("smplkit")
 
@@ -160,7 +160,7 @@ def _auto_load_adapters() -> list[LoggingAdapter]:
 class LoggingClient:
     """Synchronous logging runtime namespace.  Obtained via ``SmplClient(...).logging``.
 
-    CRUD has moved to ``SmplManagementClient.loggers`` / ``.log_groups``
+    CRUD has moved to ``client.manage.loggers`` / ``.log_groups``
     (``mgmt.loggers.*`` / ``mgmt.log_groups.*``).
     """
 
@@ -168,7 +168,7 @@ class LoggingClient:
         self,
         parent: SmplClient,
         *,
-        manage: SmplManagementClient,
+        manage: _ManagementNamespace,
         metrics: _MetricsReporter | None,
         logging_base_url: str = _DEFAULT_LOGGING_BASE_URL,
         app_base_url: str | None = None,
@@ -218,6 +218,7 @@ class LoggingClient:
         Idempotent — safe to call multiple times.
         """
         debug("lifecycle", "LoggingClient.install() called")
+        self._parent._ensure_started()
         self._connect_internal()
 
     def on_change(self, fn_or_key: Callable[..., Any] | str | None = None) -> Any:
@@ -624,7 +625,7 @@ class AsyncLoggingClient:
     """Asynchronous logging runtime namespace.
 
     Obtained via ``AsyncSmplClient(...).logging``. CRUD has moved to
-    ``AsyncSmplManagementClient.loggers`` / ``.log_groups``
+    ``client.manage.loggers`` / ``.log_groups``
     (``mgmt.loggers.*`` / ``mgmt.log_groups.*``).
     """
 
@@ -632,7 +633,7 @@ class AsyncLoggingClient:
         self,
         parent: AsyncSmplClient,
         *,
-        manage: AsyncSmplManagementClient,
+        manage: _AsyncManagementNamespace,
         metrics: _AsyncMetricsReporter | None,
         logging_base_url: str = _DEFAULT_LOGGING_BASE_URL,
         app_base_url: str | None = None,
@@ -682,6 +683,7 @@ class AsyncLoggingClient:
         Idempotent — safe to call multiple times.
         """
         debug("lifecycle", "AsyncLoggingClient.install() called")
+        self._parent._ensure_started()
         await self._connect_internal()
 
     def on_change(self, fn_or_key: Callable[..., Any] | str | None = None) -> Any:

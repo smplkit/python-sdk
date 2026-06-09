@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from smplkit import AsyncSmplManagementClient, NotFoundError
+from smplkit import NotFoundError
 
 _DEMO_FLAG_IDS = ["checkout-v2", "banner-color", "max-retries", "ui-theme"]
 
 
-async def setup_management_showcase(manage: AsyncSmplManagementClient) -> None:
+async def setup_management_showcase(manage) -> None:
     await cleanup_management_showcase(manage)
 
 
 async def cleanup_management_showcase(
-    manage: AsyncSmplManagementClient,
+    manage,
 ) -> None:
     for flag_id in _DEMO_FLAG_IDS:
         try:

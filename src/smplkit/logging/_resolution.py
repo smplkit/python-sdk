@@ -11,7 +11,7 @@ _FALLBACK_LEVEL = "INFO"
 
 def resolve_level(
     logger_id: str,
-    environment: str,
+    environment: str | None,
     loggers: dict[str, dict[str, Any]],
     groups: dict[str, dict[str, Any]],
 ) -> str:
@@ -57,7 +57,7 @@ def resolve_level(
 
 def _resolve_for_entry(
     logger_id: str,
-    environment: str,
+    environment: str | None,
     loggers: dict[str, dict[str, Any]],
     groups: dict[str, dict[str, Any]],
 ) -> str | None:
@@ -83,7 +83,7 @@ def _resolve_for_entry(
 
 def _find_resolution_source(
     logger_id: str,
-    environment: str,
+    environment: str | None,
     loggers: dict[str, dict[str, Any]],
     groups: dict[str, dict[str, Any]],
 ) -> str:
@@ -114,7 +114,7 @@ def _find_resolution_source(
 
 def _resolve_group_chain(
     group_id: str | None,
-    environment: str,
+    environment: str | None,
     groups: dict[str, dict[str, Any]],
 ) -> str | None:
     """Walk the group chain looking for a level."""
@@ -135,8 +135,15 @@ def _resolve_group_chain(
     return None
 
 
-def _env_level(entry: dict[str, Any], environment: str) -> str | None:
-    """Extract the environment-specific level from an entry, if present."""
+def _env_level(entry: dict[str, Any], environment: str | None) -> str | None:
+    """Extract the environment-specific level from an entry, if present.
+
+    With no environment (server derives it from the API key) there is no
+    env-scoped override to apply, so resolution falls through to the entry's
+    base level / group chain / system default.
+    """
+    if environment is None:
+        return None
     envs = entry.get("environments")
     if envs and isinstance(envs, dict):
         env_data = envs.get(environment)

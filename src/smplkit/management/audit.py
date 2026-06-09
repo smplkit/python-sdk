@@ -1,20 +1,17 @@
-"""Smpl Audit management surface — ``mgmt.audit.*``.
+"""SIEM forwarder CRUD for the Smpl Audit client.
 
-Counterpart to the runtime :class:`smplkit.audit.AuditClient`. The
-runtime client owns event recording and read-side queries; this client
-owns SIEM forwarder CRUD:
+Forwarders are part of the single unified audit surface — there is no
+runtime/management split for audit (see :mod:`smplkit.audit.client`). This
+module holds the forwarder CRUD sub-clients that the unified
+:class:`smplkit.audit.SmplAuditClient` / :class:`AsyncSmplAuditClient` expose
+as ``.forwarders``:
 
-* ``mgmt.audit.forwarders.new/get/list/save/delete`` — manage the
-  customer's configured forwarders.
+* sync :class:`ForwardersClient` — ``forwarders.new/get/list/save/delete``
+* async :class:`AsyncForwardersClient` — the genuinely-async counterpart,
+  returning :class:`smplkit.audit.AsyncForwarder` active records.
 
-Async support mirrors the runtime audit client today: the
-``AsyncAuditClient`` placeholder delegates to the sync surface so
-async callers reach the same endpoints. Full asyncio_detailed wiring
-is a follow-up; the contract on this module is stable regardless of
-which transport powers it underneath.
-
-New audit-management capabilities should add classes here, not in
-``smplkit.audit.client``.
+The forwarder dataclasses (:class:`Forwarder`, :class:`AsyncForwarder`,
+:class:`ForwarderEnvironment`, …) live in :mod:`smplkit.audit.models`.
 """
 
 from __future__ import annotations
@@ -58,6 +55,7 @@ from smplkit._generated.audit.models.http_configuration import (
 from smplkit._generated.audit.models.http_header import HttpHeader as _GenHttpHeader
 from smplkit._generated.audit.types import UNSET
 from smplkit.audit.models import (
+    AsyncForwarder,
     Forwarder,
     ForwarderEnvironment,
     ForwarderType,
@@ -180,6 +178,19 @@ def _environments_to_gen(
     return gen
 
 
+def _validate_transform(transform: Any, transform_type: TransformType | None) -> None:
+    """Validate the ``transform`` / ``transform_type`` pairing (shared sync/async).
+
+    Raises:
+        ValueError: If exactly one of the two is provided, or if
+            ``transform_type`` is JSONATA and ``transform`` is not a string.
+    """
+    if (transform is None) != (transform_type is None):
+        raise ValueError("transform and transform_type must be specified together")
+    if transform_type == TransformType.JSONATA and not isinstance(transform, str):
+        raise ValueError("transform must be a string when transform_type is JSONATA")
+
+
 def _build_forwarder_attrs(
     *,
     name: str,
@@ -290,10 +301,7 @@ class ForwardersClient:
                 is :attr:`TransformType.JSONATA` and ``transform`` is
                 not a string.
         """
-        if (transform is None) != (transform_type is None):
-            raise ValueError("transform and transform_type must be specified together")
-        if transform_type == TransformType.JSONATA and not isinstance(transform, str):
-            raise ValueError("transform must be a string when transform_type is JSONATA")
+        _validate_transform(transform, transform_type)
         return Forwarder(
             self,
             id=id,
@@ -407,45 +415,129 @@ class ForwardersClient:
             )
 
 
-# ---------------------------------------------------------------------------
-# Top-level audit management clients
-# ---------------------------------------------------------------------------
+class AsyncForwardersClient:
+    """Async surface for forwarder CRUD (``AsyncSmplAuditClient.forwarders``).
 
-
-class AuditClient:
-    """``mgmt.audit.*`` synchronous management surface.
-
-    Constructed by :class:`smplkit.SmplManagementClient`; not intended
-    for direct instantiation.
+    Genuinely async — every method performs its network round-trip with
+    ``await`` and returns :class:`AsyncForwarder` active records whose
+    ``save()`` / ``delete()`` are also coroutines.
     """
-
-    forwarders: ForwardersClient
 
     def __init__(self, *, auth_client: _AuditAuthClient) -> None:
         self._auth = auth_client
-        self.forwarders = ForwardersClient(auth_client=auth_client)
 
+    def new(
+        self,
+        id: str,
+        *,
+        name: str | None = None,
+        forwarder_type: ForwarderType,
+        configuration: HttpConfiguration,
+        environments: dict[str, ForwarderEnvironment | dict[str, Any]] | None = None,
+        description: str | None = None,
+        forward_smplkit_events: bool = False,
+        filter: dict[str, Any] | None = None,
+        transform: Any = None,
+        transform_type: TransformType | None = None,
+    ) -> AsyncForwarder:
+        """Return an unsaved :class:`AsyncForwarder`. ``await forwarder.save()`` to persist.
 
-class AsyncAuditClient:
-    """``mgmt.audit.*`` async management surface.
+        Arguments mirror :meth:`ForwardersClient.new`.
+        """
+        _validate_transform(transform, transform_type)
+        return AsyncForwarder(
+            self,
+            id=id,
+            name=name if name is not None else id,
+            forwarder_type=forwarder_type,
+            configuration=configuration,
+            environments=_normalize_environments(environments),
+            description=description,
+            forward_smplkit_events=forward_smplkit_events,
+            filter=filter,
+            transform=transform,
+            transform_type=transform_type,
+        )
 
-    Today this delegates to the sync surface — the audit-service
-    network calls are short and any awaitable wrapper is uncontroversial
-    on top. Full ``asyncio_detailed`` plumbing is a follow-up; the
-    contract on this client is stable regardless of which transport
-    powers it underneath.
-    """
+    async def list(
+        self,
+        *,
+        forwarder_type: ForwarderType | None = None,
+        page_number: int | None = None,
+        page_size: int | None = None,
+        meta_total: bool | None = None,
+    ) -> ForwarderListPage:
+        """List forwarders for the authenticated account (async)."""
+        ft = ForwarderType(forwarder_type).value if forwarder_type is not None else UNSET
+        resp = await _gen_list_forwarders.asyncio_detailed(
+            client=self._auth,
+            filterforwarder_type=ft,
+            pagenumber=page_number if page_number is not None else UNSET,
+            pagesize=page_size if page_size is not None else UNSET,
+            metatotal=meta_total if meta_total is not None else UNSET,
+        )
+        _expect_status(resp, 200)
+        body_dict = resp.parsed.to_dict()
+        forwarders = [AsyncForwarder._from_resource(r, client=self) for r in body_dict.get("data", [])]
+        return ForwarderListPage(forwarders=forwarders, pagination=_extract_pagination(body_dict))
 
-    forwarders: ForwardersClient
+    async def get(self, forwarder_id: str) -> AsyncForwarder:
+        """Fetch a single forwarder by id (async); bound to this client for save/delete."""
+        resp = await _gen_get_forwarder.asyncio_detailed(forwarder_id=forwarder_id, client=self._auth)
+        _expect_status(resp, 200)
+        return AsyncForwarder._from_resource(resp.parsed.to_dict()["data"], client=self)
 
-    def __init__(self, *, auth_client: _AuditAuthClient) -> None:
-        self._inner = AuditClient(auth_client=auth_client)
-        self.forwarders = self._inner.forwarders
+    async def _create(self, forwarder: Forwarder) -> AsyncForwarder:
+        if not forwarder.id:
+            raise ValueError("Forwarder.id is required on create (caller-supplied key)")
+        attrs = _build_forwarder_attrs(
+            name=forwarder.name,
+            forwarder_type=forwarder.forwarder_type,
+            configuration=forwarder.configuration,
+            environments=forwarder.environments,
+            description=forwarder.description,
+            forward_smplkit_events=forwarder.forward_smplkit_events,
+            filter=forwarder.filter,
+            transform=forwarder.transform,
+            transform_type=forwarder.transform_type,
+        )
+        body = _GenForwarderCreateRequest(data=_GenForwarderCreateResource(id=forwarder.id, attributes=attrs))
+        resp = await _gen_create_forwarder.asyncio_detailed(client=self._auth, body=body)
+        _expect_status(resp, 201)
+        return AsyncForwarder._from_resource(resp.parsed.to_dict()["data"], client=self)
+
+    async def _update(self, forwarder: Forwarder) -> AsyncForwarder:
+        if not forwarder.id:
+            raise ValueError("cannot update a Forwarder with no id")
+        attrs = _build_forwarder_attrs(
+            name=forwarder.name,
+            forwarder_type=forwarder.forwarder_type,
+            configuration=forwarder.configuration,
+            environments=forwarder.environments,
+            description=forwarder.description,
+            forward_smplkit_events=forwarder.forward_smplkit_events,
+            filter=forwarder.filter,
+            transform=forwarder.transform,
+            transform_type=forwarder.transform_type,
+        )
+        body = _GenForwarderRequest(data=_GenForwarderResource(id=forwarder.id, attributes=attrs))
+        resp = await _gen_update_forwarder.asyncio_detailed(forwarder_id=forwarder.id, client=self._auth, body=body)
+        _expect_status(resp, 200)
+        return AsyncForwarder._from_resource(resp.parsed.to_dict()["data"], client=self)
+
+    async def delete(self, forwarder_id: str) -> None:
+        """Soft-delete a forwarder (async)."""
+        resp = await _gen_delete_forwarder.asyncio_detailed(forwarder_id=forwarder_id, client=self._auth)
+        if resp.status_code != 204:
+            _raise_for_status(resp.status_code, resp.content)
+            raise _SmplError(
+                f"HTTP {resp.status_code} not 204",
+                status_code=resp.status_code,
+            )
 
 
 __all__ = [
-    "AsyncAuditClient",
-    "AuditClient",
+    "AsyncForwardersClient",
     "ForwarderEnvironment",
     "ForwarderListPage",
     "ForwardersClient",

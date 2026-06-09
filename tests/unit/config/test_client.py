@@ -19,17 +19,17 @@ from smplkit.config.helpers import _resource_to_config
 
 
 def _new_mgmt():
-    """Build a SmplManagementClient for management-flavored tests."""
-    from smplkit import SmplManagementClient
+    """Build a management namespace (client.manage) for management-flavored tests."""
+    from smplkit import SmplClient
 
-    return SmplManagementClient(api_key="sk_test", base_domain="example.test")
+    return SmplClient(api_key="sk_test", base_domain="example.test").manage
 
 
 def _new_async_mgmt():
-    """Build an AsyncSmplManagementClient for management-flavored tests."""
-    from smplkit import AsyncSmplManagementClient
+    """Build an async management namespace (client.manage) for management-flavored tests."""
+    from smplkit import AsyncSmplClient
 
-    return AsyncSmplManagementClient(api_key="sk_test", base_domain="example.test")
+    return AsyncSmplClient(api_key="sk_test", base_domain="example.test").manage
 
 
 _TEST_UUID = "5a0c6be1-0000-0000-0000-000000000001"

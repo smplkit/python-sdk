@@ -28,7 +28,7 @@ async def main() -> None:
         some_resource_id = f"showcase-{uuid.uuid4().hex[:8]}"
 
         # record an event with full customer-supplied actor attribution
-        client.audit.events.record(
+        await client.audit.events.record(
             event_type="invoice.created",
             resource_type="invoice",
             resource_id=some_resource_id,
@@ -36,6 +36,9 @@ async def main() -> None:
             actor_type="USER",
             actor_id="billing-bot:42",
             actor_label="finance@example.com",
+            # An optional free-form bucket label — groups related events and
+            # powers the categories discovery listing shown below.
+            category="billing",
             data={
                 "snapshot": {"total_cents": 4900, "currency": "USD"},
                 "request_id": "req-abc",
@@ -45,7 +48,7 @@ async def main() -> None:
         print(f"Recorded events for invoice {some_resource_id}")
 
         # list events
-        page = client.audit.events.list(
+        page = await client.audit.events.list(
             resource_type="invoice", resource_id=some_resource_id
         )
         assert some_resource_id in {e.resource_id for e in page.events}
@@ -53,12 +56,13 @@ async def main() -> None:
         print(f"Listed {len(page)} event(s) for invoice {some_resource_id}")
 
         # fetch an event
-        event = client.audit.events.get(recorded_event_id)
+        event = await client.audit.events.get(recorded_event_id)
         assert event.id == recorded_event_id
         assert event.resource_id == some_resource_id
         assert event.event_type == "invoice.created"
         assert event.actor_id == "billing-bot:42"
         assert event.actor_label == "finance@example.com"
+        assert event.category == "billing"
         # The event is scoped to the environment the client is configured for.
         # The SDK resolves this automatically from the client's environment —
         # the recording call never carries it in the request body.
@@ -69,14 +73,19 @@ async def main() -> None:
         )
 
         # list resource types observed
-        resource_types = client.audit.resource_types.list()
+        resource_types = await client.audit.resource_types.list()
         assert "invoice" in {rt.id for rt in resource_types}
         print(f"Observed resource types: {[rt.id for rt in resource_types]}")
 
         # list event types observed
-        event_types = client.audit.event_types.list()
+        event_types = await client.audit.event_types.list()
         assert "invoice.created" in {et.id for et in event_types}
         print(f"Observed event types: {[et.id for et in event_types]}")
+
+        # list categories observed
+        categories = await client.audit.categories.list()
+        assert "billing" in {c.id for c in categories}
+        print(f"Observed categories: {[c.id for c in categories]}")
 
         print("Done!")
 

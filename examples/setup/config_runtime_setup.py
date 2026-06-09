@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 from smplkit._errors import NotFoundError
-from smplkit.management.client import AsyncSmplManagementClient
 
 _DEMO_CONFIG_IDS = [
     "showcase-billing",
@@ -13,7 +12,8 @@ _DEMO_CONFIG_IDS = [
 ]
 
 
-async def simulate_admin_override(manage: AsyncSmplManagementClient) -> None:
+# ``manage`` is a client.manage namespace (from SmplClient(...).manage).
+async def simulate_admin_override(manage) -> None:
     # Real customers never read back through the management API immediately
     # after binding via the runtime client — this is a simulation-only step.
     # Push pending runtime-side registrations through so the lookup below
@@ -24,7 +24,7 @@ async def simulate_admin_override(manage: AsyncSmplManagementClient) -> None:
     await billing.save()
 
 
-async def cleanup_runtime_showcase(manage: AsyncSmplManagementClient) -> None:
+async def cleanup_runtime_showcase(manage) -> None:
     for config_id in _DEMO_CONFIG_IDS:
         try:
             await manage.config.delete(config_id)

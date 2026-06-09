@@ -14,7 +14,7 @@ Usage::
 
 import uuid
 
-from smplkit import SmplManagementClient
+from smplkit import SmplAuditClient
 from smplkit.audit import (
     ForwarderType,
     HttpConfiguration,
@@ -50,14 +50,18 @@ ENVIRONMENT = "production"
 
 def main() -> None:
 
-    # create the client (use AsyncSmplManagementClient for asynchronous use)
-    with SmplManagementClient() as manage:
+    # Audit has no runtime/management split — one client exposes the full
+    # surface (events, discovery, forwarders). Here we use the standalone
+    # SmplAuditClient (use AsyncSmplAuditClient for asynchronous use); the same
+    # forwarders surface is also reachable as ``client.audit.forwarders`` on a
+    # SmplClient.
+    with SmplAuditClient() as audit:
         forwarder_id = f"showcase-{uuid.uuid4().hex[:6]}"
 
         # create a new forwarder, enabled in our target environment.
         # Enablement is per-environment: a forwarder delivers in an
         # environment only when ``environments[env].enabled`` is True.
-        forwarder = manage.audit.forwarders.new(
+        forwarder = audit.forwarders.new(
             forwarder_id,
             forwarder_type=ForwarderType.HTTP,
             configuration=HttpConfiguration(
@@ -74,12 +78,12 @@ def main() -> None:
         print(f"Created forwarder: {forwarder.name} (id={forwarder.id})")
 
         # list forwarders
-        listed = manage.audit.forwarders.list()
+        listed = audit.forwarders.list()
         assert forwarder.id in {f.id for f in listed.forwarders}
         print(f"Account has {len(listed.forwarders)} forwarder(s)")
 
         # get a forwarder
-        fetched = manage.audit.forwarders.get(forwarder.id)
+        fetched = audit.forwarders.get(forwarder.id)
         assert fetched.id == forwarder.id
         # The forwarder delivers in our target environment.
         assert fetched.environments[ENVIRONMENT].enabled is True
@@ -93,7 +97,7 @@ def main() -> None:
 
         # delete a forwarder
         fetched.delete()
-        remaining = manage.audit.forwarders.list()
+        remaining = audit.forwarders.list()
         assert fetched.id not in {f.id for f in remaining.forwarders}
         print(f"Deleted forwarder: {fetched.name}")
 

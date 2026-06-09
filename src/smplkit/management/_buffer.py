@@ -1,4 +1,4 @@
-"""Registration buffers owned by ``SmplManagementClient`` sub-clients.
+"""Registration buffers owned by ``the management namespace`` sub-clients.
 
 Three buffers, each lives on a management sub-client:
 

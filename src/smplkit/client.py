@@ -19,11 +19,12 @@ from smplkit._generated.app.models.context_bulk_item_attributes import ContextBu
 from smplkit._generated.app.models.context_bulk_register import ContextBulkRegister
 from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
 from smplkit._ws import SharedWebSocket
-from smplkit.audit.client import AsyncAuditClient, AuditClient
+from smplkit.audit.client import AsyncSmplAuditClient, SmplAuditClient
+from smplkit.jobs.client import AsyncSmplJobsClient, SmplJobsClient
 from smplkit.config.client import AsyncConfigClient, ConfigClient
 from smplkit.flags.client import AsyncFlagsClient, FlagsClient
 from smplkit.logging.client import AsyncLoggingClient, LoggingClient
-from smplkit.management.client import AsyncSmplManagementClient, SmplManagementClient
+from smplkit.management.client import _AsyncManagementNamespace, _ManagementNamespace
 
 if TYPE_CHECKING:
     from smplkit.flags.types import Context
@@ -39,7 +40,7 @@ _PERIODIC_FLUSH_INTERVAL = 60.0  # seconds
 def _to_management_config(cfg, extra_headers: dict[str, str] | None = None) -> ResolvedManagementConfig:
     """Project the runtime ResolvedConfig down to the management subset.
 
-    SmplClient's resolved config is a superset of SmplManagementClient's;
+    SmplClient's resolved config is a superset of the management config's;
     this drops the runtime-only fields (environment, service, telemetry).
     """
     return ResolvedManagementConfig(
@@ -77,11 +78,12 @@ class SmplClient:
         telemetry: Enable anonymous usage telemetry (default ``True``).
     """
 
-    manage: SmplManagementClient
+    manage: _ManagementNamespace
     config: ConfigClient
     flags: FlagsClient
     logging: LoggingClient
-    audit: AuditClient
+    audit: SmplAuditClient
+    jobs: SmplJobsClient
 
     def __init__(
         self,
@@ -130,7 +132,7 @@ class SmplClient:
 
         # Construct the management client first; the runtime client uses
         # its HTTP transports + registration buffers under the hood.
-        self.manage = SmplManagementClient._from_resolved(_to_management_config(cfg, extra_headers))
+        self.manage = _ManagementNamespace(_to_management_config(cfg, extra_headers))
 
         app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
         flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
@@ -170,19 +172,44 @@ class SmplClient:
             app_base_url=app_url,
             extra_headers=extra_headers,
         )
-        self.audit = AuditClient(
+        # Audit's full surface on one client; this runtime instance carries
+        # the configured environment as ``X-Smplkit-Environment`` and owns its
+        # own transport (closed in ``close()``).
+        self.audit = SmplAuditClient(
             api_key=cfg.api_key,
             base_url=audit_url,
             environment=cfg.environment,
             extra_headers=extra_headers,
         )
+        # Jobs has no runtime/management split — reuse the management jobs
+        # transport (single connection pool) so ``client.jobs`` is one-stop.
+        self.jobs = SmplJobsClient(auth_client=self.manage._jobs_http)
 
-        # Periodic flush of registration buffers (contexts, flags, loggers).
+        # Construction is side-effect-free: no background threads, no
+        # phone-home. The periodic registration-buffer flush and the
+        # service-context registration are deferred until the first
+        # config/flags/logging operation or set_context via
+        # ``_ensure_started`` — so an audit-only or jobs-only customer pays
+        # zero threads and zero network at construction.
         self._closed = False
+        self._started = False
+        self._start_lock = threading.Lock()
         self._flush_timer: threading.Timer | None = None
-        self._schedule_periodic_flush()
+        self._init_thread: threading.Thread | None = None
 
-        # Register service context (fire-and-forget, non-blocking)
+    def _ensure_started(self) -> None:
+        """Start the deferred background machinery exactly once.
+
+        Idempotent and thread-safe (lock + flag, mirroring
+        ``_MetricsReporter._maybe_start_timer``); a no-op after ``close()``.
+        Triggered by the first config/flags/logging operation, ``set_context``,
+        ``wait_until_ready``, or WebSocket open — never at construction.
+        """
+        with self._start_lock:
+            if self._started or self._closed:
+                return
+            self._started = True
+        self._schedule_periodic_flush()
         self._init_thread = threading.Thread(target=self._register_service_context, daemon=True)
         self._init_thread.start()
 
@@ -222,13 +249,22 @@ class SmplClient:
                 debug("registration", traceback.format_exc().strip())
 
     def _register_service_context(self) -> None:
-        """Register the environment and service as context instances on the app service."""
+        """Register the environment and/or service as context instances.
+
+        Only the values that are set are registered; if neither environment
+        nor service was provided the POST is skipped entirely (an audit/jobs-only
+        customer has nothing to register)."""
         try:
-            svc_attrs = ContextBulkItemAttributes()
-            svc_attrs.additional_properties = {"name": self._service}
-            svc_item = ContextBulkItem(type_="service", key=self._service, attributes=svc_attrs)
-            env_item = ContextBulkItem(type_="environment", key=self._environment)
-            body = ContextBulkRegister(contexts=[env_item, svc_item])
+            items: list[ContextBulkItem] = []
+            if self._environment is not None:
+                items.append(ContextBulkItem(type_="environment", key=self._environment))
+            if self._service is not None:
+                svc_attrs = ContextBulkItemAttributes()
+                svc_attrs.additional_properties = {"name": self._service}
+                items.append(ContextBulkItem(type_="service", key=self._service, attributes=svc_attrs))
+            if not items:
+                return
+            body = ContextBulkRegister(contexts=items)
             gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         except Exception as exc:
             logger.warning("Failed to register service context (app: %s): %s", self._app_base_url, exc)
@@ -236,6 +272,7 @@ class SmplClient:
 
     def _ensure_ws(self) -> SharedWebSocket:
         """Lazily create and start the shared WebSocket."""
+        self._ensure_started()
         if self._ws_manager is None:
             self._ws_manager = SharedWebSocket(
                 app_base_url=self._app_base_url,
@@ -294,6 +331,7 @@ class SmplClient:
                 ...
             # original context restored here
         """
+        self._ensure_started()
         if contexts:
             self.manage.contexts.register(contexts)
         return _set_context(contexts)
@@ -340,11 +378,12 @@ class AsyncSmplClient:
     file. See ADR-021 for the full resolution algorithm.
     """
 
-    manage: AsyncSmplManagementClient
+    manage: _AsyncManagementNamespace
     config: AsyncConfigClient
     flags: AsyncFlagsClient
     logging: AsyncLoggingClient
-    audit: AsyncAuditClient
+    audit: AsyncSmplAuditClient
+    jobs: AsyncSmplJobsClient
 
     def __init__(
         self,
@@ -391,7 +430,7 @@ class AsyncSmplClient:
             f" debug={cfg.debug} telemetry={cfg.telemetry}",
         )
 
-        self.manage = AsyncSmplManagementClient._from_resolved(_to_management_config(cfg, extra_headers))
+        self.manage = _AsyncManagementNamespace(_to_management_config(cfg, extra_headers))
 
         app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
         flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
@@ -430,19 +469,34 @@ class AsyncSmplClient:
             app_base_url=app_url,
             extra_headers=extra_headers,
         )
-        self.audit = AsyncAuditClient(
+        self.audit = AsyncSmplAuditClient(
             api_key=cfg.api_key,
             base_url=audit_url,
             environment=cfg.environment,
             extra_headers=extra_headers,
         )
+        # Jobs has no runtime/management split — reuse the management jobs
+        # transport (single connection pool) so ``client.jobs`` is one-stop.
+        self.jobs = AsyncSmplJobsClient(auth_client=self.manage._jobs_http)
 
-        # Periodic flush of registration buffers (contexts, flags, loggers).
+        # Construction is side-effect-free (see SmplClient): the flush timer
+        # and service-context phone-home are deferred to ``_ensure_started``,
+        # triggered by the first config/flags/logging op or set_context.
         self._closed = False
+        self._started = False
+        self._start_lock = threading.Lock()
         self._flush_timer: threading.Timer | None = None
-        self._schedule_periodic_flush()
+        self._init_thread: threading.Thread | None = None
 
-        # Register service context (fire-and-forget, non-blocking)
+    def _ensure_started(self) -> None:
+        """Start the deferred background machinery exactly once (idempotent,
+        no-op after close). The registration runs on a sync daemon thread, so
+        there is no event-loop dependency at trigger time."""
+        with self._start_lock:
+            if self._started or self._closed:
+                return
+            self._started = True
+        self._schedule_periodic_flush()
         self._init_thread = threading.Thread(target=self._register_service_context_sync, daemon=True)
         self._init_thread.start()
 
@@ -491,11 +545,16 @@ class AsyncSmplClient:
     def _register_service_context_sync(self) -> None:
         """Sync wrapper for context registration (runs in background thread)."""
         try:
-            svc_attrs = ContextBulkItemAttributes()
-            svc_attrs.additional_properties = {"name": self._service}
-            svc_item = ContextBulkItem(type_="service", key=self._service, attributes=svc_attrs)
-            env_item = ContextBulkItem(type_="environment", key=self._environment)
-            body = ContextBulkRegister(contexts=[env_item, svc_item])
+            items: list[ContextBulkItem] = []
+            if self._environment is not None:
+                items.append(ContextBulkItem(type_="environment", key=self._environment))
+            if self._service is not None:
+                svc_attrs = ContextBulkItemAttributes()
+                svc_attrs.additional_properties = {"name": self._service}
+                items.append(ContextBulkItem(type_="service", key=self._service, attributes=svc_attrs))
+            if not items:
+                return
+            body = ContextBulkRegister(contexts=items)
             gen_bulk_register_contexts.sync_detailed(client=self._app_http, body=body)
         except Exception as exc:
             logger.warning("Failed to register service context (app: %s): %s", self._app_base_url, exc)
@@ -504,11 +563,16 @@ class AsyncSmplClient:
     async def _register_service_context(self) -> None:
         """Register the environment and service as context instances on the app service."""
         try:
-            svc_attrs = ContextBulkItemAttributes()
-            svc_attrs.additional_properties = {"name": self._service}
-            svc_item = ContextBulkItem(type_="service", key=self._service, attributes=svc_attrs)
-            env_item = ContextBulkItem(type_="environment", key=self._environment)
-            body = ContextBulkRegister(contexts=[env_item, svc_item])
+            items: list[ContextBulkItem] = []
+            if self._environment is not None:
+                items.append(ContextBulkItem(type_="environment", key=self._environment))
+            if self._service is not None:
+                svc_attrs = ContextBulkItemAttributes()
+                svc_attrs.additional_properties = {"name": self._service}
+                items.append(ContextBulkItem(type_="service", key=self._service, attributes=svc_attrs))
+            if not items:
+                return
+            body = ContextBulkRegister(contexts=items)
             await gen_bulk_register_contexts.asyncio_detailed(client=self._app_http, body=body)
         except Exception as exc:
             logger.warning("Failed to register service context (app: %s): %s", self._app_base_url, exc)
@@ -516,6 +580,7 @@ class AsyncSmplClient:
 
     def _ensure_ws(self) -> SharedWebSocket:
         """Lazily create and start the shared WebSocket."""
+        self._ensure_started()
         if self._ws_manager is None:
             self._ws_manager = SharedWebSocket(
                 app_base_url=self._app_base_url,
@@ -574,6 +639,7 @@ class AsyncSmplClient:
                 ...
             # original context restored here
         """
+        self._ensure_started()
         if contexts:
             self.manage.contexts.register(contexts)
         return _set_context(contexts)

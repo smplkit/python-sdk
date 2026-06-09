@@ -1,31 +1,28 @@
-"""Smpl SDK Management — top-level :class:`SmplManagementClient` and namespaces.
+"""Smpl SDK management-plane CRUD sub-clients.
 
-The :class:`SmplManagementClient` (and its async variant) is the single
-entry point for every management/CRUD operation in the SDK. It is the
-counterpart to the runtime :class:`smplkit.SmplClient`, which is now
-strictly for instrumentation: flag evaluation, config reads, log emission,
-and audit-event recording.
+These back the ``client.manage`` namespace on the single
+:class:`smplkit.SmplClient` — there is no separate management client class.
+``client.manage`` exposes every CRUD/management operation:
 
-Exposed namespaces:
+- ``client.manage.contexts.*``
+- ``client.manage.context_types.*``
+- ``client.manage.environments.*``
+- ``client.manage.services.*``
+- ``client.manage.account_settings.*``
+- ``client.manage.config.*``
+- ``client.manage.flags.*``
+- ``client.manage.loggers.*``
+- ``client.manage.log_groups.*``
 
-- ``mgmt.contexts.*``
-- ``mgmt.context_types.*``
-- ``mgmt.environments.*``
-- ``mgmt.services.*``
-- ``mgmt.account_settings.*``
-- ``mgmt.config.*``
-- ``mgmt.flags.*``
-- ``mgmt.loggers.*``
-- ``mgmt.log_groups.*``
-- ``mgmt.audit.*``
+Audit and jobs are the top-level ``client.audit`` / ``client.jobs`` (each a
+full client), not part of the management namespace.
 """
 
 from __future__ import annotations
 
 from smplkit.audit.models import ForwarderType, TransformType
 from smplkit.management.audit import (
-    AsyncAuditClient as AsyncMgmtAuditClient,
-    AuditClient as MgmtAuditClient,
+    AsyncForwardersClient as AuditAsyncForwardersClient,
     ForwarderListPage as AuditForwarderListPage,
     ForwardersClient as AuditForwardersClient,
 )
@@ -40,7 +37,6 @@ from smplkit.management.client import (
     AsyncLogGroupsClient,
     AsyncLoggersClient,
     AsyncServicesClient,
-    AsyncSmplManagementClient,
     ConfigClient,
     ContextsClient,
     ContextTypesClient,
@@ -49,7 +45,6 @@ from smplkit.management.client import (
     LogGroupsClient,
     LoggersClient,
     ServicesClient,
-    SmplManagementClient,
 )
 from smplkit.management.models import (
     AccountSettings,
@@ -77,10 +72,9 @@ __all__ = [
     "AsyncFlagsClient",
     "AsyncLogGroupsClient",
     "AsyncLoggersClient",
-    "AsyncMgmtAuditClient",
     "AsyncService",
     "AsyncServicesClient",
-    "AsyncSmplManagementClient",
+    "AuditAsyncForwardersClient",
     "AuditForwarderListPage",
     "AuditForwardersClient",
     "ConfigClient",
@@ -94,9 +88,7 @@ __all__ = [
     "ForwarderType",
     "LogGroupsClient",
     "LoggersClient",
-    "MgmtAuditClient",
     "Service",
     "ServicesClient",
-    "SmplManagementClient",
     "TransformType",
 ]

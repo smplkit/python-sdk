@@ -1,20 +1,23 @@
-"""Smpl management-plane sub-clients and top-level :class:`SmplManagementClient`.
+"""Smpl management-plane CRUD sub-clients and the ``client.manage`` namespace.
 
-This module owns every CRUD/management surface in the SDK.  The top-level
-:class:`SmplManagementClient` (and :class:`AsyncSmplManagementClient`)
-expose them as flat namespaces:
+This module owns every CRUD/management surface in the SDK. They are exposed
+as the ``client.manage`` namespace on the single :class:`smplkit.SmplClient`
+(there is no separate management client class — one SDK, one client):
 
-- ``mgmt.contexts.*``         (was ``client.management.contexts.*``)
-- ``mgmt.context_types.*``    (was ``client.management.context_types.*``)
-- ``mgmt.environments.*``     (was ``client.management.environments.*``)
-- ``mgmt.account_settings.*`` (was ``client.management.account_settings.*``)
-- ``mgmt.config.*``           (was ``client.config.management.*``)
-- ``mgmt.flags.*``            (was ``client.flags.management.*``)
-- ``mgmt.loggers.*``          (was ``client.logging.management.*`` — logger surface)
-- ``mgmt.log_groups.*``       (was ``client.logging.management.*`` — group surface)
+- ``client.manage.contexts.*``
+- ``client.manage.context_types.*``
+- ``client.manage.environments.*``
+- ``client.manage.services.*``
+- ``client.manage.account_settings.*``
+- ``client.manage.config.*``
+- ``client.manage.flags.*``
+- ``client.manage.loggers.*``
+- ``client.manage.log_groups.*``
 
-The runtime :class:`smplkit.SmplClient` no longer exposes a ``.management``
-attribute anywhere; runtime and management are strictly separated.
+Audit and jobs are NOT here — they are the top-level ``client.audit`` /
+``client.jobs`` (each a full client, not split runtime/management). The
+internal :class:`_ManagementNamespace` / :class:`_AsyncManagementNamespace`
+wire these sub-clients up; :class:`smplkit.SmplClient` builds them.
 """
 
 from __future__ import annotations
@@ -26,8 +29,7 @@ from typing import TYPE_CHECKING, Any, overload
 
 import httpx
 
-from smplkit._config import ResolvedManagementConfig, _service_url, resolve_management_config
-from smplkit._debug import enable_debug
+from smplkit._config import ResolvedManagementConfig, _service_url
 from smplkit._errors import (
     ConflictError,
     ConnectionError,
@@ -66,7 +68,6 @@ from smplkit._generated.app.api.services import (
     update_service as _gen_update_service,
 )
 from smplkit._generated.app.client import AuthenticatedClient as _AppAuthClient
-from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 from smplkit._generated.jobs.client import AuthenticatedClient as _JobsAuthClient
 from smplkit._generated.app.models import (
     Context as _GenContext,
@@ -199,10 +200,6 @@ from smplkit.management.types import Color, EnvironmentClassification
 if TYPE_CHECKING:  # pragma: no cover
     from smplkit.flags.types import FlagDeclaration
     from smplkit.management._buffer import _ContextRegistrationBuffer
-    from smplkit.management.audit import (
-        AsyncAuditClient as _MgmtAsyncAuditClient,
-        AuditClient as _MgmtAuditClient,
-    )
 
 logger = logging.getLogger("smplkit")
 
@@ -2524,33 +2521,22 @@ class AsyncLogGroupsClient:
 
 
 # ---------------------------------------------------------------------------
-# Top-level SmplManagementClient
+# Management namespace (client.manage.*)
 # ---------------------------------------------------------------------------
 
 
-class SmplManagementClient:
-    """Synchronous management-only entry point for the smplkit SDK.
+class _ManagementNamespace:
+    """The CRUD namespace exposed as ``client.manage`` on :class:`SmplClient`.
 
-    Use this client for setup scripts, CI/CD jobs, admin tools, and
-    anywhere else the goal is CRUD against the platform — not runtime
-    instrumentation. Construction has zero side effects: no service
-    registration, no metrics thread, no websocket, no logger discovery.
+    Holds the management/CRUD sub-clients (contexts, context_types,
+    environments, services, account_settings, config, flags, loggers,
+    log_groups) plus the per-service transports and the context-registration
+    buffer that back them. Construction is side-effect-free: no threads, no
+    network — transports connect lazily on first call.
 
-    Usage::
-
-        from smplkit import SmplManagementClient
-
-        with SmplManagementClient() as mgmt:
-            for env in mgmt.environments.list():
-                print(env.id)
-
-    Args:
-        api_key: API key for authenticating with the smplkit platform.
-            When omitted, resolved from ``SMPLKIT_API_KEY`` or ``~/.smplkit``.
-        profile: Named profile section to read from ``~/.smplkit``.
-        base_domain: Base domain for API requests (default ``"smplkit.com"``).
-        scheme: URL scheme (default ``"https"``).
-        debug: Enable debug logging in the SDK.
+    Internal (not publicly constructed): :class:`SmplClient` builds it from a
+    resolved config. Audit and jobs are deliberately NOT here — they are the
+    top-level ``client.audit`` / ``client.jobs`` (one client, full surface).
     """
 
     contexts: ContextsClient
@@ -2562,47 +2548,12 @@ class SmplManagementClient:
     flags: FlagsClient
     loggers: LoggersClient
     log_groups: LogGroupsClient
-    audit: "_MgmtAuditClient"
 
-    def __init__(
-        self,
-        api_key: str | None = None,
-        *,
-        profile: str | None = None,
-        base_domain: str | None = None,
-        scheme: str | None = None,
-        debug: bool | None = None,
-    ) -> None:
-        cfg = resolve_management_config(
-            profile=profile,
-            api_key=api_key,
-            base_domain=base_domain,
-            scheme=scheme,
-            debug=debug,
-        )
-        self._init_from_resolved(cfg)
-
-    @classmethod
-    def _from_resolved(cls, cfg: "ResolvedManagementConfig") -> "SmplManagementClient":
-        """Construct from an already-resolved config (used by ``SmplClient``)."""
-        instance = cls.__new__(cls)
-        instance._init_from_resolved(cfg)
-        return instance
-
-    def _init_from_resolved(self, cfg: "ResolvedManagementConfig") -> None:
-        if cfg.debug:
-            enable_debug()
-            logger.setLevel(logging.DEBUG)
-
-        self._api_key = cfg.api_key
-        self._base_domain = cfg.base_domain
-        self._scheme = cfg.scheme
-
+    def __init__(self, cfg: "ResolvedManagementConfig") -> None:
         config_url = _service_url(cfg.scheme, "config", cfg.base_domain)
         app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
         flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
         logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
-        audit_url = _service_url(cfg.scheme, "audit", cfg.base_domain)
         jobs_url = _service_url(cfg.scheme, "jobs", cfg.base_domain)
 
         _extra = {**(cfg.extra_headers or {})}
@@ -2610,15 +2561,9 @@ class SmplManagementClient:
         self._config_http = _ConfigAuthClient(base_url=config_url, token=cfg.api_key, headers=_extra)
         self._flags_http = _FlagsAuthClient(base_url=flags_url, token=cfg.api_key, headers=_extra)
         self._logging_http = _LoggingAuthClient(base_url=logging_url, token=cfg.api_key, headers=_extra)
-        # Audit's wire format is JSON:API; all other services pass through
-        # ``application/json`` because their generated clients send it. The
-        # Accept header here mirrors the runtime audit client.
-        self._audit_http = _AuditAuthClient(
-            base_url=audit_url,
-            token=cfg.api_key,
-            headers={**_extra, "Accept": "application/vnd.api+json"},
-        )
-        # Smpl Jobs is JSON:API on its own service, like audit.
+        # Smpl Jobs is JSON:API; ``client.jobs`` is built from this transport
+        # by SmplClient. (There is no audit transport here — ``client.audit``
+        # owns its own.)
         self._jobs_http = _JobsAuthClient(
             base_url=jobs_url,
             token=cfg.api_key,
@@ -2638,23 +2583,15 @@ class SmplManagementClient:
         self.flags = FlagsClient(self._flags_http)
         self.loggers = LoggersClient(self._logging_http, base_url=logging_url)
         self.log_groups = LogGroupsClient(self._logging_http, base_url=logging_url)
-        # Lazily imported to avoid a circular reference while management
-        # types are still loading the runtime audit module for shared
-        # dataclasses.
-        from smplkit.management.audit import AuditClient as _MgmtAuditClient
-        from smplkit.management.jobs import JobsClient as _MgmtJobsClient
-
-        self.audit = _MgmtAuditClient(auth_client=self._audit_http)
-        self.jobs = _MgmtJobsClient(auth_client=self._jobs_http)
 
     def close(self) -> None:
-        """Release HTTP resources held by this client."""
+        """Close the management transports. The audit/jobs runtime clients own
+        their own teardown on the top-level :class:`SmplClient`."""
         for http in (
             self._app_http,
             self._config_http,
             self._flags_http,
             self._logging_http,
-            self._audit_http,
             self._jobs_http,
         ):
             client = http._client
@@ -2662,19 +2599,10 @@ class SmplManagementClient:
                 client.close()
                 http._client = None
 
-    def __enter__(self) -> SmplManagementClient:
-        return self
 
-    def __exit__(self, *args: object) -> None:
-        self.close()
-
-
-class AsyncSmplManagementClient:
-    """Asynchronous management-only entry point for the smplkit SDK.
-
-    Mirrors :class:`SmplManagementClient` but exposes async sub-clients.
-    Construction has the same zero-side-effect contract.
-    """
+class _AsyncManagementNamespace:
+    """Async counterpart of :class:`_ManagementNamespace` — ``client.manage``
+    on :class:`AsyncSmplClient`."""
 
     contexts: AsyncContextsClient
     context_types: AsyncContextTypesClient
@@ -2685,47 +2613,12 @@ class AsyncSmplManagementClient:
     flags: AsyncFlagsClient
     loggers: AsyncLoggersClient
     log_groups: AsyncLogGroupsClient
-    audit: "_MgmtAsyncAuditClient"
 
-    def __init__(
-        self,
-        api_key: str | None = None,
-        *,
-        profile: str | None = None,
-        base_domain: str | None = None,
-        scheme: str | None = None,
-        debug: bool | None = None,
-    ) -> None:
-        cfg = resolve_management_config(
-            profile=profile,
-            api_key=api_key,
-            base_domain=base_domain,
-            scheme=scheme,
-            debug=debug,
-        )
-        self._init_from_resolved(cfg)
-
-    @classmethod
-    def _from_resolved(cls, cfg: "ResolvedManagementConfig") -> "AsyncSmplManagementClient":
-        """Construct from an already-resolved config (used by ``AsyncSmplClient``)."""
-        instance = cls.__new__(cls)
-        instance._init_from_resolved(cfg)
-        return instance
-
-    def _init_from_resolved(self, cfg: "ResolvedManagementConfig") -> None:
-        if cfg.debug:
-            enable_debug()
-            logger.setLevel(logging.DEBUG)
-
-        self._api_key = cfg.api_key
-        self._base_domain = cfg.base_domain
-        self._scheme = cfg.scheme
-
+    def __init__(self, cfg: "ResolvedManagementConfig") -> None:
         config_url = _service_url(cfg.scheme, "config", cfg.base_domain)
         app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
         flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
         logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
-        audit_url = _service_url(cfg.scheme, "audit", cfg.base_domain)
         jobs_url = _service_url(cfg.scheme, "jobs", cfg.base_domain)
 
         _extra = {**(cfg.extra_headers or {})}
@@ -2733,12 +2626,6 @@ class AsyncSmplManagementClient:
         self._config_http = _ConfigAuthClient(base_url=config_url, token=cfg.api_key, headers=_extra)
         self._flags_http = _FlagsAuthClient(base_url=flags_url, token=cfg.api_key, headers=_extra)
         self._logging_http = _LoggingAuthClient(base_url=logging_url, token=cfg.api_key, headers=_extra)
-        self._audit_http = _AuditAuthClient(
-            base_url=audit_url,
-            token=cfg.api_key,
-            headers={**_extra, "Accept": "application/vnd.api+json"},
-        )
-        # Smpl Jobs is JSON:API on its own service, like audit.
         self._jobs_http = _JobsAuthClient(
             base_url=jobs_url,
             token=cfg.api_key,
@@ -2758,29 +2645,17 @@ class AsyncSmplManagementClient:
         self.flags = AsyncFlagsClient(self._flags_http)
         self.loggers = AsyncLoggersClient(self._logging_http, base_url=logging_url)
         self.log_groups = AsyncLogGroupsClient(self._logging_http, base_url=logging_url)
-        from smplkit.management.audit import AsyncAuditClient as _MgmtAsyncAuditClient
-        from smplkit.management.jobs import AsyncJobsClient as _MgmtAsyncJobsClient
-
-        self.audit = _MgmtAsyncAuditClient(auth_client=self._audit_http)
-        self.jobs = _MgmtAsyncJobsClient(auth_client=self._jobs_http)
 
     async def close(self) -> None:
-        """Release HTTP resources held by this client."""
+        """Close the management transports (async)."""
         for http in (
             self._app_http,
             self._config_http,
             self._flags_http,
             self._logging_http,
-            self._audit_http,
             self._jobs_http,
         ):
             ac = http._async_client
             if ac is not None:
                 await ac.aclose()
                 http._async_client = None
-
-    async def __aenter__(self) -> AsyncSmplManagementClient:
-        return self
-
-    async def __aexit__(self, *args: object) -> None:
-        await self.close()

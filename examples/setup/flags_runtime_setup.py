@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from smplkit import (
-    AsyncSmplManagementClient,
     FlagValue,
     Op,
     Rule,
@@ -13,7 +12,7 @@ from smplkit import (
 _DEMO_FLAG_IDS = ["checkout-v2", "banner-color", "max-retries"]
 
 
-async def setup_runtime_showcase(manage: AsyncSmplManagementClient) -> None:
+async def setup_runtime_showcase(manage) -> None:
     await cleanup_runtime_showcase(manage)
 
     checkout = manage.flags.new_boolean_flag(
@@ -73,7 +72,7 @@ async def setup_runtime_showcase(manage: AsyncSmplManagementClient) -> None:
     await retries.save()
 
 
-async def cleanup_runtime_showcase(manage: AsyncSmplManagementClient) -> None:
+async def cleanup_runtime_showcase(manage) -> None:
     for flag_id in _DEMO_FLAG_IDS:
         try:
             await manage.flags.delete(flag_id)

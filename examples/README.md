@@ -19,26 +19,43 @@ Runnable examples demonstrating the [smplkit Python SDK](https://github.com/smpl
 
 ## Structure
 
-Each product has two showcases — **management** and **runtime** — plus, where applicable, a setup helper that creates server-side state for the runtime showcase.
+There is **one** SDK client — `SmplClient` (and `AsyncSmplClient`). Management/CRUD
+lives on its `client.manage` namespace; runtime instrumentation is `client.flags`,
+`client.config`, `client.logging`; and `client.audit` / `client.jobs` are the
+audit and jobs surfaces. Each product can also be used via a standalone client
+(`SmplAuditClient`, `SmplJobsClient`).
+
+Config/Flags/Logging keep a **management** + **runtime** showcase pair (the two
+sides — CRUD vs. evaluation — are genuinely different). Audit has both a runtime
+and a management showcase (one client either way). Jobs has a single showcase.
 
 | Product | Management | Runtime | Setup |
 |---------|-----------|---------|-------|
 | **Flags** | `flags_management_showcase.py` | `flags_runtime_showcase.py` | `flags_runtime_setup.py` |
 | **Config** | `config_management_showcase.py` | `config_runtime_showcase.py` | `config_runtime_setup.py` |
 | **Logging** | `logging_management_showcase.py` | `logging_runtime_showcase.py` | `logging_runtime_setup.py` |
-| **Audit** | _(no management API)_ | `audit_runtime_showcase.py` | _(none — events created at runtime)_ |
+| **Audit** | `audit_management_showcase.py` (forwarders) | `audit_runtime_showcase.py` (events, discovery, categories) | _(none)_ |
+| **Jobs** | `jobs_showcase.py` (single — Jobs has no runtime/management split) | | _(none)_ |
 
-**Management showcases** demonstrate the programmatic CRUD API: creating resources with `new*()` + `save()`, fetching with `get(id)`, listing, mutating, and deleting. No `connect()` or `start()` needed — management methods are stateless HTTP calls.
+**Management showcases** demonstrate the programmatic CRUD API via `client.manage.*`:
+creating resources with `new*()` + `save()`, fetching with `get(id)`, listing,
+mutating, and deleting. No `connect()` or `start()` needed — management methods are
+stateless HTTP calls.
 
-**Runtime showcases** demonstrate the developer experience: lazy initialization (Flags/Config) or explicit `start()` (Logging), local evaluation, live updates via WebSocket, and change listeners. Each runtime showcase imports its setup helper to create server-side state, then cleans up after itself.
+**Runtime showcases** demonstrate the developer experience: lazy initialization
+(Flags/Config) or explicit `start()` (Logging), local evaluation, live updates via
+WebSocket, and change listeners. Each runtime showcase imports its setup helper to
+create server-side state, then cleans up after itself.
 
 ## Running
 
 ```bash
-# Management (standalone — no setup file needed)
+# Management / CRUD (via client.manage, or a standalone audit/jobs client)
 python examples/flags_management_showcase.py
 python examples/config_management_showcase.py
 python examples/logging_management_showcase.py
+python examples/audit_management_showcase.py
+python examples/jobs_showcase.py
 
 # Runtime (imports its setup helper automatically)
 python examples/flags_runtime_showcase.py

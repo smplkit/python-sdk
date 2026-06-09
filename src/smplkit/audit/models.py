@@ -108,6 +108,12 @@ class Event:
         actor_label (str | None): Human-readable label for the actor
             (e.g. an email address or API key name). ``None`` when not
             supplied.
+        category (str | None): Free-form bucket label for the event
+            (e.g. ``"auth"``, ``"billing"``, ``"config-change"``). Stored
+            exactly as supplied; drives the audit log's category filter and
+            the ``categories`` discovery listing
+            (:meth:`~smplkit.audit.SmplAuditClient.categories`). ``None`` when
+            not supplied.
         data (dict[str, Any]): Free-form per-event payload defined by
             the customer. Surfaced on the audit-event resource as a
             structured JSONB column.
@@ -133,6 +139,7 @@ class Event:
     actor_type: str | None = None
     actor_id: str | None = None
     actor_label: str | None = None
+    category: str | None = None
     data: dict[str, Any] = field(default_factory=dict)
     idempotency_key: str = ""
     do_not_forward: bool = False
@@ -149,6 +156,7 @@ class Event:
             actor_type=attrs.get("actor_type"),
             actor_id=attrs.get("actor_id"),
             actor_label=attrs.get("actor_label"),
+            category=attrs.get("category"),
             occurred_at=_parse_iso(attrs["occurred_at"]),
             created_at=_parse_iso(attrs["created_at"]),
             data=attrs.get("data") or {},
@@ -446,6 +454,31 @@ class Forwarder:
         )
 
 
+class AsyncForwarder(Forwarder):
+    """Async active-record forwarder — the async counterpart of :class:`Forwarder`.
+
+    Identical fields and semantics; ``save()`` and ``delete()`` are
+    coroutines (``await forwarder.save()``). Returned by the async forwarder
+    surface (``AsyncSmplAuditClient.forwarders``).
+    """
+
+    async def save(self) -> None:  # type: ignore[override]
+        """Create or full-replace this forwarder on the server (async)."""
+        if self._client is None:
+            raise RuntimeError("Forwarder was constructed without a client; cannot save")
+        if self.created_at is None:
+            other = await self._client._create(self)
+        else:
+            other = await self._client._update(self)
+        self._apply(other)
+
+    async def delete(self) -> None:  # type: ignore[override]
+        """Soft-delete this forwarder on the server (async)."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("Forwarder was constructed without a client or id; cannot delete")
+        await self._client.delete(self.id)
+
+
 @dataclass(frozen=True, slots=True)
 class ResourceType:
     """A distinct resource_type slug seen for the account.
@@ -505,6 +538,37 @@ class EventType:
         return cls(
             id=resource["id"],
             event_type=attrs.get("event_type") or resource["id"],
+            created_at=_parse_iso(attrs["created_at"]),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class Category:
+    """A distinct ``category`` value seen for the account.
+
+    Same shape as :class:`ResourceType` and :class:`EventType` — ``id``
+    and ``category`` are the same value, surfaced as the JSON:API
+    resource id (ADR-014 "key as id"). The duplication keeps SDK
+    consumers from having to dig into the ``id`` field when populating
+    filter UI controls; pick whichever name reads better in context.
+
+    Attributes:
+        id (str): The category value, surfaced as the JSON:API resource id.
+        category (str): Same value as :attr:`id`; provided for readability.
+        created_at (datetime): Earliest sighting of this category for the
+            account.
+    """
+
+    id: str
+    category: str
+    created_at: datetime
+
+    @classmethod
+    def _from_resource(cls, resource: dict[str, Any]) -> "Category":
+        attrs = resource.get("attributes", {})
+        return cls(
+            id=resource["id"],
+            category=attrs.get("category") or resource["id"],
             created_at=_parse_iso(attrs["created_at"]),
         )
 

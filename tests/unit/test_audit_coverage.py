@@ -2,7 +2,7 @@
 
 Fills in branches that ``test_audit.py`` doesn't directly exercise so the
 100% line-coverage gate stays green: list filter passthrough, get error
-paths, AsyncAuditClient delegation, _build_attributes' optional data
+paths, AsyncSmplAuditClient delegation, _build_attributes' optional data
 and data fields, and the buffer's gave-up + safe-body paths.
 """
 
@@ -19,7 +19,7 @@ from smplkit.audit._buffer import (
     MAX_ATTEMPTS_PER_ITEM,
     _PendingEvent,
 )
-from smplkit.audit.client import AsyncAuditClient, AuditClient
+from smplkit.audit.client import AsyncSmplAuditClient, SmplAuditClient
 
 
 def test_buffer_enqueue_silent_when_closed() -> None:
@@ -96,7 +96,7 @@ def test_buffer_post_raising_treated_as_transient() -> None:
 
 
 # --------------------------------------------------------------------------
-# AuditClient — branches not exercised in test_audit.py
+# SmplAuditClient — branches not exercised in test_audit.py
 # --------------------------------------------------------------------------
 
 
@@ -133,7 +133,7 @@ def test_create_nests_snapshot_inside_data() -> None:
         )
 
     transport = httpx.MockTransport(handler)
-    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client = SmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         client.events.record(
@@ -172,7 +172,7 @@ def test_post_wrapper_returns_httpx_error_on_connection_failure() -> None:
         raise httpx.ConnectError("simulated connect failure")
 
     transport = httpx.MockTransport(handler)
-    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client = SmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         client.events.record(event_type="x", resource_type="y", resource_id="1")
@@ -183,11 +183,15 @@ def test_post_wrapper_returns_httpx_error_on_connection_failure() -> None:
         client._close()
 
 
-def test_async_client_delegates_to_sync() -> None:
-    """The current placeholder ``AsyncAuditClient`` re-exports the sync surface."""
-    client = AsyncAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
-    assert client.events is client._inner.events  # type: ignore[attr-defined]
-    # The async close just delegates.
+def test_async_client_owns_its_own_genuinely_async_surface() -> None:
+    """The async client is no longer a sync delegate — it builds its own
+    transport and async sub-clients (no ``_inner``)."""
+    from smplkit.audit.client import _AsyncEventsClient
+
+    client = AsyncSmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    assert not hasattr(client, "_inner")
+    assert isinstance(client.events, _AsyncEventsClient)
+    assert client._owns_transport is True
     import asyncio
 
     asyncio.run(client._close())
@@ -195,17 +199,54 @@ def test_async_client_delegates_to_sync() -> None:
 
 def test_audit_client_extra_headers_reach_transport() -> None:
     """extra_headers are stored on _auth and applied as defaults to every request."""
-    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com", extra_headers={"X-Test": "v"})
+    client = SmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com", extra_headers={"X-Test": "v"})
     assert client._auth._headers.get("X-Test") == "v"
     client._close()
 
 
+def test_audit_client_context_manager_closes_owned_transport() -> None:
+    """The public close()/context manager tears down an owned transport."""
+    with SmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com") as client:
+        assert client._owns_transport is True
+        client._auth.set_httpx_client(
+            httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(204)), base_url="https://e.com")
+        )
+    # __exit__ -> close() -> _close(): owned transport closed.
+    assert client._auth.get_httpx_client().is_closed
+
+
+def test_audit_client_borrowed_transport_not_closed() -> None:
+    """An injected (borrowed) transport is never closed by the audit client —
+    the owning client handles teardown."""
+    from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
+
+    auth = _AuditAuthClient(base_url="https://audit.example.com", token="sk_api_test")
+    auth.set_httpx_client(httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(204)), base_url="https://e.com"))
+    client = SmplAuditClient(auth_client=auth)
+    assert client._owns_transport is False
+    client._close()  # closes the buffer only; must NOT close the borrowed transport
+    assert auth._client is not None
+
+
+def test_audit_client_standalone_resolves_transport() -> None:
+    """Constructing without base_url forces the config-resolution path in
+    ``_audit_transport`` (resolves the audit URL from base_domain)."""
+    client = SmplAuditClient(api_key="sk_api_test", base_domain="example.com", scheme="https", environment="prod")
+    assert client._owns_transport is True
+    assert client._auth._headers["X-Smplkit-Environment"] == "prod"
+    assert "audit.example.com" in str(client._auth._base_url)
+    client._close()
+
+
 def test_async_audit_client_extra_headers_reach_transport() -> None:
-    """AsyncAuditClient forwards extra_headers to its inner AuditClient."""
-    client = AsyncAuditClient(
+    """The async client stamps extra_headers on its own transport."""
+    client = AsyncSmplAuditClient(
         api_key="sk_api_test", base_url="https://audit.example.com", extra_headers={"X-Test": "v"}
     )
-    assert client._inner._auth._headers.get("X-Test") == "v"
+    assert client._auth._headers.get("X-Test") == "v"
+    import asyncio
+
+    asyncio.run(client._close())
 
 
 _ = MagicMock  # silence unused-import warnings on aggressive linters

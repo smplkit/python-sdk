@@ -444,9 +444,9 @@ class TestConfigClientErrors:
 
         import datetime
 
-        from smplkit import SmplManagementClient
+        from smplkit import SmplClient
 
-        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
+        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
         cfg = Config(
             mgmt.config,
             id="test",
@@ -483,9 +483,9 @@ class TestConfigClientErrors:
             },
         )
 
-        from smplkit import SmplManagementClient
+        from smplkit import SmplClient
 
-        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
+        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
         cfg = mgmt.config.new("test-key", name="test")
         with pytest.raises(ValidationError) as exc_info:
             cfg.save()
@@ -508,9 +508,9 @@ class TestConfigClientErrors:
             },
         )
 
-        from smplkit import SmplManagementClient
+        from smplkit import SmplClient
 
-        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
+        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
         with pytest.raises(NotFoundError) as exc_info:
             mgmt.config.get("abc")
         exc = exc_info.value
@@ -532,9 +532,9 @@ class TestConfigClientErrors:
             },
         )
 
-        from smplkit import SmplManagementClient
+        from smplkit import SmplClient
 
-        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
+        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
         with pytest.raises(ConflictError) as exc_info:
             mgmt.config.delete("test-config")
         exc = exc_info.value
@@ -549,9 +549,9 @@ class TestConfigClientErrors:
         resp.parsed = None
         mock_create.return_value = resp
 
-        from smplkit import SmplManagementClient
+        from smplkit import SmplClient
 
-        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
+        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
         cfg = mgmt.config.new("test-key", name="test")
         with pytest.raises(Error) as exc_info:
             cfg.save()
@@ -579,9 +579,9 @@ class TestFlagsClientErrors:
         )
         from smplkit.flags.models import Flag
 
-        from smplkit import SmplManagementClient
+        from smplkit import SmplClient
 
-        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
+        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
         flag = Flag(
             mgmt.flags,
             id="test",
@@ -610,9 +610,9 @@ class TestFlagsClientErrors:
             },
         )
 
-        from smplkit import SmplManagementClient
+        from smplkit import SmplClient
 
-        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
+        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
         with pytest.raises(NotFoundError) as exc_info:
             mgmt.flags.get("test-flag")
         exc = exc_info.value
@@ -629,9 +629,9 @@ class TestLoggingClientErrors:
         # Simulate PUT failing with a network error to verify a single
         # HTTP call is made (upsert — no bulk pre-step).
         mock_update.side_effect = httpx.ConnectError("refused")
-        from smplkit import SmplManagementClient
+        from smplkit import SmplClient
 
-        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
+        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
         lg = mgmt.loggers.new("test-key")
         with pytest.raises(ConnectionError):
             lg.save()
@@ -652,9 +652,9 @@ class TestLoggingClientErrors:
             },
         )
 
-        from smplkit import SmplManagementClient
+        from smplkit import SmplClient
 
-        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
+        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
         with pytest.raises(NotFoundError) as exc_info:
             mgmt.loggers.get("test-key")
         exc = exc_info.value

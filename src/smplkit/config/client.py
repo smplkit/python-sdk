@@ -3,7 +3,7 @@
 Runtime config operations: lazy-fetch all configs for the SDK's
 current environment, resolve values down the inheritance chain, and
 emit change events when the server's WebSocket signals a refresh.
-CRUD lives on :class:`smplkit.SmplManagementClient`.
+CRUD lives on ``client.manage``.
 
 The runtime client exposes two ways to read config values:
 
@@ -53,7 +53,7 @@ if TYPE_CHECKING:
     from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
     from smplkit._ws import SharedWebSocket
     from smplkit.client import AsyncSmplClient, SmplClient
-    from smplkit.management.client import AsyncSmplManagementClient, SmplManagementClient
+    from smplkit.management.client import _AsyncManagementNamespace, _ManagementNamespace
 
 logger = logging.getLogger("smplkit")
 ws_logger = logging.getLogger("smplkit.config.ws")
@@ -404,14 +404,14 @@ class ConfigClient:
     Obtained via ``SmplClient(...).config``. Exposes :meth:`bind` (the
     recommended declarative API), :meth:`get` (lookup-only escape hatch),
     :meth:`refresh`, and :meth:`on_change`. CRUD lives on
-    :class:`smplkit.SmplManagementClient` (``mgmt.config.*``).
+    ``client.manage`` (``mgmt.config.*``).
     """
 
     def __init__(
         self,
         parent: SmplClient,
         *,
-        manage: SmplManagementClient,
+        manage: _ManagementNamespace,
         metrics: _MetricsReporter | None,
     ) -> None:
         self._parent = parent
@@ -441,6 +441,7 @@ class ConfigClient:
         Idempotent — safe to call multiple times.  Called automatically on
         first ``config.get()`` or ``config.bind()`` if not invoked manually.
         """
+        self._parent._ensure_started()
         if self._connected:
             return
 
@@ -884,14 +885,14 @@ class AsyncConfigClient:
 
     Obtained via ``AsyncSmplClient(...).config``. Mirrors
     :class:`ConfigClient` with awaitable variants. CRUD lives on
-    :class:`smplkit.AsyncSmplManagementClient` (``mgmt.config.*``).
+    ``client.manage`` (``mgmt.config.*``).
     """
 
     def __init__(
         self,
         parent: AsyncSmplClient,
         *,
-        manage: AsyncSmplManagementClient,
+        manage: _AsyncManagementNamespace,
         metrics: _AsyncMetricsReporter | None,
     ) -> None:
         self._parent = parent
@@ -918,6 +919,7 @@ class AsyncConfigClient:
         Idempotent — safe to call multiple times.  Called automatically on
         first ``config.get()`` or ``config.bind()`` if not invoked manually.
         """
+        self._parent._ensure_started()
         if self._connected:
             return
 

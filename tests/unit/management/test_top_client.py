@@ -1,12 +1,11 @@
-"""Tests for the top-level :class:`SmplManagementClient` / :class:`AsyncSmplManagementClient`.
+"""Tests for the management namespace (``client.manage``) and its construction.
 
-The contract is:
+After Stage 6 there is no standalone SmplManagementClient — management/CRUD is
+the ``client.manage`` namespace on the single :class:`SmplClient`. The contract:
 
-- Construction has zero side effects (no service registration, no metrics
-  thread, no websocket, no HTTP requests).
-- All eight management namespaces are wired up.
-- close() releases HTTP transport resources.
-- Context-manager behavior closes on exit.
+- The namespace construction has zero side effects (no threads, no HTTP).
+- All nine CRUD namespaces are wired up; audit/jobs are NOT here (top-level).
+- The namespace close() releases HTTP transport resources.
 """
 
 from __future__ import annotations
@@ -17,8 +16,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from smplkit import AsyncSmplManagementClient, SmplManagementClient
-from smplkit._errors import Error
+from smplkit import AsyncSmplClient, Error, SmplClient
+from smplkit._config import resolve_management_config
 from smplkit.management.client import (
     AccountSettingsClient,
     AsyncAccountSettingsClient,
@@ -38,30 +37,20 @@ from smplkit.management.client import (
     LogGroupsClient,
     LoggersClient,
     ServicesClient,
-)
-
-
-_NS_ATTRS = (
-    "contexts",
-    "context_types",
-    "environments",
-    "services",
-    "account_settings",
-    "configs",
-    "flags",
-    "loggers",
-    "log_groups",
+    _AsyncManagementNamespace,
+    _ManagementNamespace,
 )
 
 
 # ---------------------------------------------------------------------------
-# Sync top-level client
+# Sync management namespace
 # ---------------------------------------------------------------------------
 
 
-class TestSmplManagementClientConstruction:
+class TestManagementNamespaceConstruction:
     def test_namespaces_are_wired(self):
-        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
+        client = SmplClient(api_key="sk_test", base_domain="example.test")
+        mgmt = client.manage
         assert isinstance(mgmt.contexts, ContextsClient)
         assert isinstance(mgmt.context_types, ContextTypesClient)
         assert isinstance(mgmt.environments, EnvironmentsClient)
@@ -71,105 +60,55 @@ class TestSmplManagementClientConstruction:
         assert isinstance(mgmt.flags, FlagsClient)
         assert isinstance(mgmt.loggers, LoggersClient)
         assert isinstance(mgmt.log_groups, LogGroupsClient)
-        mgmt.close()
+        # audit/jobs are top-level (client.audit / client.jobs), never on manage.
+        assert not hasattr(mgmt, "audit")
+        assert not hasattr(mgmt, "jobs")
+        client.close()
 
-    def test_construction_has_no_side_effects(self):
-        """Building the client must not start threads or make HTTP calls.
-
-        We snapshot the live thread set before construction, then assert no
-        new daemon threads appear after — proves the runtime side effects
-        (auto-registration thread, metrics flusher) of ``SmplClient`` are
-        absent here. We also patch ``httpx.Client`` to assert no HTTP
-        request is fired.
-        """
+    def test_namespace_construction_has_no_side_effects(self):
+        """Building the namespace directly must not start threads or make HTTP
+        calls — isolated from SmplClient's metrics/audit/jobs wiring."""
+        cfg = resolve_management_config(api_key="sk_test", base_domain="example.test")
         before = {t.ident for t in threading.enumerate()}
         with patch("httpx.Client") as mock_sync_client, patch("httpx.AsyncClient") as mock_async_client:
-            mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
+            _ManagementNamespace(cfg)
         after = {t.ident for t in threading.enumerate()}
-        # No new threads spawned during construction
         assert before == after
-        # No httpx.Client / AsyncClient instantiated for outbound calls
-        # (the sub-clients construct their httpx clients lazily on first use)
         mock_sync_client.assert_not_called()
         mock_async_client.assert_not_called()
-        mgmt.close()
-
-    def test_resolves_api_key_from_env(self, monkeypatch):
-        monkeypatch.setenv("SMPLKIT_API_KEY", "sk_env")
-        mgmt = SmplManagementClient(base_domain="example.test")
-        assert mgmt._api_key == "sk_env"
-        mgmt.close()
-
-    def test_constructor_arg_overrides_env(self, monkeypatch):
-        monkeypatch.setenv("SMPLKIT_API_KEY", "sk_env")
-        mgmt = SmplManagementClient(api_key="sk_arg", base_domain="example.test")
-        assert mgmt._api_key == "sk_arg"
-        mgmt.close()
-
-    def test_missing_api_key_raises(self, monkeypatch, tmp_path):
-        monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
-        # Point HOME at an empty dir so ~/.smplkit doesn't exist
-        monkeypatch.setenv("HOME", str(tmp_path))
-        with pytest.raises(Error, match="No API key provided"):
-            SmplManagementClient()
-
-    def test_debug_flag_enables_debug_logging(self):
-        with patch("smplkit.management.client.enable_debug") as mock_enable:
-            mgmt = SmplManagementClient(
-                api_key="sk_test",
-                base_domain="example.test",
-                debug=True,
-            )
-        mock_enable.assert_called_once()
-        mgmt.close()
-
-    def test_does_not_require_environment_or_service(self, monkeypatch):
-        """Management clients are decoupled from runtime concerns."""
-        monkeypatch.delenv("SMPLKIT_ENVIRONMENT", raising=False)
-        monkeypatch.delenv("SMPLKIT_SERVICE", raising=False)
-        # No Error raised even though env/service are unset
-        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
-        mgmt.close()
 
     def test_close_closes_all_http_clients(self):
-        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
-        # Mock out the underlying httpx client to verify close()
-        for attr in ("_app_http", "_config_http", "_flags_http", "_logging_http"):
-            http = getattr(mgmt, attr)
-            http._client = MagicMock()
+        client = SmplClient(api_key="sk_test", base_domain="example.test")
+        mgmt = client.manage
+        for attr in ("_app_http", "_config_http", "_flags_http", "_logging_http", "_jobs_http"):
+            getattr(mgmt, attr)._client = MagicMock()
         mgmt.close()
-        for attr in ("_app_http", "_config_http", "_flags_http", "_logging_http"):
-            http = getattr(mgmt, attr)
-            assert http._client is None
+        for attr in ("_app_http", "_config_http", "_flags_http", "_logging_http", "_jobs_http"):
+            assert getattr(mgmt, attr)._client is None
 
     def test_close_when_no_clients_initialized(self):
-        """close() is a no-op when no httpx clients were materialized."""
-        mgmt = SmplManagementClient(api_key="sk_test", base_domain="example.test")
-        # _client is None on every AuthenticatedClient until first use
-        mgmt.close()  # should not raise
-
-    def test_context_manager(self):
-        with SmplManagementClient(api_key="sk_test", base_domain="example.test") as mgmt:
-            assert isinstance(mgmt, SmplManagementClient)
-        # close() called on exit — verify by checking _app_http._client is None
-        assert mgmt._app_http._client is None
+        """Namespace close() is a no-op when no httpx clients were materialized."""
+        client = SmplClient(api_key="sk_test", base_domain="example.test")
+        client.manage.close()  # should not raise
+        client.close()
 
     def test_instances_have_independent_buffers(self):
-        a = SmplManagementClient(api_key="sk_test", base_domain="example.test")
-        b = SmplManagementClient(api_key="sk_test", base_domain="example.test")
-        assert a._context_buffer is not b._context_buffer
+        a = SmplClient(api_key="sk_test", base_domain="example.test")
+        b = SmplClient(api_key="sk_test", base_domain="example.test")
+        assert a.manage._context_buffer is not b.manage._context_buffer
         a.close()
         b.close()
 
 
 # ---------------------------------------------------------------------------
-# Async top-level client
+# Async management namespace
 # ---------------------------------------------------------------------------
 
 
-class TestAsyncSmplManagementClientConstruction:
+class TestAsyncManagementNamespaceConstruction:
     def test_namespaces_are_wired(self):
-        mgmt = AsyncSmplManagementClient(api_key="sk_test", base_domain="example.test")
+        client = AsyncSmplClient(api_key="sk_test", base_domain="example.test")
+        mgmt = client.manage
         assert isinstance(mgmt.contexts, AsyncContextsClient)
         assert isinstance(mgmt.context_types, AsyncContextTypesClient)
         assert isinstance(mgmt.environments, AsyncEnvironmentsClient)
@@ -179,52 +118,40 @@ class TestAsyncSmplManagementClientConstruction:
         assert isinstance(mgmt.flags, AsyncFlagsClient)
         assert isinstance(mgmt.loggers, AsyncLoggersClient)
         assert isinstance(mgmt.log_groups, AsyncLogGroupsClient)
+        assert not hasattr(mgmt, "audit")
+        assert not hasattr(mgmt, "jobs")
+        asyncio.run(client.close())
 
-    def test_construction_has_no_side_effects(self):
+    def test_namespace_construction_has_no_side_effects(self):
+        cfg = resolve_management_config(api_key="sk_test", base_domain="example.test")
         before = {t.ident for t in threading.enumerate()}
         with patch("httpx.Client") as mock_sync, patch("httpx.AsyncClient") as mock_async:
-            AsyncSmplManagementClient(api_key="sk_test", base_domain="example.test")
+            _AsyncManagementNamespace(cfg)
         after = {t.ident for t in threading.enumerate()}
         assert before == after
         mock_sync.assert_not_called()
         mock_async.assert_not_called()
 
-    def test_debug_flag_enables_debug(self):
-        with patch("smplkit.management.client.enable_debug") as mock_enable:
-            AsyncSmplManagementClient(
-                api_key="sk_test",
-                base_domain="example.test",
-                debug=True,
-            )
-        mock_enable.assert_called_once()
-
     def test_close_closes_all_async_clients(self):
         async def _run():
-            mgmt = AsyncSmplManagementClient(api_key="sk_test", base_domain="example.test")
-            for attr in ("_app_http", "_config_http", "_flags_http", "_logging_http"):
-                http = getattr(mgmt, attr)
+            client = AsyncSmplClient(api_key="sk_test", base_domain="example.test")
+            mgmt = client.manage
+            for attr in ("_app_http", "_config_http", "_flags_http", "_logging_http", "_jobs_http"):
                 ac = AsyncMock()
                 ac.aclose = AsyncMock()
-                http._async_client = ac
+                getattr(mgmt, attr)._async_client = ac
             await mgmt.close()
-            for attr in ("_app_http", "_config_http", "_flags_http", "_logging_http"):
-                http = getattr(mgmt, attr)
-                assert http._async_client is None
+            for attr in ("_app_http", "_config_http", "_flags_http", "_logging_http", "_jobs_http"):
+                assert getattr(mgmt, attr)._async_client is None
+            await client.close()
 
         asyncio.run(_run())
 
     def test_close_when_no_clients_initialized(self):
         async def _run():
-            mgmt = AsyncSmplManagementClient(api_key="sk_test", base_domain="example.test")
-            await mgmt.close()  # no error
-
-        asyncio.run(_run())
-
-    def test_async_context_manager(self):
-        async def _run():
-            async with AsyncSmplManagementClient(api_key="sk_test", base_domain="example.test") as mgmt:
-                assert isinstance(mgmt, AsyncSmplManagementClient)
-            assert mgmt._app_http._async_client is None
+            client = AsyncSmplClient(api_key="sk_test", base_domain="example.test")
+            await client.manage.close()  # no error
+            await client.close()
 
         asyncio.run(_run())
 
@@ -235,6 +162,14 @@ class TestAsyncSmplManagementClientConstruction:
 
 
 class TestResolveManagementConfig:
+    def test_missing_api_key_raises(self, monkeypatch, tmp_path):
+        # api_key is required even for the management resolver (backs the
+        # standalone SmplAuditClient/SmplJobsClient transports).
+        monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
+        monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
+        with pytest.raises(Error, match="No API key provided"):
+            resolve_management_config(_home_dir=tmp_path)
+
     def test_debug_env_var_parsed(self, monkeypatch):
         monkeypatch.setenv("SMPLKIT_API_KEY", "sk_env")
         monkeypatch.setenv("SMPLKIT_DEBUG", "true")

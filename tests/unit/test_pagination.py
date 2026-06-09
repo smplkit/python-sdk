@@ -329,14 +329,14 @@ def _mgmt_sync_pair_assert(call, *, page_number, page_size):
 
 class TestManagementListPaginationForwarding:
     def _mgmt(self):
-        from smplkit.management.client import SmplManagementClient
+        from smplkit import SmplClient
 
-        return SmplManagementClient(api_key="sk_test", base_domain="example.test")
+        return SmplClient(api_key="sk_test", base_domain="example.test").manage
 
     def _async_mgmt(self):
-        from smplkit.management.client import AsyncSmplManagementClient
+        from smplkit import AsyncSmplClient
 
-        return AsyncSmplManagementClient(api_key="sk_test", base_domain="example.test")
+        return AsyncSmplClient(api_key="sk_test", base_domain="example.test").manage
 
     # ------------------------------------------------------------------
     # Environments

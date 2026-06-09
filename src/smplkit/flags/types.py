@@ -175,7 +175,7 @@ class AsyncContext(_ContextBase):
 class FlagDeclaration:
     """Describes a flag declaration for buffered registration.
 
-    Used by :meth:`smplkit.SmplManagementClient.flags.register` to queue
+    Used by ``client.manage.flags.register`` to queue
     declarations for bulk registration.  ``service`` and ``environment``
     default to ``None``; the runtime client fills them from the active
     ``SmplClient`` when it forwards declarations.
