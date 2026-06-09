@@ -26,16 +26,16 @@ audit and jobs surfaces. Each product can also be used via a standalone client
 (`SmplAuditClient`, `SmplJobsClient`).
 
 Config/Flags/Logging keep a **management** + **runtime** showcase pair (the two
-sides — CRUD vs. evaluation — are genuinely different). Audit has both a runtime
-and a management showcase (one client either way). Jobs has a single showcase.
+sides — CRUD vs. evaluation — are genuinely different). Audit and Jobs have **one**
+showcase each — they have no runtime/management split (one client, full surface).
 
 | Product | Management | Runtime | Setup |
 |---------|-----------|---------|-------|
 | **Flags** | `flags_management_showcase.py` | `flags_runtime_showcase.py` | `flags_runtime_setup.py` |
 | **Config** | `config_management_showcase.py` | `config_runtime_showcase.py` | `config_runtime_setup.py` |
 | **Logging** | `logging_management_showcase.py` | `logging_runtime_showcase.py` | `logging_runtime_setup.py` |
-| **Audit** | `audit_management_showcase.py` (forwarders) | `audit_runtime_showcase.py` (events, discovery, categories) | _(none)_ |
-| **Jobs** | `jobs_showcase.py` (single — Jobs has no runtime/management split) | | _(none)_ |
+| **Audit** | `audit_showcase.py` — single; events, discovery, categories, and forwarders | | _(none)_ |
+| **Jobs** | `jobs_showcase.py` — single; job CRUD, runs, usage | | _(none)_ |
 
 **Management showcases** demonstrate the programmatic CRUD API via `client.manage.*`:
 creating resources with `new*()` + `save()`, fetching with `get(id)`, listing,
@@ -50,18 +50,19 @@ create server-side state, then cleans up after itself.
 ## Running
 
 ```bash
-# Management / CRUD (via client.manage, or a standalone audit/jobs client)
+# Single-client products (Audit, Jobs — full surface, no runtime/management split)
+python examples/audit_showcase.py
+python examples/jobs_showcase.py
+
+# Management / CRUD (via client.manage)
 python examples/flags_management_showcase.py
 python examples/config_management_showcase.py
 python examples/logging_management_showcase.py
-python examples/audit_management_showcase.py
-python examples/jobs_showcase.py
 
 # Runtime (imports its setup helper automatically)
 python examples/flags_runtime_showcase.py
 python examples/config_runtime_showcase.py
 python examples/logging_runtime_showcase.py
-python examples/audit_runtime_showcase.py
 ```
 
 Each script creates temporary resources, exercises all SDK features, then cleans up after itself.
