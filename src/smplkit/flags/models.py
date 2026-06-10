@@ -6,9 +6,7 @@ import dataclasses
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from smplkit.flags.client import AsyncFlagsClient, FlagsClient
-    from smplkit.management._client import AsyncFlagsClient as AsyncMgmtFlagsClient
-    from smplkit.management._client import FlagsClient as MgmtFlagsClient
+    from smplkit.flags._client import AsyncFlagsClient, FlagsClient
 
 
 @dataclasses.dataclass(frozen=True)
@@ -92,7 +90,7 @@ class Flag:
 
     def __init__(
         self,
-        client: FlagsClient | MgmtFlagsClient | None = None,
+        client: FlagsClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -353,7 +351,7 @@ class AsyncFlag:
 
     def __init__(
         self,
-        client: AsyncFlagsClient | AsyncMgmtFlagsClient | None = None,
+        client: AsyncFlagsClient | None = None,
         *,
         id: str | None = None,
         name: str,

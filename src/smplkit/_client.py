@@ -22,7 +22,7 @@ from smplkit._ws import SharedWebSocket
 from smplkit.audit._client import AsyncAuditClient, AuditClient
 from smplkit.jobs._client import AsyncJobsClient, JobsClient
 from smplkit.config._client import AsyncConfigClient, ConfigClient
-from smplkit.flags.client import AsyncFlagsClient, FlagsClient
+from smplkit.flags._client import AsyncFlagsClient, FlagsClient
 from smplkit.logging.client import AsyncLoggingClient, LoggingClient
 from smplkit.management._client import _AsyncManagementNamespace, _ManagementNamespace
 
@@ -135,7 +135,6 @@ class SmplClient:
         self.manage = _ManagementNamespace(_to_management_config(cfg, extra_headers))
 
         app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
-        flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
         logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
         audit_url = _service_url(cfg.scheme, "audit", cfg.base_domain)
 
@@ -158,13 +157,16 @@ class SmplClient:
         # Config's full surface on one client; wired into this parent so it
         # borrows the shared config transport and WebSocket.
         self.config = ConfigClient(parent=self, transport=self.manage._config_http, metrics=self._metrics)
+        # Flags' full surface on one client; wired into this parent so it
+        # borrows the shared flags transport and WebSocket. ``contexts`` is the
+        # injection seam for evaluation-context registration — it points at the
+        # namespace's contexts client today and will repoint to
+        # ``client.platform.contexts`` in a later phase.
         self.flags = FlagsClient(
-            self,
-            manage=self.manage,
+            parent=self,
+            transport=self.manage._flags_http,
+            contexts=self.manage.contexts,
             metrics=self._metrics,
-            flags_base_url=flags_url,
-            app_base_url=app_url,
-            extra_headers=extra_headers,
         )
         self.logging = LoggingClient(
             self,
@@ -223,7 +225,7 @@ class SmplClient:
                 return
             try:
                 self.manage.contexts.flush()
-                self.manage.flags.flush()
+                self.flags.flush()
                 self.manage.loggers.flush()
                 self.config.flush()
             except Exception as exc:
@@ -240,7 +242,7 @@ class SmplClient:
         """Drain every registration buffer one last time on close."""
         for fn in (
             self.manage.contexts.flush,
-            self.manage.flags.flush,
+            self.flags.flush,
             self.manage.loggers.flush,
             self.config.flush,
         ):
@@ -301,7 +303,7 @@ class SmplClient:
         Raises:
             TimeoutError: If the WebSocket fails to connect within *timeout* seconds.
         """
-        self.flags.start()
+        self.flags.install()
         self.config.install()
         ws = self._ensure_ws()
         deadline = time.monotonic() + timeout
@@ -435,7 +437,6 @@ class AsyncSmplClient:
         self.manage = _AsyncManagementNamespace(_to_management_config(cfg, extra_headers))
 
         app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
-        flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
         logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
         audit_url = _service_url(cfg.scheme, "audit", cfg.base_domain)
 
@@ -457,13 +458,15 @@ class AsyncSmplClient:
         # Config's full surface on one client; wired into this parent so it
         # borrows the shared config transport and WebSocket.
         self.config = AsyncConfigClient(parent=self, transport=self.manage._config_http, metrics=self._metrics)
+        # Flags' full surface on one client; wired into this parent so it
+        # borrows the shared flags transport and WebSocket. ``contexts`` is the
+        # injection seam for evaluation-context registration (today the
+        # namespace's contexts client; later ``client.platform.contexts``).
         self.flags = AsyncFlagsClient(
-            self,
-            manage=self.manage,
+            parent=self,
+            transport=self.manage._flags_http,
+            contexts=self.manage.contexts,
             metrics=self._metrics,
-            flags_base_url=flags_url,
-            app_base_url=app_url,
-            extra_headers=extra_headers,
         )
         self.logging = AsyncLoggingClient(
             self,
@@ -516,7 +519,7 @@ class AsyncSmplClient:
                 return
             for fn in (
                 self.manage.contexts.flush_sync,
-                self.manage.flags.flush_sync,
+                self.flags.flush_sync,
                 self.manage.loggers.flush_sync,
                 self.config.flush_sync,
             ):
@@ -536,7 +539,7 @@ class AsyncSmplClient:
         """Drain every registration buffer one last time on close."""
         for fn in (
             self.manage.contexts.flush,
-            self.manage.flags.flush,
+            self.flags.flush,
             self.manage.loggers.flush,
             self.config.flush,
         ):
@@ -611,7 +614,7 @@ class AsyncSmplClient:
         Raises:
             TimeoutError: If the WebSocket fails to connect within *timeout* seconds.
         """
-        await self.flags.start()
+        await self.flags.install()
         await self.config.install()
         ws = self._ensure_ws()
         deadline = time.monotonic() + timeout

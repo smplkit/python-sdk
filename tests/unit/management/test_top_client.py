@@ -19,20 +19,19 @@ import pytest
 from smplkit import AsyncSmplClient, Error, SmplClient
 from smplkit._config import resolve_management_config
 from smplkit.config._client import AsyncConfigClient, ConfigClient
+from smplkit.flags._client import AsyncFlagsClient, FlagsClient
 from smplkit.management._client import (
     AccountSettingsClient,
     AsyncAccountSettingsClient,
     AsyncContextsClient,
     AsyncContextTypesClient,
     AsyncEnvironmentsClient,
-    AsyncFlagsClient,
     AsyncLogGroupsClient,
     AsyncLoggersClient,
     AsyncServicesClient,
     ContextsClient,
     ContextTypesClient,
     EnvironmentsClient,
-    FlagsClient,
     LogGroupsClient,
     LoggersClient,
     ServicesClient,
@@ -55,13 +54,14 @@ class TestManagementNamespaceConstruction:
         assert isinstance(mgmt.environments, EnvironmentsClient)
         assert isinstance(mgmt.services, ServicesClient)
         assert isinstance(mgmt.account_settings, AccountSettingsClient)
-        assert isinstance(mgmt.flags, FlagsClient)
         assert isinstance(mgmt.loggers, LoggersClient)
         assert isinstance(mgmt.log_groups, LogGroupsClient)
-        # config/audit/jobs are top-level (client.config / client.audit /
-        # client.jobs), never on manage.
+        # config/flags/audit/jobs are top-level (client.config / client.flags /
+        # client.audit / client.jobs), never on manage.
         assert isinstance(client.config, ConfigClient)
+        assert isinstance(client.flags, FlagsClient)
         assert not hasattr(mgmt, "config")
+        assert not hasattr(mgmt, "flags")
         assert not hasattr(mgmt, "audit")
         assert not hasattr(mgmt, "jobs")
         client.close()
@@ -115,11 +115,12 @@ class TestAsyncManagementNamespaceConstruction:
         assert isinstance(mgmt.environments, AsyncEnvironmentsClient)
         assert isinstance(mgmt.services, AsyncServicesClient)
         assert isinstance(mgmt.account_settings, AsyncAccountSettingsClient)
-        assert isinstance(mgmt.flags, AsyncFlagsClient)
         assert isinstance(mgmt.loggers, AsyncLoggersClient)
         assert isinstance(mgmt.log_groups, AsyncLogGroupsClient)
         assert isinstance(client.config, AsyncConfigClient)
+        assert isinstance(client.flags, AsyncFlagsClient)
         assert not hasattr(mgmt, "config")
+        assert not hasattr(mgmt, "flags")
         assert not hasattr(mgmt, "audit")
         assert not hasattr(mgmt, "jobs")
         asyncio.run(client.close())

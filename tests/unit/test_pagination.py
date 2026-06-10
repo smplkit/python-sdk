@@ -165,39 +165,29 @@ class TestConfigRuntimePagination:
 class TestFlagsRuntimePagination:
     def _flags_client(self):
         from smplkit.management._buffer import _ContextRegistrationBuffer
-        from smplkit.flags.client import FlagsClient
+        from smplkit.flags._client import FlagsClient
         from smplkit.management._client import ContextsClient
-        from smplkit.management._client import FlagsClient as _MgmtFlagsClient
 
         parent = MagicMock()
-        parent._api_key = "sk_test"
         parent._environment = "test"
         parent._service = None
-        manage = MagicMock()
-        manage.contexts = ContextsClient(MagicMock(), _ContextRegistrationBuffer())
-        manage.flags = _MgmtFlagsClient(MagicMock())
-        parent.manage = manage
-        with patch("smplkit.flags.client.AuthenticatedClient"):
-            return FlagsClient(parent, manage=manage, metrics=parent._metrics)
+        contexts = ContextsClient(MagicMock(), _ContextRegistrationBuffer())
+        with patch("smplkit.flags._client.AuthenticatedClient"):
+            return FlagsClient(parent=parent, transport=MagicMock(), contexts=contexts, metrics=parent._metrics)
 
     def _async_flags_client(self):
         from smplkit.management._buffer import _ContextRegistrationBuffer
-        from smplkit.flags.client import AsyncFlagsClient
+        from smplkit.flags._client import AsyncFlagsClient
         from smplkit.management._client import AsyncContextsClient
-        from smplkit.management._client import AsyncFlagsClient as _MgmtAsyncFlagsClient
 
         parent = MagicMock()
-        parent._api_key = "sk_test"
         parent._environment = "test"
         parent._service = None
-        manage = MagicMock()
-        manage.contexts = AsyncContextsClient(MagicMock(), _ContextRegistrationBuffer())
-        manage.flags = _MgmtAsyncFlagsClient(MagicMock())
-        parent.manage = manage
-        with patch("smplkit.flags.client.AuthenticatedClient"):
-            return AsyncFlagsClient(parent, manage=manage, metrics=parent._metrics)
+        contexts = AsyncContextsClient(MagicMock(), _ContextRegistrationBuffer())
+        with patch("smplkit.flags._client.AuthenticatedClient"):
+            return AsyncFlagsClient(parent=parent, transport=MagicMock(), contexts=contexts, metrics=parent._metrics)
 
-    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    @patch("smplkit.flags._client.list_flags.sync_detailed")
     def test_fetch_flags_list_multi_page_exit(self, mock_list):
         full_page = [_flag_json_dict(f"f{i}") for i in range(PAGE_SIZE)]
         short_page = [_flag_json_dict("f_last")]
@@ -213,7 +203,7 @@ class TestFlagsRuntimePagination:
         page_numbers = [c.kwargs["pagenumber"] for c in mock_list.call_args_list]
         assert page_numbers == [1, 2]
 
-    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    @patch("smplkit.flags._client.list_flags.sync_detailed")
     def test_fetch_all_flags_sync_multi_page_exit(self, mock_list):
         full_page = [_flag_json_dict(f"f{i}") for i in range(PAGE_SIZE)]
         short_page = [_flag_json_dict("f_last")]
@@ -227,7 +217,7 @@ class TestFlagsRuntimePagination:
         assert len(client._flag_store) == PAGE_SIZE + 1
         assert mock_list.call_count == 2
 
-    @patch("smplkit.flags.client.list_flags.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.flags._client.list_flags.asyncio_detailed", new_callable=AsyncMock)
     def test_fetch_flags_list_async_multi_page_exit(self, mock_list):
         full_page = [_flag_json_dict(f"f{i}") for i in range(PAGE_SIZE)]
         short_page = [_flag_json_dict("f_last")]
@@ -418,16 +408,21 @@ class TestManagementListPaginationForwarding:
     # Flags
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management._client._gen_list_flags.sync_detailed")
+    @patch("smplkit.flags._client.list_flags.sync_detailed")
     def test_flags_list_forwards(self, mock_list):
+        from smplkit import SmplClient
+
         mock_list.return_value = _resp(content=b'{"data": []}')
-        self._mgmt().flags.list(page_number=7, page_size=42)
+        SmplClient(api_key="sk_test", base_domain="example.test").flags.list(page_number=7, page_size=42)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=7, page_size=42)
 
-    @patch("smplkit.management._client._gen_list_flags.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.flags._client.list_flags.asyncio_detailed", new_callable=AsyncMock)
     def test_flags_async_list_forwards(self, mock_list):
+        from smplkit import AsyncSmplClient
+
         mock_list.return_value = _resp(content=b'{"data": []}')
-        asyncio.run(self._async_mgmt().flags.list(page_number=7, page_size=42))
+        client = AsyncSmplClient(api_key="sk_test", base_domain="example.test")
+        asyncio.run(client.flags.list(page_number=7, page_size=42))
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=7, page_size=42)
 
     # ------------------------------------------------------------------

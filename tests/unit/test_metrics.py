@@ -750,18 +750,16 @@ class TestFlagsInstrumentation:
             )
         else:
             parent._metrics = None
-        manage = MagicMock()
-        parent.manage = manage
-        with patch("smplkit.flags.client.AuthenticatedClient"):
-            from smplkit.flags.client import FlagsClient
+        with patch("smplkit.flags._client.AuthenticatedClient"):
+            from smplkit.flags._client import FlagsClient
 
-            client = FlagsClient(parent, manage=manage, metrics=parent._metrics)
+            client = FlagsClient(parent=parent, transport=MagicMock(), contexts=MagicMock(), metrics=parent._metrics)
+        client._installed = True
         return client, parent
 
     def test_evaluation_records_metrics(self):
         client, parent = self._make_flags_client()
         # Populate flag store with a simple flag
-        client._connected = True
         client._environment = "test"
         client._flag_store["checkout-v2"] = {
             "id": "checkout-v2",
@@ -783,7 +781,6 @@ class TestFlagsInstrumentation:
 
     def test_cache_hit_records_metrics(self):
         client, parent = self._make_flags_client()
-        client._connected = True
         client._environment = "test"
         client._flag_store["checkout-v2"] = {
             "id": "checkout-v2",
@@ -816,7 +813,6 @@ class TestFlagsInstrumentation:
 
     def test_no_metrics_when_disabled(self):
         client, parent = self._make_flags_client(with_metrics=False)
-        client._connected = True
         client._environment = "test"
         client._flag_store["checkout-v2"] = {
             "id": "checkout-v2",

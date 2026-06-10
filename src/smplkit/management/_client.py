@@ -89,16 +89,6 @@ from smplkit._generated.app.models import (
     ServiceResource as _GenServiceResource,
 )
 from smplkit._generated.config.client import AuthenticatedClient as _ConfigAuthClient
-from smplkit._generated.flags.api.flags import (
-    bulk_register_flags as _gen_bulk_register_flags,
-    create_flag as _gen_create_flag,
-    delete_flag as _gen_delete_flag,
-    get_flag as _gen_get_flag,
-    list_flags as _gen_list_flags,
-    update_flag as _gen_update_flag,
-)
-from smplkit._generated.flags.models.flag_bulk_item import FlagBulkItem as _GenFlagBulkItem
-from smplkit._generated.flags.models.flag_bulk_request import FlagBulkRequest as _GenFlagBulkRequest
 from smplkit._generated.flags.client import AuthenticatedClient as _FlagsAuthClient
 from smplkit._generated.logging.api.log_groups import (
     create_log_group as _gen_create_log_group,
@@ -115,23 +105,6 @@ from smplkit._generated.logging.api.loggers import (
     update_logger as _gen_update_logger,
 )
 from smplkit._generated.logging.client import AuthenticatedClient as _LoggingAuthClient
-from smplkit.flags.helpers import (
-    _build_flag_request_body,
-    _flag_dict_from_json,
-)
-from smplkit.flags.models import (
-    AsyncBooleanFlag,
-    AsyncFlag,
-    AsyncJsonFlag,
-    AsyncNumberFlag,
-    AsyncStringFlag,
-    BooleanFlag,
-    Flag,
-    FlagValue,
-    JsonFlag,
-    NumberFlag,
-    StringFlag,
-)
 from smplkit.logging._normalize import normalize_logger_name
 from smplkit.logging._sources import LoggerSource
 from smplkit.logging.helpers import (
@@ -163,13 +136,11 @@ from smplkit.management.models import (
 )
 from smplkit.management._buffer import (  # noqa: F401  (some imports below)
     _CONTEXT_BATCH_FLUSH_SIZE,
-    _FLAG_BATCH_FLUSH_SIZE,
     _LOGGER_BATCH_FLUSH_SIZE,
 )
 from smplkit.management.types import Color, EnvironmentClassification
 
 if TYPE_CHECKING:  # pragma: no cover
-    from smplkit.flags.types import FlagDeclaration
     from smplkit.management._buffer import _ContextRegistrationBuffer
 
 logger = logging.getLogger("smplkit")
@@ -951,27 +922,6 @@ def _build_logger_bulk_request(buffer: Any) -> Any:
     return LoggerBulkRequest(loggers=items)
 
 
-def _build_flag_bulk_request(batch: list[dict[str, Any]]) -> _GenFlagBulkRequest | None:
-    """Build a JSON:API bulk request body from a list of pending flag items.
-
-    Returns ``None`` when *batch* is empty.  Items are not removed from any
-    buffer here; callers must commit on a successful send.
-    """
-    if not batch:
-        return None
-    items = [
-        _GenFlagBulkItem(
-            id=b["id"],
-            type_=b["type"],
-            default=b["default"],
-            service=b.get("service"),
-            environment=b.get("environment"),
-        )
-        for b in batch
-    ]
-    return _GenFlagBulkRequest(flags=items)
-
-
 def _build_bulk_register_body(items: list[dict[str, Any]]) -> _GenContextBulkRegister:
     bulk: list[_GenContextBulkItem] = []
     for item in items:
@@ -1255,408 +1205,6 @@ class AsyncAccountSettingsClient:
             resp = await h.put("/api/v1/accounts/current/settings", json=data)
         _check_status(resp.status_code, resp.content)
         return AsyncAccountSettings(self, data=resp.json() or {})
-
-
-# ---------------------------------------------------------------------------
-# Flags
-# ---------------------------------------------------------------------------
-
-
-class FlagsClient:
-    """Sync flag CRUD (``mgmt.flags``).
-
-    Distinct from the runtime :class:`smplkit.flags.client.FlagsClient` —
-    this class exposes management operations.  It also owns the
-    flag-discovery buffer that the runtime client populates when
-    customer code declares typed flag handles.
-    """
-
-    def __init__(self, http_client: _FlagsAuthClient) -> None:
-        self._http_client = http_client
-        from smplkit.management._buffer import _FlagRegistrationBuffer
-
-        self._buffer = _FlagRegistrationBuffer()
-
-    def register(
-        self,
-        items: FlagDeclaration | list[FlagDeclaration],
-        *,
-        flush: bool = False,
-    ) -> None:
-        """Buffer flag declarations for registration; optionally flush immediately."""
-        batch = items if isinstance(items, list) else [items]
-        for d in batch:
-            self._buffer.add(d.id, d.type, d.default, d.service, d.environment)
-        if flush:
-            self.flush()
-            return
-        if self._buffer.pending_count >= _FLAG_BATCH_FLUSH_SIZE:
-            threading.Thread(target=self._threshold_flush, daemon=True).start()
-
-    def _threshold_flush(self) -> None:
-        try:
-            self.flush()
-        except Exception as exc:
-            logger.warning("Flag registration flush failed: %s", exc)
-
-    def flush(self) -> None:
-        """POST pending declarations to the bulk endpoint.
-
-        Items remain in the buffer until the request succeeds, so a flush
-        against an unhealthy ``flags`` service is automatically retried by
-        the next ``flush()`` call (lazy ``start()`` retry, periodic
-        background flush, or final flush on close).
-        """
-        batch = self._buffer.peek()
-        body = _build_flag_bulk_request(batch)
-        if body is None:
-            return
-        try:
-            response = _gen_bulk_register_flags.sync_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        self._buffer.commit([b["id"] for b in batch])
-
-    @property
-    def pending_count(self) -> int:
-        """Number of declarations queued and awaiting flush."""
-        return self._buffer.pending_count
-
-    def new_boolean_flag(
-        self,
-        id: str,
-        *,
-        default: bool,
-        name: str | None = None,
-        description: str | None = None,
-    ) -> BooleanFlag:
-        return BooleanFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="BOOLEAN",
-            default=default,
-            values=[FlagValue(name="True", value=True), FlagValue(name="False", value=False)],
-            description=description,
-        )
-
-    def new_string_flag(
-        self,
-        id: str,
-        *,
-        default: str,
-        name: str | None = None,
-        description: str | None = None,
-        values: list[FlagValue] | None = None,
-    ) -> StringFlag:
-        return StringFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="STRING",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    def new_number_flag(
-        self,
-        id: str,
-        *,
-        default: int | float,
-        name: str | None = None,
-        description: str | None = None,
-        values: list[FlagValue] | None = None,
-    ) -> NumberFlag:
-        return NumberFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="NUMERIC",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    def new_json_flag(
-        self,
-        id: str,
-        *,
-        default: dict[str, Any],
-        name: str | None = None,
-        description: str | None = None,
-        values: list[FlagValue] | None = None,
-    ) -> JsonFlag:
-        return JsonFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="JSON",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    def get(self, id: str) -> Flag:
-        try:
-            response = _gen_get_flag.sync_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        body = json.loads(response.content)
-        return self._model_from_json(body["data"])
-
-    def list(
-        self,
-        *,
-        page_number: int | None = None,
-        page_size: int | None = None,
-    ) -> list[Flag]:
-        kwargs = _pagination_kwargs(page_number, page_size)
-        try:
-            response = _gen_list_flags.sync_detailed(client=self._http_client, **kwargs)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        body = json.loads(response.content)
-        return [self._model_from_json(r) for r in body.get("data", [])]
-
-    def delete(self, id: str) -> None:
-        try:
-            response = _gen_delete_flag.sync_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    def _create_flag(self, flag: Flag) -> Flag:
-        body = _build_flag_request_body(flag, flag_id=flag.id)
-        try:
-            response = _gen_create_flag.sync_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        resp_body = json.loads(response.content)
-        return self._model_from_json(resp_body["data"])
-
-    def _update_flag(self, *, flag: Flag) -> Flag:
-        body = _build_flag_request_body(flag, flag_id=flag.id)
-        try:
-            response = _gen_update_flag.sync_detailed(flag.id, client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        resp_body = json.loads(response.content)
-        return self._model_from_json(resp_body["data"])
-
-    def _model_from_json(self, data: dict[str, Any]) -> Flag:
-        d = _flag_dict_from_json(data)
-        return Flag(self, **d)
-
-
-class AsyncFlagsClient:
-    """Async flag CRUD (``mgmt.flags``)."""
-
-    def __init__(self, http_client: _FlagsAuthClient) -> None:
-        self._http_client = http_client
-        from smplkit.management._buffer import _FlagRegistrationBuffer
-
-        self._buffer = _FlagRegistrationBuffer()
-
-    def register(
-        self,
-        items: FlagDeclaration | list[FlagDeclaration],
-    ) -> None:
-        """Buffer flag declarations for registration.  Call ``await flush()`` to send."""
-        batch = items if isinstance(items, list) else [items]
-        for d in batch:
-            self._buffer.add(d.id, d.type, d.default, d.service, d.environment)
-        if self._buffer.pending_count >= _FLAG_BATCH_FLUSH_SIZE:
-            threading.Thread(target=self._threshold_flush, daemon=True).start()
-
-    def _threshold_flush(self) -> None:
-        try:
-            self.flush_sync()
-        except Exception as exc:
-            logger.warning("Flag registration flush failed: %s", exc)
-
-    async def flush(self) -> None:
-        """POST pending declarations to the bulk endpoint.
-
-        Items remain in the buffer until the request succeeds; failed
-        flushes are retried by the next ``flush()`` call.
-        """
-        batch = self._buffer.peek()
-        body = _build_flag_bulk_request(batch)
-        if body is None:
-            return
-        try:
-            response = await _gen_bulk_register_flags.asyncio_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        self._buffer.commit([b["id"] for b in batch])
-
-    def flush_sync(self) -> None:
-        """Synchronous flush — for use from non-event-loop threads."""
-        batch = self._buffer.peek()
-        body = _build_flag_bulk_request(batch)
-        if body is None:
-            return
-        try:
-            response = _gen_bulk_register_flags.sync_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        self._buffer.commit([b["id"] for b in batch])
-
-    @property
-    def pending_count(self) -> int:
-        """Number of declarations queued and awaiting flush."""
-        return self._buffer.pending_count
-
-    def new_boolean_flag(
-        self,
-        id: str,
-        *,
-        default: bool,
-        name: str | None = None,
-        description: str | None = None,
-    ) -> AsyncBooleanFlag:
-        return AsyncBooleanFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="BOOLEAN",
-            default=default,
-            values=[FlagValue(name="True", value=True), FlagValue(name="False", value=False)],
-            description=description,
-        )
-
-    def new_string_flag(
-        self,
-        id: str,
-        *,
-        default: str,
-        name: str | None = None,
-        description: str | None = None,
-        values: list[FlagValue] | None = None,
-    ) -> AsyncStringFlag:
-        return AsyncStringFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="STRING",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    def new_number_flag(
-        self,
-        id: str,
-        *,
-        default: int | float,
-        name: str | None = None,
-        description: str | None = None,
-        values: list[FlagValue] | None = None,
-    ) -> AsyncNumberFlag:
-        return AsyncNumberFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="NUMERIC",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    def new_json_flag(
-        self,
-        id: str,
-        *,
-        default: dict[str, Any],
-        name: str | None = None,
-        description: str | None = None,
-        values: list[FlagValue] | None = None,
-    ) -> AsyncJsonFlag:
-        return AsyncJsonFlag(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            type="JSON",
-            default=default,
-            values=values,
-            description=description,
-        )
-
-    async def get(self, id: str) -> AsyncFlag:
-        try:
-            response = await _gen_get_flag.asyncio_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        body = json.loads(response.content)
-        return self._model_from_json(body["data"])
-
-    async def list(
-        self,
-        *,
-        page_number: int | None = None,
-        page_size: int | None = None,
-    ) -> list[AsyncFlag]:
-        kwargs = _pagination_kwargs(page_number, page_size)
-        try:
-            response = await _gen_list_flags.asyncio_detailed(client=self._http_client, **kwargs)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        body = json.loads(response.content)
-        return [self._model_from_json(r) for r in body.get("data", [])]
-
-    async def delete(self, id: str) -> None:
-        try:
-            response = await _gen_delete_flag.asyncio_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    async def _create_flag(self, flag: AsyncFlag) -> AsyncFlag:
-        body = _build_flag_request_body(flag, flag_id=flag.id)
-        try:
-            response = await _gen_create_flag.asyncio_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        resp_body = json.loads(response.content)
-        return self._model_from_json(resp_body["data"])
-
-    async def _update_flag(self, *, flag: AsyncFlag) -> AsyncFlag:
-        body = _build_flag_request_body(flag, flag_id=flag.id)
-        try:
-            response = await _gen_update_flag.asyncio_detailed(flag.id, client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        resp_body = json.loads(response.content)
-        return self._model_from_json(resp_body["data"])
-
-    def _model_from_json(self, data: dict[str, Any]) -> AsyncFlag:
-        d = _flag_dict_from_json(data)
-        return AsyncFlag(self, **d)
 
 
 # ---------------------------------------------------------------------------
@@ -2093,7 +1641,6 @@ class _ManagementNamespace:
     environments: EnvironmentsClient
     services: ServicesClient
     account_settings: AccountSettingsClient
-    flags: FlagsClient
     loggers: LoggersClient
     log_groups: LogGroupsClient
 
@@ -2127,7 +1674,6 @@ class _ManagementNamespace:
         self.environments = EnvironmentsClient(self._app_http)
         self.services = ServicesClient(self._app_http)
         self.account_settings = AccountSettingsClient(app_url, cfg.api_key)
-        self.flags = FlagsClient(self._flags_http)
         self.loggers = LoggersClient(self._logging_http, base_url=logging_url)
         self.log_groups = LogGroupsClient(self._logging_http, base_url=logging_url)
 
@@ -2156,7 +1702,6 @@ class _AsyncManagementNamespace:
     environments: AsyncEnvironmentsClient
     services: AsyncServicesClient
     account_settings: AsyncAccountSettingsClient
-    flags: AsyncFlagsClient
     loggers: AsyncLoggersClient
     log_groups: AsyncLogGroupsClient
 
@@ -2187,7 +1732,6 @@ class _AsyncManagementNamespace:
         self.environments = AsyncEnvironmentsClient(self._app_http)
         self.services = AsyncServicesClient(self._app_http)
         self.account_settings = AsyncAccountSettingsClient(app_url, cfg.api_key)
-        self.flags = AsyncFlagsClient(self._flags_http)
         self.loggers = AsyncLoggersClient(self._logging_http, base_url=logging_url)
         self.log_groups = AsyncLogGroupsClient(self._logging_http, base_url=logging_url)
 

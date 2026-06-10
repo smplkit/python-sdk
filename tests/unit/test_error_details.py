@@ -562,7 +562,7 @@ class TestConfigClientErrors:
 
 
 class TestFlagsClientErrors:
-    @patch("smplkit.flags.client.create_flag.sync_detailed")
+    @patch("smplkit.flags._client.create_flag.sync_detailed")
     def test_create_flag_400_surfaces_detail(self, mock_create):
         mock_create.return_value = _make_error_response(
             400,
@@ -581,9 +581,9 @@ class TestFlagsClientErrors:
 
         from smplkit import SmplClient
 
-        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
+        client = SmplClient(api_key="sk_test", base_domain="example.test")
         flag = Flag(
-            mgmt.flags,
+            client.flags,
             id="test",
             name="Test",
             type="boolean",
@@ -595,7 +595,7 @@ class TestFlagsClientErrors:
         assert exc.status_code == 400
         assert "The 'id' field is required." in str(exc)
 
-    @patch("smplkit.flags.client.get_flag.sync_detailed")
+    @patch("smplkit.flags._client.get_flag.sync_detailed")
     def test_get_flag_404_surfaces_detail(self, mock_get):
         mock_get.return_value = _make_error_response(
             404,
@@ -612,9 +612,9 @@ class TestFlagsClientErrors:
 
         from smplkit import SmplClient
 
-        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
+        client = SmplClient(api_key="sk_test", base_domain="example.test")
         with pytest.raises(NotFoundError) as exc_info:
-            mgmt.flags.get("test-flag")
+            client.flags.get("test-flag")
         exc = exc_info.value
         assert exc.status_code == 404
         assert "Flag does not exist." in str(exc)

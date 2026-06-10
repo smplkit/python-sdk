@@ -138,13 +138,13 @@ def test_wait_until_ready_returns_when_connected():
     client = SmplClient(api_key="sk_api_test", environment="test")
     with (
         patch.object(SharedWebSocket, "start"),
-        patch.object(client.flags, "start"),
+        patch.object(client.flags, "install"),
         patch.object(client.config, "install"),
     ):
         ws = client._ensure_ws()
         ws._connection_status = "connected"
         client.wait_until_ready(timeout=1.0)
-        client.flags.start.assert_called_once()
+        client.flags.install.assert_called_once()
         client.config.install.assert_called_once()
 
 
@@ -156,7 +156,7 @@ def test_wait_until_ready_raises_on_timeout():
     client = SmplClient(api_key="sk_api_test", environment="test")
     with (
         patch.object(SharedWebSocket, "start"),
-        patch.object(client.flags, "start"),
+        patch.object(client.flags, "install"),
         patch.object(client.config, "install"),
     ):
         ws = client._ensure_ws()
@@ -170,13 +170,13 @@ def test_async_wait_until_ready_returns_when_connected():
         client = AsyncSmplClient(api_key="sk_api_test", environment="test")
         with (
             patch.object(SharedWebSocket, "start"),
-            patch.object(client.flags, "start", new=AsyncMock()),
+            patch.object(client.flags, "install", new=AsyncMock()),
             patch.object(client.config, "install", new=AsyncMock()),
         ):
             ws = client._ensure_ws()
             ws._connection_status = "connected"
             await client.wait_until_ready(timeout=1.0)
-            client.flags.start.assert_awaited_once()
+            client.flags.install.assert_awaited_once()
             client.config.install.assert_awaited_once()
 
     asyncio.run(_run())
@@ -191,7 +191,7 @@ def test_async_wait_until_ready_raises_on_timeout():
         client = AsyncSmplClient(api_key="sk_api_test", environment="test")
         with (
             patch.object(SharedWebSocket, "start"),
-            patch.object(client.flags, "start", new=AsyncMock()),
+            patch.object(client.flags, "install", new=AsyncMock()),
             patch.object(client.config, "install", new=AsyncMock()),
         ):
             ws = client._ensure_ws()
@@ -686,7 +686,7 @@ def test_smpl_client_close_cancels_timer_and_runs_final_flush():
     assert timer_before is not None
     with (
         patch.object(client.manage.contexts, "flush") as mock_ctx_flush,
-        patch.object(client.manage.flags, "flush") as mock_flag_flush,
+        patch.object(client.flags, "flush") as mock_flag_flush,
         patch.object(client.manage.loggers, "flush") as mock_log_flush,
     ):
         client.close()
@@ -718,7 +718,7 @@ def test_async_smpl_client_close_cancels_timer_and_runs_final_flush():
         assert client._flush_timer is not None
         with (
             patch.object(client.manage.contexts, "flush", new=AsyncMock()) as mock_ctx_flush,
-            patch.object(client.manage.flags, "flush", new=AsyncMock()) as mock_flag_flush,
+            patch.object(client.flags, "flush", new=AsyncMock()) as mock_flag_flush,
             patch.object(client.manage.loggers, "flush", new=AsyncMock()) as mock_log_flush,
         ):
             await client.close()
@@ -741,7 +741,7 @@ def test_periodic_flush_tick_drains_buffers():
         timer.cancel()
         with (
             patch.object(client.manage.contexts, "flush") as mock_ctx_flush,
-            patch.object(client.manage.flags, "flush") as mock_flag_flush,
+            patch.object(client.flags, "flush") as mock_flag_flush,
             patch.object(client.manage.loggers, "flush") as mock_log_flush,
             patch.object(client, "_schedule_periodic_flush"),
         ):
@@ -767,7 +767,7 @@ def test_async_periodic_flush_tick_drains_buffers_via_sync_variants():
             timer.cancel()
             with (
                 patch.object(client.manage.contexts, "flush_sync") as mock_ctx_flush,
-                patch.object(client.manage.flags, "flush_sync") as mock_flag_flush,
+                patch.object(client.flags, "flush_sync") as mock_flag_flush,
                 patch.object(client.manage.loggers, "flush_sync") as mock_log_flush,
                 patch.object(client, "_schedule_periodic_flush"),
             ):
@@ -849,7 +849,7 @@ def test_async_periodic_flush_tick_swallows_flush_errors():
         timer.cancel()
         with (
             patch.object(client.manage.contexts, "flush_sync", side_effect=RuntimeError("boom")),
-            patch.object(client.manage.flags, "flush_sync"),
+            patch.object(client.flags, "flush_sync"),
             patch.object(client.manage.loggers, "flush_sync"),
             patch.object(client, "_schedule_periodic_flush") as mock_resched,
         ):
@@ -868,7 +868,7 @@ def test_final_flush_swallows_errors():
     client = SmplClient(api_key="sk_api_test", environment="test")
     with (
         patch.object(client.manage.contexts, "flush", side_effect=RuntimeError("boom")),
-        patch.object(client.manage.flags, "flush") as mock_flag,
+        patch.object(client.flags, "flush") as mock_flag,
         patch.object(client.manage.loggers, "flush") as mock_log,
     ):
         client._final_flush()
@@ -884,7 +884,7 @@ def test_async_final_flush_swallows_errors():
         client = AsyncSmplClient(api_key="sk_api_test", environment="test")
         with (
             patch.object(client.manage.contexts, "flush", new=AsyncMock(side_effect=RuntimeError("boom"))),
-            patch.object(client.manage.flags, "flush", new=AsyncMock()) as mock_flag,
+            patch.object(client.flags, "flush", new=AsyncMock()) as mock_flag,
             patch.object(client.manage.loggers, "flush", new=AsyncMock()) as mock_log,
         ):
             await client._final_flush()
@@ -895,7 +895,7 @@ def test_async_final_flush_swallows_errors():
             client._flush_timer.cancel()
         with (
             patch.object(client.manage.contexts, "flush", new=AsyncMock()),
-            patch.object(client.manage.flags, "flush", new=AsyncMock()),
+            patch.object(client.flags, "flush", new=AsyncMock()),
             patch.object(client.manage.loggers, "flush", new=AsyncMock()),
         ):
             await client.close()
@@ -914,8 +914,8 @@ def test_flag_get_with_explicit_context_registers():
 
     client = SmplClient(api_key="sk_api_test", environment="test")
     try:
+        client.flags._installed = True  # skip the live install() round-trip
         flag = client.flags.boolean_flag("dark-mode", default=False)
-        client.flags._connected = True  # short-circuit lazy connect
         client.flags._flag_store = {"dark-mode": {"id": "dark-mode", "default": False, "environments": {}}}
         before = client.manage.contexts._buffer.pending_count
         flag.get(context=[Context("user", "explicit-1", plan="pro")])
@@ -931,8 +931,8 @@ def test_async_flag_get_with_explicit_context_registers():
     async def _run():
         client = AsyncSmplClient(api_key="sk_api_test", environment="test")
         try:
+            client.flags._installed = True
             flag = client.flags.boolean_flag("dark-mode", default=False)
-            client.flags._connected = True
             client.flags._flag_store = {"dark-mode": {"id": "dark-mode", "default": False, "environments": {}}}
             before = client.manage.contexts._buffer.pending_count
             flag.get(context=[Context("user", "explicit-async", plan="pro")])
@@ -940,7 +940,7 @@ def test_async_flag_get_with_explicit_context_registers():
         finally:
             with (
                 patch.object(client.manage.contexts, "flush", new=AsyncMock()),
-                patch.object(client.manage.flags, "flush", new=AsyncMock()),
+                patch.object(client.flags, "flush", new=AsyncMock()),
                 patch.object(client.manage.loggers, "flush", new=AsyncMock()),
             ):
                 await client.close()
@@ -954,8 +954,8 @@ def test_flag_get_with_set_context_does_not_double_register():
 
     client = SmplClient(api_key="sk_api_test", environment="test")
     try:
+        client.flags._installed = True
         flag = client.flags.boolean_flag("dark-mode", default=False)
-        client.flags._connected = True
         client.flags._flag_store = {"dark-mode": {"id": "dark-mode", "default": False, "environments": {}}}
         client.set_context([Context("user", "u-set", plan="free")])
         baseline = client.manage.contexts._buffer.pending_count

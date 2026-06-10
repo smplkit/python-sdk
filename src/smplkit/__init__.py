@@ -17,6 +17,7 @@ from smplkit._errors import (
 )
 from smplkit.config._client import AsyncConfigClient, ConfigChangeEvent, ConfigClient
 from smplkit.config.models import ConfigEnvironment, ConfigItem, ItemType
+from smplkit.flags._client import AsyncFlagsClient, FlagChangeEvent, FlagsClient
 from smplkit.flags.models import FlagEnvironment, FlagRule, FlagValue
 from smplkit.flags.types import AsyncContext, Context, FlagDeclaration, Op, Rule
 from smplkit.jobs._client import AsyncJobsClient, JobsClient
@@ -48,6 +49,7 @@ __all__ = [
     "AsyncConfigClient",
     "AsyncContext",
     "AsyncAuditClient",
+    "AsyncFlagsClient",
     "AsyncSmplClient",
     "AsyncJobsClient",
     "Color",
@@ -57,9 +59,11 @@ __all__ = [
     "ConfigItem",
     "Context",
     "EnvironmentClassification",
+    "FlagChangeEvent",
     "FlagDeclaration",
     "FlagEnvironment",
     "FlagRule",
+    "FlagsClient",
     "FlagValue",
     "ItemType",
     "LoggerSource",
