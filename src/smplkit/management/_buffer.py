@@ -1,23 +1,23 @@
-"""Registration buffers owned by ``the management namespace`` sub-clients.
+"""Registration buffers backing the SDK's batched-discovery sub-clients.
 
-Three buffers, each lives on a management sub-client:
+Four buffer types, each owned by the sub-client that drains it:
 
-- :class:`_ContextRegistrationBuffer`  →  ``mgmt.contexts._buffer``
-- :class:`_FlagRegistrationBuffer`     →  ``mgmt.flags._buffer``
-- :class:`_LoggerRegistrationBuffer`   →  ``mgmt.loggers._buffer``
+- :class:`_ContextRegistrationBuffer`  →  ``client.platform.contexts._buffer``
+- :class:`_FlagRegistrationBuffer`     →  ``client.flags._buffer``
+- :class:`_ConfigRegistrationBuffer`   →  ``client.config._buffer``
+- :class:`_LoggerRegistrationBuffer`   →  ``client.logging.loggers._buffer``
 
-The runtime client (``SmplClient``) reaches into these buffers via
-``client.manage.<resource>._observe(...)`` so there is exactly one
-buffer + one bulk-flush implementation per resource.
+There is exactly one buffer + one bulk-flush implementation per resource.
 """
 
 from __future__ import annotations
 
 import threading
 from collections import OrderedDict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from smplkit.flags.types import Context
+if TYPE_CHECKING:  # pragma: no cover
+    from smplkit.flags.types import Context
 
 # When the deduplication LRU exceeds this size, the oldest entry is
 # evicted. The next observation of an evicted entry will re-flush.

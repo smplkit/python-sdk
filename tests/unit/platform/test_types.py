@@ -1,10 +1,10 @@
-"""Tests for ``smplkit.management.types`` (Color, EnvironmentClassification)."""
+"""Tests for ``smplkit.platform.types`` (Color, EnvironmentClassification)."""
 
 from __future__ import annotations
 
 import pytest
 
-from smplkit.management.types import Color
+from smplkit.platform.types import Color
 
 
 class TestColor:

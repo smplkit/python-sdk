@@ -200,16 +200,16 @@ def _make_flags_client():
     """Create a wired sync FlagsClient with a mocked parent + real contexts client.
 
     Mirrors how :class:`SmplClient` wires the flags client: a transport is
-    injected, the parent namespace's contexts client is injected as the
+    injected, ``client.platform.contexts`` is injected as the
     evaluation-context registration seam, and the parent provides the shared
     WebSocket.
     """
-    from smplkit.management._client import ContextsClient
+    from smplkit.platform._client import _ContextsClient
 
     parent = MagicMock()
     parent._environment = "test"
     parent._service = None
-    contexts = ContextsClient(MagicMock(), _ContextRegistrationBuffer())
+    contexts = _ContextsClient(MagicMock(), _ContextRegistrationBuffer())
     with patch("smplkit.flags._client.AuthenticatedClient"):
         client = FlagsClient(parent=parent, transport=MagicMock(), contexts=contexts, metrics=parent._metrics)
     return client
@@ -217,7 +217,7 @@ def _make_flags_client():
 
 def _make_async_flags_client():
     """Create a wired async FlagsClient with a mocked parent + real contexts client."""
-    from smplkit.management._client import AsyncContextsClient
+    from smplkit.platform._client import AsyncContextsClient
 
     parent = MagicMock()
     parent._environment = "test"
@@ -3320,7 +3320,7 @@ class TestAsyncFlagsClientDiscoveryBuffer:
 
 class TestStandaloneConstruction:
     def test_standalone_builds_own_transport_and_contexts(self):
-        from smplkit.management._client import ContextsClient
+        from smplkit.platform._client import _ContextsClient
 
         flags = FlagsClient(api_key="sk_test", base_domain="example.test", environment="prod")
         assert flags._owns_transport is True
@@ -3328,7 +3328,7 @@ class TestStandaloneConstruction:
         assert flags._parent is None
         assert flags._environment == "prod"
         assert flags._app_base_url == "https://app.example.test"
-        assert isinstance(flags._contexts, ContextsClient)
+        assert isinstance(flags._contexts, _ContextsClient)
         flags.close()
 
     @patch("smplkit.flags._client.bulk_register_flags.sync_detailed")
@@ -3375,7 +3375,7 @@ class TestStandaloneConstruction:
 
 class TestStandaloneAsyncConstruction:
     def test_standalone_builds_own_transport_and_contexts(self):
-        from smplkit.management._client import AsyncContextsClient
+        from smplkit.platform._client import AsyncContextsClient
 
         flags = AsyncFlagsClient(api_key="sk_test", base_domain="example.test", environment="prod")
         assert flags._owns_transport is True

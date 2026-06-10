@@ -9,7 +9,7 @@ import time
 import traceback
 from typing import TYPE_CHECKING
 
-from smplkit._config import ResolvedManagementConfig, _service_url, resolve_config
+from smplkit._config import _service_url, resolve_config
 from smplkit._context import ContextScope, set_context as _set_context
 from smplkit._errors import TimeoutError
 from smplkit._debug import debug, enable_debug
@@ -18,13 +18,15 @@ from smplkit._generated.app.models.context_bulk_item import ContextBulkItem
 from smplkit._generated.app.models.context_bulk_item_attributes import ContextBulkItemAttributes
 from smplkit._generated.app.models.context_bulk_register import ContextBulkRegister
 from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
+from smplkit._transport import _to_transport_config, build_service_transports
 from smplkit._ws import SharedWebSocket
+from smplkit.account._client import AccountClient, AsyncAccountClient
 from smplkit.audit._client import AsyncAuditClient, AuditClient
 from smplkit.jobs._client import AsyncJobsClient, JobsClient
 from smplkit.config._client import AsyncConfigClient, ConfigClient
 from smplkit.flags._client import AsyncFlagsClient, FlagsClient
 from smplkit.logging._client import AsyncLoggingClient, LoggingClient
-from smplkit.management._client import _AsyncManagementNamespace, _ManagementNamespace
+from smplkit.platform._client import AsyncPlatformClient, PlatformClient
 
 if TYPE_CHECKING:
     from smplkit.flags.types import Context
@@ -35,21 +37,6 @@ logger = logging.getLogger("smplkit")
 # loggers).  Threshold flushes still fire immediately when buffers fill up;
 # this timer is the liveness guarantee for the tail.
 _PERIODIC_FLUSH_INTERVAL = 60.0  # seconds
-
-
-def _to_management_config(cfg, extra_headers: dict[str, str] | None = None) -> ResolvedManagementConfig:
-    """Project the runtime ResolvedConfig down to the management subset.
-
-    SmplClient's resolved config is a superset of the management config's;
-    this drops the runtime-only fields (environment, service, telemetry).
-    """
-    return ResolvedManagementConfig(
-        api_key=cfg.api_key,
-        base_domain=cfg.base_domain,
-        scheme=cfg.scheme,
-        debug=cfg.debug,
-        extra_headers=extra_headers,
-    )
 
 
 class SmplClient:
@@ -78,7 +65,8 @@ class SmplClient:
         telemetry: Enable anonymous usage telemetry (default ``True``).
     """
 
-    manage: _ManagementNamespace
+    platform: PlatformClient
+    account: AccountClient
     config: ConfigClient
     flags: FlagsClient
     logging: LoggingClient
@@ -130,16 +118,18 @@ class SmplClient:
             f" debug={cfg.debug} telemetry={cfg.telemetry}",
         )
 
-        # Construct the management client first; the runtime client uses
-        # its HTTP transports + registration buffers under the hood.
-        self.manage = _ManagementNamespace(_to_management_config(cfg, extra_headers))
+        # Build the per-service HTTP transports + the context-registration
+        # buffer. Side-effect-free: each transport connects lazily on first
+        # call. client.platform owns the buffer; client.config/flags/logging/
+        # jobs borrow their transports from here.
+        self._transports = build_service_transports(_to_transport_config(cfg, extra_headers))
 
-        app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
+        app_url = self._transports.app_url
         audit_url = _service_url(cfg.scheme, "audit", cfg.base_domain)
 
-        # Alias the management's HTTP transports — single connection pool per service.
-        self._http_client = self.manage._config_http
-        self._app_http = self.manage._app_http
+        # Alias the shared HTTP transports — single connection pool per service.
+        self._http_client = self._transports.config_http
+        self._app_http = self._transports.app_http
         self._app_base_url = app_url
 
         # Metrics reporter
@@ -153,18 +143,25 @@ class SmplClient:
             self._metrics = None
 
         self._ws_manager: SharedWebSocket | None = None
+        # Platform's cross-cutting CRUD on one client; wired into this parent
+        # so it borrows the shared app transport, and owns the
+        # context-registration buffer. Built BEFORE flags so the contexts
+        # seam below is available.
+        self.platform = PlatformClient(app_transport=self._app_http)
+        # Account-level settings on one client; built from the app url + api
+        # key (the settings sub-client uses httpx directly).
+        self.account = AccountClient(api_key=cfg.api_key, base_url=app_url, extra_headers=extra_headers)
         # Config's full surface on one client; wired into this parent so it
         # borrows the shared config transport and WebSocket.
-        self.config = ConfigClient(parent=self, transport=self.manage._config_http, metrics=self._metrics)
+        self.config = ConfigClient(parent=self, transport=self._transports.config_http, metrics=self._metrics)
         # Flags' full surface on one client; wired into this parent so it
         # borrows the shared flags transport and WebSocket. ``contexts`` is the
-        # injection seam for evaluation-context registration — it points at the
-        # namespace's contexts client today and will repoint to
-        # ``client.platform.contexts`` in a later phase.
+        # injection seam for evaluation-context registration, wired to
+        # ``client.platform.contexts``.
         self.flags = FlagsClient(
             parent=self,
-            transport=self.manage._flags_http,
-            contexts=self.manage.contexts,
+            transport=self._transports.flags_http,
+            contexts=self.platform.contexts,
             metrics=self._metrics,
         )
         # Logging's full surface on one client; wired into this parent so it
@@ -173,7 +170,7 @@ class SmplClient:
         # client.logging.log_groups.
         self.logging = LoggingClient(
             parent=self,
-            transport=self.manage._logging_http,
+            transport=self._transports.logging_http,
             metrics=self._metrics,
         )
         # Audit's full surface on one client; this runtime instance carries
@@ -185,9 +182,9 @@ class SmplClient:
             environment=cfg.environment,
             extra_headers=extra_headers,
         )
-        # Jobs has no runtime/management split — reuse the management jobs
+        # Jobs has no runtime/management split — reuse the shared jobs
         # transport (single connection pool) so ``client.jobs`` is one-stop.
-        self.jobs = JobsClient(auth_client=self.manage._jobs_http)
+        self.jobs = JobsClient(auth_client=self._transports.jobs_http)
 
         # Construction is side-effect-free: no background threads, no
         # phone-home. The periodic registration-buffer flush and the
@@ -224,7 +221,7 @@ class SmplClient:
             if self._closed:
                 return
             try:
-                self.manage.contexts.flush()
+                self.platform.contexts.flush()
                 self.flags.flush()
                 self.logging.loggers.flush()
                 self.config.flush()
@@ -241,7 +238,7 @@ class SmplClient:
     def _final_flush(self) -> None:
         """Drain every registration buffer one last time on close."""
         for fn in (
-            self.manage.contexts.flush,
+            self.platform.contexts.flush,
             self.flags.flush,
             self.logging.loggers.flush,
             self.config.flush,
@@ -337,7 +334,7 @@ class SmplClient:
         """
         self._ensure_started()
         if contexts:
-            self.manage.contexts.register(contexts)
+            self.platform.contexts.register(contexts)
         return _set_context(contexts)
 
     def close(self) -> None:
@@ -356,8 +353,10 @@ class SmplClient:
         if self._ws_manager is not None:
             self._ws_manager.stop()
             self._ws_manager = None
-        # Close shared HTTP transports owned by self.manage.
-        self.manage.close()
+        # Close the shared per-service HTTP transports (app/config/flags/
+        # logging/jobs). client.platform/account borrow the app transport and
+        # close nothing; client.audit owns and closed its own transport above.
+        self._transports.close()
 
     def __enter__(self) -> SmplClient:
         return self
@@ -382,7 +381,8 @@ class AsyncSmplClient:
     file. See ADR-021 for the full resolution algorithm.
     """
 
-    manage: _AsyncManagementNamespace
+    platform: AsyncPlatformClient
+    account: AsyncAccountClient
     config: AsyncConfigClient
     flags: AsyncFlagsClient
     logging: AsyncLoggingClient
@@ -434,13 +434,16 @@ class AsyncSmplClient:
             f" debug={cfg.debug} telemetry={cfg.telemetry}",
         )
 
-        self.manage = _AsyncManagementNamespace(_to_management_config(cfg, extra_headers))
+        # Build the per-service HTTP transports + context-registration buffer.
+        # Side-effect-free; client.platform owns the buffer, the product
+        # clients borrow their transports from here.
+        self._transports = build_service_transports(_to_transport_config(cfg, extra_headers))
 
-        app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
+        app_url = self._transports.app_url
         audit_url = _service_url(cfg.scheme, "audit", cfg.base_domain)
 
-        self._http_client = self.manage._config_http
-        self._app_http = self.manage._app_http
+        self._http_client = self._transports.config_http
+        self._app_http = self._transports.app_http
         self._app_base_url = app_url
 
         # Metrics reporter
@@ -454,17 +457,24 @@ class AsyncSmplClient:
             self._metrics = None
 
         self._ws_manager: SharedWebSocket | None = None
+        # Platform's cross-cutting CRUD on one client; wired into this parent
+        # so it borrows the shared app transport and owns the
+        # context-registration buffer. Built BEFORE flags so the contexts seam
+        # below is available.
+        self.platform = AsyncPlatformClient(app_transport=self._app_http)
+        # Account-level settings; built from the app url + api key.
+        self.account = AsyncAccountClient(api_key=cfg.api_key, base_url=app_url, extra_headers=extra_headers)
         # Config's full surface on one client; wired into this parent so it
         # borrows the shared config transport and WebSocket.
-        self.config = AsyncConfigClient(parent=self, transport=self.manage._config_http, metrics=self._metrics)
+        self.config = AsyncConfigClient(parent=self, transport=self._transports.config_http, metrics=self._metrics)
         # Flags' full surface on one client; wired into this parent so it
         # borrows the shared flags transport and WebSocket. ``contexts`` is the
-        # injection seam for evaluation-context registration (today the
-        # namespace's contexts client; later ``client.platform.contexts``).
+        # injection seam for evaluation-context registration, wired to
+        # ``client.platform.contexts``.
         self.flags = AsyncFlagsClient(
             parent=self,
-            transport=self.manage._flags_http,
-            contexts=self.manage.contexts,
+            transport=self._transports.flags_http,
+            contexts=self.platform.contexts,
             metrics=self._metrics,
         )
         # Logging's full surface on one client; wired into this parent so it
@@ -473,7 +483,7 @@ class AsyncSmplClient:
         # client.logging.log_groups.
         self.logging = AsyncLoggingClient(
             parent=self,
-            transport=self.manage._logging_http,
+            transport=self._transports.logging_http,
             metrics=self._metrics,
         )
         self.audit = AsyncAuditClient(
@@ -482,9 +492,9 @@ class AsyncSmplClient:
             environment=cfg.environment,
             extra_headers=extra_headers,
         )
-        # Jobs has no runtime/management split — reuse the management jobs
+        # Jobs has no runtime/management split — reuse the shared jobs
         # transport (single connection pool) so ``client.jobs`` is one-stop.
-        self.jobs = AsyncJobsClient(auth_client=self.manage._jobs_http)
+        self.jobs = AsyncJobsClient(auth_client=self._transports.jobs_http)
 
         # Construction is side-effect-free (see SmplClient): the flush timer
         # and service-context phone-home are deferred to ``_ensure_started``,
@@ -518,7 +528,7 @@ class AsyncSmplClient:
             if self._closed:
                 return
             for fn in (
-                self.manage.contexts.flush_sync,
+                self.platform.contexts.flush_sync,
                 self.flags.flush_sync,
                 self.logging.loggers.flush_sync,
                 self.config.flush_sync,
@@ -538,7 +548,7 @@ class AsyncSmplClient:
     async def _final_flush(self) -> None:
         """Drain every registration buffer one last time on close."""
         for fn in (
-            self.manage.contexts.flush,
+            self.platform.contexts.flush,
             self.flags.flush,
             self.logging.loggers.flush,
             self.config.flush,
@@ -648,7 +658,7 @@ class AsyncSmplClient:
         """
         self._ensure_started()
         if contexts:
-            self.manage.contexts.register(contexts)
+            self.platform.contexts.register(contexts)
         return _set_context(contexts)
 
     async def close(self) -> None:
@@ -667,7 +677,8 @@ class AsyncSmplClient:
         if self._ws_manager is not None:
             self._ws_manager.stop()
             self._ws_manager = None
-        await self.manage.close()
+        # Close the shared per-service async HTTP transports.
+        await self._transports.aclose()
 
     async def __aenter__(self) -> AsyncSmplClient:
         return self

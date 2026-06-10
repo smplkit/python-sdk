@@ -1,11 +1,14 @@
-"""Tests for the management namespace (``client.manage``) and its construction.
+"""Tests for SmplClient/AsyncSmplClient construction and the platform/account
+clients they wire up.
 
-After Stage 6 there is no standalone SmplManagementClient — management/CRUD is
-the ``client.manage`` namespace on the single :class:`SmplClient`. The contract:
+After the management-namespace split there is no ``client.manage`` — the
+cross-cutting CRUD lives on ``client.platform`` (environments / services /
+contexts / context_types) and ``client.account`` (settings). The contract:
 
-- The namespace construction has zero side effects (no threads, no HTTP).
-- All nine CRUD namespaces are wired up; audit/jobs are NOT here (top-level).
-- The namespace close() releases HTTP transport resources.
+- All sub-clients are wired; audit/jobs/config/flags/logging are top-level.
+- The per-service transports are built side-effect-free (no threads, no HTTP).
+- ``client.close()`` releases every per-service HTTP transport.
+- ``PlatformClient`` / ``AccountClient`` are constructible standalone.
 """
 
 from __future__ import annotations
@@ -16,8 +19,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from smplkit import AsyncSmplClient, Error, SmplClient
+from smplkit import (
+    AccountClient,
+    AsyncAccountClient,
+    AsyncPlatformClient,
+    AsyncSmplClient,
+    Error,
+    PlatformClient,
+    SmplClient,
+)
 from smplkit._config import resolve_management_config
+from smplkit._transport import _to_transport_config, build_service_transports
+from smplkit.account._client import _AsyncSettingsClient, _SettingsClient
 from smplkit.config._client import AsyncConfigClient, ConfigClient
 from smplkit.flags._client import AsyncFlagsClient, FlagsClient
 from smplkit.logging._client import (
@@ -28,61 +41,65 @@ from smplkit.logging._client import (
     _LogGroupsClient,
     _LoggersClient,
 )
-from smplkit.management._client import (
-    AccountSettingsClient,
-    AsyncAccountSettingsClient,
+from smplkit.platform._client import (
     AsyncContextsClient,
     AsyncContextTypesClient,
     AsyncEnvironmentsClient,
     AsyncServicesClient,
-    ContextsClient,
-    ContextTypesClient,
-    EnvironmentsClient,
-    ServicesClient,
-    _AsyncManagementNamespace,
-    _ManagementNamespace,
+    _ContextsClient,
+    _ContextTypesClient,
+    _EnvironmentsClient,
+    _ServicesClient,
 )
 
 
 # ---------------------------------------------------------------------------
-# Sync management namespace
+# Sync construction
 # ---------------------------------------------------------------------------
 
 
-class TestManagementNamespaceConstruction:
-    def test_namespaces_are_wired(self):
+class TestSmplClientConstruction:
+    def test_platform_and_account_are_wired(self):
         client = SmplClient(api_key="sk_test", base_domain="example.test")
-        mgmt = client.manage
-        assert isinstance(mgmt.contexts, ContextsClient)
-        assert isinstance(mgmt.context_types, ContextTypesClient)
-        assert isinstance(mgmt.environments, EnvironmentsClient)
-        assert isinstance(mgmt.services, ServicesClient)
-        assert isinstance(mgmt.account_settings, AccountSettingsClient)
+        platform = client.platform
+        assert isinstance(platform, PlatformClient)
+        assert isinstance(platform.contexts, _ContextsClient)
+        assert isinstance(platform.context_types, _ContextTypesClient)
+        assert isinstance(platform.environments, _EnvironmentsClient)
+        assert isinstance(platform.services, _ServicesClient)
+        assert isinstance(client.account, AccountClient)
+        assert isinstance(client.account.settings, _SettingsClient)
         # config/flags/logging/audit/jobs are top-level (client.config /
-        # client.flags / client.logging / client.audit / client.jobs), never on
-        # manage. Logger / log-group CRUD lives on client.logging.loggers /
-        # client.logging.log_groups.
+        # client.flags / client.logging / client.audit / client.jobs). Logger /
+        # log-group CRUD lives on client.logging.loggers / log_groups.
         assert isinstance(client.config, ConfigClient)
         assert isinstance(client.flags, FlagsClient)
         assert isinstance(client.logging, LoggingClient)
         assert isinstance(client.logging.loggers, _LoggersClient)
         assert isinstance(client.logging.log_groups, _LogGroupsClient)
-        assert not hasattr(mgmt, "config")
-        assert not hasattr(mgmt, "flags")
-        assert not hasattr(mgmt, "logging")
-        assert not hasattr(mgmt, "loggers")
-        assert not hasattr(mgmt, "log_groups")
-        assert not hasattr(mgmt, "audit")
-        assert not hasattr(mgmt, "jobs")
+        # The management namespace is gone entirely.
+        assert not hasattr(client, "manage")
         client.close()
 
-    def test_namespace_construction_has_no_side_effects(self):
-        """Building the namespace directly must not start threads or make HTTP
-        calls — isolated from SmplClient's metrics/audit/jobs wiring."""
-        cfg = resolve_management_config(api_key="sk_test", base_domain="example.test")
+    def test_flags_contexts_seam_points_at_platform_contexts(self):
+        client = SmplClient(api_key="sk_test", base_domain="example.test")
+        assert client.flags._contexts is client.platform.contexts
+        client.close()
+
+    def test_platform_borrows_parent_app_transport(self):
+        client = SmplClient(api_key="sk_test", base_domain="example.test")
+        assert client.platform._app_http is client._app_http
+        assert client.platform._owns_transport is False
+        client.close()
+
+    def test_transport_construction_has_no_side_effects(self):
+        """Building the per-service transports must not start threads or HTTP."""
+        cfg = _to_transport_config(
+            resolve_management_config(api_key="sk_test", base_domain="example.test")
+        )
         before = {t.ident for t in threading.enumerate()}
         with patch("httpx.Client") as mock_sync_client, patch("httpx.AsyncClient") as mock_async_client:
-            _ManagementNamespace(cfg)
+            build_service_transports(cfg)
         after = {t.ident for t in threading.enumerate()}
         assert before == after
         mock_sync_client.assert_not_called()
@@ -90,85 +107,207 @@ class TestManagementNamespaceConstruction:
 
     def test_close_closes_all_http_clients(self):
         client = SmplClient(api_key="sk_test", base_domain="example.test")
-        mgmt = client.manage
-        for attr in ("_app_http", "_config_http", "_flags_http", "_logging_http", "_jobs_http"):
-            getattr(mgmt, attr)._client = MagicMock()
-        mgmt.close()
-        for attr in ("_app_http", "_config_http", "_flags_http", "_logging_http", "_jobs_http"):
-            assert getattr(mgmt, attr)._client is None
+        transports = client._transports
+        for attr in ("app_http", "config_http", "flags_http", "logging_http", "jobs_http"):
+            getattr(transports, attr)._client = MagicMock()
+        client.close()
+        for attr in ("app_http", "config_http", "flags_http", "logging_http", "jobs_http"):
+            assert getattr(transports, attr)._client is None
 
     def test_close_when_no_clients_initialized(self):
-        """Namespace close() is a no-op when no httpx clients were materialized."""
+        """close() is a no-op for transports when no httpx clients materialized."""
         client = SmplClient(api_key="sk_test", base_domain="example.test")
-        client.manage.close()  # should not raise
-        client.close()
+        client.close()  # should not raise
 
-    def test_instances_have_independent_buffers(self):
+    def test_instances_have_independent_context_buffers(self):
         a = SmplClient(api_key="sk_test", base_domain="example.test")
         b = SmplClient(api_key="sk_test", base_domain="example.test")
-        assert a.manage._context_buffer is not b.manage._context_buffer
+        assert a.platform._context_buffer is not b.platform._context_buffer
         a.close()
         b.close()
 
 
 # ---------------------------------------------------------------------------
-# Async management namespace
+# Async construction
 # ---------------------------------------------------------------------------
 
 
-class TestAsyncManagementNamespaceConstruction:
-    def test_namespaces_are_wired(self):
+class TestAsyncSmplClientConstruction:
+    def test_platform_and_account_are_wired(self):
         client = AsyncSmplClient(api_key="sk_test", base_domain="example.test")
-        mgmt = client.manage
-        assert isinstance(mgmt.contexts, AsyncContextsClient)
-        assert isinstance(mgmt.context_types, AsyncContextTypesClient)
-        assert isinstance(mgmt.environments, AsyncEnvironmentsClient)
-        assert isinstance(mgmt.services, AsyncServicesClient)
-        assert isinstance(mgmt.account_settings, AsyncAccountSettingsClient)
+        platform = client.platform
+        assert isinstance(platform, AsyncPlatformClient)
+        assert isinstance(platform.contexts, AsyncContextsClient)
+        assert isinstance(platform.context_types, AsyncContextTypesClient)
+        assert isinstance(platform.environments, AsyncEnvironmentsClient)
+        assert isinstance(platform.services, AsyncServicesClient)
+        assert isinstance(client.account, AsyncAccountClient)
+        assert isinstance(client.account.settings, _AsyncSettingsClient)
         assert isinstance(client.config, AsyncConfigClient)
         assert isinstance(client.flags, AsyncFlagsClient)
         assert isinstance(client.logging, AsyncLoggingClient)
         assert isinstance(client.logging.loggers, _AsyncLoggersClient)
         assert isinstance(client.logging.log_groups, _AsyncLogGroupsClient)
-        assert not hasattr(mgmt, "config")
-        assert not hasattr(mgmt, "flags")
-        assert not hasattr(mgmt, "logging")
-        assert not hasattr(mgmt, "loggers")
-        assert not hasattr(mgmt, "log_groups")
-        assert not hasattr(mgmt, "audit")
-        assert not hasattr(mgmt, "jobs")
+        assert not hasattr(client, "manage")
         asyncio.run(client.close())
 
-    def test_namespace_construction_has_no_side_effects(self):
-        cfg = resolve_management_config(api_key="sk_test", base_domain="example.test")
-        before = {t.ident for t in threading.enumerate()}
-        with patch("httpx.Client") as mock_sync, patch("httpx.AsyncClient") as mock_async:
-            _AsyncManagementNamespace(cfg)
-        after = {t.ident for t in threading.enumerate()}
-        assert before == after
-        mock_sync.assert_not_called()
-        mock_async.assert_not_called()
+    def test_flags_contexts_seam_points_at_platform_contexts(self):
+        client = AsyncSmplClient(api_key="sk_test", base_domain="example.test")
+        assert client.flags._contexts is client.platform.contexts
+        asyncio.run(client.close())
 
     def test_close_closes_all_async_clients(self):
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", base_domain="example.test")
-            mgmt = client.manage
-            for attr in ("_app_http", "_config_http", "_flags_http", "_logging_http", "_jobs_http"):
+            transports = client._transports
+            for attr in ("app_http", "config_http", "flags_http", "logging_http", "jobs_http"):
                 ac = AsyncMock()
                 ac.aclose = AsyncMock()
-                getattr(mgmt, attr)._async_client = ac
-            await mgmt.close()
-            for attr in ("_app_http", "_config_http", "_flags_http", "_logging_http", "_jobs_http"):
-                assert getattr(mgmt, attr)._async_client is None
+                getattr(transports, attr)._async_client = ac
             await client.close()
+            for attr in ("app_http", "config_http", "flags_http", "logging_http", "jobs_http"):
+                assert getattr(transports, attr)._async_client is None
 
         asyncio.run(_run())
 
     def test_close_when_no_clients_initialized(self):
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", base_domain="example.test")
-            await client.manage.close()  # no error
+            await client.close()  # no error
+
+        asyncio.run(_run())
+
+
+# ---------------------------------------------------------------------------
+# Standalone PlatformClient / AccountClient construction + close
+# ---------------------------------------------------------------------------
+
+
+class TestStandalonePlatformClient:
+    def test_standalone_builds_own_transport(self):
+        platform = PlatformClient(api_key="sk_test", base_domain="example.test")
+        assert platform._owns_transport is True
+        assert platform._app_http._base_url == "https://app.example.test"
+        assert isinstance(platform.environments, _EnvironmentsClient)
+        assert isinstance(platform.contexts, _ContextsClient)
+        platform.close()
+
+    def test_standalone_close_tears_down_owned_transport(self):
+        platform = PlatformClient(api_key="sk_test", base_domain="example.test")
+        inner = MagicMock()
+        platform._app_http._client = inner
+        platform.close()
+        inner.close.assert_called_once()
+        assert platform._app_http._client is None
+
+    def test_standalone_close_noop_without_materialized_client(self):
+        platform = PlatformClient(api_key="sk_test", base_domain="example.test")
+        platform._app_http._client = None
+        platform.close()  # no error
+
+    def test_context_manager(self):
+        with PlatformClient(api_key="sk_test", base_domain="example.test") as platform:
+            assert isinstance(platform, PlatformClient)
+
+    def test_wired_close_is_noop_on_borrowed_transport(self):
+        client = SmplClient(api_key="sk_test", base_domain="example.test")
+        sentinel = MagicMock()
+        client.platform._app_http._client = sentinel
+        client.platform.close()  # wired: borrows parent transport
+        assert client.platform._app_http._client is sentinel
+        client.close()
+
+    def test_base_url_used_directly_when_supplied(self):
+        platform = PlatformClient(api_key="sk_test", base_url="http://app.localhost")
+        assert platform._app_http._base_url == "http://app.localhost"
+        platform.close()
+
+
+class TestStandaloneAsyncPlatformClient:
+    def test_standalone_builds_own_transport(self):
+        platform = AsyncPlatformClient(api_key="sk_test", base_domain="example.test")
+        assert platform._owns_transport is True
+        assert isinstance(platform.environments, AsyncEnvironmentsClient)
+        assert isinstance(platform.contexts, AsyncContextsClient)
+
+    def test_standalone_aclose_tears_down_owned_transport(self):
+        async def _run():
+            platform = AsyncPlatformClient(api_key="sk_test", base_domain="example.test")
+            ac = AsyncMock()
+            ac.aclose = AsyncMock()
+            platform._app_http._async_client = ac
+            await platform.aclose()
+            ac.aclose.assert_awaited_once()
+            assert platform._app_http._async_client is None
+
+        asyncio.run(_run())
+
+    def test_aclose_noop_without_materialized_client(self):
+        async def _run():
+            platform = AsyncPlatformClient(api_key="sk_test", base_domain="example.test")
+            platform._app_http._async_client = None
+            await platform.aclose()  # no error
+
+        asyncio.run(_run())
+
+    def test_async_context_manager(self):
+        async def _run():
+            async with AsyncPlatformClient(api_key="sk_test", base_domain="example.test") as platform:
+                assert isinstance(platform, AsyncPlatformClient)
+
+        asyncio.run(_run())
+
+    def test_wired_aclose_is_noop_on_borrowed_transport(self):
+        async def _run():
+            client = AsyncSmplClient(api_key="sk_test", base_domain="example.test")
+            sentinel = AsyncMock()
+            client.platform._app_http._async_client = sentinel
+            await client.platform.aclose()  # wired: borrows parent transport
+            assert client.platform._app_http._async_client is sentinel
             await client.close()
+
+        asyncio.run(_run())
+
+
+class TestStandaloneAccountClient:
+    def test_standalone_builds_settings_client(self):
+        account = AccountClient(api_key="sk_test", base_domain="example.test")
+        assert isinstance(account.settings, _SettingsClient)
+        assert account.settings._base_url == "https://app.example.test"
+        account.close()  # no-op
+
+    def test_base_url_used_directly_when_supplied(self):
+        account = AccountClient(api_key="sk_test", base_url="http://app.localhost")
+        assert account.settings._base_url == "http://app.localhost"
+
+    def test_context_manager(self):
+        with AccountClient(api_key="sk_test", base_domain="example.test") as account:
+            assert isinstance(account, AccountClient)
+
+    def test_extra_headers_forwarded(self):
+        account = AccountClient(
+            api_key="sk_test", base_domain="example.test", extra_headers={"X-Trace": "1"}
+        )
+        assert account.settings._headers["X-Trace"] == "1"
+
+
+class TestStandaloneAsyncAccountClient:
+    def test_standalone_builds_settings_client(self):
+        account = AsyncAccountClient(api_key="sk_test", base_domain="example.test")
+        assert isinstance(account.settings, _AsyncSettingsClient)
+        assert account.settings._base_url == "https://app.example.test"
+
+    def test_aclose_is_noop(self):
+        async def _run():
+            account = AsyncAccountClient(api_key="sk_test", base_domain="example.test")
+            await account.aclose()  # no-op
+
+        asyncio.run(_run())
+
+    def test_async_context_manager(self):
+        async def _run():
+            async with AsyncAccountClient(api_key="sk_test", base_domain="example.test") as account:
+                assert isinstance(account, AsyncAccountClient)
 
         asyncio.run(_run())
 

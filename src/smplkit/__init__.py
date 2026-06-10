@@ -2,6 +2,7 @@
 
 import enum
 
+from smplkit.account._client import AccountClient, AsyncAccountClient
 from smplkit.audit._client import AsyncAuditClient, AuditClient
 from smplkit._client import AsyncSmplClient, SmplClient
 from smplkit._errors import (
@@ -23,7 +24,8 @@ from smplkit.flags.types import AsyncContext, Context, FlagDeclaration, Op, Rule
 from smplkit.jobs._client import AsyncJobsClient, JobsClient
 from smplkit.logging._client import AsyncLoggingClient, LoggerChangeEvent, LoggingClient
 from smplkit.logging._sources import LoggerSource
-from smplkit.management.types import Color, EnvironmentClassification
+from smplkit.platform._client import AsyncPlatformClient, PlatformClient
+from smplkit.platform.types import Color, EnvironmentClassification
 
 
 class LogLevel(str, enum.Enum):
@@ -46,43 +48,47 @@ class LogLevel(str, enum.Enum):
 
 
 __all__ = [
+    "AccountClient",
     "ApiErrorDetail",
+    "AsyncAccountClient",
+    "AsyncAuditClient",
     "AsyncConfigClient",
     "AsyncContext",
-    "AsyncAuditClient",
     "AsyncFlagsClient",
-    "AsyncLoggingClient",
-    "AsyncSmplClient",
     "AsyncJobsClient",
+    "AsyncLoggingClient",
+    "AsyncPlatformClient",
+    "AsyncSmplClient",
+    "AuditClient",
     "Color",
     "ConfigChangeEvent",
     "ConfigClient",
     "ConfigEnvironment",
     "ConfigItem",
+    "ConflictError",
+    "ConnectionError",
     "Context",
     "EnvironmentClassification",
+    "Error",
     "FlagChangeEvent",
     "FlagDeclaration",
     "FlagEnvironment",
     "FlagRule",
-    "FlagsClient",
     "FlagValue",
+    "FlagsClient",
     "ItemType",
+    "JobsClient",
+    "LogLevel",
     "LoggerChangeEvent",
     "LoggerSource",
     "LoggingClient",
-    "LogLevel",
-    "Op",
-    "Rule",
-    "AuditClient",
-    "SmplClient",
-    "JobsClient",
-    "Error",
-    "ConnectionError",
-    "ConflictError",
     "NotFoundError",
     "NotInstalledError",
+    "Op",
     "PaymentRequiredError",
+    "PlatformClient",
+    "Rule",
+    "SmplClient",
     "TimeoutError",
     "ValidationError",
 ]

@@ -20,7 +20,7 @@ The client supports two construction shapes:
 
 * **Wired** into :class:`smplkit.SmplClient` — borrows the parent's flags
   transport for both runtime fetch and CRUD, the parent's shared WebSocket
-  for the live channel, and the parent namespace's contexts client for
+  for the live channel, and ``client.platform.contexts`` for
   evaluation-context registration. This is the common path.
 * **Standalone** — ``FlagsClient(api_key=..., base_url=..., ...)`` builds
   and owns its own flags transport and a contexts client (against its own
@@ -84,9 +84,9 @@ if TYPE_CHECKING:
     from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
     from smplkit._client import AsyncSmplClient, SmplClient
     from smplkit.flags.types import Context, FlagDeclaration
-    from smplkit.management._client import (
+    from smplkit.platform._client import (
         AsyncContextsClient,
-        ContextsClient,
+        _ContextsClient,
     )
 
 logger = logging.getLogger("smplkit")
@@ -333,7 +333,7 @@ class FlagsClient:
         transport: Internal — a pre-built flags transport supplied by a
             top-level client so the flags surface shares one connection pool.
             Not for direct use.
-        contexts: Internal — the parent namespace's contexts client used for
+        contexts: Internal — ``client.platform.contexts`` used for
             evaluation-context registration. Not for direct use.
         metrics: Internal — the parent's metrics reporter.
     """
@@ -351,7 +351,7 @@ class FlagsClient:
         extra_headers: dict[str, str] | None = None,
         parent: SmplClient | None = None,
         transport: AuthenticatedClient | None = None,
-        contexts: ContextsClient | None = None,
+        contexts: _ContextsClient | None = None,
         metrics: _MetricsReporter | None = None,
     ) -> None:
         self._parent = parent
@@ -364,9 +364,9 @@ class FlagsClient:
             self._flags_http = transport
             self._app_base_url: str | None = None
             self._owns_transport = False
-            # Wired: borrow the parent namespace's contexts client. This is the
-            # injection seam — a later phase repoints it at client.platform.contexts.
-            self._contexts: ContextsClient | None = contexts
+            # Wired: borrow client.platform.contexts as the evaluation-context
+            # registration seam.
+            self._contexts: _ContextsClient | None = contexts
         else:
             self._flags_http, app_http, self._app_base_url = _flags_transport(
                 api_key=api_key,
@@ -381,7 +381,7 @@ class FlagsClient:
             self._standalone_api_key = api_key if api_key is not None else self._flags_http.token
             # Standalone: build our own contexts client (and own its app transport).
             from smplkit.management._buffer import _ContextRegistrationBuffer
-            from smplkit.management._client import ContextsClient as _ContextsClient
+            from smplkit.platform._client import _ContextsClient
 
             self._app_http_standalone = app_http
             self._contexts = _ContextsClient(app_http, _ContextRegistrationBuffer())
@@ -1014,7 +1014,7 @@ class AsyncFlagsClient:
             self._owns_transport = True
             self._standalone_api_key = api_key if api_key is not None else self._flags_http.token
             from smplkit.management._buffer import _ContextRegistrationBuffer
-            from smplkit.management._client import AsyncContextsClient as _AsyncContextsClient
+            from smplkit.platform._client import AsyncContextsClient as _AsyncContextsClient
 
             self._app_http_standalone = app_http
             self._contexts = _AsyncContextsClient(app_http, _ContextRegistrationBuffer())
@@ -1038,7 +1038,7 @@ class AsyncFlagsClient:
         Closes the owned WebSocket and the underlying sync HTTP clients on
         the owned transports. The async transport is torn down by
         :meth:`aclose`. Called by :class:`AsyncSmplClient.close` which closes
-        the async transport pools through the management namespace.
+        the async transport pools through the shared service transports.
         """
         if self._owns_ws and self._ws_manager is not None:
             self._ws_manager.stop()

@@ -1,22 +1,27 @@
-"""Smpl management-plane CRUD sub-clients and the ``client.manage`` namespace.
+"""The Smpl Platform client — cross-cutting CRUD on ``client.platform``.
 
-This module owns every CRUD/management surface in the SDK. They are exposed
-as the ``client.manage`` namespace on the single :class:`smplkit.SmplClient`
-(there is no separate management client class — one SDK, one client):
+``PlatformClient`` / ``AsyncPlatformClient`` group the account-wide
+configuration resources that aren't owned by a single product, mirroring the
+product UI's Platform area:
 
-- ``client.manage.contexts.*``
-- ``client.manage.context_types.*``
-- ``client.manage.environments.*``
-- ``client.manage.services.*``
-- ``client.manage.account_settings.*``
+- ``platform.environments`` — environment CRUD
+- ``platform.services`` — service CRUD
+- ``platform.contexts`` — evaluation-context registration + read/delete
+- ``platform.context_types`` — context-type CRUD
 
-Config, flags, logging, audit, and jobs are NOT here — they are the top-level
-``client.config`` / ``client.flags`` / ``client.logging`` / ``client.audit`` /
-``client.jobs`` (each a full client, not split runtime/management). Logging
-CRUD lives on the logging client's sub-clients (``client.logging.loggers`` /
-``client.logging.log_groups``). The internal :class:`_ManagementNamespace` /
-:class:`_AsyncManagementNamespace` wire these sub-clients up;
-:class:`smplkit.SmplClient` builds them.
+All four are pure CRUD — no ``install()`` gate. Every sub-client speaks to the
+app service, so the client needs exactly one app transport (plus the
+context-registration buffer that ``contexts`` drains).
+
+The client supports two construction shapes:
+
+* **Wired** into :class:`smplkit.SmplClient` — borrows the parent's app
+  transport and an externally-supplied context buffer. This is the common
+  path; ``client.flags`` borrows ``client.platform.contexts`` as its
+  evaluation-context registration seam.
+* **Standalone** — ``PlatformClient(api_key=..., base_url=..., ...)`` builds
+  and owns its own app transport and buffer. ``close()`` / ``aclose()`` tears
+  down only the owned transport.
 """
 
 from __future__ import annotations
@@ -24,11 +29,9 @@ from __future__ import annotations
 import json
 import logging
 import threading
-from typing import TYPE_CHECKING, Any, overload
+from typing import Any, overload
 
-import httpx
-
-from smplkit._config import ResolvedManagementConfig, _service_url
+from smplkit._config import _service_url, resolve_management_config
 from smplkit._errors import (
     NotFoundError,
     ValidationError,
@@ -63,7 +66,6 @@ from smplkit._generated.app.api.services import (
     update_service as _gen_update_service,
 )
 from smplkit._generated.app.client import AuthenticatedClient as _AppAuthClient
-from smplkit._generated.jobs.client import AuthenticatedClient as _JobsAuthClient
 from smplkit._generated.app.models import (
     Context as _GenContext,
     ContextAttributes as _GenContextAttributes,
@@ -83,13 +85,9 @@ from smplkit._generated.app.models import (
     ServiceRequest as _GenServiceRequest,
     ServiceResource as _GenServiceResource,
 )
-from smplkit._generated.config.client import AuthenticatedClient as _ConfigAuthClient
-from smplkit._generated.flags.client import AuthenticatedClient as _FlagsAuthClient
-from smplkit._generated.logging.client import AuthenticatedClient as _LoggingAuthClient
 from smplkit.flags.types import AsyncContext, Context
-from smplkit.management.models import (
-    AccountSettings,
-    AsyncAccountSettings,
+from smplkit.management._buffer import _CONTEXT_BATCH_FLUSH_SIZE, _ContextRegistrationBuffer
+from smplkit.platform.models import (
     AsyncContextType,
     AsyncEnvironment,
     AsyncService,
@@ -97,11 +95,7 @@ from smplkit.management.models import (
     Environment,
     Service,
 )
-from smplkit.management._buffer import _CONTEXT_BATCH_FLUSH_SIZE
-from smplkit.management.types import Color, EnvironmentClassification
-
-if TYPE_CHECKING:  # pragma: no cover
-    from smplkit.management._buffer import _ContextRegistrationBuffer
+from smplkit.platform.types import Color, EnvironmentClassification
 
 logger = logging.getLogger("smplkit")
 
@@ -138,7 +132,7 @@ def _env_to_resource(env: Environment | AsyncEnvironment) -> _GenEnvironmentRequ
 
 
 def _env_from_parsed(
-    parsed: Any, sync_client: EnvironmentsClient | None, async_client: AsyncEnvironmentsClient | None
+    parsed: Any, sync_client: _EnvironmentsClient | None, async_client: AsyncEnvironmentsClient | None
 ) -> Any:
     """Build an Environment / AsyncEnvironment from a parsed EnvironmentResponse."""
     data = parsed.data
@@ -185,7 +179,7 @@ def _ct_to_resource(ct: ContextType | AsyncContextType) -> _GenContextTypeReques
 
 
 def _ct_from_parsed(
-    parsed: Any, sync_client: ContextTypesClient | None, async_client: AsyncContextTypesClient | None
+    parsed: Any, sync_client: _ContextTypesClient | None, async_client: AsyncContextTypesClient | None
 ) -> Any:
     data = parsed.data
     attrs = data.attributes
@@ -286,13 +280,45 @@ def _check_status(status_code: int, content: bytes) -> None:
     _raise_for_status(int(status_code), content)
 
 
+def _platform_transport(
+    *,
+    api_key: str | None,
+    base_url: str | None,
+    profile: str | None,
+    base_domain: str | None,
+    scheme: str | None,
+    debug: bool | None,
+    extra_headers: dict[str, str] | None,
+) -> _AppAuthClient:
+    """Build a standalone app transport from resolved config.
+
+    ``base_url``/``api_key`` are used directly when both are supplied (the
+    path the top-level client takes after it has already resolved them);
+    otherwise the management config resolver fills in whatever is missing
+    (``~/.smplkit`` / env vars / defaults).
+    """
+    cfg = resolve_management_config(
+        profile=profile,
+        api_key=api_key,
+        base_domain=base_domain,
+        scheme=scheme,
+        debug=debug,
+    )
+    resolved_key = api_key if api_key is not None else cfg.api_key
+    app_url = base_url if base_url is not None else _service_url(cfg.scheme, "app", cfg.base_domain)
+    headers: dict[str, str] = {}
+    headers.update(cfg.extra_headers or {})
+    headers.update(extra_headers or {})
+    return _AppAuthClient(base_url=app_url.rstrip("/"), token=resolved_key, headers=headers)
+
+
 # ---------------------------------------------------------------------------
 # Environments
 # ---------------------------------------------------------------------------
 
 
-class EnvironmentsClient:
-    """Sync environment CRUD (``mgmt.environments``)."""
+class _EnvironmentsClient:
+    """Sync environment CRUD (``client.platform.environments``)."""
 
     def __init__(self, app_http: _AppAuthClient) -> None:
         self._app_http = app_http
@@ -363,7 +389,7 @@ class EnvironmentsClient:
 
 
 class AsyncEnvironmentsClient:
-    """Async environment CRUD (``mgmt.environments``)."""
+    """Async environment CRUD (``client.platform.environments``)."""
 
     def __init__(self, app_http: _AppAuthClient) -> None:
         self._app_http = app_http
@@ -435,7 +461,7 @@ class AsyncEnvironmentsClient:
 def _env_resource_from_dict(
     item: dict[str, Any],
     *,
-    sync_client: EnvironmentsClient | None = None,
+    sync_client: _EnvironmentsClient | None = None,
     async_client: AsyncEnvironmentsClient | None = None,
 ) -> Any:
     """Build an Environment from a raw JSON resource dict (used by list)."""
@@ -481,7 +507,7 @@ def _svc_to_resource(svc: Service | AsyncService) -> _GenServiceRequest:
     return _GenServiceRequest(data=resource)
 
 
-def _svc_from_parsed(parsed: Any, sync_client: ServicesClient | None, async_client: AsyncServicesClient | None) -> Any:
+def _svc_from_parsed(parsed: Any, sync_client: _ServicesClient | None, async_client: AsyncServicesClient | None) -> Any:
     """Build a Service / AsyncService from a parsed ServiceResponse."""
     data = parsed.data
     attrs = data.attributes
@@ -502,8 +528,8 @@ def _svc_from_parsed(parsed: Any, sync_client: ServicesClient | None, async_clie
     )
 
 
-class ServicesClient:
-    """Sync service CRUD (``mgmt.services``)."""
+class _ServicesClient:
+    """Sync service CRUD (``client.platform.services``)."""
 
     def __init__(self, app_http: _AppAuthClient) -> None:
         self._app_http = app_http
@@ -570,7 +596,7 @@ class ServicesClient:
 
 
 class AsyncServicesClient:
-    """Async service CRUD (``mgmt.services``)."""
+    """Async service CRUD (``client.platform.services``)."""
 
     def __init__(self, app_http: _AppAuthClient) -> None:
         self._app_http = app_http
@@ -638,7 +664,7 @@ class AsyncServicesClient:
 def _svc_resource_from_dict(
     item: dict[str, Any],
     *,
-    sync_client: ServicesClient | None = None,
+    sync_client: _ServicesClient | None = None,
     async_client: AsyncServicesClient | None = None,
 ) -> Any:
     """Build a Service from a raw JSON resource dict (used by list)."""
@@ -665,8 +691,8 @@ def _svc_resource_from_dict(
 # ---------------------------------------------------------------------------
 
 
-class ContextTypesClient:
-    """Sync context-type CRUD (``mgmt.context_types``)."""
+class _ContextTypesClient:
+    """Sync context-type CRUD (``client.platform.context_types``)."""
 
     def __init__(self, app_http: _AppAuthClient) -> None:
         self._app_http = app_http
@@ -802,7 +828,7 @@ class AsyncContextTypesClient:
 def _ct_resource_from_dict(
     item: dict[str, Any],
     *,
-    sync_client: ContextTypesClient | None = None,
+    sync_client: _ContextTypesClient | None = None,
     async_client: AsyncContextTypesClient | None = None,
 ) -> Any:
     attrs = item.get("attributes") or {}
@@ -852,8 +878,8 @@ def _build_bulk_register_body(items: list[dict[str, Any]]) -> _GenContextBulkReg
     return _GenContextBulkRegister(contexts=bulk)
 
 
-class ContextsClient:
-    """Sync context registration + read/delete (``mgmt.contexts``)."""
+class _ContextsClient:
+    """Sync context registration + read/delete (``client.platform.contexts``)."""
 
     def __init__(
         self,
@@ -1070,181 +1096,163 @@ def _ctx_entity_from_dict(item: dict[str, Any], *, async_: bool = False, client:
 
 
 # ---------------------------------------------------------------------------
-# Account Settings
+# PlatformClient (client.platform)
 # ---------------------------------------------------------------------------
 
 
-class AccountSettingsClient:
-    """Sync account-settings get/save (``mgmt.account_settings``).
+class PlatformClient:
+    """The Smpl Platform client (sync).
 
-    The endpoint isn't JSON:API — body is a raw JSON object — so we
-    use httpx directly rather than going through a generated client.
+    Groups the account-wide CRUD resources that aren't owned by a single
+    product, reachable as ``client.platform`` (:class:`smplkit.SmplClient`)
+    or constructed directly::
+
+        from smplkit import PlatformClient
+
+        with PlatformClient(api_key="sk_...") as platform:
+            prod = platform.environments.new("production", name="Production")
+            prod.save()
+            for svc in platform.services.list():
+                ...
+
+    Sub-clients: ``environments``, ``services``, ``contexts``,
+    ``context_types``. Pure CRUD — no ``install()`` required.
+
+    Args:
+        api_key: API key. When omitted, resolved from ``SMPLKIT_API_KEY`` or
+            ``~/.smplkit``.
+        base_url: Full app-service base URL. Usually resolved from
+            ``base_domain``/``scheme``; supplied directly by the top-level
+            clients which have already computed it.
+        profile: Named ``~/.smplkit`` profile section.
+        base_domain: Base domain for API requests (default ``"smplkit.com"``).
+        scheme: URL scheme (default ``"https"``).
+        debug: Enable SDK debug logging.
+        extra_headers: Extra headers attached to every request.
+        app_transport: Internal — a pre-built app transport supplied by a
+            top-level client so the platform surface shares one connection
+            pool. Not for direct use.
+        context_buffer: Internal — the shared context-registration buffer.
+            Not for direct use.
     """
 
-    def __init__(self, app_base_url: str, api_key: str) -> None:
-        self._base_url = app_base_url
-        self._headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
+    environments: _EnvironmentsClient
+    services: _ServicesClient
+    contexts: _ContextsClient
+    context_types: _ContextTypesClient
 
-    def get(self) -> AccountSettings:
-        with httpx.Client(base_url=self._base_url, headers=self._headers, timeout=30.0) as h:
-            resp = h.get("/api/v1/accounts/current/settings")
-        _check_status(resp.status_code, resp.content)
-        return AccountSettings(self, data=resp.json() or {})
+    def __init__(
+        self,
+        api_key: str | None = None,
+        *,
+        base_url: str | None = None,
+        profile: str | None = None,
+        base_domain: str | None = None,
+        scheme: str | None = None,
+        debug: bool | None = None,
+        extra_headers: dict[str, str] | None = None,
+        app_transport: _AppAuthClient | None = None,
+        context_buffer: _ContextRegistrationBuffer | None = None,
+    ) -> None:
+        if app_transport is not None:
+            self._app_http = app_transport
+            self._owns_transport = False
+        else:
+            self._app_http = _platform_transport(
+                api_key=api_key,
+                base_url=base_url,
+                profile=profile,
+                base_domain=base_domain,
+                scheme=scheme,
+                debug=debug,
+                extra_headers=extra_headers,
+            )
+            self._owns_transport = True
 
-    def _save(self, data: dict[str, Any]) -> AccountSettings:
-        with httpx.Client(base_url=self._base_url, headers=self._headers, timeout=30.0) as h:
-            resp = h.put("/api/v1/accounts/current/settings", json=data)
-        _check_status(resp.status_code, resp.content)
-        return AccountSettings(self, data=resp.json() or {})
+        buffer = context_buffer if context_buffer is not None else _ContextRegistrationBuffer()
+        self._context_buffer = buffer
 
-
-class AsyncAccountSettingsClient:
-    def __init__(self, app_base_url: str, api_key: str) -> None:
-        self._base_url = app_base_url
-        self._headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-
-    async def get(self) -> AsyncAccountSettings:
-        async with httpx.AsyncClient(base_url=self._base_url, headers=self._headers, timeout=30.0) as h:
-            resp = await h.get("/api/v1/accounts/current/settings")
-        _check_status(resp.status_code, resp.content)
-        return AsyncAccountSettings(self, data=resp.json() or {})
-
-    async def _save(self, data: dict[str, Any]) -> AsyncAccountSettings:
-        async with httpx.AsyncClient(base_url=self._base_url, headers=self._headers, timeout=30.0) as h:
-            resp = await h.put("/api/v1/accounts/current/settings", json=data)
-        _check_status(resp.status_code, resp.content)
-        return AsyncAccountSettings(self, data=resp.json() or {})
-
-
-# ---------------------------------------------------------------------------
-# Management namespace (client.manage.*)
-# ---------------------------------------------------------------------------
-
-
-class _ManagementNamespace:
-    """The CRUD namespace exposed as ``client.manage`` on :class:`SmplClient`.
-
-    Holds the management/CRUD sub-clients (contexts, context_types,
-    environments, services, account_settings) plus the per-service transports
-    and the context-registration buffer that back them. Construction is
-    side-effect-free: no threads, no network — transports connect lazily on
-    first call.
-
-    Internal (not publicly constructed): :class:`SmplClient` builds it from a
-    resolved config. Config, flags, logging, audit, and jobs are deliberately
-    NOT here — they are the top-level ``client.config`` / ``client.flags`` /
-    ``client.logging`` / ``client.audit`` / ``client.jobs`` (one client, full
-    surface). Logging CRUD lives on ``client.logging.loggers`` /
-    ``client.logging.log_groups``.
-    """
-
-    contexts: ContextsClient
-    context_types: ContextTypesClient
-    environments: EnvironmentsClient
-    services: ServicesClient
-    account_settings: AccountSettingsClient
-
-    def __init__(self, cfg: "ResolvedManagementConfig") -> None:
-        config_url = _service_url(cfg.scheme, "config", cfg.base_domain)
-        app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
-        flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
-        logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
-        jobs_url = _service_url(cfg.scheme, "jobs", cfg.base_domain)
-
-        _extra = {**(cfg.extra_headers or {})}
-        self._app_http = _AppAuthClient(base_url=app_url, token=cfg.api_key, headers=_extra)
-        self._config_http = _ConfigAuthClient(base_url=config_url, token=cfg.api_key, headers=_extra)
-        self._flags_http = _FlagsAuthClient(base_url=flags_url, token=cfg.api_key, headers=_extra)
-        self._logging_http = _LoggingAuthClient(base_url=logging_url, token=cfg.api_key, headers=_extra)
-        # Smpl Jobs is JSON:API; ``client.jobs`` is built from this transport
-        # by SmplClient. (There is no audit transport here — ``client.audit``
-        # owns its own.)
-        self._jobs_http = _JobsAuthClient(
-            base_url=jobs_url,
-            token=cfg.api_key,
-            headers={**_extra, "Accept": "application/vnd.api+json"},
-        )
-
-        from smplkit.management._buffer import _ContextRegistrationBuffer
-
-        self._context_buffer = _ContextRegistrationBuffer()
-
-        self.contexts = ContextsClient(self._app_http, self._context_buffer)
-        self.context_types = ContextTypesClient(self._app_http)
-        self.environments = EnvironmentsClient(self._app_http)
-        self.services = ServicesClient(self._app_http)
-        self.account_settings = AccountSettingsClient(app_url, cfg.api_key)
+        self.environments = _EnvironmentsClient(self._app_http)
+        self.services = _ServicesClient(self._app_http)
+        self.contexts = _ContextsClient(self._app_http, buffer)
+        self.context_types = _ContextTypesClient(self._app_http)
 
     def close(self) -> None:
-        """Close the management transports. The config/audit/jobs runtime
-        clients own their own teardown on the top-level :class:`SmplClient`."""
-        for http in (
-            self._app_http,
-            self._config_http,
-            self._flags_http,
-            self._logging_http,
-            self._jobs_http,
-        ):
-            client = http._client
+        """Close the app transport — only when this client owns it.
+
+        A wired client borrows the parent's app transport and closes nothing.
+        """
+        if self._owns_transport:
+            client = self._app_http._client
             if client is not None:
                 client.close()
-                http._client = None
+                self._app_http._client = None
+
+    def __enter__(self) -> PlatformClient:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
 
 
-class _AsyncManagementNamespace:
-    """Async counterpart of :class:`_ManagementNamespace` — ``client.manage``
-    on :class:`AsyncSmplClient`."""
+class AsyncPlatformClient:
+    """The Smpl Platform client (async) — counterpart of :class:`PlatformClient`.
 
-    contexts: AsyncContextsClient
-    context_types: AsyncContextTypesClient
+    Reads and CRUD perform their network round-trips with ``await``. Pure CRUD;
+    no ``install()`` required.
+    """
+
     environments: AsyncEnvironmentsClient
     services: AsyncServicesClient
-    account_settings: AsyncAccountSettingsClient
+    contexts: AsyncContextsClient
+    context_types: AsyncContextTypesClient
 
-    def __init__(self, cfg: "ResolvedManagementConfig") -> None:
-        config_url = _service_url(cfg.scheme, "config", cfg.base_domain)
-        app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
-        flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
-        logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
-        jobs_url = _service_url(cfg.scheme, "jobs", cfg.base_domain)
+    def __init__(
+        self,
+        api_key: str | None = None,
+        *,
+        base_url: str | None = None,
+        profile: str | None = None,
+        base_domain: str | None = None,
+        scheme: str | None = None,
+        debug: bool | None = None,
+        extra_headers: dict[str, str] | None = None,
+        app_transport: _AppAuthClient | None = None,
+        context_buffer: _ContextRegistrationBuffer | None = None,
+    ) -> None:
+        if app_transport is not None:
+            self._app_http = app_transport
+            self._owns_transport = False
+        else:
+            self._app_http = _platform_transport(
+                api_key=api_key,
+                base_url=base_url,
+                profile=profile,
+                base_domain=base_domain,
+                scheme=scheme,
+                debug=debug,
+                extra_headers=extra_headers,
+            )
+            self._owns_transport = True
 
-        _extra = {**(cfg.extra_headers or {})}
-        self._app_http = _AppAuthClient(base_url=app_url, token=cfg.api_key, headers=_extra)
-        self._config_http = _ConfigAuthClient(base_url=config_url, token=cfg.api_key, headers=_extra)
-        self._flags_http = _FlagsAuthClient(base_url=flags_url, token=cfg.api_key, headers=_extra)
-        self._logging_http = _LoggingAuthClient(base_url=logging_url, token=cfg.api_key, headers=_extra)
-        self._jobs_http = _JobsAuthClient(
-            base_url=jobs_url,
-            token=cfg.api_key,
-            headers={**_extra, "Accept": "application/vnd.api+json"},
-        )
+        buffer = context_buffer if context_buffer is not None else _ContextRegistrationBuffer()
+        self._context_buffer = buffer
 
-        from smplkit.management._buffer import _ContextRegistrationBuffer
-
-        self._context_buffer = _ContextRegistrationBuffer()
-
-        self.contexts = AsyncContextsClient(self._app_http, self._context_buffer)
-        self.context_types = AsyncContextTypesClient(self._app_http)
         self.environments = AsyncEnvironmentsClient(self._app_http)
         self.services = AsyncServicesClient(self._app_http)
-        self.account_settings = AsyncAccountSettingsClient(app_url, cfg.api_key)
+        self.contexts = AsyncContextsClient(self._app_http, buffer)
+        self.context_types = AsyncContextTypesClient(self._app_http)
 
-    async def close(self) -> None:
-        """Close the management transports (async)."""
-        for http in (
-            self._app_http,
-            self._config_http,
-            self._flags_http,
-            self._logging_http,
-            self._jobs_http,
-        ):
-            ac = http._async_client
+    async def aclose(self) -> None:
+        """Close the async app transport — only when this client owns it."""
+        if self._owns_transport:
+            ac = self._app_http._async_client
             if ac is not None:
                 await ac.aclose()
-                http._async_client = None
+                self._app_http._async_client = None
+
+    async def __aenter__(self) -> AsyncPlatformClient:
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        await self.aclose()

@@ -139,8 +139,8 @@ class Flag:
         """Persist this flag to the server.
 
         Creates a new flag if unsaved, or updates the existing one.
-        Requires a management client (i.e. the flag was constructed via
-        ``mgmt.flags.new*`` or returned from ``mgmt.flags.get/list``).
+        Requires a flags client (i.e. the flag was constructed via
+        ``client.flags.new_*`` or returned from ``client.flags.get/list``).
         """
         if self._client is None:
             raise RuntimeError("Flag was constructed without a client; cannot save")

@@ -124,9 +124,9 @@ class Context(_ContextBase):
     keyword arguments) carry the data that targeting rules evaluate against.
 
     Used for both authoring (``flag.get(context=[...])``,
-    ``client.set_context([...])``, ``mgmt.contexts.register([...])``)
-    and reading (``mgmt.contexts.list/get`` return populated ``Context``
-    instances with ``save()`` / ``delete()`` ready to call).
+    ``client.set_context([...])``, ``client.platform.contexts.register([...])``)
+    and reading (``client.platform.contexts.list/get`` return populated
+    ``Context`` instances with ``save()`` / ``delete()`` ready to call).
 
     Examples::
 
@@ -151,7 +151,7 @@ class Context(_ContextBase):
 class AsyncContext(_ContextBase):
     """Async variant of :class:`Context`.
 
-    Returned by ``await mgmt.contexts.list/get`` on the async client.
+    Returned by ``await client.platform.contexts.list/get`` on the async client.
     For authoring use cases (``flag.get(context=[...])``,
     ``client.set_context([...])``, etc.), construct a regular
     :class:`Context` — input usage doesn't require the async variant.
@@ -175,7 +175,7 @@ class AsyncContext(_ContextBase):
 class FlagDeclaration:
     """Describes a flag declaration for buffered registration.
 
-    Used by ``client.manage.flags.register`` to queue
+    Used by ``client.flags.register`` to queue
     declarations for bulk registration.  ``service`` and ``environment``
     default to ``None``; the runtime client fills them from the active
     ``SmplClient`` when it forwards declarations.

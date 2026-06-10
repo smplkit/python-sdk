@@ -416,7 +416,7 @@ def test_smpl_client_default_urls():
     assert client._http_client._base_url == "https://config.smplkit.com"
     assert client._app_base_url == "https://app.smplkit.com"
     assert client.flags._flags_http._base_url == "https://flags.smplkit.com"
-    assert client.manage._app_http._base_url == "https://app.smplkit.com"
+    assert client._app_http._base_url == "https://app.smplkit.com"
     assert client.logging._logging_http._base_url == "https://logging.smplkit.com"
 
 
@@ -431,7 +431,7 @@ def test_smpl_client_custom_base_domain():
     assert client._http_client._base_url == "http://config.localhost"
     assert client._app_base_url == "http://app.localhost"
     assert client.flags._flags_http._base_url == "http://flags.localhost"
-    assert client.manage._app_http._base_url == "http://app.localhost"
+    assert client._app_http._base_url == "http://app.localhost"
     assert client.logging._logging_http._base_url == "http://logging.localhost"
 
 
@@ -468,7 +468,7 @@ def test_async_smpl_client_custom_base_domain():
     assert client._http_client._base_url == "http://config.localhost"
     assert client._app_base_url == "http://app.localhost"
     assert client.flags._flags_http._base_url == "http://flags.localhost"
-    assert client.manage._app_http._base_url == "http://app.localhost"
+    assert client._app_http._base_url == "http://app.localhost"
     assert client.logging._logging_http._base_url == "http://logging.localhost"
 
 
@@ -610,7 +610,7 @@ def test_set_context_eagerly_registers():
     client = SmplClient(api_key="sk_api_test", environment="test")
     try:
         client.set_context([Context("user", "u-1", plan="enterprise")])
-        assert client.manage.contexts._buffer.pending_count >= 1
+        assert client.platform.contexts._buffer.pending_count >= 1
         assert client._started is True  # set_context triggers the lazy start
     finally:
         client.close()
@@ -625,9 +625,9 @@ def test_set_context_empty_does_not_register():
         # Service context registration runs in a daemon thread; the local
         # registration buffer is unrelated to that.  An empty set_context
         # must not push anything.
-        before = client.manage.contexts._buffer.pending_count
+        before = client.platform.contexts._buffer.pending_count
         client.set_context([])
-        after = client.manage.contexts._buffer.pending_count
+        after = client.platform.contexts._buffer.pending_count
         assert after == before
     finally:
         client.close()
@@ -641,7 +641,7 @@ def test_async_set_context_eagerly_registers():
         client = AsyncSmplClient(api_key="sk_api_test", environment="test")
         try:
             client.set_context([Context("account", "acme", region="us")])
-            assert client.manage.contexts._buffer.pending_count >= 1
+            assert client.platform.contexts._buffer.pending_count >= 1
             assert client._started is True  # set_context triggers the lazy start
         finally:
             await client.close()
@@ -653,9 +653,9 @@ def test_async_set_context_empty_does_not_register():
     async def _run():
         client = AsyncSmplClient(api_key="sk_api_test", environment="test")
         try:
-            before = client.manage.contexts._buffer.pending_count
+            before = client.platform.contexts._buffer.pending_count
             client.set_context([])
-            after = client.manage.contexts._buffer.pending_count
+            after = client.platform.contexts._buffer.pending_count
             assert after == before
         finally:
             await client.close()
@@ -685,7 +685,7 @@ def test_smpl_client_close_cancels_timer_and_runs_final_flush():
     timer_before = client._flush_timer
     assert timer_before is not None
     with (
-        patch.object(client.manage.contexts, "flush") as mock_ctx_flush,
+        patch.object(client.platform.contexts, "flush") as mock_ctx_flush,
         patch.object(client.flags, "flush") as mock_flag_flush,
         patch.object(client.logging.loggers, "flush") as mock_log_flush,
     ):
@@ -717,7 +717,7 @@ def test_async_smpl_client_close_cancels_timer_and_runs_final_flush():
         client._ensure_started()
         assert client._flush_timer is not None
         with (
-            patch.object(client.manage.contexts, "flush", new=AsyncMock()) as mock_ctx_flush,
+            patch.object(client.platform.contexts, "flush", new=AsyncMock()) as mock_ctx_flush,
             patch.object(client.flags, "flush", new=AsyncMock()) as mock_flag_flush,
             patch.object(client.logging.loggers, "flush", new=AsyncMock()) as mock_log_flush,
         ):
@@ -740,7 +740,7 @@ def test_periodic_flush_tick_drains_buffers():
         assert timer is not None
         timer.cancel()
         with (
-            patch.object(client.manage.contexts, "flush") as mock_ctx_flush,
+            patch.object(client.platform.contexts, "flush") as mock_ctx_flush,
             patch.object(client.flags, "flush") as mock_flag_flush,
             patch.object(client.logging.loggers, "flush") as mock_log_flush,
             patch.object(client, "_schedule_periodic_flush"),
@@ -766,7 +766,7 @@ def test_async_periodic_flush_tick_drains_buffers_via_sync_variants():
             assert timer is not None
             timer.cancel()
             with (
-                patch.object(client.manage.contexts, "flush_sync") as mock_ctx_flush,
+                patch.object(client.platform.contexts, "flush_sync") as mock_ctx_flush,
                 patch.object(client.flags, "flush_sync") as mock_flag_flush,
                 patch.object(client.logging.loggers, "flush_sync") as mock_log_flush,
                 patch.object(client, "_schedule_periodic_flush"),
@@ -793,7 +793,7 @@ def test_periodic_flush_tick_no_op_when_closed():
     timer.cancel()
     client._closed = True
     with (
-        patch.object(client.manage.contexts, "flush") as mock_ctx_flush,
+        patch.object(client.platform.contexts, "flush") as mock_ctx_flush,
         patch.object(client, "_schedule_periodic_flush") as mock_resched,
     ):
         timer.function()
@@ -810,7 +810,7 @@ def test_async_periodic_flush_tick_no_op_when_closed():
         timer.cancel()
         client._closed = True
         with (
-            patch.object(client.manage.contexts, "flush_sync") as mock_ctx_flush,
+            patch.object(client.platform.contexts, "flush_sync") as mock_ctx_flush,
             patch.object(client, "_schedule_periodic_flush") as mock_resched,
         ):
             timer.function()
@@ -829,7 +829,7 @@ def test_periodic_flush_tick_swallows_flush_errors():
     assert timer is not None
     timer.cancel()
     with (
-        patch.object(client.manage.contexts, "flush", side_effect=RuntimeError("boom")),
+        patch.object(client.platform.contexts, "flush", side_effect=RuntimeError("boom")),
         patch.object(client, "_schedule_periodic_flush") as mock_resched,
     ):
         timer.function()
@@ -848,7 +848,7 @@ def test_async_periodic_flush_tick_swallows_flush_errors():
         assert timer is not None
         timer.cancel()
         with (
-            patch.object(client.manage.contexts, "flush_sync", side_effect=RuntimeError("boom")),
+            patch.object(client.platform.contexts, "flush_sync", side_effect=RuntimeError("boom")),
             patch.object(client.flags, "flush_sync"),
             patch.object(client.logging.loggers, "flush_sync"),
             patch.object(client, "_schedule_periodic_flush") as mock_resched,
@@ -867,7 +867,7 @@ def test_final_flush_swallows_errors():
     """``_final_flush`` keeps draining each buffer even if one raises."""
     client = SmplClient(api_key="sk_api_test", environment="test")
     with (
-        patch.object(client.manage.contexts, "flush", side_effect=RuntimeError("boom")),
+        patch.object(client.platform.contexts, "flush", side_effect=RuntimeError("boom")),
         patch.object(client.flags, "flush") as mock_flag,
         patch.object(client.logging.loggers, "flush") as mock_log,
     ):
@@ -883,7 +883,7 @@ def test_async_final_flush_swallows_errors():
     async def _run():
         client = AsyncSmplClient(api_key="sk_api_test", environment="test")
         with (
-            patch.object(client.manage.contexts, "flush", new=AsyncMock(side_effect=RuntimeError("boom"))),
+            patch.object(client.platform.contexts, "flush", new=AsyncMock(side_effect=RuntimeError("boom"))),
             patch.object(client.flags, "flush", new=AsyncMock()) as mock_flag,
             patch.object(client.logging.loggers, "flush", new=AsyncMock()) as mock_log,
         ):
@@ -894,7 +894,7 @@ def test_async_final_flush_swallows_errors():
         if client._flush_timer is not None:
             client._flush_timer.cancel()
         with (
-            patch.object(client.manage.contexts, "flush", new=AsyncMock()),
+            patch.object(client.platform.contexts, "flush", new=AsyncMock()),
             patch.object(client.flags, "flush", new=AsyncMock()),
             patch.object(client.logging.loggers, "flush", new=AsyncMock()),
         ):
@@ -917,9 +917,9 @@ def test_flag_get_with_explicit_context_registers():
         client.flags._installed = True  # skip the live install() round-trip
         flag = client.flags.boolean_flag("dark-mode", default=False)
         client.flags._flag_store = {"dark-mode": {"id": "dark-mode", "default": False, "environments": {}}}
-        before = client.manage.contexts._buffer.pending_count
+        before = client.platform.contexts._buffer.pending_count
         flag.get(context=[Context("user", "explicit-1", plan="pro")])
-        assert client.manage.contexts._buffer.pending_count > before
+        assert client.platform.contexts._buffer.pending_count > before
     finally:
         client.close()
 
@@ -934,12 +934,12 @@ def test_async_flag_get_with_explicit_context_registers():
             client.flags._installed = True
             flag = client.flags.boolean_flag("dark-mode", default=False)
             client.flags._flag_store = {"dark-mode": {"id": "dark-mode", "default": False, "environments": {}}}
-            before = client.manage.contexts._buffer.pending_count
+            before = client.platform.contexts._buffer.pending_count
             flag.get(context=[Context("user", "explicit-async", plan="pro")])
-            assert client.manage.contexts._buffer.pending_count > before
+            assert client.platform.contexts._buffer.pending_count > before
         finally:
             with (
-                patch.object(client.manage.contexts, "flush", new=AsyncMock()),
+                patch.object(client.platform.contexts, "flush", new=AsyncMock()),
                 patch.object(client.flags, "flush", new=AsyncMock()),
                 patch.object(client.logging.loggers, "flush", new=AsyncMock()),
             ):
@@ -958,9 +958,9 @@ def test_flag_get_with_set_context_does_not_double_register():
         flag = client.flags.boolean_flag("dark-mode", default=False)
         client.flags._flag_store = {"dark-mode": {"id": "dark-mode", "default": False, "environments": {}}}
         client.set_context([Context("user", "u-set", plan="free")])
-        baseline = client.manage.contexts._buffer.pending_count
+        baseline = client.platform.contexts._buffer.pending_count
         flag.get()
-        assert client.manage.contexts._buffer.pending_count == baseline
+        assert client.platform.contexts._buffer.pending_count == baseline
     finally:
         client.close()
 
