@@ -1,7 +1,7 @@
 """Unit tests for the Smpl Jobs client — full surface.
 
-Jobs has no runtime/management split: one ``SmplJobsClient`` /
-``AsyncSmplJobsClient`` reachable as ``client.jobs``, ``mgmt.jobs``, or
+Jobs has no runtime/management split: one ``JobsClient`` /
+``AsyncJobsClient`` reachable as ``client.jobs``, ``mgmt.jobs``, or
 standalone. These tests cover the surface plus standalone construction,
 transport ownership, and the close/context-manager paths.
 """
@@ -13,7 +13,7 @@ import asyncio
 import httpx
 import pytest
 
-from smplkit import AsyncSmplJobsClient, SmplJobsClient
+from smplkit import AsyncJobsClient, JobsClient
 from smplkit._errors import ConflictError, NotFoundError
 from smplkit._generated.jobs.client import AuthenticatedClient
 from smplkit.jobs import AsyncJob, HttpConfig, Job, Run, Usage
@@ -132,12 +132,12 @@ def _auth(handler=_handler, *, is_async=False) -> AuthenticatedClient:
     return a
 
 
-def _sync(handler=_handler) -> SmplJobsClient:
-    return SmplJobsClient(auth_client=_auth(handler))
+def _sync(handler=_handler) -> JobsClient:
+    return JobsClient(auth_client=_auth(handler))
 
 
-def _async(handler=_handler) -> AsyncSmplJobsClient:
-    return AsyncSmplJobsClient(auth_client=_auth(handler, is_async=True))
+def _async(handler=_handler) -> AsyncJobsClient:
+    return AsyncJobsClient(auth_client=_auth(handler, is_async=True))
 
 
 class TestModels:
@@ -259,7 +259,7 @@ class TestStandaloneConstructionAndClose:
     standalone, and only tears down a transport it owns."""
 
     def test_standalone_sync_builds_owned_transport_and_closes(self):
-        c = SmplJobsClient(api_key="sk_test", base_domain="example.com", scheme="https")
+        c = JobsClient(api_key="sk_test", base_domain="example.com", scheme="https")
         assert c._owns_transport is True
         # Swap in a mock transport so we can drive a call and populate _client.
         c._auth.set_httpx_client(httpx.Client(transport=httpx.MockTransport(_handler), base_url=BASE))
@@ -270,19 +270,19 @@ class TestStandaloneConstructionAndClose:
 
     def test_sync_injected_transport_not_closed(self):
         auth = _auth()
-        c = SmplJobsClient(auth_client=auth)
+        c = JobsClient(auth_client=auth)
         assert c._owns_transport is False
         c.close()  # borrowed transport: no-op
         assert auth._client is not None
 
     def test_sync_context_manager(self):
-        with SmplJobsClient(api_key="sk_test", base_domain="example.com") as c:
-            assert isinstance(c, SmplJobsClient)
+        with JobsClient(api_key="sk_test", base_domain="example.com") as c:
+            assert isinstance(c, JobsClient)
         assert c._auth._client is None  # nothing opened; exit closed owned transport harmlessly
 
     def test_standalone_async_builds_owned_transport_and_closes(self):
         async def _run():
-            c = AsyncSmplJobsClient(api_key="sk_test", base_domain="example.com")
+            c = AsyncJobsClient(api_key="sk_test", base_domain="example.com")
             assert c._owns_transport is True
             c._auth.set_async_httpx_client(
                 httpx.AsyncClient(transport=httpx.MockTransport(_handler), base_url=BASE)
@@ -297,7 +297,7 @@ class TestStandaloneConstructionAndClose:
     def test_async_injected_transport_not_closed(self):
         async def _run():
             auth = _auth(is_async=True)
-            c = AsyncSmplJobsClient(auth_client=auth)
+            c = AsyncJobsClient(auth_client=auth)
             assert c._owns_transport is False
             await c.aclose()  # borrowed: no-op
             assert auth._async_client is not None
@@ -306,8 +306,8 @@ class TestStandaloneConstructionAndClose:
 
     def test_async_context_manager(self):
         async def _run():
-            async with AsyncSmplJobsClient(api_key="sk_test", base_domain="example.com") as c:
-                assert isinstance(c, AsyncSmplJobsClient)
+            async with AsyncJobsClient(api_key="sk_test", base_domain="example.com") as c:
+                assert isinstance(c, AsyncJobsClient)
 
         asyncio.run(_run())
 

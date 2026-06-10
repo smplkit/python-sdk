@@ -23,7 +23,7 @@ from smplkit.audit import (
     HttpMethod,
     TransformType,
 )
-from smplkit.audit._client import SmplAuditClient
+from smplkit.audit._client import AuditClient
 
 
 JSONAPI = "application/vnd.api+json"
@@ -72,7 +72,7 @@ def _forwarder_resource(
     }
 
 
-def _client_with_handler(handler) -> SmplAuditClient:
+def _client_with_handler(handler) -> AuditClient:
     auth = _AuditAuthClient(base_url="https://audit.example.com", token="sk_api_test")
     auth.set_httpx_client(
         httpx.Client(
@@ -80,7 +80,7 @@ def _client_with_handler(handler) -> SmplAuditClient:
             base_url="https://audit.example.com",
         )
     )
-    return SmplAuditClient(auth_client=auth)
+    return AuditClient(auth_client=auth)
 
 
 # ---------------------------------------------------------------------------
@@ -749,9 +749,9 @@ class TestForwardersCrud:
 
 def test_async_client_exposes_forwarders():
     """The async audit client exposes the genuinely-async forwarders surface."""
-    from smplkit.audit._client import AsyncSmplAuditClient
+    from smplkit.audit._client import AsyncAuditClient
     from smplkit.management.audit import AsyncForwardersClient
 
     auth = _AuditAuthClient(base_url="https://audit.example.com", token="sk_api_test")
-    c = AsyncSmplAuditClient(auth_client=auth)
+    c = AsyncAuditClient(auth_client=auth)
     assert isinstance(c.forwarders, AsyncForwardersClient)

@@ -3,7 +3,7 @@
 Forwarders are part of the single unified audit surface — there is no
 runtime/management split for audit (see :mod:`smplkit.audit._client`). This
 module holds the forwarder CRUD sub-clients that the unified
-:class:`smplkit.audit.SmplAuditClient` / :class:`AsyncSmplAuditClient` expose
+:class:`smplkit.audit.AuditClient` / :class:`AsyncAuditClient` expose
 as ``.forwarders``:
 
 * sync :class:`ForwardersClient` — ``forwarders.new/get/list/save/delete``
@@ -416,7 +416,7 @@ class ForwardersClient:
 
 
 class AsyncForwardersClient:
-    """Async surface for forwarder CRUD (``AsyncSmplAuditClient.forwarders``).
+    """Async surface for forwarder CRUD (``AsyncAuditClient.forwarders``).
 
     Genuinely async — every method performs its network round-trip with
     ``await`` and returns :class:`AsyncForwarder` active records whose

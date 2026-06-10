@@ -19,8 +19,8 @@ from smplkit._generated.app.models.context_bulk_item_attributes import ContextBu
 from smplkit._generated.app.models.context_bulk_register import ContextBulkRegister
 from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
 from smplkit._ws import SharedWebSocket
-from smplkit.audit._client import AsyncSmplAuditClient, SmplAuditClient
-from smplkit.jobs._client import AsyncSmplJobsClient, SmplJobsClient
+from smplkit.audit._client import AsyncAuditClient, AuditClient
+from smplkit.jobs._client import AsyncJobsClient, JobsClient
 from smplkit.config.client import AsyncConfigClient, ConfigClient
 from smplkit.flags.client import AsyncFlagsClient, FlagsClient
 from smplkit.logging.client import AsyncLoggingClient, LoggingClient
@@ -82,8 +82,8 @@ class SmplClient:
     config: ConfigClient
     flags: FlagsClient
     logging: LoggingClient
-    audit: SmplAuditClient
-    jobs: SmplJobsClient
+    audit: AuditClient
+    jobs: JobsClient
 
     def __init__(
         self,
@@ -175,7 +175,7 @@ class SmplClient:
         # Audit's full surface on one client; this runtime instance carries
         # the configured environment as ``X-Smplkit-Environment`` and owns its
         # own transport (closed in ``close()``).
-        self.audit = SmplAuditClient(
+        self.audit = AuditClient(
             api_key=cfg.api_key,
             base_url=audit_url,
             environment=cfg.environment,
@@ -183,7 +183,7 @@ class SmplClient:
         )
         # Jobs has no runtime/management split — reuse the management jobs
         # transport (single connection pool) so ``client.jobs`` is one-stop.
-        self.jobs = SmplJobsClient(auth_client=self.manage._jobs_http)
+        self.jobs = JobsClient(auth_client=self.manage._jobs_http)
 
         # Construction is side-effect-free: no background threads, no
         # phone-home. The periodic registration-buffer flush and the
@@ -382,8 +382,8 @@ class AsyncSmplClient:
     config: AsyncConfigClient
     flags: AsyncFlagsClient
     logging: AsyncLoggingClient
-    audit: AsyncSmplAuditClient
-    jobs: AsyncSmplJobsClient
+    audit: AsyncAuditClient
+    jobs: AsyncJobsClient
 
     def __init__(
         self,
@@ -469,7 +469,7 @@ class AsyncSmplClient:
             app_base_url=app_url,
             extra_headers=extra_headers,
         )
-        self.audit = AsyncSmplAuditClient(
+        self.audit = AsyncAuditClient(
             api_key=cfg.api_key,
             base_url=audit_url,
             environment=cfg.environment,
@@ -477,7 +477,7 @@ class AsyncSmplClient:
         )
         # Jobs has no runtime/management split — reuse the management jobs
         # transport (single connection pool) so ``client.jobs`` is one-stop.
-        self.jobs = AsyncSmplJobsClient(auth_client=self.manage._jobs_http)
+        self.jobs = AsyncJobsClient(auth_client=self.manage._jobs_http)
 
         # Construction is side-effect-free (see SmplClient): the flush timer
         # and service-context phone-home are deferred to ``_ensure_started``,

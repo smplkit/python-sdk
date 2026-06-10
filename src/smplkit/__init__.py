@@ -2,7 +2,7 @@
 
 import enum
 
-from smplkit.audit._client import AsyncSmplAuditClient, SmplAuditClient
+from smplkit.audit._client import AsyncAuditClient, AuditClient
 from smplkit._client import AsyncSmplClient, SmplClient
 from smplkit._errors import (
     ApiErrorDetail,
@@ -17,7 +17,7 @@ from smplkit._errors import (
 from smplkit.config.models import ConfigEnvironment, ConfigItem, ItemType
 from smplkit.flags.models import FlagEnvironment, FlagRule, FlagValue
 from smplkit.flags.types import AsyncContext, Context, FlagDeclaration, Op, Rule
-from smplkit.jobs._client import AsyncSmplJobsClient, SmplJobsClient
+from smplkit.jobs._client import AsyncJobsClient, JobsClient
 from smplkit.logging._sources import LoggerSource
 from smplkit.management.types import Color, EnvironmentClassification
 
@@ -44,9 +44,9 @@ class LogLevel(str, enum.Enum):
 __all__ = [
     "ApiErrorDetail",
     "AsyncContext",
-    "AsyncSmplAuditClient",
+    "AsyncAuditClient",
     "AsyncSmplClient",
-    "AsyncSmplJobsClient",
+    "AsyncJobsClient",
     "Color",
     "ConfigEnvironment",
     "ConfigItem",
@@ -61,9 +61,9 @@ __all__ = [
     "LogLevel",
     "Op",
     "Rule",
-    "SmplAuditClient",
+    "AuditClient",
     "SmplClient",
-    "SmplJobsClient",
+    "JobsClient",
     "Error",
     "ConnectionError",
     "ConflictError",

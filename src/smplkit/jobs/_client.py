@@ -1,16 +1,16 @@
-"""Smpl Jobs SDK client (``client.jobs`` on SmplClient, or standalone ``SmplJobsClient``).
+"""Smpl Jobs SDK client (``client.jobs`` on SmplClient, or standalone ``JobsClient``).
 
 Unlike Config/Flags/Logging, Jobs installs no in-process machinery — no
 environment registration, no WebSocket, no logger monkey-patching. It is a
 product you *use*, not infrastructure you *install*, so it has no
-runtime/management split: a single :class:`SmplJobsClient` (and its async
-counterpart :class:`AsyncSmplJobsClient`) exposes the full surface, reachable
+runtime/management split: a single :class:`JobsClient` (and its async
+counterpart :class:`AsyncJobsClient`) exposes the full surface, reachable
 two ways:
 
 * ``client.jobs.*`` on :class:`smplkit.SmplClient`
-* directly — ``SmplJobsClient(api_key=...)`` — for callers that only need jobs.
+* directly — ``JobsClient(api_key=...)`` — for callers that only need jobs.
 
-A :class:`Job` is an active record: build it with :meth:`SmplJobsClient.new`,
+A :class:`Job` is an active record: build it with :meth:`JobsClient.new`,
 set fields, and call ``save()`` (create when new, full-replace update when it
 already exists) or ``delete()``. Runs are read-only views; run actions live on
 ``jobs.runs``.
@@ -54,8 +54,8 @@ __all__ = [
     "AsyncJob",
     "Run",
     "Usage",
-    "SmplJobsClient",
-    "AsyncSmplJobsClient",
+    "JobsClient",
+    "AsyncJobsClient",
 ]
 
 HttpHeader = tuple[str, str]
@@ -240,12 +240,12 @@ def _job_base_from_resource(resource: dict[str, Any]) -> _JobBase:
 class Job(_JobBase):
     """A job definition (sync). Mutate fields, then call :meth:`save`."""
 
-    def __init__(self, client: "Optional[SmplJobsClient]" = None, **kwargs: Any) -> None:
+    def __init__(self, client: "Optional[JobsClient]" = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._client = client
 
     @classmethod
-    def _from_resource(cls, resource: dict[str, Any], client: "SmplJobsClient") -> "Job":
+    def _from_resource(cls, resource: dict[str, Any], client: "JobsClient") -> "Job":
         base = _job_base_from_resource(resource)
         job = cls(client, id=base.id, name=base.name, schedule=base.schedule, configuration=base.configuration)
         job._apply(base)
@@ -268,12 +268,12 @@ class Job(_JobBase):
 class AsyncJob(_JobBase):
     """A job definition (async). Mutate fields, then ``await save()``."""
 
-    def __init__(self, client: "Optional[AsyncSmplJobsClient]" = None, **kwargs: Any) -> None:
+    def __init__(self, client: "Optional[AsyncJobsClient]" = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._client = client
 
     @classmethod
-    def _from_resource(cls, resource: dict[str, Any], client: "AsyncSmplJobsClient") -> "AsyncJob":
+    def _from_resource(cls, resource: dict[str, Any], client: "AsyncJobsClient") -> "AsyncJob":
         base = _job_base_from_resource(resource)
         job = cls(client, id=base.id, name=base.name, schedule=base.schedule, configuration=base.configuration)
         job._apply(base)
@@ -433,15 +433,15 @@ class _AsyncRunsClient:
         return Run._from_resource(_data(resp))
 
 
-class SmplJobsClient:
+class JobsClient:
     """Synchronous Smpl Jobs client.
 
     Reachable as ``client.jobs`` (:class:`smplkit.SmplClient`) or constructed
     directly:
 
-        from smplkit import SmplJobsClient
+        from smplkit import JobsClient
 
-        with SmplJobsClient() as jobs:
+        with JobsClient() as jobs:
             for job in jobs.list():
                 print(job.id)
 
@@ -566,15 +566,15 @@ class SmplJobsClient:
                 client.close()
                 self._auth._client = None
 
-    def __enter__(self) -> "SmplJobsClient":
+    def __enter__(self) -> "JobsClient":
         return self
 
     def __exit__(self, *args: object) -> None:
         self.close()
 
 
-class AsyncSmplJobsClient:
-    """Asynchronous Smpl Jobs client (async counterpart of :class:`SmplJobsClient`)."""
+class AsyncJobsClient:
+    """Asynchronous Smpl Jobs client (async counterpart of :class:`JobsClient`)."""
 
     def __init__(
         self,
@@ -676,7 +676,7 @@ class AsyncSmplJobsClient:
                 await ac.aclose()
                 self._auth._async_client = None
 
-    async def __aenter__(self) -> "AsyncSmplJobsClient":
+    async def __aenter__(self) -> "AsyncJobsClient":
         return self
 
     async def __aexit__(self, *args: object) -> None:

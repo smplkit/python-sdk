@@ -2,10 +2,10 @@
 
 ADR-047. The audit subsystem records who did what to which resource and
 when. Audit installs no in-process machinery, so it has no
-runtime/management split: a single :class:`SmplAuditClient` (sync) /
-:class:`AsyncSmplAuditClient` (async) exposes the full surface and is
+runtime/management split: a single :class:`AuditClient` (sync) /
+:class:`AsyncAuditClient` (async) exposes the full surface and is
 reachable as ``client.audit`` on :class:`smplkit.SmplClient` or
-constructed directly via :class:`SmplAuditClient`.
+constructed directly via :class:`AuditClient`.
 
 The client owns event recording and read-side queries plus SIEM forwarder
 CRUD:

@@ -23,7 +23,7 @@ There is **one** SDK client — `SmplClient` (and `AsyncSmplClient`). Management
 lives on its `client.manage` namespace; runtime instrumentation is `client.flags`,
 `client.config`, `client.logging`; and `client.audit` / `client.jobs` are the
 audit and jobs surfaces. Each product can also be used via a standalone client
-(`SmplAuditClient`, `SmplJobsClient`).
+(`AuditClient`, `JobsClient`).
 
 Config/Flags/Logging keep a **management** + **runtime** showcase pair (the two
 sides — CRUD vs. evaluation — are genuinely different). Audit and Jobs have **one**

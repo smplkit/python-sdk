@@ -15,7 +15,7 @@ Usage::
 import asyncio
 import uuid
 
-from smplkit import AsyncSmplJobsClient
+from smplkit import AsyncJobsClient
 from smplkit._errors import NotFoundError
 from smplkit.jobs import HttpConfig
 
@@ -23,9 +23,9 @@ from smplkit.jobs import HttpConfig
 async def main() -> None:
 
     # Jobs has no runtime/management split — one client. Here we use the
-    # standalone AsyncSmplJobsClient (use SmplJobsClient for synchronous use);
+    # standalone AsyncJobsClient (use JobsClient for synchronous use);
     # the same surface is also reachable as ``client.jobs`` on a SmplClient.
-    async with AsyncSmplJobsClient() as jobs:
+    async with AsyncJobsClient() as jobs:
         job_id = f"showcase-mgmt-{uuid.uuid4().hex[:8]}"
 
         try:

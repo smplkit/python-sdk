@@ -14,7 +14,7 @@ from smplkit.audit._buffer import (
     MAX_BUFFER_SIZE,
     _PendingEvent,
 )
-from smplkit.audit._client import SmplAuditClient
+from smplkit.audit._client import AuditClient
 from smplkit.audit.models import Event
 
 
@@ -133,7 +133,7 @@ def test_create_returns_immediately(monkeypatch):
         }
     }
     transport = httpx.MockTransport(lambda req: httpx.Response(201, json=_success_body))
-    client = SmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     # Replace the underlying httpx client so we never actually go to the network.
     client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     # Re-bind the buffer to use the new http client's POST behavior.
@@ -180,7 +180,7 @@ def test_record_do_not_forward_serialized_on_wire():
         return httpx.Response(201, json=success_body)
 
     transport = httpx.MockTransport(handler)
-    client = SmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         client.events.record(
@@ -224,7 +224,7 @@ def test_record_flush_true_blocks_until_drained():
         return httpx.Response(201, json=success_body)
 
     transport = httpx.MockTransport(handler)
-    client = SmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
 
     # Stub the post_fn so the test can observe the in-flight item.
@@ -317,7 +317,7 @@ def test_record_passes_actor_fields_to_wire():
         return httpx.Response(201, json=success_body)
 
     transport = httpx.MockTransport(handler)
-    client = SmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         client.events.record(
@@ -367,7 +367,7 @@ def test_record_category_serialized_on_wire():
         return httpx.Response(201, json=success_body)
 
     transport = httpx.MockTransport(handler)
-    client = SmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
     try:
         client.events.record(

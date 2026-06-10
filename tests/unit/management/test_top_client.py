@@ -164,7 +164,7 @@ class TestAsyncManagementNamespaceConstruction:
 class TestResolveManagementConfig:
     def test_missing_api_key_raises(self, monkeypatch, tmp_path):
         # api_key is required even for the management resolver (backs the
-        # standalone SmplAuditClient/SmplJobsClient transports).
+        # standalone AuditClient/JobsClient transports).
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         with pytest.raises(Error, match="No API key provided"):

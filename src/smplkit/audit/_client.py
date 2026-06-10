@@ -1,7 +1,7 @@
 """The Smpl Audit client.
 
 Audit installs no in-process machinery, so it has no runtime/management
-split: one :class:`SmplAuditClient` (sync) / :class:`AsyncSmplAuditClient`
+split: one :class:`AuditClient` (sync) / :class:`AsyncAuditClient`
 (async) exposes the full surface, reachable as ``client.audit``,
 ``mgmt.audit``, or standalone:
 
@@ -659,7 +659,7 @@ class _AsyncEventsClient:
         Fire-and-forget: the event is appended to an in-memory buffer drained
         by a background worker thread, so this returns without awaiting any
         network round-trip — nothing blocks the event loop. The arguments
-        match :meth:`smplkit.audit.SmplAuditClient.events.record`. When
+        match :meth:`smplkit.audit.AuditClient.events.record`. When
         ``flush=True`` the buffer drain is awaited off the loop (run in a
         thread executor) so it stays loop-safe.
         """
@@ -811,7 +811,7 @@ class _AsyncCategoriesClient:
         return CategoryListPage(categories=rows, pagination=_extract_pagination(body_dict))
 
 
-class SmplAuditClient:
+class AuditClient:
     """The Smpl Audit client (sync).
 
     Audit installs no in-process machinery, so it has no runtime/management
@@ -819,9 +819,9 @@ class SmplAuditClient:
     distinct-value discovery, and SIEM forwarder CRUD — reachable as
     ``client.audit`` (:class:`smplkit.SmplClient`) or constructed directly::
 
-        from smplkit import SmplAuditClient
+        from smplkit import AuditClient
 
-        with SmplAuditClient(environment="production") as audit:
+        with AuditClient(environment="production") as audit:
             audit.events.record("invoice.created", "invoice", "inv-1", flush=True)
             for ft in audit.forwarders.list():
                 ...
@@ -912,15 +912,15 @@ class SmplAuditClient:
         """Release HTTP resources — only when this client owns its transport."""
         self._close()
 
-    def __enter__(self) -> "SmplAuditClient":
+    def __enter__(self) -> "AuditClient":
         return self
 
     def __exit__(self, *args: object) -> None:
         self.close()
 
 
-class AsyncSmplAuditClient:
-    """The Smpl Audit client (async) — counterpart of :class:`SmplAuditClient`.
+class AsyncAuditClient:
+    """The Smpl Audit client (async) — counterpart of :class:`AuditClient`.
 
     Genuinely async: event reads, discovery, and forwarder CRUD perform their
     network round-trips with ``await``; only ``events.record`` is
@@ -984,7 +984,7 @@ class AsyncSmplAuditClient:
         """Release async HTTP resources — only when this client owns its transport."""
         await self._close()
 
-    async def __aenter__(self) -> "AsyncSmplAuditClient":
+    async def __aenter__(self) -> "AsyncAuditClient":
         return self
 
     async def __aexit__(self, *args: object) -> None:

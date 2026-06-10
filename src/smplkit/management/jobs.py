@@ -3,7 +3,7 @@
 Smpl Jobs moved out of the management namespace into the top-level
 :mod:`smplkit.jobs` package: Jobs installs no in-process machinery, so it has
 no runtime/management split — it is a single client reachable as
-``client.jobs``, ``mgmt.jobs``, or the standalone ``SmplJobsClient`` (see
+``client.jobs``, ``mgmt.jobs``, or the standalone ``JobsClient`` (see
 :mod:`smplkit.jobs`).
 
 This module survives only so existing imports of the shared jobs models —

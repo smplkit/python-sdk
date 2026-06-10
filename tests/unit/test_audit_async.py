@@ -1,4 +1,4 @@
-"""Tests for the genuinely-async audit client (``AsyncSmplAuditClient``).
+"""Tests for the genuinely-async audit client (``AsyncAuditClient``).
 
 After the audit runtime/management unification the async client is no longer
 a sync delegate: reads, discovery, and forwarder CRUD perform real awaited
@@ -19,7 +19,7 @@ import pytest
 from smplkit import Error, NotFoundError
 from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 from smplkit.audit import AsyncForwarder, ForwarderType, HttpConfiguration
-from smplkit.audit._client import AsyncSmplAuditClient
+from smplkit.audit._client import AsyncAuditClient
 
 BASE = "https://audit.example.com"
 EVENT_ID = "11111111-2222-3333-4444-555555555555"
@@ -111,10 +111,10 @@ def _handler(req: httpx.Request) -> httpx.Response:
     raise AssertionError(f"unexpected {m} {path}")
 
 
-def _async_client(handler=_handler) -> AsyncSmplAuditClient:
+def _async_client(handler=_handler) -> AsyncAuditClient:
     auth = _AuditAuthClient(base_url=BASE, token="sk_api_test", headers={"Accept": "application/vnd.api+json"})
     auth.set_async_httpx_client(httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url=BASE))
-    return AsyncSmplAuditClient(auth_client=auth)
+    return AsyncAuditClient(auth_client=auth)
 
 
 class TestAsyncEvents:
@@ -268,14 +268,14 @@ class TestAsyncForwarders:
 class TestAsyncConstructionAndClose:
     def test_standalone_resolves_transport_without_base_url(self):
         # No base_url -> _audit_transport takes the resolve branch.
-        c = AsyncSmplAuditClient(api_key="sk_test", base_domain="example.com", scheme="https", environment="staging")
+        c = AsyncAuditClient(api_key="sk_test", base_domain="example.com", scheme="https", environment="staging")
         assert c._owns_transport is True
         assert c._auth._headers["X-Smplkit-Environment"] == "staging"
         assert "audit.example.com" in str(c._auth._base_url)
 
     def test_owned_async_transport_closed(self):
         async def _run():
-            c = AsyncSmplAuditClient(api_key="sk_test", base_url=BASE)
+            c = AsyncAuditClient(api_key="sk_test", base_url=BASE)
             c._auth.set_async_httpx_client(httpx.AsyncClient(transport=httpx.MockTransport(_handler), base_url=BASE))
             await c.resource_types.list()
             await c.aclose()
@@ -288,7 +288,7 @@ class TestAsyncConstructionAndClose:
         async def _run():
             auth = _AuditAuthClient(base_url=BASE, token="sk_test")
             auth.set_async_httpx_client(httpx.AsyncClient(transport=httpx.MockTransport(_handler), base_url=BASE))
-            c = AsyncSmplAuditClient(auth_client=auth)
+            c = AsyncAuditClient(auth_client=auth)
             assert c._owns_transport is False
             await c.aclose()  # borrowed: must not close
             assert auth._async_client is not None
@@ -297,7 +297,7 @@ class TestAsyncConstructionAndClose:
 
     def test_async_context_manager(self):
         async def _run():
-            async with AsyncSmplAuditClient(api_key="sk_test", base_url=BASE) as c:
-                assert isinstance(c, AsyncSmplAuditClient)
+            async with AsyncAuditClient(api_key="sk_test", base_url=BASE) as c:
+                assert isinstance(c, AsyncAuditClient)
 
         asyncio.run(_run())

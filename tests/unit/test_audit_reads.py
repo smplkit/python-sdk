@@ -18,8 +18,8 @@ import pytest
 from smplkit import Error, NotFoundError
 from smplkit.audit import Category, Event, EventType, ResourceType
 from smplkit.audit._client import (
-    AsyncSmplAuditClient,
-    SmplAuditClient,
+    AsyncAuditClient,
+    AuditClient,
     CategoryListPage,
     EventListPage,
     EventTypeListPage,
@@ -29,8 +29,8 @@ from smplkit.audit._client import (
 from smplkit._generated.audit.types import UNSET
 
 
-def _client_with_handler(handler) -> SmplAuditClient:
-    client = SmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+def _client_with_handler(handler) -> AuditClient:
+    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     client._auth.set_httpx_client(
         httpx.Client(
             transport=httpx.MockTransport(handler),
@@ -586,11 +586,11 @@ class TestModels:
 # ---------------------------------------------------------------------------
 
 
-def _env_client(handler, *, environment: str | None, extra_headers=None) -> SmplAuditClient:
-    # Build the real SmplAuditClient so the env-header wiring on ``_auth`` runs,
+def _env_client(handler, *, environment: str | None, extra_headers=None) -> AuditClient:
+    # Build the real AuditClient so the env-header wiring on ``_auth`` runs,
     # then back it with a MockTransport-backed httpx client that *preserves*
     # the auth client's headers (set_httpx_client would otherwise drop them).
-    client = SmplAuditClient(
+    client = AuditClient(
         api_key="sk_api_test",
         base_url="https://audit.example.com",
         environment=environment,
@@ -889,7 +889,7 @@ class TestCategoriesListEnvironments:
 
 
 # ---------------------------------------------------------------------------
-# AsyncSmplAuditClient surface
+# AsyncAuditClient surface
 # ---------------------------------------------------------------------------
 
 
@@ -904,7 +904,7 @@ def test_async_client_exposes_async_namespaces():
     )
     from smplkit.management.audit import AsyncForwardersClient
 
-    client = AsyncSmplAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client = AsyncAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     try:
         assert isinstance(client.events, _AsyncEventsClient)
         assert isinstance(client.resource_types, _AsyncResourceTypesClient)
@@ -920,7 +920,7 @@ def test_async_client_exposes_async_namespaces():
 def test_async_client_stamps_environment_on_own_transport():
     """The async client stamps the configured environment on its own
     transport (no sync-delegate inner client anymore)."""
-    client = AsyncSmplAuditClient(
+    client = AsyncAuditClient(
         api_key="sk_api_test",
         base_url="https://audit.example.com",
         environment="production",

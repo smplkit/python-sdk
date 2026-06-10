@@ -112,7 +112,7 @@ class Event:
             (e.g. ``"auth"``, ``"billing"``, ``"config-change"``). Stored
             exactly as supplied; drives the audit log's category filter and
             the ``categories`` discovery listing
-            (:meth:`~smplkit.audit.SmplAuditClient.categories`). ``None`` when
+            (:meth:`~smplkit.audit.AuditClient.categories`). ``None`` when
             not supplied.
         data (dict[str, Any]): Free-form per-event payload defined by
             the customer. Surfaced on the audit-event resource as a
@@ -459,7 +459,7 @@ class AsyncForwarder(Forwarder):
 
     Identical fields and semantics; ``save()`` and ``delete()`` are
     coroutines (``await forwarder.save()``). Returned by the async forwarder
-    surface (``AsyncSmplAuditClient.forwarders``).
+    surface (``AsyncAuditClient.forwarders``).
     """
 
     async def save(self) -> None:  # type: ignore[override]
