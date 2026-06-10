@@ -18,10 +18,10 @@ import pytest
 
 from smplkit import AsyncSmplClient, Error, SmplClient
 from smplkit._config import resolve_management_config
+from smplkit.config._client import AsyncConfigClient, ConfigClient
 from smplkit.management._client import (
     AccountSettingsClient,
     AsyncAccountSettingsClient,
-    AsyncConfigClient,
     AsyncContextsClient,
     AsyncContextTypesClient,
     AsyncEnvironmentsClient,
@@ -29,7 +29,6 @@ from smplkit.management._client import (
     AsyncLogGroupsClient,
     AsyncLoggersClient,
     AsyncServicesClient,
-    ConfigClient,
     ContextsClient,
     ContextTypesClient,
     EnvironmentsClient,
@@ -56,11 +55,13 @@ class TestManagementNamespaceConstruction:
         assert isinstance(mgmt.environments, EnvironmentsClient)
         assert isinstance(mgmt.services, ServicesClient)
         assert isinstance(mgmt.account_settings, AccountSettingsClient)
-        assert isinstance(mgmt.config, ConfigClient)
         assert isinstance(mgmt.flags, FlagsClient)
         assert isinstance(mgmt.loggers, LoggersClient)
         assert isinstance(mgmt.log_groups, LogGroupsClient)
-        # audit/jobs are top-level (client.audit / client.jobs), never on manage.
+        # config/audit/jobs are top-level (client.config / client.audit /
+        # client.jobs), never on manage.
+        assert isinstance(client.config, ConfigClient)
+        assert not hasattr(mgmt, "config")
         assert not hasattr(mgmt, "audit")
         assert not hasattr(mgmt, "jobs")
         client.close()
@@ -114,10 +115,11 @@ class TestAsyncManagementNamespaceConstruction:
         assert isinstance(mgmt.environments, AsyncEnvironmentsClient)
         assert isinstance(mgmt.services, AsyncServicesClient)
         assert isinstance(mgmt.account_settings, AsyncAccountSettingsClient)
-        assert isinstance(mgmt.config, AsyncConfigClient)
         assert isinstance(mgmt.flags, AsyncFlagsClient)
         assert isinstance(mgmt.loggers, AsyncLoggersClient)
         assert isinstance(mgmt.log_groups, AsyncLogGroupsClient)
+        assert isinstance(client.config, AsyncConfigClient)
+        assert not hasattr(mgmt, "config")
         assert not hasattr(mgmt, "audit")
         assert not hasattr(mgmt, "jobs")
         asyncio.run(client.close())
@@ -336,7 +338,7 @@ class TestRuntimeConfigFetchPaths:
 
         return SmplClient(api_key="sk_test", environment="test", service="svc")
 
-    @patch("smplkit.config.client.list_configs.sync_detailed")
+    @patch("smplkit.config._client.list_configs.sync_detailed")
     def test_fetch_all_configs_network_error(self, mock_list):
         import httpx
 
@@ -347,7 +349,7 @@ class TestRuntimeConfigFetchPaths:
         with pytest.raises(ConnectionError):
             client.config._fetch_all_configs()
 
-    @patch("smplkit.config.client.list_configs.sync_detailed")
+    @patch("smplkit.config._client.list_configs.sync_detailed")
     def test_fetch_all_configs_parsed_none(self, mock_list):
         mock = MagicMock()
         mock.status_code = 200
@@ -357,7 +359,7 @@ class TestRuntimeConfigFetchPaths:
         client = self._client()
         assert client.config._fetch_all_configs() == []
 
-    @patch("smplkit.config.client.get_config.sync_detailed")
+    @patch("smplkit.config._client.get_config.sync_detailed")
     def test_fetch_config_network_error(self, mock_get):
         import httpx
 
@@ -368,7 +370,7 @@ class TestRuntimeConfigFetchPaths:
         with pytest.raises(ConnectionError):
             client.config._fetch_config("anything")
 
-    @patch("smplkit.config.client.get_config.sync_detailed")
+    @patch("smplkit.config._client.get_config.sync_detailed")
     def test_fetch_config_parsed_none_returns_none(self, mock_get):
         mock = MagicMock()
         mock.status_code = 200
@@ -378,7 +380,7 @@ class TestRuntimeConfigFetchPaths:
         client = self._client()
         assert client.config._fetch_config("any") is None
 
-    @patch("smplkit.config.client.get_config.sync_detailed")
+    @patch("smplkit.config._client.get_config.sync_detailed")
     def test_handle_config_changed_with_none_fetched_returns_quietly(self, mock_get):
         mock = MagicMock()
         mock.status_code = 200
@@ -386,13 +388,13 @@ class TestRuntimeConfigFetchPaths:
         mock.parsed = None
         mock_get.return_value = mock
         client = self._client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"x": {"a": 1}}
         client.config._handle_config_changed({"id": "x"})
         # cache unchanged because fetch returned None
         assert client.config._config_cache == {"x": {"a": 1}}
 
-    @patch("smplkit.config.client.list_configs.asyncio_detailed")
+    @patch("smplkit.config._client.list_configs.asyncio_detailed")
     def test_async_fetch_all_configs_network_error(self, mock_list):
         from smplkit import AsyncSmplClient
         from smplkit._errors import ConnectionError
@@ -406,7 +408,7 @@ class TestRuntimeConfigFetchPaths:
 
         asyncio.run(_run())
 
-    @patch("smplkit.config.client.list_configs.asyncio_detailed")
+    @patch("smplkit.config._client.list_configs.asyncio_detailed")
     def test_async_fetch_all_configs_parsed_none(self, mock_list):
         from smplkit import AsyncSmplClient
 
@@ -421,21 +423,21 @@ class TestRuntimeConfigFetchPaths:
 
         asyncio.run(_run())
 
-    @patch("smplkit.config.client.list_configs.sync_detailed")
+    @patch("smplkit.config._client.list_configs.sync_detailed")
     def test_fetch_all_configs_reraises_unknown_exception(self, mock_list):
         mock_list.side_effect = RuntimeError("unexpected")
         client = self._client()
         with pytest.raises(RuntimeError, match="unexpected"):
             client.config._fetch_all_configs()
 
-    @patch("smplkit.config.client.get_config.sync_detailed")
+    @patch("smplkit.config._client.get_config.sync_detailed")
     def test_fetch_config_reraises_unknown_exception(self, mock_get):
         mock_get.side_effect = RuntimeError("unexpected")
         client = self._client()
         with pytest.raises(RuntimeError, match="unexpected"):
             client.config._fetch_config("x")
 
-    @patch("smplkit.config.client.get_config.sync_detailed")
+    @patch("smplkit.config._client.get_config.sync_detailed")
     def test_fetch_config_returns_built_config(self, mock_get):
         attrs = MagicMock()
         attrs.name = "Common"
@@ -461,7 +463,7 @@ class TestRuntimeConfigFetchPaths:
         assert cfg.id == "common"
         assert cfg.name == "Common"
 
-    @patch("smplkit.config.client.list_configs.asyncio_detailed")
+    @patch("smplkit.config._client.list_configs.asyncio_detailed")
     def test_async_fetch_all_configs_reraises_unknown_exception(self, mock_list):
         from smplkit import AsyncSmplClient
 

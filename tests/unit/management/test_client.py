@@ -1689,8 +1689,8 @@ class TestAsyncAccountSettingsClient:
 class TestManagementNamespace:
     def test_init_wires_sub_clients(self, monkeypatch):
         from smplkit import SmplClient
+        from smplkit.config._client import ConfigClient
         from smplkit.management._client import (
-            ConfigClient,
             FlagsClient as MgmtFlagsClient,
             LogGroupsClient,
             LoggersClient,
@@ -1705,11 +1705,12 @@ class TestManagementNamespace:
         assert isinstance(mc.contexts, ContextsClient)
         assert isinstance(mc.context_types, ContextTypesClient)
         assert isinstance(mc.account_settings, AccountSettingsClient)
-        assert isinstance(mc.config, ConfigClient)
         assert isinstance(mc.flags, MgmtFlagsClient)
         assert isinstance(mc.loggers, LoggersClient)
         assert isinstance(mc.log_groups, LogGroupsClient)
-        # audit/jobs are NOT on the management namespace — they are top-level.
+        # config/audit/jobs are NOT on the management namespace — top-level.
+        assert isinstance(client.config, ConfigClient)
+        assert not hasattr(mc, "config")
         assert not hasattr(mc, "audit")
         assert not hasattr(mc, "jobs")
         client.close()
@@ -1720,8 +1721,8 @@ class TestAsyncManagementNamespace:
         import asyncio
 
         from smplkit import AsyncSmplClient
+        from smplkit.config._client import AsyncConfigClient
         from smplkit.management._client import (
-            AsyncConfigClient,
             AsyncFlagsClient as AsyncMgmtFlagsClient,
             AsyncLogGroupsClient,
             AsyncLoggersClient,
@@ -1736,10 +1737,11 @@ class TestAsyncManagementNamespace:
         assert isinstance(mc.contexts, AsyncContextsClient)
         assert isinstance(mc.context_types, AsyncContextTypesClient)
         assert isinstance(mc.account_settings, AsyncAccountSettingsClient)
-        assert isinstance(mc.config, AsyncConfigClient)
         assert isinstance(mc.flags, AsyncMgmtFlagsClient)
         assert isinstance(mc.loggers, AsyncLoggersClient)
         assert isinstance(mc.log_groups, AsyncLogGroupsClient)
+        assert isinstance(client.config, AsyncConfigClient)
+        assert not hasattr(mc, "config")
         assert not hasattr(mc, "audit")
         assert not hasattr(mc, "jobs")
         asyncio.run(client.close())
@@ -1779,24 +1781,24 @@ class TestMgmtFlagsRegisterAndFlush:
 class TestMgmtConfigRegisterAndFlush:
     """``ConfigClient`` discovery-buffer methods: register/flush/threshold."""
 
-    @patch("smplkit.management._client._gen_bulk_register_configs.sync_detailed")
+    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
     def test_register_config_then_flush(self, mock_bulk):
-        from smplkit.management._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config._client import ConfigClient as _MgmtConfigClient
 
         mock_bulk.return_value = _ok_resp()
-        client = _MgmtConfigClient(MagicMock())
+        client = _MgmtConfigClient(transport=MagicMock())
         client.register_config("billing", service="svc", environment="prod")
         assert client.pending_count == 1
         client.flush()
         mock_bulk.assert_called_once()
         assert client.pending_count == 0
 
-    @patch("smplkit.management._client._gen_bulk_register_configs.sync_detailed")
+    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
     def test_register_config_item_attaches(self, mock_bulk):
-        from smplkit.management._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config._client import ConfigClient as _MgmtConfigClient
 
         mock_bulk.return_value = _ok_resp()
-        client = _MgmtConfigClient(MagicMock())
+        client = _MgmtConfigClient(transport=MagicMock())
         client.register_config("billing", service="svc", environment="prod")
         client.register_config_item("billing", "max_seats", "NUMBER", 5, "Max.")
         client.flush()
@@ -1806,32 +1808,32 @@ class TestMgmtConfigRegisterAndFlush:
         item = body.configs[0]
         assert "max_seats" in item.items.additional_properties
 
-    @patch("smplkit.management._client._gen_bulk_register_configs.sync_detailed")
+    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
     def test_register_config_item_without_declare_is_dropped(self, mock_bulk):
-        from smplkit.management._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config._client import ConfigClient as _MgmtConfigClient
 
         mock_bulk.return_value = _ok_resp()
-        client = _MgmtConfigClient(MagicMock())
+        client = _MgmtConfigClient(transport=MagicMock())
         # No prior register_config; register_config_item is a no-op.
         client.register_config_item("unknown", "k", "NUMBER", 1)
         assert client.pending_count == 0
         client.flush()
         mock_bulk.assert_not_called()
 
-    @patch("smplkit.management._client._gen_bulk_register_configs.sync_detailed")
+    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
     def test_flush_with_empty_buffer_is_noop(self, mock_bulk):
-        from smplkit.management._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config._client import ConfigClient as _MgmtConfigClient
 
-        client = _MgmtConfigClient(MagicMock())
+        client = _MgmtConfigClient(transport=MagicMock())
         client.flush()
         mock_bulk.assert_not_called()
 
-    @patch("smplkit.management._client._gen_bulk_register_configs.sync_detailed")
+    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
     def test_threshold_triggers_background_flush(self, mock_bulk):
-        from smplkit.management._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config._client import ConfigClient as _MgmtConfigClient
 
         mock_bulk.return_value = _ok_resp()
-        client = _MgmtConfigClient(MagicMock())
+        client = _MgmtConfigClient(transport=MagicMock())
         captured: list = []
 
         def fake_thread(target=None, daemon=None):
@@ -1840,18 +1842,18 @@ class TestMgmtConfigRegisterAndFlush:
             t.start = lambda: None
             return t
 
-        with patch("smplkit.management._client._CONFIG_BATCH_FLUSH_SIZE", 1):
-            with patch("smplkit.management._client.threading.Thread", side_effect=fake_thread):
+        with patch("smplkit.config._client._CONFIG_BATCH_FLUSH_SIZE", 1):
+            with patch("smplkit.config._client.threading.Thread", side_effect=fake_thread):
                 # Hit the threshold via register_config.
                 client.register_config("billing", service="svc", environment="prod")
         assert captured  # Thread was started.
 
-    @patch("smplkit.management._client._gen_bulk_register_configs.sync_detailed")
+    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
     def test_threshold_via_register_config_item(self, mock_bulk):
-        from smplkit.management._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config._client import ConfigClient as _MgmtConfigClient
 
         mock_bulk.return_value = _ok_resp()
-        client = _MgmtConfigClient(MagicMock())
+        client = _MgmtConfigClient(transport=MagicMock())
         captured: list = []
 
         def fake_thread(target=None, daemon=None):
@@ -1861,45 +1863,45 @@ class TestMgmtConfigRegisterAndFlush:
             return t
 
         client.register_config("billing", service="svc", environment="prod")
-        with patch("smplkit.management._client._CONFIG_BATCH_FLUSH_SIZE", 1):
-            with patch("smplkit.management._client.threading.Thread", side_effect=fake_thread):
+        with patch("smplkit.config._client._CONFIG_BATCH_FLUSH_SIZE", 1):
+            with patch("smplkit.config._client.threading.Thread", side_effect=fake_thread):
                 client.register_config_item("billing", "max", "NUMBER", 5)
         assert captured
 
-    @patch("smplkit.management._client._gen_bulk_register_configs.sync_detailed")
+    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
     def test_threshold_flush_swallows_errors(self, mock_bulk, caplog):
         import logging as _logging
 
-        from smplkit.management._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config._client import ConfigClient as _MgmtConfigClient
 
         mock_bulk.side_effect = RuntimeError("boom")
-        client = _MgmtConfigClient(MagicMock())
+        client = _MgmtConfigClient(transport=MagicMock())
         client.register_config("billing", service="svc", environment="prod")
         with caplog.at_level(_logging.WARNING, logger="smplkit"):
             client._threshold_flush()
         assert any("Config registration flush failed" in r.message for r in caplog.records)
 
-    @patch("smplkit.management._client._gen_bulk_register_configs.sync_detailed")
+    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
     def test_flush_propagates_unexpected_errors(self, mock_bulk):
-        from smplkit.management._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config._client import ConfigClient as _MgmtConfigClient
 
         mock_bulk.side_effect = RuntimeError("oops")
-        client = _MgmtConfigClient(MagicMock())
+        client = _MgmtConfigClient(transport=MagicMock())
         client.register_config("billing", service="svc", environment="prod")
         with pytest.raises(RuntimeError):
             client.flush()
 
-    @patch("smplkit.management._client._gen_bulk_register_configs.sync_detailed")
+    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
     def test_flush_reraises_network_error(self, mock_bulk):
         import httpx
 
         from smplkit._errors import ConnectionError as SmplConnectionError
-        from smplkit.management._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config._client import ConfigClient as _MgmtConfigClient
 
         mock_bulk.side_effect = httpx.ConnectError("nope")
         http = MagicMock()
         http._base_url = "http://nope.test"
-        client = _MgmtConfigClient(http)
+        client = _MgmtConfigClient(transport=http)
         client.register_config("billing", service="svc", environment="prod")
         with pytest.raises(SmplConnectionError):
             client.flush()
@@ -1907,12 +1909,12 @@ class TestMgmtConfigRegisterAndFlush:
 
 class TestAsyncMgmtConfigRegisterAndFlush:
     def test_flush_propagates_unexpected_errors(self):
-        from smplkit.management._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
 
         async def _run():
             mock_coro = AsyncMock(side_effect=RuntimeError("oops"))
-            with patch("smplkit.management._client._gen_bulk_register_configs.asyncio_detailed", mock_coro):
-                client = _AsyncMgmtConfigClient(MagicMock())
+            with patch("smplkit.config._client.bulk_register_configs.asyncio_detailed", mock_coro):
+                client = _AsyncMgmtConfigClient(transport=MagicMock())
                 client.register_config("billing", service="svc", environment="prod")
                 with pytest.raises(RuntimeError):
                     await client.flush()
@@ -1920,11 +1922,11 @@ class TestAsyncMgmtConfigRegisterAndFlush:
         asyncio.run(_run())
 
     def test_async_flush_empty_buffer_is_noop(self):
-        from smplkit.management._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
 
         async def _run():
-            with patch("smplkit.management._client._gen_bulk_register_configs.asyncio_detailed") as mock_bulk:
-                client = _AsyncMgmtConfigClient(MagicMock())
+            with patch("smplkit.config._client.bulk_register_configs.asyncio_detailed") as mock_bulk:
+                client = _AsyncMgmtConfigClient(transport=MagicMock())
                 await client.flush()
             mock_bulk.assert_not_called()
 
@@ -1934,14 +1936,14 @@ class TestAsyncMgmtConfigRegisterAndFlush:
         import httpx
 
         from smplkit._errors import ConnectionError as SmplConnectionError
-        from smplkit.management._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
 
         async def _run():
             mock_coro = AsyncMock(side_effect=httpx.ConnectError("nope"))
-            with patch("smplkit.management._client._gen_bulk_register_configs.asyncio_detailed", mock_coro):
+            with patch("smplkit.config._client.bulk_register_configs.asyncio_detailed", mock_coro):
                 http = MagicMock()
                 http._base_url = "http://nope.test"
-                client = _AsyncMgmtConfigClient(http)
+                client = _AsyncMgmtConfigClient(transport=http)
                 client.register_config("billing", service="svc", environment="prod")
                 with pytest.raises(SmplConnectionError):
                     await client.flush()
@@ -1949,20 +1951,20 @@ class TestAsyncMgmtConfigRegisterAndFlush:
         asyncio.run(_run())
 
     def test_flush_sync_drains_buffer(self):
-        from smplkit.management._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
 
-        with patch("smplkit.management._client._gen_bulk_register_configs.sync_detailed") as mock_bulk:
+        with patch("smplkit.config._client.bulk_register_configs.sync_detailed") as mock_bulk:
             mock_bulk.return_value = _ok_resp()
-            client = _AsyncMgmtConfigClient(MagicMock())
+            client = _AsyncMgmtConfigClient(transport=MagicMock())
             client.register_config("billing", service="svc", environment="prod")
             client.flush_sync()
             mock_bulk.assert_called_once()
 
     def test_flush_sync_empty_buffer_is_noop(self):
-        from smplkit.management._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
 
-        with patch("smplkit.management._client._gen_bulk_register_configs.sync_detailed") as mock_bulk:
-            client = _AsyncMgmtConfigClient(MagicMock())
+        with patch("smplkit.config._client.bulk_register_configs.sync_detailed") as mock_bulk:
+            client = _AsyncMgmtConfigClient(transport=MagicMock())
             client.flush_sync()
         mock_bulk.assert_not_called()
 
@@ -1970,29 +1972,29 @@ class TestAsyncMgmtConfigRegisterAndFlush:
         import httpx
 
         from smplkit._errors import ConnectionError as SmplConnectionError
-        from smplkit.management._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
 
-        with patch("smplkit.management._client._gen_bulk_register_configs.sync_detailed") as mock_bulk:
+        with patch("smplkit.config._client.bulk_register_configs.sync_detailed") as mock_bulk:
             mock_bulk.side_effect = httpx.ConnectError("nope")
             http = MagicMock()
             http._base_url = "http://nope.test"
-            client = _AsyncMgmtConfigClient(http)
+            client = _AsyncMgmtConfigClient(transport=http)
             client.register_config("billing", service="svc", environment="prod")
             with pytest.raises(SmplConnectionError):
                 client.flush_sync()
 
     def test_flush_sync_propagates_unexpected_errors(self):
-        from smplkit.management._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
 
-        with patch("smplkit.management._client._gen_bulk_register_configs.sync_detailed") as mock_bulk:
+        with patch("smplkit.config._client.bulk_register_configs.sync_detailed") as mock_bulk:
             mock_bulk.side_effect = RuntimeError("oops")
-            client = _AsyncMgmtConfigClient(MagicMock())
+            client = _AsyncMgmtConfigClient(transport=MagicMock())
             client.register_config("billing", service="svc", environment="prod")
             with pytest.raises(RuntimeError):
                 client.flush_sync()
 
     def test_async_threshold_triggers_background_flush(self):
-        from smplkit.management._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
 
         captured: list = []
 
@@ -2002,16 +2004,16 @@ class TestAsyncMgmtConfigRegisterAndFlush:
             t.start = lambda: None
             return t
 
-        with patch("smplkit.management._client._gen_bulk_register_configs.sync_detailed") as mock_bulk:
+        with patch("smplkit.config._client.bulk_register_configs.sync_detailed") as mock_bulk:
             mock_bulk.return_value = _ok_resp()
-            client = _AsyncMgmtConfigClient(MagicMock())
-            with patch("smplkit.management._client._CONFIG_BATCH_FLUSH_SIZE", 1):
-                with patch("smplkit.management._client.threading.Thread", side_effect=fake_thread):
+            client = _AsyncMgmtConfigClient(transport=MagicMock())
+            with patch("smplkit.config._client._CONFIG_BATCH_FLUSH_SIZE", 1):
+                with patch("smplkit.config._client.threading.Thread", side_effect=fake_thread):
                     client.register_config("billing", service="svc", environment="prod")
         assert captured
 
     def test_async_threshold_via_register_item(self):
-        from smplkit.management._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
 
         captured: list = []
 
@@ -2021,46 +2023,46 @@ class TestAsyncMgmtConfigRegisterAndFlush:
             t.start = lambda: None
             return t
 
-        with patch("smplkit.management._client._gen_bulk_register_configs.sync_detailed") as mock_bulk:
+        with patch("smplkit.config._client.bulk_register_configs.sync_detailed") as mock_bulk:
             mock_bulk.return_value = _ok_resp()
-            client = _AsyncMgmtConfigClient(MagicMock())
+            client = _AsyncMgmtConfigClient(transport=MagicMock())
             client.register_config("billing", service="svc", environment="prod")
-            with patch("smplkit.management._client._CONFIG_BATCH_FLUSH_SIZE", 1):
-                with patch("smplkit.management._client.threading.Thread", side_effect=fake_thread):
+            with patch("smplkit.config._client._CONFIG_BATCH_FLUSH_SIZE", 1):
+                with patch("smplkit.config._client.threading.Thread", side_effect=fake_thread):
                     client.register_config_item("billing", "max", "NUMBER", 5)
         assert captured
 
     def test_async_threshold_flush_swallows_errors(self, caplog):
         import logging as _logging
 
-        from smplkit.management._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
 
-        with patch("smplkit.management._client._gen_bulk_register_configs.sync_detailed") as mock_bulk:
+        with patch("smplkit.config._client.bulk_register_configs.sync_detailed") as mock_bulk:
             mock_bulk.side_effect = RuntimeError("boom")
-            client = _AsyncMgmtConfigClient(MagicMock())
+            client = _AsyncMgmtConfigClient(transport=MagicMock())
             client.register_config("billing", service="svc", environment="prod")
             with caplog.at_level(_logging.WARNING, logger="smplkit"):
                 client._threshold_flush_sync()
         assert any("Config registration flush failed" in r.message for r in caplog.records)
 
     def test_async_pending_count(self):
-        from smplkit.management._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
 
-        client = _AsyncMgmtConfigClient(MagicMock())
+        client = _AsyncMgmtConfigClient(transport=MagicMock())
         assert client.pending_count == 0
         client.register_config("billing", service="svc", environment="prod")
         assert client.pending_count == 1
 
     def test_async_flush_success_path(self):
-        from smplkit.management._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
 
         async def _run():
             mock_coro = AsyncMock(return_value=_ok_resp())
             with patch(
-                "smplkit.management._client._gen_bulk_register_configs.asyncio_detailed",
+                "smplkit.config._client.bulk_register_configs.asyncio_detailed",
                 mock_coro,
             ):
-                client = _AsyncMgmtConfigClient(MagicMock())
+                client = _AsyncMgmtConfigClient(transport=MagicMock())
                 client.register_config("billing", service="svc", environment="prod")
                 await client.flush()
             mock_coro.assert_awaited_once()

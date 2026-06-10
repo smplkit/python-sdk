@@ -10,10 +10,12 @@ from smplkit._errors import (
     ConnectionError,
     ConflictError,
     NotFoundError,
+    NotInstalledError,
     PaymentRequiredError,
     TimeoutError,
     ValidationError,
 )
+from smplkit.config._client import AsyncConfigClient, ConfigChangeEvent, ConfigClient
 from smplkit.config.models import ConfigEnvironment, ConfigItem, ItemType
 from smplkit.flags.models import FlagEnvironment, FlagRule, FlagValue
 from smplkit.flags.types import AsyncContext, Context, FlagDeclaration, Op, Rule
@@ -43,11 +45,14 @@ class LogLevel(str, enum.Enum):
 
 __all__ = [
     "ApiErrorDetail",
+    "AsyncConfigClient",
     "AsyncContext",
     "AsyncAuditClient",
     "AsyncSmplClient",
     "AsyncJobsClient",
     "Color",
+    "ConfigChangeEvent",
+    "ConfigClient",
     "ConfigEnvironment",
     "ConfigItem",
     "Context",
@@ -68,6 +73,7 @@ __all__ = [
     "ConnectionError",
     "ConflictError",
     "NotFoundError",
+    "NotInstalledError",
     "PaymentRequiredError",
     "TimeoutError",
     "ValidationError",

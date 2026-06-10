@@ -99,7 +99,7 @@ def _log_group_resource(id_: str) -> MagicMock:
 
 
 class TestConfigRuntimePagination:
-    @patch("smplkit.config.client.list_configs.sync_detailed")
+    @patch("smplkit.config._client.list_configs.sync_detailed")
     def test_fetch_all_configs_single_short_page(self, mock_list):
         mock_list.return_value = _list_resp([_config_resource("c1")])
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
@@ -112,7 +112,7 @@ class TestConfigRuntimePagination:
         finally:
             client.close()
 
-    @patch("smplkit.config.client.list_configs.sync_detailed")
+    @patch("smplkit.config._client.list_configs.sync_detailed")
     def test_fetch_all_configs_multi_page_exit(self, mock_list):
         full_page = [_config_resource(f"c{i}") for i in range(PAGE_SIZE)]
         short_page = [_config_resource("c_last")]
@@ -129,7 +129,7 @@ class TestConfigRuntimePagination:
         finally:
             client.close()
 
-    @patch("smplkit.config.client.list_configs.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.config._client.list_configs.asyncio_detailed", new_callable=AsyncMock)
     def test_fetch_all_configs_async_multi_page_exit(self, mock_list):
         full_page = [_config_resource(f"c{i}") for i in range(PAGE_SIZE)]
         short_page = [_config_resource("c_last")]
@@ -142,14 +142,14 @@ class TestConfigRuntimePagination:
         page_numbers = [c.kwargs["pagenumber"] for c in mock_list.call_args_list]
         assert page_numbers == [1, 2]
 
-    @patch("smplkit.config.client.list_configs.sync_detailed")
+    @patch("smplkit.config._client.list_configs.sync_detailed")
     def test_handle_configs_changed_multi_page_exit(self, mock_list):
         full_page = [_config_resource(f"c{i}") for i in range(PAGE_SIZE)]
         short_page = [_config_resource("c_last")]
         mock_list.side_effect = [_list_resp(full_page), _list_resp(short_page)]
 
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._connected = True
+        client.config._installed = True
         client.config._handle_configs_changed({})
         # ``raw_cache`` now contains every resource across both pages.
         assert len(client.config._raw_config_cache) == PAGE_SIZE + 1
@@ -397,16 +397,21 @@ class TestManagementListPaginationForwarding:
     # Config
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management._client._gen_list_configs.sync_detailed")
+    @patch("smplkit.config._client.list_configs.sync_detailed")
     def test_config_list_forwards(self, mock_list):
+        from smplkit import SmplClient
+
         mock_list.return_value = _list_resp([])
-        self._mgmt().config.list(page_number=2, page_size=100)
+        SmplClient(api_key="sk_test", base_domain="example.test").config.list(page_number=2, page_size=100)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=2, page_size=100)
 
-    @patch("smplkit.management._client._gen_list_configs.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.config._client.list_configs.asyncio_detailed", new_callable=AsyncMock)
     def test_config_async_list_forwards(self, mock_list):
+        from smplkit import AsyncSmplClient
+
         mock_list.return_value = _list_resp([])
-        asyncio.run(self._async_mgmt().config.list(page_number=2, page_size=100))
+        client = AsyncSmplClient(api_key="sk_test", base_domain="example.test")
+        asyncio.run(client.config.list(page_number=2, page_size=100))
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=2, page_size=100)
 
     # ------------------------------------------------------------------

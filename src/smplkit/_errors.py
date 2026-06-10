@@ -140,6 +140,16 @@ class PaymentRequiredError(Error):
     subscription plan does not include the required entitlement."""
 
 
+class NotInstalledError(Error):
+    """Raised when a live operation is attempted before ``install()``.
+
+    Smpl Config's live surface (``subscribe``/``bind``/``on_change``/
+    ``refresh``) opens a live connection to your running service and
+    therefore requires an explicit :meth:`ConfigClient.install` first.
+    The management surface (``new``/``get``/``list``/``delete`` and
+    discovery) works immediately and never raises this."""
+
+
 def _raise_for_status(status_code: int, content: bytes) -> None:
     """Parse a non-2xx response and raise the appropriate SDK exception.
 

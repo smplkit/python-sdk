@@ -4,7 +4,7 @@
 - ``ConfigClient.bind`` (declarative Pydantic-instance binding)
 - Pydantic introspection helpers (instance walk, ``model_fields_set``)
 - In-place mutation of bound instances via WebSocket dispatch
-- Pre-start flush hook
+- Pre-install flush hook
 """
 
 from __future__ import annotations
@@ -18,10 +18,10 @@ from pydantic import BaseModel, Field
 
 from smplkit._errors import NotFoundError
 from smplkit._client import AsyncSmplClient, SmplClient
-from smplkit.config.client import (
+from smplkit.config._client import (
     ConfigChangeEvent,
-    LiveConfigProxy,
     _apply_change_to_target,
+    _build_config_bulk_request,
     _is_pydantic_model,
     _iter_dict_items,
     _iter_pydantic_items_from_instance,
@@ -29,7 +29,6 @@ from smplkit.config.client import (
     _value_to_item_type,
 )
 from smplkit.management._buffer import _ConfigRegistrationBuffer
-from smplkit.management._client import _build_config_bulk_request
 
 
 # ===========================================================================
@@ -539,24 +538,24 @@ class _Plan(BaseModel):
 class TestBindSync:
     def test_bind_returns_the_same_instance(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"billing": {}}
         instance = _Billing(max_seats=10, tier="pro")
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config"):
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     result = client.config.bind("billing", instance)
         assert result is instance
 
     def test_bind_is_idempotent_returns_original_instance(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"billing": {}}
         first = _Billing(max_seats=10)
         second = _Billing(max_seats=999)
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config"):
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     a = client.config.bind("billing", first)
                     b = client.config.bind("billing", second)
         assert a is first
@@ -564,17 +563,17 @@ class TestBindSync:
 
     def test_bind_rejects_non_basemodel_non_dict(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         with pytest.raises(TypeError, match="BaseModel instance or dict"):
             client.config.bind("billing", "just a string")  # type: ignore[arg-type]
 
     def test_bind_registers_class_name_and_docstring(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"billing": {}}
-        with patch.object(client.manage.config, "register_config") as register:
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config") as register:
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     client.config.bind("billing", _Billing(max_seats=10))
         register.assert_called_once_with(
             "billing",
@@ -590,21 +589,21 @@ class TestBindSync:
             x: int = 1
 
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"nodoc": {}}
-        with patch.object(client.manage.config, "register_config") as register:
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config") as register:
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     client.config.bind("nodoc", NoDoc())
         assert register.call_args.kwargs["description"] is None
 
     def test_bind_without_parent_registers_every_field(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"billing": {}}
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item") as reg_item:
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config"):
+            with patch.object(client.config, "register_config_item") as reg_item:
+                with patch.object(client.config, "install"):
                     client.config.bind("billing", _Billing(max_seats=10))
         keys = [c.args[1] for c in reg_item.call_args_list]
         assert "max_seats" in keys
@@ -612,11 +611,11 @@ class TestBindSync:
 
     def test_bind_with_parent_only_registers_explicit_overrides(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"base": {}, "pro": {}}
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item") as reg_item:
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config"):
+            with patch.object(client.config, "register_config_item") as reg_item:
+                with patch.object(client.config, "install"):
                     base = client.config.bind("base", _Billing(max_seats=0, tier="base"))
                     reg_item.reset_mock()
                     # Only ``max_seats`` is passed; ``tier`` should inherit from base.
@@ -627,11 +626,11 @@ class TestBindSync:
 
     def test_bind_with_parent_resolves_parent_id_from_instance(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"base": {}, "pro": {}}
-        with patch.object(client.manage.config, "register_config") as register:
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config") as register:
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     base = client.config.bind("base", _Billing())
                     register.reset_mock()
                     client.config.bind("pro", _Billing(max_seats=99), parent=base)
@@ -640,36 +639,36 @@ class TestBindSync:
 
     def test_bind_rejects_unbound_parent(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {}
         stray = _Billing()  # not bound
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config"):
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     with pytest.raises(ValueError, match="previously returned from client.config.bind"):
                         client.config.bind("pro", _Billing(), parent=stray)
 
     def test_bind_syncs_instance_from_cache(self):
         """Pre-existing server values override the in-code defaults."""
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"billing": {"max_seats": 999, "tier": "enterprise"}}
         instance = _Billing(max_seats=5)  # in-code default
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config"):
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     result = client.config.bind("billing", instance)
         assert result.max_seats == 999  # from cache, not from in-code value
         assert result.tier == "enterprise"
 
     def test_bind_records_binding_in_registry(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"billing": {}}
         instance = _Billing()
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config"):
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     client.config.bind("billing", instance)
         assert client.config._bindings["billing"] is instance
 
@@ -682,29 +681,29 @@ class TestBindSync:
 class TestBindDictSync:
     def test_bind_returns_the_same_dict(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {}}
         payload = {"connection_string": "postgres://localhost", "timeout": 30}
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config"):
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     result = client.config.bind("db", payload)
         assert result is payload
 
     def test_bind_rejects_non_basemodel_non_dict(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         with pytest.raises(TypeError, match="BaseModel instance or dict"):
             client.config.bind("billing", ["not", "a", "dict"])  # type: ignore[arg-type]
 
     def test_bind_dict_does_not_set_name_or_description(self):
         """Dicts carry no class metadata — the SDK omits both fields."""
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {}}
-        with patch.object(client.manage.config, "register_config") as register:
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config") as register:
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     client.config.bind("db", {"k": "v"})
         register.assert_called_once_with(
             "db",
@@ -717,11 +716,11 @@ class TestBindDictSync:
 
     def test_bind_dict_registers_every_key(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {}}
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item") as reg_item:
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config"):
+            with patch.object(client.config, "register_config_item") as reg_item:
+                with patch.object(client.config, "install"):
                     client.config.bind("db", {"connection_string": "x", "timeout": 30, "tls": True})
         registered = {c.args[1]: (c.args[2], c.args[3]) for c in reg_item.call_args_list}
         assert registered["connection_string"] == ("STRING", "x")
@@ -730,11 +729,11 @@ class TestBindDictSync:
 
     def test_bind_dict_flattens_nested_keys(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {}}
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item") as reg_item:
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config"):
+            with patch.object(client.config, "register_config_item") as reg_item:
+                with patch.object(client.config, "install"):
                     client.config.bind("db", {"connection": {"host": "h", "port": 5432}})
         keys = [c.args[1] for c in reg_item.call_args_list]
         assert "connection.host" in keys
@@ -742,11 +741,11 @@ class TestBindDictSync:
 
     def test_bind_dict_with_dict_parent_resolves_parent_id(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"base": {}, "child": {}}
-        with patch.object(client.manage.config, "register_config") as register:
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config") as register:
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     base = client.config.bind("base", {"k": "v"})
                     register.reset_mock()
                     client.config.bind("child", {"other": "x"}, parent=base)
@@ -756,11 +755,11 @@ class TestBindDictSync:
     def test_bind_dict_with_pydantic_parent(self):
         """Cross-type parent chaining: dict child, Pydantic parent."""
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"base": {}, "child": {}}
-        with patch.object(client.manage.config, "register_config") as register:
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config") as register:
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     base = client.config.bind("base", _Billing(max_seats=5))
                     register.reset_mock()
                     client.config.bind("child", {"override_key": 1}, parent=base)
@@ -768,13 +767,13 @@ class TestBindDictSync:
 
     def test_bind_dict_is_idempotent(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {}}
         first = {"k": "v1"}
         second = {"k": "v2"}
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config"):
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     a = client.config.bind("db", first)
                     b = client.config.bind("db", second)
         assert a is first
@@ -783,12 +782,12 @@ class TestBindDictSync:
     def test_bind_dict_syncs_from_cache(self):
         """Pre-existing server values land on the bound dict in place."""
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {"connection_string": "remote", "timeout": 99}}
         payload = {"connection_string": "local", "timeout": 30}
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config"):
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     result = client.config.bind("db", payload)
         assert result["connection_string"] == "remote"
         assert result["timeout"] == 99
@@ -799,100 +798,52 @@ class TestBindDictSync:
 # ===========================================================================
 
 
-class TestGetSync:
-    def test_get_returns_live_proxy(self):
+class TestSubscribeValueReadSync:
+    """Value reads now happen through the ``subscribe(id)`` proxy.
+
+    The old client-level ``get(id, key)`` / ``get(id, key, default=X)``
+    value-read forms were dropped when ``get`` became the management
+    resource-fetch; ``subscribe`` registers the config declaration and
+    returns a live proxy whose ``[]`` / ``.get(key, default)`` cover the
+    same read paths.
+    """
+
+    def test_proxy_value_read(self):
         client = _new_sync_client()
-        client.config._connected = True
-        client.config._config_cache = {"billing": {"k": 1}}
-        proxy = client.config.get("billing")
-        assert isinstance(proxy, LiveConfigProxy)
-        assert proxy["k"] == 1
-
-    def test_get_returns_same_cached_proxy_on_repeat(self):
-        client = _new_sync_client()
-        client.config._connected = True
-        client.config._config_cache = {"billing": {"k": 1}}
-        a = client.config.get("billing")
-        b = client.config.get("billing")
-        assert a is b
-
-    def test_get_raises_not_found_for_missing(self):
-        client = _new_sync_client()
-        client.config._connected = True
-        client.config._config_cache = {}
-        with pytest.raises(NotFoundError):
-            client.config.get("missing")
-
-
-class TestGetSingleValueSync:
-    """Two-arg get: ``get(id, key)`` and ``get(id, key, default=X)``."""
-
-    def test_no_default_returns_cached_value(self):
-        client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {"connection_string": "postgres://x"}}
-        assert client.config.get("db", "connection_string") == "postgres://x"
+        proxy = client.config.subscribe("db")
+        assert proxy["connection_string"] == "postgres://x"
 
-    def test_no_default_raises_not_found_when_config_missing(self):
+    def test_proxy_missing_key_raises_key_error(self):
         client = _new_sync_client()
-        client.config._connected = True
-        client.config._config_cache = {}
-        with pytest.raises(NotFoundError):
-            client.config.get("db", "connection_string")
-
-    def test_no_default_raises_key_error_when_key_missing(self):
-        client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {}}
+        proxy = client.config.subscribe("db")
         with pytest.raises(KeyError, match="connection_string"):
-            client.config.get("db", "connection_string")
+            proxy["connection_string"]
 
-    def test_no_default_does_not_register(self):
-        """A bare ``get(id, key)`` lookup must not put anything on the buffer."""
+    def test_proxy_get_with_default_returns_value_when_present(self):
         client = _new_sync_client()
-        client.config._connected = True
-        client.config._config_cache = {"db": {"k": "v"}}
-        with patch.object(client.manage.config, "register_config") as register:
-            with patch.object(client.manage.config, "register_config_item") as reg_item:
-                client.config.get("db", "k")
-        register.assert_not_called()
-        reg_item.assert_not_called()
-
-    def test_with_default_returns_value_when_present(self):
-        client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {"connection_string": "real"}}
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item"):
-                result = client.config.get("db", "connection_string", default="fallback")
-        assert result == "real"
+        proxy = client.config.subscribe("db")
+        assert proxy.get("connection_string", "fallback") == "real"
 
-    def test_with_default_returns_default_when_config_missing(self):
+    def test_proxy_get_with_default_returns_default_when_key_missing(self):
         client = _new_sync_client()
-        client.config._connected = True
-        client.config._config_cache = {}
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item"):
-                result = client.config.get("db", "connection_string", default="fallback")
-        assert result == "fallback"
-
-    def test_with_default_returns_default_when_key_missing(self):
-        client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {}}
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item"):
-                result = client.config.get("db", "missing", default="fallback")
-        assert result == "fallback"
+        proxy = client.config.subscribe("db")
+        assert proxy.get("missing", "fallback") == "fallback"
 
-    def test_with_default_registers_config_and_key(self):
-        """Providing a default registers the config + key for observability."""
+    def test_subscribe_registers_config(self):
+        """subscribe() registers the config declaration for observability."""
         client = _new_sync_client()
-        client.config._connected = True
-        client.config._config_cache = {}
-        with patch.object(client.manage.config, "register_config") as register:
-            with patch.object(client.manage.config, "register_config_item") as reg_item:
-                client.config.get("db", "connection_string", default="postgres://...")
+        client.config._installed = True
+        client.config._config_cache = {"db": {"k": "v"}}
+        with patch.object(client.config, "register_config") as register:
+            client.config.subscribe("db")
         register.assert_called_once_with(
             "db",
             service="svc",
@@ -901,31 +852,6 @@ class TestGetSingleValueSync:
             name=None,
             description=None,
         )
-        reg_item.assert_called_once_with("db", "connection_string", "STRING", "postgres://...", None)
-
-    def test_with_default_infers_type_from_default(self):
-        client = _new_sync_client()
-        client.config._connected = True
-        client.config._config_cache = {}
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item") as reg_item:
-                client.config.get("billing", "max_seats", default=5)
-                client.config.get("billing", "trial_days", default=14.0)
-                client.config.get("billing", "active", default=True)
-        types = {c.args[1]: c.args[2] for c in reg_item.call_args_list}
-        assert types["max_seats"] == "NUMBER"
-        assert types["trial_days"] == "NUMBER"
-        assert types["active"] == "BOOLEAN"
-
-    def test_default_none_is_treated_as_having_a_default(self):
-        """Passing ``default=None`` explicitly still suppresses raising."""
-        client = _new_sync_client()
-        client.config._connected = True
-        client.config._config_cache = {}
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item"):
-                result = client.config.get("missing", "key", default=None)
-        assert result is None
 
 
 # ===========================================================================
@@ -936,12 +862,12 @@ class TestGetSingleValueSync:
 class TestBoundInstanceMutation:
     def test_fire_change_listeners_mutates_bound_instance(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"billing": {"max_seats": 5}}
         instance = _Billing(max_seats=5)
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config"):
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     client.config.bind("billing", instance)
         # Simulate a server-side value bump.
         old_cache = {"billing": {"max_seats": 5}}
@@ -952,13 +878,13 @@ class TestBoundInstanceMutation:
     def test_fire_change_listeners_fires_user_callback_after_mutation(self):
         """Listeners see the new value when they re-read the bound instance."""
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"billing": {"max_seats": 5}}
         instance = _Billing(max_seats=5)
         observed: list[int] = []
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config"):
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     client.config.bind("billing", instance)
 
         @client.config.on_change("billing", item_key="max_seats")
@@ -976,12 +902,12 @@ class TestBoundDictMutation:
 
     def test_fire_change_listeners_mutates_bound_dict(self):
         client = _new_sync_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {"timeout": 30}}
         payload = {"timeout": 30}
-        with patch.object(client.manage.config, "register_config"):
-            with patch.object(client.manage.config, "register_config_item"):
-                with patch.object(client.config, "start"):
+        with patch.object(client.config, "register_config"):
+            with patch.object(client.config, "register_config_item"):
+                with patch.object(client.config, "install"):
                     client.config.bind("db", payload)
         old_cache = {"db": {"timeout": 30}}
         new_cache = {"db": {"timeout": 120}}
@@ -994,25 +920,25 @@ class TestBoundDictMutation:
 # ===========================================================================
 
 
-class TestPreStartFlush:
-    def test_sync_start_flushes_buffer_before_fetch(self):
+class TestPreInstallFlush:
+    def test_sync_install_flushes_buffer_before_fetch(self):
         client = _new_sync_client()
-        with patch.object(client.manage.config, "flush") as flush:
+        with patch.object(client.config, "flush") as flush:
             with patch.object(client.config, "_do_refresh"):
                 with patch.object(client.config, "_parent") as parent:
                     parent._ensure_ws.return_value = MagicMock()
-                    client.config.start()
+                    client.config.install()
         assert flush.called
 
-    def test_sync_start_swallows_flush_errors(self, caplog):
+    def test_sync_install_swallows_flush_errors(self, caplog):
         client = _new_sync_client()
-        with patch.object(client.manage.config, "flush", side_effect=RuntimeError("boom")):
+        with patch.object(client.config, "flush", side_effect=RuntimeError("boom")):
             with patch.object(client.config, "_do_refresh"):
                 with patch.object(client.config, "_parent") as parent:
                     parent._ensure_ws.return_value = MagicMock()
                     with caplog.at_level(logging.WARNING, logger="smplkit"):
-                        client.config.start()
-        assert any("Pre-start config discovery flush" in r.message for r in caplog.records)
+                        client.config.install()
+        assert any("Pre-install config discovery flush" in r.message for r in caplog.records)
 
 
 # ===========================================================================
@@ -1027,14 +953,14 @@ def _new_async_client() -> AsyncSmplClient:
 class TestBindAsync:
     def test_bind_returns_the_same_instance(self):
         client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"billing": {}}
         instance = _Billing(max_seats=10)
 
         async def _run():
-            with patch.object(client.manage.config, "register_config"):
-                with patch.object(client.manage.config, "register_config_item"):
-                    with patch.object(client.config, "start", new_callable=AsyncMock):
+            with patch.object(client.config, "register_config"):
+                with patch.object(client.config, "register_config_item"):
+                    with patch.object(client.config, "install", new_callable=AsyncMock):
                         return await client.config.bind("billing", instance)
 
         result = asyncio.run(_run())
@@ -1042,15 +968,15 @@ class TestBindAsync:
 
     def test_bind_is_idempotent(self):
         client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"billing": {}}
         first = _Billing(max_seats=10)
         second = _Billing(max_seats=999)
 
         async def _run():
-            with patch.object(client.manage.config, "register_config"):
-                with patch.object(client.manage.config, "register_config_item"):
-                    with patch.object(client.config, "start", new_callable=AsyncMock):
+            with patch.object(client.config, "register_config"):
+                with patch.object(client.config, "register_config_item"):
+                    with patch.object(client.config, "install", new_callable=AsyncMock):
                         a = await client.config.bind("billing", first)
                         b = await client.config.bind("billing", second)
                         return a, b
@@ -1060,6 +986,7 @@ class TestBindAsync:
 
     def test_bind_rejects_non_basemodel_non_dict(self):
         client = _new_async_client()
+        client.config._installed = True
 
         async def _run():
             with pytest.raises(TypeError, match="BaseModel instance or dict"):
@@ -1069,13 +996,13 @@ class TestBindAsync:
 
     def test_bind_with_parent_resolves_parent_id(self):
         client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"base": {}, "pro": {}}
 
         async def _run():
-            with patch.object(client.manage.config, "register_config") as register:
-                with patch.object(client.manage.config, "register_config_item"):
-                    with patch.object(client.config, "start", new_callable=AsyncMock):
+            with patch.object(client.config, "register_config") as register:
+                with patch.object(client.config, "register_config_item"):
+                    with patch.object(client.config, "install", new_callable=AsyncMock):
                         base = await client.config.bind("base", _Billing())
                         register.reset_mock()
                         await client.config.bind("pro", _Billing(max_seats=50), parent=base)
@@ -1087,13 +1014,13 @@ class TestBindAsync:
 
     def test_bind_with_parent_skips_unset_fields(self):
         client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"base": {}, "pro": {}}
 
         async def _run():
-            with patch.object(client.manage.config, "register_config"):
-                with patch.object(client.manage.config, "register_config_item") as reg_item:
-                    with patch.object(client.config, "start", new_callable=AsyncMock):
+            with patch.object(client.config, "register_config"):
+                with patch.object(client.config, "register_config_item") as reg_item:
+                    with patch.object(client.config, "install", new_callable=AsyncMock):
                         base = await client.config.bind("base", _Billing(max_seats=0, tier="base"))
                         reg_item.reset_mock()
                         await client.config.bind("pro", _Billing(max_seats=50), parent=base)
@@ -1105,14 +1032,14 @@ class TestBindAsync:
 
     def test_bind_rejects_unbound_parent(self):
         client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {}
         stray = _Billing()
 
         async def _run():
-            with patch.object(client.manage.config, "register_config"):
-                with patch.object(client.manage.config, "register_config_item"):
-                    with patch.object(client.config, "start", new_callable=AsyncMock):
+            with patch.object(client.config, "register_config"):
+                with patch.object(client.config, "register_config_item"):
+                    with patch.object(client.config, "install", new_callable=AsyncMock):
                         with pytest.raises(ValueError, match="previously returned from client.config.bind"):
                             await client.config.bind("pro", _Billing(), parent=stray)
 
@@ -1120,14 +1047,14 @@ class TestBindAsync:
 
     def test_bind_syncs_instance_from_cache(self):
         client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"billing": {"max_seats": 999, "tier": "enterprise"}}
         instance = _Billing(max_seats=5)
 
         async def _run():
-            with patch.object(client.manage.config, "register_config"):
-                with patch.object(client.manage.config, "register_config_item"):
-                    with patch.object(client.config, "start", new_callable=AsyncMock):
+            with patch.object(client.config, "register_config"):
+                with patch.object(client.config, "register_config_item"):
+                    with patch.object(client.config, "install", new_callable=AsyncMock):
                         return await client.config.bind("billing", instance)
 
         result = asyncio.run(_run())
@@ -1137,14 +1064,14 @@ class TestBindAsync:
     def test_fire_change_listeners_mutates_bound_instance(self):
         """The async client's listener path also applies updates to bound instances."""
         client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"billing": {"max_seats": 5}}
         instance = _Billing(max_seats=5)
 
         async def _run():
-            with patch.object(client.manage.config, "register_config"):
-                with patch.object(client.manage.config, "register_config_item"):
-                    with patch.object(client.config, "start", new_callable=AsyncMock):
+            with patch.object(client.config, "register_config"):
+                with patch.object(client.config, "register_config_item"):
+                    with patch.object(client.config, "install", new_callable=AsyncMock):
                         await client.config.bind("billing", instance)
 
         asyncio.run(_run())
@@ -1153,25 +1080,22 @@ class TestBindAsync:
         client.config._fire_change_listeners(old_cache, new_cache, source="websocket")
         assert instance.max_seats == 50
 
-    def test_get_raises_not_found(self):
+    def test_subscribe_raises_not_found(self):
         client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {}
 
-        async def _run():
-            with pytest.raises(NotFoundError):
-                await client.config.get("missing")
+        with pytest.raises(NotFoundError):
+            client.config.subscribe("missing")
 
-        asyncio.run(_run())
-
-    def test_async_start_flushes_buffer_before_fetch(self):
+    def test_async_install_flushes_buffer_before_fetch(self):
         client = _new_async_client()
 
         async def _run():
             async def noop_flush():
                 return None
 
-            with patch.object(client.manage.config, "flush", side_effect=noop_flush) as flush:
+            with patch.object(client.config, "flush", side_effect=noop_flush) as flush:
                 with patch.object(client.config, "_do_refresh") as refresh:
 
                     async def noop_refresh(source):
@@ -1180,19 +1104,19 @@ class TestBindAsync:
                     refresh.side_effect = noop_refresh
                     with patch.object(client.config, "_parent") as parent:
                         parent._ensure_ws.return_value = MagicMock()
-                        await client.config.start()
+                        await client.config.install()
             assert flush.called
 
         asyncio.run(_run())
 
-    def test_async_start_swallows_flush_errors(self, caplog):
+    def test_async_install_swallows_flush_errors(self, caplog):
         client = _new_async_client()
 
         async def _run():
             async def boom_flush():
                 raise RuntimeError("boom")
 
-            with patch.object(client.manage.config, "flush", side_effect=boom_flush):
+            with patch.object(client.config, "flush", side_effect=boom_flush):
                 with patch.object(client.config, "_do_refresh") as refresh:
 
                     async def noop_refresh(source):
@@ -1202,8 +1126,8 @@ class TestBindAsync:
                     with patch.object(client.config, "_parent") as parent:
                         parent._ensure_ws.return_value = MagicMock()
                         with caplog.at_level(logging.WARNING, logger="smplkit"):
-                            await client.config.start()
-            assert any("Pre-start config discovery flush" in r.message for r in caplog.records)
+                            await client.config.install()
+            assert any("Pre-install config discovery flush" in r.message for r in caplog.records)
 
         asyncio.run(_run())
 
@@ -1216,14 +1140,14 @@ class TestBindAsync:
 class TestBindDictAsync:
     def test_bind_returns_the_same_dict(self):
         client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {}}
         payload = {"connection_string": "x", "timeout": 30}
 
         async def _run():
-            with patch.object(client.manage.config, "register_config"):
-                with patch.object(client.manage.config, "register_config_item"):
-                    with patch.object(client.config, "start", new_callable=AsyncMock):
+            with patch.object(client.config, "register_config"):
+                with patch.object(client.config, "register_config_item"):
+                    with patch.object(client.config, "install", new_callable=AsyncMock):
                         return await client.config.bind("db", payload)
 
         result = asyncio.run(_run())
@@ -1231,6 +1155,7 @@ class TestBindDictAsync:
 
     def test_bind_rejects_non_basemodel_non_dict(self):
         client = _new_async_client()
+        client.config._installed = True
 
         async def _run():
             with pytest.raises(TypeError, match="BaseModel instance or dict"):
@@ -1240,13 +1165,13 @@ class TestBindDictAsync:
 
     def test_bind_dict_registers_every_key(self):
         client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {}}
 
         async def _run():
-            with patch.object(client.manage.config, "register_config"):
-                with patch.object(client.manage.config, "register_config_item") as reg_item:
-                    with patch.object(client.config, "start", new_callable=AsyncMock):
+            with patch.object(client.config, "register_config"):
+                with patch.object(client.config, "register_config_item") as reg_item:
+                    with patch.object(client.config, "install", new_callable=AsyncMock):
                         await client.config.bind("db", {"k": "v", "n": 5, "b": True})
             return reg_item
 
@@ -1256,13 +1181,13 @@ class TestBindDictAsync:
 
     def test_bind_dict_with_parent(self):
         client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"base": {}, "child": {}}
 
         async def _run():
-            with patch.object(client.manage.config, "register_config") as register:
-                with patch.object(client.manage.config, "register_config_item"):
-                    with patch.object(client.config, "start", new_callable=AsyncMock):
+            with patch.object(client.config, "register_config") as register:
+                with patch.object(client.config, "register_config_item"):
+                    with patch.object(client.config, "install", new_callable=AsyncMock):
                         base = await client.config.bind("base", {"k": "v"})
                         register.reset_mock()
                         await client.config.bind("child", {"other": 1}, parent=base)
@@ -1274,14 +1199,14 @@ class TestBindDictAsync:
 
     def test_bind_dict_rejects_unbound_parent(self):
         client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {}
         stray = {"k": "v"}
 
         async def _run():
-            with patch.object(client.manage.config, "register_config"):
-                with patch.object(client.manage.config, "register_config_item"):
-                    with patch.object(client.config, "start", new_callable=AsyncMock):
+            with patch.object(client.config, "register_config"):
+                with patch.object(client.config, "register_config_item"):
+                    with patch.object(client.config, "install", new_callable=AsyncMock):
                         with pytest.raises(ValueError, match="previously returned from client.config.bind"):
                             await client.config.bind("child", {"k": "v"}, parent=stray)
 
@@ -1289,14 +1214,14 @@ class TestBindDictAsync:
 
     def test_bind_dict_syncs_from_cache(self):
         client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {"timeout": 999}}
         payload = {"timeout": 30}
 
         async def _run():
-            with patch.object(client.manage.config, "register_config"):
-                with patch.object(client.manage.config, "register_config_item"):
-                    with patch.object(client.config, "start", new_callable=AsyncMock):
+            with patch.object(client.config, "register_config"):
+                with patch.object(client.config, "register_config_item"):
+                    with patch.object(client.config, "install", new_callable=AsyncMock):
                         return await client.config.bind("db", payload)
 
         result = asyncio.run(_run())
@@ -1305,14 +1230,14 @@ class TestBindDictAsync:
     def test_fire_change_listeners_mutates_bound_dict(self):
         """The async client's listener pipeline also handles dict targets."""
         client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {"timeout": 30}}
         payload = {"timeout": 30}
 
         async def _run():
-            with patch.object(client.manage.config, "register_config"):
-                with patch.object(client.manage.config, "register_config_item"):
-                    with patch.object(client.config, "start", new_callable=AsyncMock):
+            with patch.object(client.config, "register_config"):
+                with patch.object(client.config, "register_config_item"):
+                    with patch.object(client.config, "install", new_callable=AsyncMock):
                         await client.config.bind("db", payload)
 
         asyncio.run(_run())
@@ -1322,102 +1247,44 @@ class TestBindDictAsync:
         assert payload["timeout"] == 120
 
 
-class TestGetSingleValueAsync:
-    def test_no_default_returns_cached_value(self):
+class TestSubscribeValueReadAsync:
+    """Async value reads go through the ``subscribe(id)`` proxy."""
+
+    def test_proxy_value_read(self):
         client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {"connection_string": "x"}}
+        proxy = client.config.subscribe("db")
+        assert proxy["connection_string"] == "x"
 
-        async def _run():
-            return await client.config.get("db", "connection_string")
-
-        assert asyncio.run(_run()) == "x"
-
-    def test_no_default_raises_not_found_when_config_missing(self):
+    def test_proxy_missing_key_raises_key_error(self):
         client = _new_async_client()
-        client.config._connected = True
-        client.config._config_cache = {}
-
-        async def _run():
-            with pytest.raises(NotFoundError):
-                await client.config.get("db", "connection_string")
-
-        asyncio.run(_run())
-
-    def test_no_default_raises_key_error_when_key_missing(self):
-        client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {}}
+        proxy = client.config.subscribe("db")
+        with pytest.raises(KeyError, match="connection_string"):
+            proxy["connection_string"]
 
-        async def _run():
-            with pytest.raises(KeyError, match="connection_string"):
-                await client.config.get("db", "connection_string")
-
-        asyncio.run(_run())
-
-    def test_no_default_does_not_register(self):
+    def test_proxy_get_with_default_returns_value_when_present(self):
         client = _new_async_client()
-        client.config._connected = True
-        client.config._config_cache = {"db": {"k": "v"}}
-
-        async def _run():
-            with patch.object(client.manage.config, "register_config") as register:
-                with patch.object(client.manage.config, "register_config_item") as reg_item:
-                    await client.config.get("db", "k")
-            return register, reg_item
-
-        register, reg_item = asyncio.run(_run())
-        register.assert_not_called()
-        reg_item.assert_not_called()
-
-    def test_with_default_returns_value_when_present(self):
-        client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {"k": "real"}}
+        proxy = client.config.subscribe("db")
+        assert proxy.get("k", "fallback") == "real"
 
-        async def _run():
-            with patch.object(client.manage.config, "register_config"):
-                with patch.object(client.manage.config, "register_config_item"):
-                    return await client.config.get("db", "k", default="fallback")
-
-        assert asyncio.run(_run()) == "real"
-
-    def test_with_default_returns_default_when_config_missing(self):
+    def test_proxy_get_with_default_returns_default_when_key_missing(self):
         client = _new_async_client()
-        client.config._connected = True
-        client.config._config_cache = {}
-
-        async def _run():
-            with patch.object(client.manage.config, "register_config"):
-                with patch.object(client.manage.config, "register_config_item"):
-                    return await client.config.get("db", "k", default="fallback")
-
-        assert asyncio.run(_run()) == "fallback"
-
-    def test_with_default_returns_default_when_key_missing(self):
-        client = _new_async_client()
-        client.config._connected = True
+        client.config._installed = True
         client.config._config_cache = {"db": {}}
+        proxy = client.config.subscribe("db")
+        assert proxy.get("missing", "fallback") == "fallback"
 
-        async def _run():
-            with patch.object(client.manage.config, "register_config"):
-                with patch.object(client.manage.config, "register_config_item"):
-                    return await client.config.get("db", "k", default="fallback")
-
-        assert asyncio.run(_run()) == "fallback"
-
-    def test_with_default_registers_config_and_key(self):
+    def test_subscribe_registers_config(self):
         client = _new_async_client()
-        client.config._connected = True
-        client.config._config_cache = {}
-
-        async def _run():
-            with patch.object(client.manage.config, "register_config") as register:
-                with patch.object(client.manage.config, "register_config_item") as reg_item:
-                    await client.config.get("db", "k", default="postgres://...")
-            return register, reg_item
-
-        register, reg_item = asyncio.run(_run())
+        client.config._installed = True
+        client.config._config_cache = {"db": {"k": "v"}}
+        with patch.object(client.config, "register_config") as register:
+            client.config.subscribe("db")
         register.assert_called_once_with(
             "db",
             service="svc",
@@ -1426,4 +1293,3 @@ class TestGetSingleValueAsync:
             name=None,
             description=None,
         )
-        reg_item.assert_called_once_with("db", "k", "STRING", "postgres://...", None)

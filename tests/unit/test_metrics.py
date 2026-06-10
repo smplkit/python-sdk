@@ -849,20 +849,18 @@ class TestConfigInstrumentation:
             )
         else:
             parent._metrics = None
-        manage = MagicMock()
-        parent.manage = manage
 
-        from smplkit.config.client import ConfigClient
+        from smplkit.config._client import ConfigClient
 
-        client = ConfigClient(parent, manage=manage, metrics=parent._metrics)
+        client = ConfigClient(parent=parent, transport=MagicMock(), metrics=parent._metrics)
         return client, parent
 
-    def test_resolve_records_metric(self):
+    def test_subscribe_records_metric(self):
         client, parent = self._make_config_client()
-        client._connected = True
+        client._installed = True
         client._config_cache["my-config"] = {"host": "localhost"}
 
-        result = client.get("my-config")
+        result = client.subscribe("my-config")
 
         assert dict(result) == {"host": "localhost"}
         metrics = parent._metrics
@@ -876,12 +874,12 @@ class TestConfigInstrumentation:
                 assert dims["config"] == "my-config"
         metrics.close()
 
-    def test_resolve_no_metrics_when_disabled(self):
+    def test_subscribe_no_metrics_when_disabled(self):
         client, parent = self._make_config_client(with_metrics=False)
-        client._connected = True
+        client._installed = True
         client._config_cache["my-config"] = {"host": "localhost"}
 
-        result = client.get("my-config")
+        result = client.subscribe("my-config")
         assert dict(result) == {"host": "localhost"}
 
     def test_change_listeners_record_metric(self):

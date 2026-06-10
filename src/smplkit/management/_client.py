@@ -9,13 +9,13 @@ as the ``client.manage`` namespace on the single :class:`smplkit.SmplClient`
 - ``client.manage.environments.*``
 - ``client.manage.services.*``
 - ``client.manage.account_settings.*``
-- ``client.manage.config.*``
 - ``client.manage.flags.*``
 - ``client.manage.loggers.*``
 - ``client.manage.log_groups.*``
 
-Audit and jobs are NOT here — they are the top-level ``client.audit`` /
-``client.jobs`` (each a full client, not split runtime/management). The
+Config, audit, and jobs are NOT here — they are the top-level
+``client.config`` / ``client.audit`` / ``client.jobs`` (each a full client,
+not split runtime/management). The
 internal :class:`_ManagementNamespace` / :class:`_AsyncManagementNamespace`
 wire these sub-clients up; :class:`smplkit.SmplClient` builds them.
 """
@@ -88,28 +88,7 @@ from smplkit._generated.app.models import (
     ServiceRequest as _GenServiceRequest,
     ServiceResource as _GenServiceResource,
 )
-from smplkit._generated.config.api.configs import (
-    bulk_register_configs as _gen_bulk_register_configs,
-    create_config as _gen_create_config,
-    delete_config as _gen_delete_config,
-    get_config as _gen_get_config,
-    list_configs as _gen_list_configs,
-    update_config as _gen_update_config,
-)
 from smplkit._generated.config.client import AuthenticatedClient as _ConfigAuthClient
-from smplkit._generated.config.models.config_bulk_item import (
-    ConfigBulkItem as _GenConfigBulkItem,
-)
-from smplkit._generated.config.models.config_bulk_item_items_type_0 import (
-    ConfigBulkItemItemsType0 as _GenConfigBulkItemItems,
-)
-from smplkit._generated.config.models.config_bulk_request import (
-    ConfigBulkRequest as _GenConfigBulkRequest,
-)
-from smplkit._generated.config.models.config_item_definition import (
-    ConfigItemDefinition as _GenConfigItemDefinition,
-)
-from smplkit._generated.config.types import UNSET as _CONFIG_UNSET
 from smplkit._generated.flags.api.flags import (
     bulk_register_flags as _gen_bulk_register_flags,
     create_flag as _gen_create_flag,
@@ -136,12 +115,6 @@ from smplkit._generated.logging.api.loggers import (
     update_logger as _gen_update_logger,
 )
 from smplkit._generated.logging.client import AuthenticatedClient as _LoggingAuthClient
-from smplkit.config.helpers import (
-    _build_config_request_body,
-    _resource_to_config,
-    _resource_to_async_config,
-)
-from smplkit.config.models import AsyncConfig, Config
 from smplkit.flags.helpers import (
     _build_flag_request_body,
     _flag_dict_from_json,
@@ -189,8 +162,6 @@ from smplkit.management.models import (
     Service,
 )
 from smplkit.management._buffer import (  # noqa: F401  (some imports below)
-    _CONFIG_BATCH_FLUSH_SIZE,
-    _ConfigRegistrationBuffer,
     _CONTEXT_BATCH_FLUSH_SIZE,
     _FLAG_BATCH_FLUSH_SIZE,
     _LOGGER_BATCH_FLUSH_SIZE,
@@ -980,42 +951,6 @@ def _build_logger_bulk_request(buffer: Any) -> Any:
     return LoggerBulkRequest(loggers=items)
 
 
-def _build_config_bulk_request(batch: list[dict[str, Any]]) -> _GenConfigBulkRequest | None:
-    """Build a JSON:API bulk request body from a list of pending config entries.
-
-    Returns ``None`` when *batch* is empty.  Each entry's ``items`` is a
-    ``{item_key: {value, type, description?}}`` dict that the generated
-    client expects as ``ConfigBulkItemItemsType0`` with the items as
-    ``additional_properties``.
-    """
-    if not batch:
-        return None
-    configs: list[_GenConfigBulkItem] = []
-    for entry in batch:
-        items_field: Any = _CONFIG_UNSET
-        if entry.get("items"):
-            items_obj = _GenConfigBulkItemItems()
-            for item_key, item_def in entry["items"].items():
-                items_obj.additional_properties[item_key] = _GenConfigItemDefinition(
-                    value=item_def["value"],
-                    type_=item_def["type"],
-                    description=item_def.get("description", _CONFIG_UNSET),
-                )
-            items_field = items_obj
-        configs.append(
-            _GenConfigBulkItem(
-                id=entry["id"],
-                name=entry.get("name", _CONFIG_UNSET),
-                description=entry.get("description", _CONFIG_UNSET),
-                parent=entry.get("parent", _CONFIG_UNSET),
-                items=items_field,
-                service=entry.get("service", _CONFIG_UNSET),
-                environment=entry.get("environment", _CONFIG_UNSET),
-            )
-        )
-    return _GenConfigBulkRequest(configs=configs)
-
-
 def _build_flag_bulk_request(batch: list[dict[str, Any]]) -> _GenFlagBulkRequest | None:
     """Build a JSON:API bulk request body from a list of pending flag items.
 
@@ -1320,393 +1255,6 @@ class AsyncAccountSettingsClient:
             resp = await h.put("/api/v1/accounts/current/settings", json=data)
         _check_status(resp.status_code, resp.content)
         return AsyncAccountSettings(self, data=resp.json() or {})
-
-
-# ---------------------------------------------------------------------------
-# Configs
-# ---------------------------------------------------------------------------
-
-
-def _resolve_parent(parent: str | Config | AsyncConfig | None) -> str | None:
-    """Normalize a ``parent`` argument to a config id string."""
-    if parent is None or isinstance(parent, str):
-        return parent
-    if not parent.id:
-        raise ValueError(
-            "parent config must be saved (have an id) before being used as a parent",
-        )
-    return parent.id
-
-
-class ConfigClient:
-    """Sync config CRUD (``mgmt.config``).
-
-    Also owns the config-discovery buffer that the runtime client
-    populates when customer code calls ``client.config.bind`` to
-    register a Pydantic-modeled configuration.
-    """
-
-    def __init__(self, http_client: _ConfigAuthClient) -> None:
-        self._http_client = http_client
-        self._buffer = _ConfigRegistrationBuffer()
-
-    # ------------------------------------------------------------------
-    # Discovery: declare + add_item + flush
-    # ------------------------------------------------------------------
-
-    def register_config(
-        self,
-        config_id: str,
-        *,
-        service: str | None,
-        environment: str | None,
-        parent: str | None = None,
-        name: str | None = None,
-        description: str | None = None,
-    ) -> None:
-        """Queue a configuration declaration for bulk-discovery upload."""
-        self._buffer.declare(
-            config_id,
-            service=service,
-            environment=environment,
-            parent=parent,
-            name=name,
-            description=description,
-        )
-        if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
-            threading.Thread(target=self._threshold_flush, daemon=True).start()
-
-    def register_config_item(
-        self,
-        config_id: str,
-        item_key: str,
-        item_type: str,
-        default: Any,
-        description: str | None = None,
-    ) -> None:
-        """Queue a config item declaration. ``register_config`` must run first."""
-        self._buffer.add_item(config_id, item_key, item_type, default, description)
-        if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
-            threading.Thread(target=self._threshold_flush, daemon=True).start()
-
-    def _threshold_flush(self) -> None:
-        try:
-            self.flush()
-        except Exception as exc:
-            logger.warning("Config registration flush failed: %s", exc)
-
-    def flush(self) -> None:
-        """POST pending declarations to ``/api/v1/configs/bulk``.
-
-        Per ADR-024 §2.9, bulk registration always lands rows as
-        ``managed=false`` and is plan-limit-exempt — failures here never
-        propagate to customer code. Drained entries are not requeued;
-        the SDK will re-observe on the next process start.
-        """
-        batch = self._buffer.drain()
-        body = _build_config_bulk_request(batch)
-        if body is None:
-            return
-        try:
-            response = _gen_bulk_register_configs.sync_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    @property
-    def pending_count(self) -> int:
-        """Number of pending config declarations awaiting flush."""
-        return self._buffer.pending_count
-
-    def new(
-        self,
-        id: str,
-        *,
-        name: str | None = None,
-        description: str | None = None,
-        parent: str | Config | None = None,
-    ) -> Config:
-        """Return a new unsaved :class:`Config`. Call :meth:`Config.save` to persist.
-
-        ``parent`` accepts either a config id (string) or an existing
-        :class:`Config` instance — passing the instance lets you skip naming
-        the id explicitly when you already have the parent in scope.
-        """
-        return Config(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            description=description,
-            parent=_resolve_parent(parent),
-        )
-
-    def get(self, id: str) -> Config:
-        try:
-            response = _gen_get_config.sync_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
-        return _resource_to_config(self, response.parsed.data)
-
-    def list(
-        self,
-        *,
-        page_number: int | None = None,
-        page_size: int | None = None,
-    ) -> list[Config]:
-        kwargs = _pagination_kwargs(page_number, page_size)
-        try:
-            response = _gen_list_configs.sync_detailed(client=self._http_client, **kwargs)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [_resource_to_config(self, r) for r in response.parsed.data]
-
-    def delete(self, id: str) -> None:
-        try:
-            response = _gen_delete_config.sync_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    def _create_config(self, config: Config) -> Config:
-        body = _build_config_request_body(
-            config_id=config.id,
-            name=config.name,
-            description=config.description,
-            parent=config.parent,
-            items=config._items_raw,
-            environments=config.environments,
-        )
-        try:
-            response = _gen_create_config.sync_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None:
-            raise ValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return _resource_to_config(self, response.parsed.data)
-
-    def _update_config_from_model(self, config: Config) -> Config:
-        body = _build_config_request_body(
-            config_id=config.id,
-            name=config.name,
-            description=config.description,
-            parent=config.parent,
-            items=config._items_raw,
-            environments=config.environments,
-        )
-        try:
-            response = _gen_update_config.sync_detailed(config.id, client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None:
-            raise ValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return _resource_to_config(self, response.parsed.data)
-
-
-class AsyncConfigClient:
-    """Async config CRUD (``mgmt.config``).
-
-    Also owns the config-discovery buffer that the runtime client
-    populates when customer code calls ``client.config.bind`` to
-    register a Pydantic-modeled configuration.
-    """
-
-    def __init__(self, http_client: _ConfigAuthClient) -> None:
-        self._http_client = http_client
-        self._buffer = _ConfigRegistrationBuffer()
-
-    # ------------------------------------------------------------------
-    # Discovery: declare + add_item + flush
-    # ------------------------------------------------------------------
-
-    def register_config(
-        self,
-        config_id: str,
-        *,
-        service: str | None,
-        environment: str | None,
-        parent: str | None = None,
-        name: str | None = None,
-        description: str | None = None,
-    ) -> None:
-        """Queue a configuration declaration for bulk-discovery upload."""
-        self._buffer.declare(
-            config_id,
-            service=service,
-            environment=environment,
-            parent=parent,
-            name=name,
-            description=description,
-        )
-        if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
-            threading.Thread(target=self._threshold_flush_sync, daemon=True).start()
-
-    def register_config_item(
-        self,
-        config_id: str,
-        item_key: str,
-        item_type: str,
-        default: Any,
-        description: str | None = None,
-    ) -> None:
-        """Queue a config item declaration. ``register_config`` must run first."""
-        self._buffer.add_item(config_id, item_key, item_type, default, description)
-        if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
-            threading.Thread(target=self._threshold_flush_sync, daemon=True).start()
-
-    def _threshold_flush_sync(self) -> None:
-        try:
-            self.flush_sync()
-        except Exception as exc:
-            logger.warning("Config registration flush failed: %s", exc)
-
-    async def flush(self) -> None:
-        """POST pending declarations to ``/api/v1/configs/bulk`` (async)."""
-        batch = self._buffer.drain()
-        body = _build_config_bulk_request(batch)
-        if body is None:
-            return
-        try:
-            response = await _gen_bulk_register_configs.asyncio_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    def flush_sync(self) -> None:
-        """Synchronous flush from a background thread (final flush, threshold flush)."""
-        batch = self._buffer.drain()
-        body = _build_config_bulk_request(batch)
-        if body is None:
-            return
-        try:
-            response = _gen_bulk_register_configs.sync_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    @property
-    def pending_count(self) -> int:
-        """Number of pending config declarations awaiting flush."""
-        return self._buffer.pending_count
-
-    def new(
-        self,
-        id: str,
-        *,
-        name: str | None = None,
-        description: str | None = None,
-        parent: str | AsyncConfig | None = None,
-    ) -> AsyncConfig:
-        """Return a new unsaved :class:`AsyncConfig`. Call ``await save()`` to persist.
-
-        ``parent`` accepts either a config id (string) or an existing
-        :class:`AsyncConfig` instance — passing the instance lets you skip
-        naming the id explicitly when you already have the parent in scope.
-        """
-        return AsyncConfig(
-            self,
-            id=id,
-            name=name or key_to_display_name(id),
-            description=description,
-            parent=_resolve_parent(parent),
-        )
-
-    async def get(self, id: str) -> AsyncConfig:
-        try:
-            response = await _gen_get_config.asyncio_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
-        return _resource_to_async_config(self, response.parsed.data)
-
-    async def list(
-        self,
-        *,
-        page_number: int | None = None,
-        page_size: int | None = None,
-    ) -> list[AsyncConfig]:
-        kwargs = _pagination_kwargs(page_number, page_size)
-        try:
-            response = await _gen_list_configs.asyncio_detailed(client=self._http_client, **kwargs)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None or not hasattr(response.parsed, "data"):
-            return []
-        return [_resource_to_async_config(self, r) for r in response.parsed.data]
-
-    async def delete(self, id: str) -> None:
-        try:
-            response = await _gen_delete_config.asyncio_detailed(id, client=self._http_client)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-
-    async def _create_config(self, config: AsyncConfig) -> AsyncConfig:
-        body = _build_config_request_body(
-            config_id=config.id,
-            name=config.name,
-            description=config.description,
-            parent=config.parent,
-            items=config._items_raw,
-            environments=config.environments,
-        )
-        try:
-            response = await _gen_create_config.asyncio_detailed(client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None:
-            raise ValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return _resource_to_async_config(self, response.parsed.data)
-
-    async def _update_config_from_model(self, config: AsyncConfig) -> AsyncConfig:
-        body = _build_config_request_body(
-            config_id=config.id,
-            name=config.name,
-            description=config.description,
-            parent=config.parent,
-            items=config._items_raw,
-            environments=config.environments,
-        )
-        try:
-            response = await _gen_update_config.asyncio_detailed(config.id, client=self._http_client, body=body)
-        except Exception as exc:
-            _maybe_reraise_network_error(exc, self._http_client._base_url)
-            raise
-        _check_status(int(response.status_code), response.content)
-        if response.parsed is None:
-            raise ValidationError(
-                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
-            )
-        return _resource_to_async_config(self, response.parsed.data)
 
 
 # ---------------------------------------------------------------------------
@@ -2529,14 +2077,15 @@ class _ManagementNamespace:
     """The CRUD namespace exposed as ``client.manage`` on :class:`SmplClient`.
 
     Holds the management/CRUD sub-clients (contexts, context_types,
-    environments, services, account_settings, config, flags, loggers,
-    log_groups) plus the per-service transports and the context-registration
-    buffer that back them. Construction is side-effect-free: no threads, no
-    network — transports connect lazily on first call.
+    environments, services, account_settings, flags, loggers, log_groups)
+    plus the per-service transports and the context-registration buffer that
+    back them. Construction is side-effect-free: no threads, no network —
+    transports connect lazily on first call.
 
     Internal (not publicly constructed): :class:`SmplClient` builds it from a
-    resolved config. Audit and jobs are deliberately NOT here — they are the
-    top-level ``client.audit`` / ``client.jobs`` (one client, full surface).
+    resolved config. Config, audit, and jobs are deliberately NOT here — they
+    are the top-level ``client.config`` / ``client.audit`` / ``client.jobs``
+    (one client, full surface).
     """
 
     contexts: ContextsClient
@@ -2544,7 +2093,6 @@ class _ManagementNamespace:
     environments: EnvironmentsClient
     services: ServicesClient
     account_settings: AccountSettingsClient
-    config: ConfigClient
     flags: FlagsClient
     loggers: LoggersClient
     log_groups: LogGroupsClient
@@ -2579,14 +2127,13 @@ class _ManagementNamespace:
         self.environments = EnvironmentsClient(self._app_http)
         self.services = ServicesClient(self._app_http)
         self.account_settings = AccountSettingsClient(app_url, cfg.api_key)
-        self.config = ConfigClient(self._config_http)
         self.flags = FlagsClient(self._flags_http)
         self.loggers = LoggersClient(self._logging_http, base_url=logging_url)
         self.log_groups = LogGroupsClient(self._logging_http, base_url=logging_url)
 
     def close(self) -> None:
-        """Close the management transports. The audit/jobs runtime clients own
-        their own teardown on the top-level :class:`SmplClient`."""
+        """Close the management transports. The config/audit/jobs runtime
+        clients own their own teardown on the top-level :class:`SmplClient`."""
         for http in (
             self._app_http,
             self._config_http,
@@ -2609,7 +2156,6 @@ class _AsyncManagementNamespace:
     environments: AsyncEnvironmentsClient
     services: AsyncServicesClient
     account_settings: AsyncAccountSettingsClient
-    config: AsyncConfigClient
     flags: AsyncFlagsClient
     loggers: AsyncLoggersClient
     log_groups: AsyncLogGroupsClient
@@ -2641,7 +2187,6 @@ class _AsyncManagementNamespace:
         self.environments = AsyncEnvironmentsClient(self._app_http)
         self.services = AsyncServicesClient(self._app_http)
         self.account_settings = AsyncAccountSettingsClient(app_url, cfg.api_key)
-        self.config = AsyncConfigClient(self._config_http)
         self.flags = AsyncFlagsClient(self._flags_http)
         self.loggers = AsyncLoggersClient(self._logging_http, base_url=logging_url)
         self.log_groups = AsyncLogGroupsClient(self._logging_http, base_url=logging_url)

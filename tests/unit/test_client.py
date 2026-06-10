@@ -139,13 +139,13 @@ def test_wait_until_ready_returns_when_connected():
     with (
         patch.object(SharedWebSocket, "start"),
         patch.object(client.flags, "start"),
-        patch.object(client.config, "start"),
+        patch.object(client.config, "install"),
     ):
         ws = client._ensure_ws()
         ws._connection_status = "connected"
         client.wait_until_ready(timeout=1.0)
         client.flags.start.assert_called_once()
-        client.config.start.assert_called_once()
+        client.config.install.assert_called_once()
 
 
 def test_wait_until_ready_raises_on_timeout():
@@ -157,7 +157,7 @@ def test_wait_until_ready_raises_on_timeout():
     with (
         patch.object(SharedWebSocket, "start"),
         patch.object(client.flags, "start"),
-        patch.object(client.config, "start"),
+        patch.object(client.config, "install"),
     ):
         ws = client._ensure_ws()
         ws._connection_status = "disconnected"
@@ -171,13 +171,13 @@ def test_async_wait_until_ready_returns_when_connected():
         with (
             patch.object(SharedWebSocket, "start"),
             patch.object(client.flags, "start", new=AsyncMock()),
-            patch.object(client.config, "start", new=AsyncMock()),
+            patch.object(client.config, "install", new=AsyncMock()),
         ):
             ws = client._ensure_ws()
             ws._connection_status = "connected"
             await client.wait_until_ready(timeout=1.0)
             client.flags.start.assert_awaited_once()
-            client.config.start.assert_awaited_once()
+            client.config.install.assert_awaited_once()
 
     asyncio.run(_run())
 
@@ -192,7 +192,7 @@ def test_async_wait_until_ready_raises_on_timeout():
         with (
             patch.object(SharedWebSocket, "start"),
             patch.object(client.flags, "start", new=AsyncMock()),
-            patch.object(client.config, "start", new=AsyncMock()),
+            patch.object(client.config, "install", new=AsyncMock()),
         ):
             ws = client._ensure_ws()
             ws._connection_status = "disconnected"

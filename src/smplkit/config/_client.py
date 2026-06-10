@@ -1,20 +1,27 @@
-"""ConfigClient and AsyncConfigClient — runtime operations for configs.
+"""The Smpl Config client — one unified ``ConfigClient`` / ``AsyncConfigClient``.
 
-Runtime config operations: lazy-fetch all configs for the SDK's
-current environment, resolve values down the inheritance chain, and
-emit change events when the server's WebSocket signals a refresh.
-CRUD lives on ``client.manage``.
+Smpl Config has two surfaces on a single client, mirroring how the audit
+and jobs clients expose their full surface from one class:
 
-The runtime client exposes two ways to read config values:
+* **Management surface** — works immediately, no :meth:`install` required:
+  ``new`` / ``get`` / ``list`` / ``delete`` CRUD and the discovery buffer
+  (``register_config`` / ``register_config_item`` / ``flush`` /
+  ``pending_count``). The client owns the discovery buffer directly.
+* **Live surface** — requires :meth:`install` first (it opens a live
+  connection to your running service): ``subscribe`` (a live dict-like
+  :class:`LiveConfigProxy`), ``bind`` (a live Pydantic/dict binding),
+  ``on_change``, and ``refresh``. Calling any of these before
+  :meth:`install` raises :class:`NotInstalledError`.
 
-- :meth:`ConfigClient.bind` — declarative, schema-first. Pass a Pydantic
-  ``BaseModel`` instance with the in-code defaults; the SDK registers the
-  schema and values, then mutates the *same* instance in place when the
-  server pushes updates. Reads are plain attribute access on a real
-  Pydantic instance — no proxy indirection, full IDE type-checking.
-- :meth:`ConfigClient.get` — lookup-only escape hatch. Returns a
-  :class:`LiveConfigProxy`, a read-only dict-like view of resolved values.
-  Raises :class:`NotFoundError` when the id is unknown.
+The client supports two construction shapes:
+
+* **Wired** into :class:`smplkit.SmplClient` — borrows the parent's config
+  transport for both runtime fetch and CRUD and the parent's shared
+  WebSocket for the live channel. This is the common path.
+* **Standalone** — ``ConfigClient(api_key=..., base_url=..., ...)`` builds
+  and owns its own config transport, and on :meth:`install` opens and owns
+  its own WebSocket. ``close()`` / ``aclose()`` tears down only the owned
+  transport and owned WebSocket.
 """
 
 from __future__ import annotations
@@ -25,35 +32,57 @@ import logging
 import threading
 from collections.abc import Callable
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, TypeVar, overload
+from typing import TYPE_CHECKING, Any, TypeVar
 
+import httpx
 from pydantic import BaseModel
 
+from smplkit._config import _service_url, resolve_management_config
 from smplkit._errors import (
     ConflictError,
     ConnectionError,
     NotFoundError,
+    NotInstalledError,
     TimeoutError,
     ValidationError,
     _raise_for_status,
 )
-from smplkit._helpers import PAGE_SIZE, paginate_async, paginate_sync
+from smplkit._helpers import PAGE_SIZE, key_to_display_name, paginate_async, paginate_sync
 from smplkit._resolver import resolve
 from smplkit._generated.config.api.configs import (  # noqa: F401  (re-exported for test patches)
+    bulk_register_configs,
     create_config,
     delete_config,
     get_config,
     list_configs,
     update_config,
 )
-from smplkit.config.helpers import _resource_to_async_config, _resource_to_config
+from smplkit._generated.config.client import AuthenticatedClient as _ConfigAuthClient
+from smplkit._generated.config.models.config_bulk_item import (
+    ConfigBulkItem as _GenConfigBulkItem,
+)
+from smplkit._generated.config.models.config_bulk_item_items_type_0 import (
+    ConfigBulkItemItemsType0 as _GenConfigBulkItemItems,
+)
+from smplkit._generated.config.models.config_bulk_request import (
+    ConfigBulkRequest as _GenConfigBulkRequest,
+)
+from smplkit._generated.config.models.config_item_definition import (
+    ConfigItemDefinition as _GenConfigItemDefinition,
+)
+from smplkit._generated.config.types import UNSET as _CONFIG_UNSET
+from smplkit.config.helpers import (
+    _build_config_request_body,
+    _resource_to_async_config,
+    _resource_to_config,
+)
 from smplkit.config.models import AsyncConfig, Config
+from smplkit.management._buffer import _CONFIG_BATCH_FLUSH_SIZE, _ConfigRegistrationBuffer
+from smplkit._ws import SharedWebSocket
 
 if TYPE_CHECKING:
     from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
-    from smplkit._ws import SharedWebSocket
     from smplkit._client import AsyncSmplClient, SmplClient
-    from smplkit.management._client import _AsyncManagementNamespace, _ManagementNamespace
 
 logger = logging.getLogger("smplkit")
 ws_logger = logging.getLogger("smplkit.config.ws")
@@ -63,11 +92,103 @@ ws_logger = logging.getLogger("smplkit.config.ws")
 # subclass on the way out, dict users see ``dict[str, Any]``.
 _T = TypeVar("_T", bound="BaseModel | dict[str, Any]")
 
-# Sentinel that distinguishes "no default supplied" from "default is None"
-# in the two-arg ``get(id, key)`` form. Using a module-level object so we
-# can identity-compare against it without any risk of collision with
-# legitimate caller-supplied values.
-_MISSING: Any = object()
+_NOT_INSTALLED_MESSAGE = (
+    "Smpl Config live operations require install() first — this opens a live "
+    "connection to your running service. Call client.config.install() (await "
+    "for async) before subscribe()/bind()/on_change()/refresh()."
+)
+
+
+def _resolve_parent_id(parent: str | Config | AsyncConfig | None) -> str | None:
+    """Normalize a ``parent`` argument to a config id string."""
+    if parent is None or isinstance(parent, str):
+        return parent
+    if not parent.id:
+        raise ValueError(
+            "parent config must be saved (have an id) before being used as a parent",
+        )
+    return parent.id
+
+
+def _build_config_bulk_request(batch: list[dict[str, Any]]) -> _GenConfigBulkRequest | None:
+    """Build a JSON:API bulk request body from a list of pending config entries.
+
+    Returns ``None`` when *batch* is empty.  Each entry's ``items`` is a
+    ``{item_key: {value, type, description?}}`` dict that the generated
+    client expects as ``ConfigBulkItemItemsType0`` with the items as
+    ``additional_properties``.
+    """
+    if not batch:
+        return None
+    configs: list[_GenConfigBulkItem] = []
+    for entry in batch:
+        items_field: Any = _CONFIG_UNSET
+        if entry.get("items"):
+            items_obj = _GenConfigBulkItemItems()
+            for item_key, item_def in entry["items"].items():
+                items_obj.additional_properties[item_key] = _GenConfigItemDefinition(
+                    value=item_def["value"],
+                    type_=item_def["type"],
+                    description=item_def.get("description", _CONFIG_UNSET),
+                )
+            items_field = items_obj
+        configs.append(
+            _GenConfigBulkItem(
+                id=entry["id"],
+                name=entry.get("name", _CONFIG_UNSET),
+                description=entry.get("description", _CONFIG_UNSET),
+                parent=entry.get("parent", _CONFIG_UNSET),
+                items=items_field,
+                service=entry.get("service", _CONFIG_UNSET),
+                environment=entry.get("environment", _CONFIG_UNSET),
+            )
+        )
+    return _GenConfigBulkRequest(configs=configs)
+
+
+def _pagination_kwargs(page_number: int | None, page_size: int | None) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {}
+    if page_number is not None:
+        kwargs["pagenumber"] = page_number
+    if page_size is not None:
+        kwargs["pagesize"] = page_size
+    return kwargs
+
+
+def _config_transport(
+    *,
+    api_key: str | None,
+    base_url: str | None,
+    profile: str | None,
+    base_domain: str | None,
+    scheme: str | None,
+    debug: bool | None,
+    extra_headers: dict[str, str] | None,
+) -> tuple[_ConfigAuthClient, str]:
+    """Build a standalone config transport and resolve the app base URL.
+
+    ``base_url``/``api_key`` are used directly when both are supplied (the
+    path a top-level client takes after it has already resolved them);
+    otherwise the management config resolver fills in whatever is missing
+    (``~/.smplkit`` / env vars / defaults). The app base URL is returned
+    alongside so a standalone client can open its own WebSocket against the
+    event gateway.
+    """
+    cfg = resolve_management_config(
+        profile=profile,
+        api_key=api_key,
+        base_domain=base_domain,
+        scheme=scheme,
+        debug=debug,
+    )
+    resolved_key = api_key if api_key is not None else cfg.api_key
+    config_url = base_url if base_url is not None else _service_url(cfg.scheme, "config", cfg.base_domain)
+    app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
+    headers: dict[str, str] = {}
+    headers.update(cfg.extra_headers or {})
+    headers.update(extra_headers or {})
+    transport = _ConfigAuthClient(base_url=config_url.rstrip("/"), token=resolved_key, headers=headers)
+    return transport, app_url
 
 
 def _check_response_status(status_code: HTTPStatus, content: bytes) -> None:
@@ -94,11 +215,11 @@ def _pydantic_field_type(annotation: Any) -> str:
 
 
 def _value_to_item_type(value: Any) -> str:
-    """Map a runtime value (dict-bind or get-default) to a Config item type.
+    """Map a runtime value (dict-bind default) to a Config item type.
 
     Used when there is no Pydantic annotation to consult — for dict bind
-    values and single-value ``get`` defaults. ``bool`` is checked before
-    ``int`` because ``bool`` is a subclass of ``int`` in Python.
+    values. ``bool`` is checked before ``int`` because ``bool`` is a
+    subclass of ``int`` in Python.
     """
     if isinstance(value, bool):
         return "BOOLEAN"
@@ -292,9 +413,9 @@ class ConfigChangeEvent:
 class LiveConfigProxy:
     """A live, dict-like view of resolved config values.
 
-    Returned by :meth:`ConfigClient.get` and :meth:`AsyncConfigClient.get`.
-    Always reflects the latest server-pushed state — every read sees
-    current values.
+    Returned by :meth:`ConfigClient.subscribe` and
+    :meth:`AsyncConfigClient.subscribe`. Always reflects the latest
+    server-pushed state — every read sees current values.
 
     Implements the ``Mapping`` API: ``proxy["key"]``, ``key in proxy``,
     ``len(proxy)``, ``for k in proxy``, ``proxy.keys()``, ``proxy.values()``,
@@ -379,12 +500,14 @@ class LiveConfigProxy:
 
     def __setattr__(self, name: str, value: Any) -> None:
         raise AttributeError(
-            f"LiveConfigProxy is read-only; cannot set {name!r}. Mutate config values via client.manage.config.*"
+            f"LiveConfigProxy is read-only; cannot set {name!r}. "
+            "Edit config values via client.config.get(id) + save()."
         )
 
     def __setitem__(self, key: str, value: Any) -> None:
         raise TypeError(
-            f"LiveConfigProxy is read-only; cannot set {key!r}. Mutate config values via client.manage.config.*"
+            f"LiveConfigProxy is read-only; cannot set {key!r}. "
+            "Edit config values via client.config.get(id) + save()."
         )
 
     def __delattr__(self, name: str) -> None:
@@ -399,81 +522,347 @@ class LiveConfigProxy:
 
 
 class ConfigClient:
-    """Synchronous runtime client for Smpl Config.
+    """The Smpl Config client (sync).
 
-    Obtained via ``SmplClient(...).config``. Exposes :meth:`bind` (the
-    recommended declarative API), :meth:`get` (lookup-only escape hatch),
-    :meth:`refresh`, and :meth:`on_change`. CRUD lives on
-    ``client.manage`` (``mgmt.config.*``).
+    One client exposes the full surface, reachable as ``client.config``
+    (:class:`smplkit.SmplClient`) or constructed directly::
+
+        from smplkit import ConfigClient
+
+        with ConfigClient(environment="production") as config:
+            billing = config.new("billing", name="Billing")
+            billing.set_number("max_seats", 50)
+            billing.save()
+            config.install()
+            proxy = config.subscribe("billing")
+            print(proxy["max_seats"])
+
+    The management surface (``new`` / ``get`` / ``list`` / ``delete`` and
+    discovery) works immediately. The live surface (``install`` /
+    ``subscribe`` / ``bind`` / ``on_change`` / ``refresh``) requires
+    :meth:`install` first; calling it earlier raises
+    :class:`NotInstalledError`.
+
+    Args:
+        api_key: API key. When omitted, resolved from ``SMPLKIT_API_KEY`` or
+            ``~/.smplkit``.
+        environment: Deployment environment used to resolve runtime config
+            values and to scope discovery declarations. Optional.
+        base_url: Full config-service base URL. Usually resolved from
+            ``base_domain``/``scheme``; supplied directly by the top-level
+            clients which have already computed it.
+        profile: Named ``~/.smplkit`` profile section.
+        base_domain: Base domain for API requests (default ``"smplkit.com"``).
+        scheme: URL scheme (default ``"https"``).
+        debug: Enable SDK debug logging.
+        extra_headers: Extra headers attached to every request.
+        parent: Internal — the owning :class:`smplkit.SmplClient`. Not for
+            direct use.
+        transport: Internal — a pre-built config transport supplied by a
+            top-level client so the config surface shares one connection
+            pool. Not for direct use.
+        metrics: Internal — the parent's metrics reporter.
     """
 
     def __init__(
         self,
-        parent: SmplClient,
+        api_key: str | None = None,
         *,
-        manage: _ManagementNamespace,
-        metrics: _MetricsReporter | None,
+        environment: str | None = None,
+        base_url: str | None = None,
+        profile: str | None = None,
+        base_domain: str | None = None,
+        scheme: str | None = None,
+        debug: bool | None = None,
+        extra_headers: dict[str, str] | None = None,
+        parent: SmplClient | None = None,
+        transport: _ConfigAuthClient | None = None,
+        metrics: _MetricsReporter | None = None,
     ) -> None:
         self._parent = parent
-        self._manage = manage
         self._metrics = metrics
-        self._service = parent._service
-        self._environment = parent._environment
+        self._environment = parent._environment if parent is not None else environment
+        self._service = parent._service if parent is not None else None
+        self._standalone_api_key: str | None = None
+        if transport is not None:
+            self._http = transport
+            self._app_base_url: str | None = None
+            self._owns_transport = False
+        else:
+            self._http, self._app_base_url = _config_transport(
+                api_key=api_key,
+                base_url=base_url,
+                profile=profile,
+                base_domain=base_domain,
+                scheme=scheme,
+                debug=debug,
+                extra_headers=extra_headers,
+            )
+            self._owns_transport = True
+            self._standalone_api_key = api_key if api_key is not None else self._http.token
+
+        # Discovery buffer is owned by this client (no management delegation).
+        self._buffer = _ConfigRegistrationBuffer()
+
+        # Live-surface state.
         self._config_cache: dict[str, dict[str, Any]] = {}
         self._raw_config_cache: dict[str, Any] = {}
-        # LiveConfigProxy instances for ``get(id)`` callers; one per config id.
         self._proxies: dict[str, LiveConfigProxy] = {}
-        # Pydantic instances bound via ``bind(id, ...)``; one per config id.
-        # WebSocket dispatch mutates these in place when values change.
         self._bindings: dict[str, BaseModel] = {}
-        self._connected = False
+        self._installed = False
         self._cache_lock = threading.Lock()
         self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
         self._ws_manager: SharedWebSocket | None = None
+        self._owns_ws = False
 
-    def start(self) -> None:
-        """Eagerly initialize the config subclient.
+    # ------------------------------------------------------------------
+    # Management surface: CRUD (works immediately, no install required)
+    # ------------------------------------------------------------------
 
-        Fetches all configs, resolves environment-scoped values into the local
-        cache, opens the shared WebSocket and subscribes to ``config_changed``
-        / ``config_deleted`` / ``configs_changed`` events.
+    def new(
+        self,
+        id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        parent: str | Config | None = None,
+    ) -> Config:
+        """Return a new unsaved :class:`Config`. Call :meth:`Config.save` to persist.
 
-        Idempotent — safe to call multiple times.  Called automatically on
-        first ``config.get()`` or ``config.bind()`` if not invoked manually.
+        ``parent`` accepts either a config id (string) or an existing
+        :class:`Config` instance — passing the instance lets you skip naming
+        the id explicitly when you already have the parent in scope.
         """
-        self._parent._ensure_started()
-        if self._connected:
+        return Config(
+            self,
+            id=id,
+            name=name or key_to_display_name(id),
+            description=description,
+            parent=_resolve_parent_id(parent),
+        )
+
+    def get(self, id: str) -> Config:
+        """Fetch the editable :class:`Config` resource by id.
+
+        Raises :class:`NotFoundError` if no config with that id exists.
+        """
+        try:
+            response = get_config.sync_detailed(id, client=self._http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
+        return _resource_to_config(self, response.parsed.data)
+
+    def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[Config]:
+        """List configs for the authenticated account."""
+        kwargs = _pagination_kwargs(page_number, page_size)
+        try:
+            response = list_configs.sync_detailed(client=self._http, **kwargs)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [_resource_to_config(self, r) for r in response.parsed.data]
+
+    def delete(self, id: str) -> None:
+        """Delete a config by id."""
+        try:
+            response = delete_config.sync_detailed(id, client=self._http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    def _create_config(self, config: Config) -> Config:
+        body = _build_config_request_body(
+            config_id=config.id,
+            name=config.name,
+            description=config.description,
+            parent=config.parent,
+            items=config._items_raw,
+            environments=config.environments,
+        )
+        try:
+            response = create_config.sync_detailed(client=self._http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return _resource_to_config(self, response.parsed.data)
+
+    def _update_config_from_model(self, config: Config) -> Config:
+        body = _build_config_request_body(
+            config_id=config.id,
+            name=config.name,
+            description=config.description,
+            parent=config.parent,
+            items=config._items_raw,
+            environments=config.environments,
+        )
+        try:
+            response = update_config.sync_detailed(config.id, client=self._http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return _resource_to_config(self, response.parsed.data)
+
+    # ------------------------------------------------------------------
+    # Management surface: discovery buffer (owned directly)
+    # ------------------------------------------------------------------
+
+    def register_config(
+        self,
+        config_id: str,
+        *,
+        service: str | None,
+        environment: str | None,
+        parent: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> None:
+        """Queue a configuration declaration for bulk-discovery upload."""
+        self._buffer.declare(
+            config_id,
+            service=service,
+            environment=environment,
+            parent=parent,
+            name=name,
+            description=description,
+        )
+        if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def register_config_item(
+        self,
+        config_id: str,
+        item_key: str,
+        item_type: str,
+        default: Any,
+        description: str | None = None,
+    ) -> None:
+        """Queue a config item declaration. ``register_config`` must run first."""
+        self._buffer.add_item(config_id, item_key, item_type, default, description)
+        if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def _threshold_flush(self) -> None:
+        try:
+            self.flush()
+        except Exception as exc:
+            logger.warning("Config registration flush failed: %s", exc)
+
+    def flush(self) -> None:
+        """POST pending declarations to ``/api/v1/configs/bulk``.
+
+        Per ADR-024 §2.9, bulk registration always lands rows as
+        ``managed=false`` and is plan-limit-exempt — failures here never
+        propagate to customer code. Drained entries are not requeued;
+        the SDK will re-observe on the next process start.
+        """
+        batch = self._buffer.drain()
+        body = _build_config_bulk_request(batch)
+        if body is None:
+            return
+        try:
+            response = bulk_register_configs.sync_detailed(client=self._http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    @property
+    def pending_count(self) -> int:
+        """Number of pending config declarations awaiting flush."""
+        return self._buffer.pending_count
+
+    # ------------------------------------------------------------------
+    # Live surface: install (gate) + transport / WebSocket helpers
+    # ------------------------------------------------------------------
+
+    def _require_installed(self) -> None:
+        if not self._installed:
+            raise NotInstalledError(_NOT_INSTALLED_MESSAGE)
+
+    def _ensure_ws(self) -> SharedWebSocket:
+        """Return the shared WebSocket — the parent's when wired, else our own."""
+        if self._parent is not None:
+            return self._parent._ensure_ws()
+        if self._ws_manager is None:
+            self._ws_manager = SharedWebSocket(
+                app_base_url=self._app_base_url,
+                api_key=self._standalone_api_key,
+                metrics=self._metrics,
+            )
+            self._ws_manager.start()
+            self._owns_ws = True
+        return self._ws_manager
+
+    def install(self) -> None:
+        """Open the live connection to the running Smpl Config service.
+
+        Flushes any buffered discovery declarations, fetches and resolves
+        every config for the configured environment into the local cache,
+        opens the shared WebSocket, and subscribes to ``config_changed`` /
+        ``config_deleted`` / ``configs_changed`` events.
+
+        Idempotent — safe to call multiple times. Required before any live
+        operation (:meth:`subscribe`, :meth:`bind`, :meth:`on_change`,
+        :meth:`refresh`); calling those first raises
+        :class:`NotInstalledError`.
+        """
+        if self._parent is not None:
+            self._parent._ensure_started()
+        if self._installed:
             return
 
         # Flush any buffered discovery declarations BEFORE the initial fetch,
         # so newly-discovered configs appear in the cache on first read.
         try:
-            self._manage.config.flush()
+            self.flush()
         except Exception as exc:
-            logger.warning("Pre-start config discovery flush failed: %s", exc)
+            logger.warning("Pre-install config discovery flush failed: %s", exc)
 
         # Fetch + resolve + cache + fire change listeners (against empty old_cache,
         # so any registered listeners see "initial" events).
         self._do_refresh("initial")
-        self._connected = True
+        self._installed = True
 
-        self._ws_manager = self._parent._ensure_ws()
+        self._ws_manager = self._ensure_ws()
         self._ws_manager.on("config_changed", self._handle_config_changed)
         self._ws_manager.on("config_deleted", self._handle_config_deleted)
         self._ws_manager.on("configs_changed", self._handle_configs_changed)
 
     def _fetch_all_configs(self) -> list[Config]:
-        """List configs directly from the API (no management indirection)."""
+        """List configs directly from the API for the runtime cache."""
 
         def fetch_page(page_number: int, page_size: int) -> list[Config]:
             try:
                 response = list_configs.sync_detailed(
-                    client=self._parent._http_client,
+                    client=self._http,
                     pagenumber=page_number,
                     pagesize=page_size,
                 )
             except Exception as exc:
-                _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
+                _maybe_reraise_network_error(exc, self._http._base_url)
                 raise
             _check_response_status(response.status_code, response.content)
             if response.parsed is None or not hasattr(response.parsed, "data"):
@@ -485,9 +874,9 @@ class ConfigClient:
     def _fetch_config(self, config_id: str) -> Config | None:
         """Fetch a single config from the API. Returns ``None`` on missing data."""
         try:
-            response = get_config.sync_detailed(config_id, client=self._parent._http_client)
+            response = get_config.sync_detailed(config_id, client=self._http)
         except Exception as exc:
-            _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
+            _maybe_reraise_network_error(exc, self._http._base_url)
             raise
         _check_response_status(response.status_code, response.content)
         if response.parsed is None or not hasattr(response.parsed, "data"):
@@ -495,7 +884,7 @@ class ConfigClient:
         return _resource_to_config(None, response.parsed.data)
 
     # ------------------------------------------------------------------
-    # Public API: bind, get
+    # Live surface: bind, subscribe
     # ------------------------------------------------------------------
 
     def bind(
@@ -530,6 +919,9 @@ class ConfigClient:
         Idempotent. Repeated calls with the same ``id`` return the
         originally-bound object; the new ``config`` argument is ignored.
 
+        Requires :meth:`install` first; raises :class:`NotInstalledError`
+        otherwise.
+
         Args:
             id: The config id to register under.
             config: A populated Pydantic ``BaseModel`` instance or a dict.
@@ -543,16 +935,60 @@ class ConfigClient:
             The same ``config`` object, registered and live.
 
         Raises:
+            NotInstalledError: If :meth:`install` has not been called.
             TypeError: If ``config`` is neither a ``BaseModel`` nor a ``dict``.
             ValueError: If ``parent`` is provided but was not previously
                 bound via :meth:`bind`.
         """
+        self._require_installed()
         if not isinstance(config, (BaseModel, dict)):
             raise TypeError(f"bind() requires a Pydantic BaseModel instance or dict; got {type(config).__name__}")
 
         if id in self._bindings:
             return self._bindings[id]  # type: ignore[return-value]
 
+        self._register_binding_declaration(id, config, parent)
+
+        # Register the binding BEFORE syncing so WebSocket dispatch finds it.
+        self._bindings[id] = config
+        self._sync_target_from_cache(config, id)
+        return config
+
+    def subscribe(self, id: str) -> LiveConfigProxy:
+        """Return a live, dict-like :class:`LiveConfigProxy` for a config id.
+
+        The proxy always reflects the latest resolved values; reads happen
+        through it (``proxy["key"]``, ``proxy.get("key", default)``).
+        Subscribing registers the config declaration for code-first
+        observability so the reference appears in the smplkit console.
+
+        Requires :meth:`install` first; raises :class:`NotInstalledError`
+        otherwise. Raises :class:`NotFoundError` if the config is unknown.
+        """
+        self._require_installed()
+        self._observe_config_declaration(id, parent=None, name=None, description=None)
+        if id not in self._config_cache:
+            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
+        metrics = self._metrics
+        if metrics is not None:
+            metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
+        return self._cached_proxy(id)
+
+    # ------------------------------------------------------------------
+    # Internal: binding helpers
+    # ------------------------------------------------------------------
+
+    def _register_binding_declaration(
+        self,
+        id: str,
+        config: BaseModel | dict[str, Any],
+        parent: BaseModel | dict[str, Any] | None,
+    ) -> str | None:
+        """Validate the parent, register the config + item declarations.
+
+        Shared by the sync and async ``bind`` paths. Returns the resolved
+        parent config id (or ``None``).
+        """
         parent_id: str | None = None
         if parent is not None:
             parent_id = self._config_id_for(parent)
@@ -588,80 +1024,7 @@ class ConfigClient:
 
         for item_key, item_type, value, description in items_iter:
             self._observe_item_declaration(id, item_key, item_type, value, description)
-
-        # Register the binding BEFORE start() so WebSocket dispatch (which can
-        # fire during the initial fetch) finds it.
-        self._bindings[id] = config
-
-        self.start()
-        self._sync_target_from_cache(config, id)
-        return config
-
-    @overload
-    def get(self, id: str) -> LiveConfigProxy: ...
-    @overload
-    def get(self, id: str, key: str) -> Any: ...
-    @overload
-    def get(self, id: str, key: str, *, default: Any) -> Any: ...
-    def get(
-        self,
-        id: str,
-        key: str | None = None,
-        *,
-        default: Any = _MISSING,
-    ) -> Any:
-        """Read a config (full) or a single value within a config.
-
-        Three forms dispatched by argument count:
-
-        - ``get(id)`` returns a :class:`LiveConfigProxy` — a live dict-like
-          view of the resolved values for ``id``. Raises
-          :class:`NotFoundError` if the config is missing. No registration.
-        - ``get(id, key)`` returns the resolved value of ``key`` within
-          ``id``. Raises :class:`NotFoundError` if the config is missing
-          and :class:`KeyError` if the key is missing. No registration.
-        - ``get(id, key, default=X)`` returns the resolved value, falling
-          back to ``X`` if either the config or the key is missing.
-          Never raises. **Registers** the config (if new) and the key
-          (with ``X`` as the default value) for code-first observability,
-          so the operator sees the reference in the smplkit console.
-
-        For typed access via a Pydantic schema, use :meth:`bind` instead.
-        """
-        self.start()
-
-        if key is None:
-            # Form 1: full-config lookup.
-            if id not in self._config_cache:
-                raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
-            metrics = self._metrics
-            if metrics is not None:
-                metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
-            return self._cached_proxy(id)
-
-        # Forms 2 and 3: single-value lookup.
-        has_default = default is not _MISSING
-        if has_default:
-            # Register the config + key so the reference shows up in the
-            # console even if it's never been declared via bind(). The
-            # buffer is idempotent at the (config_id, item_key) level.
-            self._observe_config_declaration(id, parent=None, name=None, description=None)
-            self._observe_item_declaration(id, key, _value_to_item_type(default), default, None)
-
-        if id not in self._config_cache:
-            if has_default:
-                return default
-            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
-        values = self._config_cache[id]
-        if key not in values:
-            if has_default:
-                return default
-            raise KeyError(f"Config item '{key}' not found in config '{id}'")
-        return values[key]
-
-    # ------------------------------------------------------------------
-    # Internal: binding helpers
-    # ------------------------------------------------------------------
+        return parent_id
 
     def _config_id_for(self, target: BaseModel | dict[str, Any]) -> str | None:
         """Return the config_id this target was bound under, or None."""
@@ -696,8 +1059,8 @@ class ConfigClient:
         name: str | None,
         description: str | None,
     ) -> None:
-        """Queue a config declaration with the management buffer."""
-        self._manage.config.register_config(
+        """Queue a config declaration with the owned discovery buffer."""
+        self.register_config(
             config_id,
             service=self._service,
             environment=self._environment,
@@ -714,26 +1077,29 @@ class ConfigClient:
         default: Any,
         description: str | None,
     ) -> None:
-        """Queue a config item declaration with the management buffer."""
-        self._manage.config.register_config_item(config_id, item_key, item_type, default, description)
+        """Queue a config item declaration with the owned discovery buffer."""
+        self.register_config_item(config_id, item_key, item_type, default, description)
 
     # ------------------------------------------------------------------
-    # Runtime: refresh / change listeners
+    # Live surface: refresh / change listeners
     # ------------------------------------------------------------------
 
     def refresh(self) -> None:
         """Re-fetch all configs and update resolved values.
 
-        Fires change listeners for any values that differ from the previous state.
+        Fires change listeners for any values that differ from the previous
+        state. Requires :meth:`install` first; raises
+        :class:`NotInstalledError` otherwise.
 
         Raises:
             ConnectionError: If the fetch fails.
         """
+        self._require_installed()
         self._do_refresh("manual")
 
     def _do_refresh(self, source: str) -> None:
         configs = self._fetch_all_configs()
-        environment = self._parent._environment
+        environment = self._environment
         new_cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
             chain = cfg._build_chain(configs)
@@ -754,7 +1120,11 @@ class ConfigClient:
         - ``@client.config.on_change`` — global listener (bare decorator).
         - ``@client.config.on_change("id")`` — config-scoped listener.
         - ``@client.config.on_change("id", item_key="field")`` — item-scoped.
+
+        Requires :meth:`install` first; raises :class:`NotInstalledError`
+        otherwise.
         """
+        self._require_installed()
         if callable(fn_or_id):
             self._listeners.append((fn_or_id, None, None))
             return fn_or_id
@@ -833,7 +1203,7 @@ class ConfigClient:
         values too — so whenever ``raw_cache`` is mutated (config added, updated,
         or deleted), every config gets re-resolved against the new snapshot.
         """
-        environment = self._parent._environment
+        environment = self._environment
         raw_list = list(raw_cache.values())
         new_cache: dict[str, dict[str, Any]] = {}
         for cfg_id, cfg in raw_cache.items():
@@ -879,59 +1249,316 @@ class ConfigClient:
         except Exception:
             ws_logger.error("Failed to refresh configs after WS event", exc_info=True)
 
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    def close(self) -> None:
+        """Release resources — only those this client owns.
+
+        Tears down the owned WebSocket (standalone install) and the owned
+        HTTP transport (standalone construction). A wired client borrows the
+        parent's transport and WebSocket and closes neither.
+        """
+        if self._owns_ws and self._ws_manager is not None:
+            self._ws_manager.stop()
+            self._ws_manager = None
+            self._owns_ws = False
+        if self._owns_transport:
+            client = self._http._client
+            if client is not None:
+                client.close()
+                self._http._client = None
+
+    def __enter__(self) -> ConfigClient:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
+
 
 class AsyncConfigClient:
-    """Asynchronous runtime client for Smpl Config.
+    """The Smpl Config client (async) — counterpart of :class:`ConfigClient`.
 
-    Obtained via ``AsyncSmplClient(...).config``. Mirrors
-    :class:`ConfigClient` with awaitable variants. CRUD lives on
-    ``client.manage`` (``mgmt.config.*``).
+    Reads, CRUD, and discovery flush perform their network round-trips with
+    ``await``. The live surface (``install`` / ``subscribe`` / ``bind`` /
+    ``on_change`` / ``refresh``) requires :meth:`install` first; calling it
+    earlier raises :class:`NotInstalledError`.
     """
 
     def __init__(
         self,
-        parent: AsyncSmplClient,
+        api_key: str | None = None,
         *,
-        manage: _AsyncManagementNamespace,
-        metrics: _AsyncMetricsReporter | None,
+        environment: str | None = None,
+        base_url: str | None = None,
+        profile: str | None = None,
+        base_domain: str | None = None,
+        scheme: str | None = None,
+        debug: bool | None = None,
+        extra_headers: dict[str, str] | None = None,
+        parent: AsyncSmplClient | None = None,
+        transport: _ConfigAuthClient | None = None,
+        metrics: _AsyncMetricsReporter | None = None,
     ) -> None:
         self._parent = parent
-        self._manage = manage
         self._metrics = metrics
-        self._service = parent._service
-        self._environment = parent._environment
+        self._environment = parent._environment if parent is not None else environment
+        self._service = parent._service if parent is not None else None
+        self._standalone_api_key: str | None = None
+        if transport is not None:
+            self._http = transport
+            self._app_base_url: str | None = None
+            self._owns_transport = False
+        else:
+            self._http, self._app_base_url = _config_transport(
+                api_key=api_key,
+                base_url=base_url,
+                profile=profile,
+                base_domain=base_domain,
+                scheme=scheme,
+                debug=debug,
+                extra_headers=extra_headers,
+            )
+            self._owns_transport = True
+            self._standalone_api_key = api_key if api_key is not None else self._http.token
+
+        self._buffer = _ConfigRegistrationBuffer()
+
         self._config_cache: dict[str, dict[str, Any]] = {}
         self._raw_config_cache: dict[str, Any] = {}
         self._proxies: dict[str, LiveConfigProxy] = {}
         self._bindings: dict[str, BaseModel] = {}
-        self._connected = False
+        self._installed = False
         self._cache_lock = threading.Lock()
         self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
         self._ws_manager: SharedWebSocket | None = None
+        self._owns_ws = False
 
-    async def start(self) -> None:
-        """Eagerly initialize the config subclient.
+    # ------------------------------------------------------------------
+    # Management surface: CRUD (works immediately, no install required)
+    # ------------------------------------------------------------------
 
-        Fetches all configs, resolves environment-scoped values into the local
-        cache, opens the shared WebSocket and subscribes to ``config_changed``
-        / ``config_deleted`` / ``configs_changed`` events.
+    def new(
+        self,
+        id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        parent: str | AsyncConfig | None = None,
+    ) -> AsyncConfig:
+        """Return a new unsaved :class:`AsyncConfig`. Call ``await save()`` to persist.
 
-        Idempotent — safe to call multiple times.  Called automatically on
-        first ``config.get()`` or ``config.bind()`` if not invoked manually.
+        ``parent`` accepts either a config id (string) or an existing
+        :class:`AsyncConfig` instance — passing the instance lets you skip
+        naming the id explicitly when you already have the parent in scope.
         """
-        self._parent._ensure_started()
-        if self._connected:
+        return AsyncConfig(
+            self,
+            id=id,
+            name=name or key_to_display_name(id),
+            description=description,
+            parent=_resolve_parent_id(parent),
+        )
+
+    async def get(self, id: str) -> AsyncConfig:
+        """Fetch the editable :class:`AsyncConfig` resource by id."""
+        try:
+            response = await get_config.asyncio_detailed(id, client=self._http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
+        return _resource_to_async_config(self, response.parsed.data)
+
+    async def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[AsyncConfig]:
+        """List configs for the authenticated account (async)."""
+        kwargs = _pagination_kwargs(page_number, page_size)
+        try:
+            response = await list_configs.asyncio_detailed(client=self._http, **kwargs)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [_resource_to_async_config(self, r) for r in response.parsed.data]
+
+    async def delete(self, id: str) -> None:
+        """Delete a config by id (async)."""
+        try:
+            response = await delete_config.asyncio_detailed(id, client=self._http)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    async def _create_config(self, config: AsyncConfig) -> AsyncConfig:
+        body = _build_config_request_body(
+            config_id=config.id,
+            name=config.name,
+            description=config.description,
+            parent=config.parent,
+            items=config._items_raw,
+            environments=config.environments,
+        )
+        try:
+            response = await create_config.asyncio_detailed(client=self._http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return _resource_to_async_config(self, response.parsed.data)
+
+    async def _update_config_from_model(self, config: AsyncConfig) -> AsyncConfig:
+        body = _build_config_request_body(
+            config_id=config.id,
+            name=config.name,
+            description=config.description,
+            parent=config.parent,
+            items=config._items_raw,
+            environments=config.environments,
+        )
+        try:
+            response = await update_config.asyncio_detailed(config.id, client=self._http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return _resource_to_async_config(self, response.parsed.data)
+
+    # ------------------------------------------------------------------
+    # Management surface: discovery buffer (owned directly)
+    # ------------------------------------------------------------------
+
+    def register_config(
+        self,
+        config_id: str,
+        *,
+        service: str | None,
+        environment: str | None,
+        parent: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> None:
+        """Queue a configuration declaration for bulk-discovery upload."""
+        self._buffer.declare(
+            config_id,
+            service=service,
+            environment=environment,
+            parent=parent,
+            name=name,
+            description=description,
+        )
+        if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush_sync, daemon=True).start()
+
+    def register_config_item(
+        self,
+        config_id: str,
+        item_key: str,
+        item_type: str,
+        default: Any,
+        description: str | None = None,
+    ) -> None:
+        """Queue a config item declaration. ``register_config`` must run first."""
+        self._buffer.add_item(config_id, item_key, item_type, default, description)
+        if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush_sync, daemon=True).start()
+
+    def _threshold_flush_sync(self) -> None:
+        try:
+            self.flush_sync()
+        except Exception as exc:
+            logger.warning("Config registration flush failed: %s", exc)
+
+    async def flush(self) -> None:
+        """POST pending declarations to ``/api/v1/configs/bulk`` (async)."""
+        batch = self._buffer.drain()
+        body = _build_config_bulk_request(batch)
+        if body is None:
+            return
+        try:
+            response = await bulk_register_configs.asyncio_detailed(client=self._http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    def flush_sync(self) -> None:
+        """Synchronous flush from a background thread (final flush, threshold flush)."""
+        batch = self._buffer.drain()
+        body = _build_config_bulk_request(batch)
+        if body is None:
+            return
+        try:
+            response = bulk_register_configs.sync_detailed(client=self._http, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._http._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    @property
+    def pending_count(self) -> int:
+        """Number of pending config declarations awaiting flush."""
+        return self._buffer.pending_count
+
+    # ------------------------------------------------------------------
+    # Live surface: install (gate) + transport / WebSocket helpers
+    # ------------------------------------------------------------------
+
+    def _require_installed(self) -> None:
+        if not self._installed:
+            raise NotInstalledError(_NOT_INSTALLED_MESSAGE)
+
+    def _ensure_ws(self) -> SharedWebSocket:
+        """Return the shared WebSocket — the parent's when wired, else our own."""
+        if self._parent is not None:
+            return self._parent._ensure_ws()
+        if self._ws_manager is None:
+            self._ws_manager = SharedWebSocket(
+                app_base_url=self._app_base_url,
+                api_key=self._standalone_api_key,
+                metrics=self._metrics,
+            )
+            self._ws_manager.start()
+            self._owns_ws = True
+        return self._ws_manager
+
+    async def install(self) -> None:
+        """Open the live connection to the running Smpl Config service (async).
+
+        See :meth:`ConfigClient.install` for the full contract. Idempotent.
+        """
+        if self._parent is not None:
+            self._parent._ensure_started()
+        if self._installed:
             return
 
         try:
-            await self._manage.config.flush()
+            await self.flush()
         except Exception as exc:
-            logger.warning("Pre-start config discovery flush failed: %s", exc)
+            logger.warning("Pre-install config discovery flush failed: %s", exc)
 
         await self._do_refresh("initial")
-        self._connected = True
+        self._installed = True
 
-        self._ws_manager = self._parent._ensure_ws()
+        self._ws_manager = self._ensure_ws()
         self._ws_manager.on("config_changed", self._handle_config_changed)
         self._ws_manager.on("config_deleted", self._handle_config_deleted)
         self._ws_manager.on("configs_changed", self._handle_configs_changed)
@@ -940,12 +1567,12 @@ class AsyncConfigClient:
         async def fetch_page(page_number: int, page_size: int) -> list[AsyncConfig]:
             try:
                 response = await list_configs.asyncio_detailed(
-                    client=self._parent._http_client,
+                    client=self._http,
                     pagenumber=page_number,
                     pagesize=page_size,
                 )
             except Exception as exc:
-                _maybe_reraise_network_error(exc, self._parent._http_client._base_url)
+                _maybe_reraise_network_error(exc, self._http._base_url)
                 raise
             _check_response_status(response.status_code, response.content)
             if response.parsed is None or not hasattr(response.parsed, "data"):
@@ -955,7 +1582,7 @@ class AsyncConfigClient:
         return await paginate_async(fetch_page)
 
     # ------------------------------------------------------------------
-    # Public API: bind, get
+    # Live surface: bind, subscribe
     # ------------------------------------------------------------------
 
     async def bind(
@@ -967,14 +1594,47 @@ class AsyncConfigClient:
     ) -> _T:
         """Bind a Pydantic instance or dict to a config id; return it live.
 
-        See :meth:`ConfigClient.bind` for the full contract.
+        See :meth:`ConfigClient.bind` for the full contract. Requires
+        :meth:`install` first; raises :class:`NotInstalledError` otherwise.
         """
+        self._require_installed()
         if not isinstance(config, (BaseModel, dict)):
             raise TypeError(f"bind() requires a Pydantic BaseModel instance or dict; got {type(config).__name__}")
 
         if id in self._bindings:
             return self._bindings[id]  # type: ignore[return-value]
 
+        self._register_binding_declaration(id, config, parent)
+
+        self._bindings[id] = config
+        self._sync_target_from_cache(config, id)
+        return config
+
+    def subscribe(self, id: str) -> LiveConfigProxy:
+        """Return a live :class:`LiveConfigProxy` for a config id.
+
+        See :meth:`ConfigClient.subscribe` for the full contract. Requires
+        :meth:`install` first; raises :class:`NotInstalledError` otherwise.
+        """
+        self._require_installed()
+        self._observe_config_declaration(id, parent=None, name=None, description=None)
+        if id not in self._config_cache:
+            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
+        metrics = self._metrics
+        if metrics is not None:
+            metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
+        return self._cached_proxy(id)
+
+    # ------------------------------------------------------------------
+    # Internal: binding helpers
+    # ------------------------------------------------------------------
+
+    def _register_binding_declaration(
+        self,
+        id: str,
+        config: BaseModel | dict[str, Any],
+        parent: BaseModel | dict[str, Any] | None,
+    ) -> str | None:
         parent_id: str | None = None
         if parent is not None:
             parent_id = self._config_id_for(parent)
@@ -1009,59 +1669,7 @@ class AsyncConfigClient:
 
         for item_key, item_type, value, description in items_iter:
             self._observe_item_declaration(id, item_key, item_type, value, description)
-
-        self._bindings[id] = config
-
-        await self.start()
-        self._sync_target_from_cache(config, id)
-        return config
-
-    @overload
-    async def get(self, id: str) -> LiveConfigProxy: ...
-    @overload
-    async def get(self, id: str, key: str) -> Any: ...
-    @overload
-    async def get(self, id: str, key: str, *, default: Any) -> Any: ...
-    async def get(
-        self,
-        id: str,
-        key: str | None = None,
-        *,
-        default: Any = _MISSING,
-    ) -> Any:
-        """Read a config (full) or a single value within a config.
-
-        See :meth:`ConfigClient.get` for the full contract.
-        """
-        await self.start()
-
-        if key is None:
-            if id not in self._config_cache:
-                raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
-            metrics = self._metrics
-            if metrics is not None:
-                metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
-            return self._cached_proxy(id)
-
-        has_default = default is not _MISSING
-        if has_default:
-            self._observe_config_declaration(id, parent=None, name=None, description=None)
-            self._observe_item_declaration(id, key, _value_to_item_type(default), default, None)
-
-        if id not in self._config_cache:
-            if has_default:
-                return default
-            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
-        values = self._config_cache[id]
-        if key not in values:
-            if has_default:
-                return default
-            raise KeyError(f"Config item '{key}' not found in config '{id}'")
-        return values[key]
-
-    # ------------------------------------------------------------------
-    # Internal: binding helpers
-    # ------------------------------------------------------------------
+        return parent_id
 
     def _config_id_for(self, target: BaseModel | dict[str, Any]) -> str | None:
         for cid, bound in self._bindings.items():
@@ -1089,7 +1697,7 @@ class AsyncConfigClient:
         name: str | None,
         description: str | None,
     ) -> None:
-        self._manage.config.register_config(
+        self.register_config(
             config_id,
             service=self._service,
             environment=self._environment,
@@ -1106,25 +1714,27 @@ class AsyncConfigClient:
         default: Any,
         description: str | None,
     ) -> None:
-        self._manage.config.register_config_item(config_id, item_key, item_type, default, description)
+        self.register_config_item(config_id, item_key, item_type, default, description)
 
     # ------------------------------------------------------------------
-    # Runtime: refresh / change listeners
+    # Live surface: refresh / change listeners
     # ------------------------------------------------------------------
 
     async def refresh(self) -> None:
         """Re-fetch all configs and update resolved values.
 
-        Fires change listeners for any values that differ from the previous state.
+        See :meth:`ConfigClient.refresh`. Requires :meth:`install` first;
+        raises :class:`NotInstalledError` otherwise.
 
         Raises:
             ConnectionError: If the fetch fails.
         """
+        self._require_installed()
         await self._do_refresh("manual")
 
     async def _do_refresh(self, source: str) -> None:
         configs = await self._fetch_all_configs_async()
-        environment = self._parent._environment
+        environment = self._environment
         new_cache: dict[str, dict[str, Any]] = {}
         for cfg in configs:
             chain = await cfg._build_chain(configs)
@@ -1140,8 +1750,10 @@ class AsyncConfigClient:
     ) -> Any:
         """Register a change listener.
 
-        See :meth:`ConfigClient.on_change` for the full contract.
+        See :meth:`ConfigClient.on_change` for the full contract. Requires
+        :meth:`install` first; raises :class:`NotInstalledError` otherwise.
         """
+        self._require_installed()
         if callable(fn_or_id):
             self._listeners.append((fn_or_id, None, None))
             return fn_or_id
@@ -1221,7 +1833,7 @@ class AsyncConfigClient:
         Sync-shaped because the WS dispatch thread is sync; ``_build_chain_sync``
         avoids any awaits and works against the already-loaded models.
         """
-        environment = self._parent._environment
+        environment = self._environment
         new_cache: dict[str, dict[str, Any]] = {}
         for cfg_id, cfg in raw_cache.items():
             chain = _build_chain_sync(cfg, raw_cache)
@@ -1240,7 +1852,7 @@ class AsyncConfigClient:
         with self._cache_lock:
             raw_cache = dict(self._raw_config_cache)
         try:
-            response = get_config.sync_detailed(key, client=self._parent._http_client)
+            response = get_config.sync_detailed(key, client=self._http)
             _check_response_status(response.status_code, response.content)
             if response.parsed is None or not hasattr(response.parsed, "data"):
                 return
@@ -1268,7 +1880,7 @@ class AsyncConfigClient:
             page = 1
             while True:
                 response = list_configs.sync_detailed(
-                    client=self._parent._http_client,
+                    client=self._http,
                     pagenumber=page,
                     pagesize=PAGE_SIZE,
                 )
@@ -1284,6 +1896,33 @@ class AsyncConfigClient:
             self._rebuild_resolved_cache(raw_cache, source="websocket")
         except Exception:
             ws_logger.error("Failed to refresh configs after WS event", exc_info=True)
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    async def close(self) -> None:
+        """Release async resources — only those this client owns.
+
+        Tears down the owned WebSocket (standalone install) and the owned
+        async HTTP transport (standalone construction). A wired client
+        borrows the parent's transport and WebSocket and closes neither.
+        """
+        if self._owns_ws and self._ws_manager is not None:
+            self._ws_manager.stop()
+            self._ws_manager = None
+            self._owns_ws = False
+        if self._owns_transport:
+            ac = self._http._async_client
+            if ac is not None:
+                await ac.aclose()
+                self._http._async_client = None
+
+    async def __aenter__(self) -> AsyncConfigClient:
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        await self.close()
 
 
 def _exc_url(exc: Exception) -> str | None:
@@ -1303,8 +1942,6 @@ def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) ->
             does not carry request context (e.g. DNS failures before a request
             object is attached by httpx).
     """
-    import httpx
-
     if isinstance(exc, httpx.TimeoutException):
         url = _exc_url(exc) or base_url
         msg = f"Request timed out connecting to {url}" if url else f"Request timed out: {exc}"

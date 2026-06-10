@@ -8,11 +8,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from smplkit.config.client import AsyncConfigClient, ConfigClient
-    from smplkit.management._client import (
-        AsyncConfigClient as AsyncMgmtConfigClient,
-        ConfigClient as MgmtConfigClient,
-    )
+    from smplkit.config._client import AsyncConfigClient, ConfigClient
 
 logger = logging.getLogger("smplkit")
 
@@ -145,7 +141,7 @@ class Config:
 
     def __init__(
         self,
-        client: MgmtConfigClient | ConfigClient | None = None,
+        client: ConfigClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -346,7 +342,7 @@ class AsyncConfig:
 
     def __init__(
         self,
-        client: AsyncMgmtConfigClient | AsyncConfigClient | None = None,
+        client: AsyncConfigClient | None = None,
         *,
         id: str | None = None,
         name: str,

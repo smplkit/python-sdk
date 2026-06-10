@@ -425,7 +425,7 @@ def _make_error_response(status_code: int, errors_body: dict) -> MagicMock:
 
 
 class TestConfigClientErrors:
-    @patch("smplkit.config.client.update_config.sync_detailed")
+    @patch("smplkit.config._client.update_config.sync_detailed")
     def test_update_config_400_surfaces_detail(self, mock_update):
         mock_update.return_value = _make_error_response(
             400,
@@ -446,9 +446,9 @@ class TestConfigClientErrors:
 
         from smplkit import SmplClient
 
-        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
+        config = SmplClient(api_key="sk_test", base_domain="example.test").config
         cfg = Config(
-            mgmt.config,
+            config,
             id="test",
             name="test",
             created_at=datetime.datetime(2025, 1, 1),
@@ -461,7 +461,7 @@ class TestConfigClientErrors:
         assert len(exc.errors) == 1
         assert exc.errors[0].source == {"pointer": "/data/id"}
 
-    @patch("smplkit.config.client.create_config.sync_detailed")
+    @patch("smplkit.config._client.create_config.sync_detailed")
     def test_create_config_multi_error(self, mock_create):
         mock_create.return_value = _make_error_response(
             400,
@@ -485,15 +485,15 @@ class TestConfigClientErrors:
 
         from smplkit import SmplClient
 
-        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
-        cfg = mgmt.config.new("test-key", name="test")
+        config = SmplClient(api_key="sk_test", base_domain="example.test").config
+        cfg = config.new("test-key", name="test")
         with pytest.raises(ValidationError) as exc_info:
             cfg.save()
         exc = exc_info.value
         assert len(exc.errors) == 2
         assert "(and 1 more error)" in str(exc)
 
-    @patch("smplkit.config.client.get_config.sync_detailed")
+    @patch("smplkit.config._client.get_config.sync_detailed")
     def test_get_config_404_surfaces_detail(self, mock_get):
         mock_get.return_value = _make_error_response(
             404,
@@ -510,14 +510,14 @@ class TestConfigClientErrors:
 
         from smplkit import SmplClient
 
-        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
+        config = SmplClient(api_key="sk_test", base_domain="example.test").config
         with pytest.raises(NotFoundError) as exc_info:
-            mgmt.config.get("abc")
+            config.get("abc")
         exc = exc_info.value
         assert exc.status_code == 404
         assert "Config 'abc' does not exist." in str(exc)
 
-    @patch("smplkit.config.client.delete_config.sync_detailed")
+    @patch("smplkit.config._client.delete_config.sync_detailed")
     def test_delete_config_409_surfaces_detail(self, mock_delete):
         mock_delete.return_value = _make_error_response(
             409,
@@ -534,14 +534,14 @@ class TestConfigClientErrors:
 
         from smplkit import SmplClient
 
-        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
+        config = SmplClient(api_key="sk_test", base_domain="example.test").config
         with pytest.raises(ConflictError) as exc_info:
-            mgmt.config.delete("test-config")
+            config.delete("test-config")
         exc = exc_info.value
         assert exc.status_code == 409
         assert "Config has children" in str(exc)
 
-    @patch("smplkit.config.client.create_config.sync_detailed")
+    @patch("smplkit.config._client.create_config.sync_detailed")
     def test_non_json_error_response(self, mock_create):
         resp = MagicMock()
         resp.status_code = HTTPStatus(502)
@@ -551,8 +551,8 @@ class TestConfigClientErrors:
 
         from smplkit import SmplClient
 
-        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
-        cfg = mgmt.config.new("test-key", name="test")
+        config = SmplClient(api_key="sk_test", base_domain="example.test").config
+        cfg = config.new("test-key", name="test")
         with pytest.raises(Error) as exc_info:
             cfg.save()
         exc = exc_info.value

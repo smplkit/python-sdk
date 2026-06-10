@@ -21,7 +21,7 @@ from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
 from smplkit._ws import SharedWebSocket
 from smplkit.audit._client import AsyncAuditClient, AuditClient
 from smplkit.jobs._client import AsyncJobsClient, JobsClient
-from smplkit.config.client import AsyncConfigClient, ConfigClient
+from smplkit.config._client import AsyncConfigClient, ConfigClient
 from smplkit.flags.client import AsyncFlagsClient, FlagsClient
 from smplkit.logging.client import AsyncLoggingClient, LoggingClient
 from smplkit.management._client import _AsyncManagementNamespace, _ManagementNamespace
@@ -155,7 +155,9 @@ class SmplClient:
             self._metrics = None
 
         self._ws_manager: SharedWebSocket | None = None
-        self.config = ConfigClient(self, manage=self.manage, metrics=self._metrics)
+        # Config's full surface on one client; wired into this parent so it
+        # borrows the shared config transport and WebSocket.
+        self.config = ConfigClient(parent=self, transport=self.manage._config_http, metrics=self._metrics)
         self.flags = FlagsClient(
             self,
             manage=self.manage,
@@ -223,7 +225,7 @@ class SmplClient:
                 self.manage.contexts.flush()
                 self.manage.flags.flush()
                 self.manage.loggers.flush()
-                self.manage.config.flush()
+                self.config.flush()
             except Exception as exc:
                 logger.warning("Periodic registration flush failed: %s", exc)
                 debug("registration", traceback.format_exc().strip())
@@ -240,7 +242,7 @@ class SmplClient:
             self.manage.contexts.flush,
             self.manage.flags.flush,
             self.manage.loggers.flush,
-            self.manage.config.flush,
+            self.config.flush,
         ):
             try:
                 fn()
@@ -300,7 +302,7 @@ class SmplClient:
             TimeoutError: If the WebSocket fails to connect within *timeout* seconds.
         """
         self.flags.start()
-        self.config.start()
+        self.config.install()
         ws = self._ensure_ws()
         deadline = time.monotonic() + timeout
         while ws.connection_status != "connected":
@@ -452,7 +454,9 @@ class AsyncSmplClient:
             self._metrics = None
 
         self._ws_manager: SharedWebSocket | None = None
-        self.config = AsyncConfigClient(self, manage=self.manage, metrics=self._metrics)
+        # Config's full surface on one client; wired into this parent so it
+        # borrows the shared config transport and WebSocket.
+        self.config = AsyncConfigClient(parent=self, transport=self.manage._config_http, metrics=self._metrics)
         self.flags = AsyncFlagsClient(
             self,
             manage=self.manage,
@@ -514,7 +518,7 @@ class AsyncSmplClient:
                 self.manage.contexts.flush_sync,
                 self.manage.flags.flush_sync,
                 self.manage.loggers.flush_sync,
-                self.manage.config.flush_sync,
+                self.config.flush_sync,
             ):
                 try:
                     fn()
@@ -534,7 +538,7 @@ class AsyncSmplClient:
             self.manage.contexts.flush,
             self.manage.flags.flush,
             self.manage.loggers.flush,
-            self.manage.config.flush,
+            self.config.flush,
         ):
             try:
                 await fn()
@@ -608,7 +612,7 @@ class AsyncSmplClient:
             TimeoutError: If the WebSocket fails to connect within *timeout* seconds.
         """
         await self.flags.start()
-        await self.config.start()
+        await self.config.install()
         ws = self._ensure_ws()
         deadline = time.monotonic() + timeout
         while ws.connection_status != "connected":
