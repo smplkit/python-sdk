@@ -24,14 +24,12 @@ from setup.flags_management_setup import (
 
 async def main() -> None:
 
-    # One client (use SmplClient for synchronous use). Management/CRUD lives on
-    # the ``client.manage`` namespace.
+    # One client (use SmplClient for synchronous use).
     async with AsyncSmplClient() as client:
-        manage = client.manage
-        await setup_management_showcase(manage)
+        await setup_management_showcase(client)
 
         # create a boolean flag
-        checkout_flag = manage.flags.new_boolean_flag(
+        checkout_flag = client.flags.new_boolean_flag(
             "checkout-v2",
             default=False,
             description="Controls rollout of the new checkout experience.",
@@ -40,7 +38,7 @@ async def main() -> None:
         print(f"Created flag: {checkout_flag.id}")
 
         # create a string flag (constrained)
-        banner_flag = manage.flags.new_string_flag(
+        banner_flag = client.flags.new_string_flag(
             "banner-color",
             default="red",
             name="Banner Color",
@@ -55,7 +53,7 @@ async def main() -> None:
         print(f"Created flag: {banner_flag.id}")
 
         # create a numeric flag (unconstrained)
-        retry_flag = manage.flags.new_number_flag(
+        retry_flag = client.flags.new_number_flag(
             "max-retries",
             default=3,
             description="Maximum number of API retries before failing.",
@@ -64,7 +62,7 @@ async def main() -> None:
         print(f"Created flag: {retry_flag.id}")
 
         # create a JSON flag (constrained)
-        theme_flag = manage.flags.new_json_flag(
+        theme_flag = client.flags.new_json_flag(
             "ui-theme",
             default={"mode": "light", "accent": "#0066cc"},
             description="Controls the UI theme configuration.",
@@ -107,7 +105,7 @@ async def main() -> None:
         print(f"Updated flag: {checkout_flag.id}")
 
         # list flags
-        flags = await manage.flags.list()
+        flags = await client.flags.list()
         print(f"Total flags: {len(flags)}")
         for f in flags:
             envs = list(f.environments.keys()) if f.environments else []
@@ -117,7 +115,7 @@ async def main() -> None:
             )
 
         # get a flag
-        fetched = await manage.flags.get("checkout-v2")
+        fetched = await client.flags.get("checkout-v2")
         print(f"\nFetched by id: {fetched.id}")
         prod_rules = len(fetched.environments["production"].rules)
         prod_enabled = fetched.environments["production"].enabled
@@ -147,12 +145,12 @@ async def main() -> None:
         print(f"Updated flag: {banner_flag.id}'")
 
         # delete flags
-        await manage.flags.delete("checkout-v2")
+        await client.flags.delete("checkout-v2")
         await banner_flag.delete()
         print("Deleted flags")
 
         # cleanup
-        await cleanup_management_showcase(manage)
+        await cleanup_management_showcase(client)
         print("Done!")
 
 

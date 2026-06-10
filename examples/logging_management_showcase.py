@@ -24,27 +24,25 @@ from setup.logging_management_setup import (
 
 async def main() -> None:
 
-    # One client (use SmplClient for synchronous use). Management/CRUD lives on
-    # the ``client.manage`` namespace.
+    # One client (use SmplClient for synchronous use).
     async with AsyncSmplClient() as client:
-        manage = client.manage
-        await setup_management_showcase(manage)
+        await setup_management_showcase(client)
 
         # create a parent logger with a default level
-        root = manage.loggers.new("showcase")
+        root = client.logging.loggers.new("showcase")
         root.set_level(LogLevel.INFO)
         await root.save()
         print(f"Created: {root.id} (level={root.level})")
         assert root.level == LogLevel.INFO
 
         # child logger with no level (inherits from parent)
-        db = manage.loggers.new("showcase.db")
+        db = client.logging.loggers.new("showcase.db")
         await db.save()
         print(f"Created: {db.id} (inherits)")
         assert db.level is None
 
         # child logger with explicit level (overrides parent)
-        payments = manage.loggers.new("showcase.payments")
+        payments = client.logging.loggers.new("showcase.payments")
         payments.set_level(LogLevel.WARN)
         await payments.save()
         print(f"Created: {payments.id} (level={payments.level})")
@@ -63,10 +61,10 @@ async def main() -> None:
         assert "production" not in root.environments
 
         # fetch a logger by id
-        fetched = await manage.loggers.get("showcase")
+        fetched = await client.logging.loggers.get("showcase")
         assert fetched.level == LogLevel.INFO
 
-        await cleanup_management_showcase(manage)
+        await cleanup_management_showcase(client)
         print("Done!")
 
 

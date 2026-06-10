@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from smplkit import (
+    AsyncSmplClient,
     FlagValue,
     Op,
     Rule,
@@ -12,10 +13,10 @@ from smplkit import (
 _DEMO_FLAG_IDS = ["checkout-v2", "banner-color", "max-retries"]
 
 
-async def setup_runtime_showcase(manage) -> None:
-    await cleanup_runtime_showcase(manage)
+async def setup_runtime_showcase(client: AsyncSmplClient) -> None:
+    await cleanup_runtime_showcase(client)
 
-    checkout = manage.flags.new_boolean_flag(
+    checkout = client.flags.new_boolean_flag(
         "checkout-v2",
         default=False,
         description="Controls rollout of the new checkout experience.",
@@ -34,7 +35,7 @@ async def setup_runtime_showcase(manage) -> None:
     )
     await checkout.save()
 
-    banner = manage.flags.new_string_flag(
+    banner = client.flags.new_string_flag(
         "banner-color",
         default="red",
         name="Banner Color",
@@ -58,7 +59,7 @@ async def setup_runtime_showcase(manage) -> None:
     )
     await banner.save()
 
-    retries = manage.flags.new_number_flag(
+    retries = client.flags.new_number_flag(
         "max-retries",
         default=3,
         description="Maximum number of API retries before failing.",
@@ -72,9 +73,9 @@ async def setup_runtime_showcase(manage) -> None:
     await retries.save()
 
 
-async def cleanup_runtime_showcase(manage) -> None:
+async def cleanup_runtime_showcase(client: AsyncSmplClient) -> None:
     for flag_id in _DEMO_FLAG_IDS:
         try:
-            await manage.flags.delete(flag_id)
+            await client.flags.delete(flag_id)
         except NotFoundError:
             pass

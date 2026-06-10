@@ -19,11 +19,12 @@ Runnable examples demonstrating the [smplkit Python SDK](https://github.com/smpl
 
 ## Structure
 
-There is **one** SDK client — `SmplClient` (and `AsyncSmplClient`). Management/CRUD
-lives on its `client.manage` namespace; runtime instrumentation is `client.flags`,
-`client.config`, `client.logging`; and `client.audit` / `client.jobs` are the
-audit and jobs surfaces. Each product can also be used via a standalone client
-(`AuditClient`, `JobsClient`).
+There is **one** client per product, reached from `SmplClient` (and
+`AsyncSmplClient`): `client.config`, `client.flags`, `client.logging`,
+`client.audit`, and `client.jobs`. Management/CRUD lives directly on each
+product client — `client.config.new/get/list/delete`, the `client.flags.new_*`
+builders, and `client.logging.loggers` / `client.logging.log_groups`. Each
+product can also be used via a standalone client (`AuditClient`, `JobsClient`).
 
 Config/Flags/Logging keep a **management** + **runtime** showcase pair (the two
 sides — CRUD vs. evaluation — are genuinely different). Audit and Jobs have **one**
@@ -37,15 +38,16 @@ showcase each — they have no runtime/management split (one client, full surfac
 | **Audit** | `audit_showcase.py` — single; events, discovery, categories, and forwarders | | _(none)_ |
 | **Jobs** | `jobs_showcase.py` — single; job CRUD, runs, usage | | _(none)_ |
 
-**Management showcases** demonstrate the programmatic CRUD API via `client.manage.*`:
-creating resources with `new*()` + `save()`, fetching with `get(id)`, listing,
-mutating, and deleting. No `connect()` or `start()` needed — management methods are
-stateless HTTP calls.
+**Management showcases** demonstrate the programmatic CRUD API directly on the
+product client: creating resources with `new*()` + `save()`, fetching with
+`get(id)`, listing, mutating, and deleting. No `install()` needed — management
+methods are stateless HTTP calls.
 
-**Runtime showcases** demonstrate the developer experience: lazy initialization
-(Flags/Config) or explicit `start()` (Logging), local evaluation, live updates via
-WebSocket, and change listeners. Each runtime showcase imports its setup helper to
-create server-side state, then cleans up after itself.
+**Runtime showcases** demonstrate the developer experience: a per-product
+`install()` (`client.config.install()` / `client.flags.install()` /
+`client.logging.install()`), local evaluation, live updates via WebSocket, and
+change listeners. Each runtime showcase imports its setup helper to create
+server-side state, then cleans up after itself.
 
 ## Running
 
@@ -54,7 +56,7 @@ create server-side state, then cleans up after itself.
 python examples/audit_showcase.py
 python examples/jobs_showcase.py
 
-# Management / CRUD (via client.manage)
+# Management / CRUD (directly on client.config / client.flags / client.logging)
 python examples/flags_management_showcase.py
 python examples/config_management_showcase.py
 python examples/logging_management_showcase.py

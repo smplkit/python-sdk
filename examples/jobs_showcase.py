@@ -15,8 +15,7 @@ Usage::
 import asyncio
 import uuid
 
-from smplkit import AsyncJobsClient
-from smplkit._errors import NotFoundError
+from smplkit import AsyncJobsClient, NotFoundError
 from smplkit.jobs import HttpConfig
 
 

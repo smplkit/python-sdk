@@ -24,14 +24,12 @@ from setup.config_management_setup import (
 
 async def main() -> None:
 
-    # One client (use SmplClient for synchronous use). Management/CRUD lives on
-    # the ``client.manage`` namespace.
+    # One client (use SmplClient for synchronous use).
     async with AsyncSmplClient() as client:
-        manage = client.manage
-        await setup_management_showcase(manage)
+        await setup_management_showcase(client)
 
         # create a "parent" configuration that all other configs inherit from
-        shared = manage.config.new(
+        shared = client.config.new(
             "showcase-common",
             name="Showcase Common",
             description="Showcase-only shared configuration.",
@@ -49,7 +47,7 @@ async def main() -> None:
         print(f"Created config: {shared.id}")
 
         # create a config (inherits from showcase-common)
-        user_service = manage.config.new(
+        user_service = client.config.new(
             "showcase-user-service",
             name="Showcase User Service",
             description="Configuration for the user microservice.",
@@ -86,7 +84,7 @@ async def main() -> None:
         print(f"Updated config: {user_service.id}")
 
         # list configs
-        configs = await manage.config.list()
+        configs = await client.config.list()
         for cfg in configs:
             parent_info = (
                 f" (parent: {cfg.parent})" if cfg.parent else " (root)"
@@ -94,7 +92,7 @@ async def main() -> None:
             print(f"  {cfg.id}{parent_info}")
 
         # get a config
-        fetched = await manage.config.get("showcase-user-service")
+        fetched = await client.config.get("showcase-user-service")
         print(f"Fetched: id={fetched.id}, name={fetched.name}")
         print(f"  description={fetched.description}")
         print(f"  parent={fetched.parent or '(none)'}")
@@ -106,7 +104,7 @@ async def main() -> None:
         print("Deleted configs")
 
         # cleanup
-        await cleanup_management_showcase(manage)
+        await cleanup_management_showcase(client)
         print("Done!")
 
 

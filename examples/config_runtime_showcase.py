@@ -59,7 +59,8 @@ async def main() -> None:
     async with AsyncSmplClient(
         environment="production", service="showcase-billing"
     ) as client:
-        await cleanup_runtime_showcase(client.manage)
+        await cleanup_runtime_showcase(client)
+        await client.config.install()
 
         # bind Pydantic models
         common = await client.config.bind("showcase-common", Common())
@@ -84,7 +85,7 @@ async def main() -> None:
             )
 
         # simulate someone making a change in smplkit console
-        await simulate_admin_override(client.manage)
+        await simulate_admin_override(client)
         await asyncio.sleep(0.4)
 
         # observe changes are automatically reflected in bound models
@@ -109,27 +110,27 @@ async def main() -> None:
         assert db["primary"]["host"] == "db.acme.example"
         assert db["pool_size"] == 10
 
-        # or get a config by ID (raises NotFoundError if not found; pass a
-        # default if you want a fallback)
-        common_view = await client.config.get("showcase-common")
+        await client.config.flush()
+        await client.config.refresh()
+
+        # or read live values via subscribe(id)
+        common_view = client.config.subscribe("showcase-common")
         print("showcase-common (via get):")
         for k, v in common_view.items():
             print(f"    {k} = {v}")
         assert common_view["app.name"] == "Acme SaaS"
 
         # or skip the model/dict and just fetch specific keys directly
-        slow_query_ms = await client.config.get(
-            "showcase-database",
-            "slow_query_threshold_ms",
-            default=500,
+        slow_query_ms = client.config.subscribe("showcase-database").get(
+            "slow_query_threshold_ms", 500
         )
         print(
             f"showcase-database.slow_query_threshold_ms = {slow_query_ms}  "
-            f"# default used; now registered for visibility"
+            f"# default used (key absent)"
         )
         assert slow_query_ms == 500
 
-        await cleanup_runtime_showcase(client.manage)
+        await cleanup_runtime_showcase(client)
         print("Done!")
 
 

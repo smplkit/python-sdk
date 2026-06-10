@@ -1,12 +1,6 @@
 """
 Demonstrates the smplkit SDK for Smpl Audit.
 
-Audit has no runtime/management split — one client exposes the full surface:
-event recording + reads, distinct-value discovery, and SIEM forwarder CRUD.
-This showcase uses the standalone AsyncSmplAuditClient (use SmplAuditClient for
-synchronous use); the same surface is also reachable as ``client.audit`` on a
-SmplClient.
-
 Prerequisites:
     - ``pip install smplkit-sdk``
     - A valid smplkit API key, provided via one of:
@@ -22,8 +16,7 @@ import asyncio
 import uuid
 from datetime import datetime, timezone
 
-from smplkit import AsyncSmplAuditClient
-from smplkit._errors import NotFoundError
+from smplkit import AsyncSmplClient, NotFoundError
 from smplkit.audit import (
     ForwarderType,
     HttpConfiguration,
@@ -58,9 +51,9 @@ ENVIRONMENT = "production"
 
 async def main() -> None:
 
-    # One audit client (use SmplAuditClient for synchronous use). The same
-    # surface is also reachable as ``client.audit`` on a SmplClient.
-    async with AsyncSmplAuditClient(environment=ENVIRONMENT) as audit:
+    # or SmplClient for synchronous use
+    async with AsyncSmplClient(environment="production") as client:
+        audit = client.audit
         some_resource_id = f"showcase-{uuid.uuid4().hex[:8]}"
 
         # ----- Events: record / list / get --------------------------------
