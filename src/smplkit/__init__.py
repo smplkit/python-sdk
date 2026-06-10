@@ -21,6 +21,7 @@ from smplkit.flags._client import AsyncFlagsClient, FlagChangeEvent, FlagsClient
 from smplkit.flags.models import FlagEnvironment, FlagRule, FlagValue
 from smplkit.flags.types import AsyncContext, Context, FlagDeclaration, Op, Rule
 from smplkit.jobs._client import AsyncJobsClient, JobsClient
+from smplkit.logging._client import AsyncLoggingClient, LoggerChangeEvent, LoggingClient
 from smplkit.logging._sources import LoggerSource
 from smplkit.management.types import Color, EnvironmentClassification
 
@@ -50,6 +51,7 @@ __all__ = [
     "AsyncContext",
     "AsyncAuditClient",
     "AsyncFlagsClient",
+    "AsyncLoggingClient",
     "AsyncSmplClient",
     "AsyncJobsClient",
     "Color",
@@ -66,7 +68,9 @@ __all__ = [
     "FlagsClient",
     "FlagValue",
     "ItemType",
+    "LoggerChangeEvent",
     "LoggerSource",
+    "LoggingClient",
     "LogLevel",
     "Op",
     "Rule",

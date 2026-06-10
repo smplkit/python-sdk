@@ -7,12 +7,13 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from smplkit import LogLevel
-    from smplkit.logging.client import AsyncLoggingClient, LoggingClient
-    from smplkit.management._client import (
-        AsyncLogGroupsClient,
-        AsyncLoggersClient,
-        LogGroupsClient,
-        LoggersClient,
+    from smplkit.logging._client import (
+        AsyncLoggingClient,
+        LoggingClient,
+        _AsyncLogGroupsClient,
+        _AsyncLoggersClient,
+        _LogGroupsClient,
+        _LoggersClient,
     )
 
 
@@ -88,7 +89,7 @@ class SmplLogger:
 
     def __init__(
         self,
-        client: LoggersClient | LoggingClient | None = None,
+        client: _LoggersClient | LoggingClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -192,7 +193,7 @@ class AsyncSmplLogger:
 
     def __init__(
         self,
-        client: AsyncLoggersClient | AsyncLoggingClient | None = None,
+        client: _AsyncLoggersClient | AsyncLoggingClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -294,7 +295,7 @@ class SmplLogGroup:
 
     def __init__(
         self,
-        client: LogGroupsClient | LoggingClient | None = None,
+        client: _LogGroupsClient | LoggingClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -390,7 +391,7 @@ class AsyncSmplLogGroup:
 
     def __init__(
         self,
-        client: AsyncLogGroupsClient | AsyncLoggingClient | None = None,
+        client: _AsyncLogGroupsClient | AsyncLoggingClient | None = None,
         *,
         id: str | None = None,
         name: str,

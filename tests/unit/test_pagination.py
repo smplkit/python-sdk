@@ -238,8 +238,8 @@ class TestFlagsRuntimePagination:
 
 
 class TestLoggingRuntimePagination:
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
-    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    @patch("smplkit.logging._client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging._client.list_loggers.sync_detailed")
     def test_fetch_and_apply_loggers_multi_page_exit(self, mock_loggers, mock_groups):
         full_loggers = [_logger_resource(f"lg{i}") for i in range(PAGE_SIZE)]
         short_loggers = [_logger_resource("lg_last")]
@@ -256,8 +256,8 @@ class TestLoggingRuntimePagination:
         finally:
             client.close()
 
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
-    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    @patch("smplkit.logging._client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging._client.list_loggers.sync_detailed")
     def test_fetch_and_apply_log_groups_multi_page_exit(self, mock_loggers, mock_groups):
         full_groups = [_log_group_resource(f"g{i}") for i in range(PAGE_SIZE)]
         short_groups = [_log_group_resource("g_last")]
@@ -274,8 +274,8 @@ class TestLoggingRuntimePagination:
         finally:
             client.close()
 
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed", new_callable=AsyncMock)
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.logging._client.list_log_groups.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.logging._client.list_loggers.asyncio_detailed", new_callable=AsyncMock)
     def test_fetch_and_apply_async_loggers_multi_page_exit(self, mock_loggers, mock_groups):
         full_loggers = [_logger_resource(f"lg{i}") for i in range(PAGE_SIZE)]
         short_loggers = [_logger_resource("lg_last")]
@@ -287,8 +287,8 @@ class TestLoggingRuntimePagination:
         assert len(client.logging._loggers_cache) == PAGE_SIZE + 1
         assert mock_loggers.await_count == 2
 
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed", new_callable=AsyncMock)
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.logging._client.list_log_groups.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.logging._client.list_loggers.asyncio_detailed", new_callable=AsyncMock)
     def test_fetch_and_apply_async_log_groups_multi_page_exit(self, mock_loggers, mock_groups):
         full_groups = [_log_group_resource(f"g{i}") for i in range(PAGE_SIZE)]
         short_groups = [_log_group_resource("g_last")]
@@ -327,6 +327,17 @@ class TestManagementListPaginationForwarding:
         from smplkit import AsyncSmplClient
 
         return AsyncSmplClient(api_key="sk_test", base_domain="example.test").manage
+
+    def _logging(self):
+        """Logger / log-group CRUD lives on client.logging (loggers / log_groups)."""
+        from smplkit import SmplClient
+
+        return SmplClient(api_key="sk_test", base_domain="example.test").logging
+
+    def _async_logging(self):
+        from smplkit import AsyncSmplClient
+
+        return AsyncSmplClient(api_key="sk_test", base_domain="example.test").logging
 
     # ------------------------------------------------------------------
     # Environments
@@ -429,32 +440,32 @@ class TestManagementListPaginationForwarding:
     # Loggers
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management._client._gen_list_loggers.sync_detailed")
+    @patch("smplkit.logging._client.list_loggers.sync_detailed")
     def test_loggers_list_forwards(self, mock_list):
         mock_list.return_value = _list_resp([])
-        self._mgmt().loggers.list(page_number=9, page_size=11)
+        self._logging().loggers.list(page_number=9, page_size=11)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=9, page_size=11)
 
-    @patch("smplkit.management._client._gen_list_loggers.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.logging._client.list_loggers.asyncio_detailed", new_callable=AsyncMock)
     def test_loggers_async_list_forwards(self, mock_list):
         mock_list.return_value = _list_resp([])
-        asyncio.run(self._async_mgmt().loggers.list(page_number=9, page_size=11))
+        asyncio.run(self._async_logging().loggers.list(page_number=9, page_size=11))
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=9, page_size=11)
 
     # ------------------------------------------------------------------
     # Log groups
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management._client._gen_list_log_groups.sync_detailed")
+    @patch("smplkit.logging._client.list_log_groups.sync_detailed")
     def test_log_groups_list_forwards(self, mock_list):
         mock_list.return_value = _list_resp([])
-        self._mgmt().log_groups.list(page_number=6, page_size=8)
+        self._logging().log_groups.list(page_number=6, page_size=8)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=6, page_size=8)
 
-    @patch("smplkit.management._client._gen_list_log_groups.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.logging._client.list_log_groups.asyncio_detailed", new_callable=AsyncMock)
     def test_log_groups_async_list_forwards(self, mock_list):
         mock_list.return_value = _list_resp([])
-        asyncio.run(self._async_mgmt().log_groups.list(page_number=6, page_size=8))
+        asyncio.run(self._async_logging().log_groups.list(page_number=6, page_size=8))
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=6, page_size=8)
 
 

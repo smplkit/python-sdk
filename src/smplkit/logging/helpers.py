@@ -16,12 +16,13 @@ from smplkit.logging.models import AsyncSmplLogGroup, AsyncSmplLogger, SmplLogGr
 
 if TYPE_CHECKING:  # pragma: no cover
     from smplkit import LogLevel
-    from smplkit.logging.client import AsyncLoggingClient, LoggingClient
-    from smplkit.management._client import (
-        AsyncLogGroupsClient,
-        AsyncLoggersClient,
-        LogGroupsClient,
-        LoggersClient,
+    from smplkit.logging._client import (
+        AsyncLoggingClient,
+        LoggingClient,
+        _AsyncLogGroupsClient,
+        _AsyncLoggersClient,
+        _LogGroupsClient,
+        _LoggersClient,
     )
 
 
@@ -163,7 +164,7 @@ def _build_log_group_body(
     return LogGroupResponse(data=resource)
 
 
-def _logger_resource_to_model(client: LoggingClient | LoggersClient | None, resource: Any) -> SmplLogger:
+def _logger_resource_to_model(client: LoggingClient | _LoggersClient | None, resource: Any) -> SmplLogger:
     attrs = resource.attributes
     return SmplLogger(
         client,
@@ -180,7 +181,7 @@ def _logger_resource_to_model(client: LoggingClient | LoggersClient | None, reso
 
 
 def _logger_resource_to_async_model(
-    client: AsyncLoggingClient | AsyncLoggersClient | None, resource: Any
+    client: AsyncLoggingClient | _AsyncLoggersClient | None, resource: Any
 ) -> AsyncSmplLogger:
     attrs = resource.attributes
     return AsyncSmplLogger(
@@ -197,7 +198,7 @@ def _logger_resource_to_async_model(
     )
 
 
-def _log_group_resource_to_model(client: LoggingClient | LogGroupsClient | None, resource: Any) -> SmplLogGroup:
+def _log_group_resource_to_model(client: LoggingClient | _LogGroupsClient | None, resource: Any) -> SmplLogGroup:
     attrs = resource.attributes
     return SmplLogGroup(
         client,
@@ -212,7 +213,7 @@ def _log_group_resource_to_model(client: LoggingClient | LogGroupsClient | None,
 
 
 def _log_group_resource_to_async_model(
-    client: AsyncLoggingClient | AsyncLogGroupsClient | None, resource: Any
+    client: AsyncLoggingClient | _AsyncLogGroupsClient | None, resource: Any
 ) -> AsyncSmplLogGroup:
     attrs = resource.attributes
     return AsyncSmplLogGroup(

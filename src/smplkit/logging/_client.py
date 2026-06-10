@@ -1,31 +1,64 @@
-"""LoggingClient and AsyncLoggingClient — runtime control for Smpl Logging.
+"""The Smpl Logging client — one unified ``LoggingClient`` / ``AsyncLoggingClient``.
 
-Runtime: discover loggers via adapters, register them with the
-service, fetch resolved levels, and apply them. CRUD has moved to
-``client.manage`` (``mgmt.loggers.*`` / ``mgmt.log_groups.*``).
+Smpl Logging has two surfaces on a single client, mirroring how the config,
+flags, audit, and jobs clients expose their full surface from one class:
+
+* **Management surface** — works immediately, no :meth:`install` required.
+  Two sub-clients (the audit pattern):
+
+  * ``client.logging.loggers`` — logger CRUD + discovery: ``new`` / ``list`` /
+    ``get`` / ``delete`` plus ``register`` / ``flush`` / ``flush_sync`` /
+    ``pending_count``.
+  * ``client.logging.log_groups`` — log-group CRUD: ``new`` / ``list`` /
+    ``get`` / ``delete``.
+
+  The fused client owns the logger-discovery buffer directly; the ``loggers``
+  sub-client shares that same buffer so discovery and explicit registration
+  drain through one queue.
+
+* **Live surface** — directly on the client. :meth:`register_adapter` is a
+  PRE-install configuration call (allowed before :meth:`install`).
+  :meth:`install` opens the live connection (monkey-patches the app's logging
+  framework, discovers loggers, fetches + applies levels, opens the shared
+  WebSocket). ``on_change`` / ``refresh`` require :meth:`install` first;
+  calling them earlier raises :class:`NotInstalledError`.
+
+The client supports two construction shapes:
+
+* **Wired** into :class:`smplkit.SmplClient` — borrows the parent's logging
+  transport for both runtime fetch and CRUD and the parent's shared WebSocket
+  for the live channel. This is the common path.
+* **Standalone** — ``LoggingClient(api_key=..., base_url=..., ...)`` builds and
+  owns its own logging transport and an app transport (the WebSocket gateway
+  lives on the app service), and on :meth:`install` opens and owns its own
+  WebSocket. ``close()`` / ``aclose()`` tears down only the owned transports
+  and owned WebSocket.
 """
 
 from __future__ import annotations
 
 import dataclasses
 import logging as stdlib_logging
-from importlib.metadata import entry_points
 import threading
 import traceback
+from importlib.metadata import entry_points
 from typing import TYPE_CHECKING, Any, Callable
 
+from smplkit._config import _service_url, resolve_management_config
 from smplkit._debug import debug
 from smplkit._errors import (
     ConflictError,
     ConnectionError,
     NotFoundError,
+    NotInstalledError,
     TimeoutError,
     ValidationError,
     _raise_for_status,
 )
-from smplkit._helpers import paginate_async, paginate_sync
+from smplkit._helpers import key_to_display_name, paginate_async, paginate_sync
+from smplkit._generated.app.client import AuthenticatedClient as _AppAuthClient
 from smplkit._generated.logging.client import AuthenticatedClient
-from smplkit._generated.logging.api.loggers import (  # noqa: F401  (re-exported for tests + management)
+from smplkit._generated.logging.api.loggers import (  # noqa: F401  (re-exported for tests)
     bulk_register_loggers,
     delete_logger,
     get_logger,
@@ -54,6 +87,10 @@ from smplkit.logging.helpers import (  # noqa: F401  (re-exported below)
     _extract_datetime,
     _extract_environments,
     _extract_sources,
+    _logger_resource_to_async_model,
+    _logger_resource_to_model,
+    _log_group_resource_to_async_model,
+    _log_group_resource_to_model,
     _loglevel_value,
     _make_environments,
     _make_group_environments,
@@ -65,18 +102,27 @@ from smplkit.logging.models import (  # noqa: F401  (re-exported below)
     AsyncSmplLogger,
     SmplLogGroup,
     SmplLogger,
+    _environments_to_wire as _logger_environments_to_wire,
 )
 from smplkit.logging._resolution import resolve_level
 from smplkit.logging._sources import LoggerSource
+from smplkit.management._buffer import _LOGGER_BATCH_FLUSH_SIZE, _LoggerRegistrationBuffer
+from smplkit._ws import SharedWebSocket
 
 if TYPE_CHECKING:
     from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
     from smplkit._client import AsyncSmplClient, SmplClient
-    from smplkit.management._client import _AsyncManagementNamespace, _ManagementNamespace
 
 logger = stdlib_logging.getLogger("smplkit")
 
 _DEFAULT_LOGGING_BASE_URL = "https://logging.smplkit.com"
+
+_NOT_INSTALLED_MESSAGE = (
+    "Smpl Logging live operations require install() first — this opens a live "
+    "connection to your running service and hooks into your application's "
+    "logging framework. Call client.logging.install() (await for async) before "
+    "on_change()/refresh()."
+)
 
 
 def _check_response_status(status_code: Any, content: bytes) -> None:
@@ -105,6 +151,77 @@ def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) ->
         raise ConnectionError(msg) from exc
     if isinstance(exc, (NotFoundError, ConflictError, ValidationError)):
         raise exc
+
+
+def _pagination_kwargs(page_number: int | None, page_size: int | None) -> dict[str, int]:
+    kwargs: dict[str, int] = {}
+    if page_number is not None:
+        kwargs["pagenumber"] = page_number
+    if page_size is not None:
+        kwargs["pagesize"] = page_size
+    return kwargs
+
+
+def _build_logger_bulk_request(buffer: Any) -> Any:
+    """Drain the logger-discovery buffer and build a JSON:API bulk request body.
+
+    Returns ``None`` when there is nothing to flush.
+    """
+    from smplkit._generated.logging.models.logger_bulk_item import LoggerBulkItem
+    from smplkit._generated.logging.models.logger_bulk_request import LoggerBulkRequest
+
+    batch = buffer.drain()
+    if not batch:
+        return None
+    items = [
+        LoggerBulkItem(
+            id=b["id"],
+            level=b.get("level"),
+            resolved_level=b["resolved_level"],
+            service=b.get("service"),
+            environment=b.get("environment"),
+        )
+        for b in batch
+    ]
+    return LoggerBulkRequest(loggers=items)
+
+
+def _logging_transport(
+    *,
+    api_key: str | None,
+    base_url: str | None,
+    profile: str | None,
+    base_domain: str | None,
+    scheme: str | None,
+    debug: bool | None,
+    extra_headers: dict[str, str] | None,
+) -> tuple[AuthenticatedClient, _AppAuthClient, str]:
+    """Build standalone logging + app transports and resolve the app base URL.
+
+    ``base_url``/``api_key`` are used directly when both are supplied (the
+    path a top-level client takes after it has already resolved them);
+    otherwise the management config resolver fills in whatever is missing
+    (``~/.smplkit`` / env vars / defaults). The app transport is needed for
+    the WebSocket gateway, which lives on the app service (like flags); the
+    app base URL is returned so a standalone client can open its own WebSocket
+    against the event gateway.
+    """
+    cfg = resolve_management_config(
+        profile=profile,
+        api_key=api_key,
+        base_domain=base_domain,
+        scheme=scheme,
+        debug=debug,
+    )
+    resolved_key = api_key if api_key is not None else cfg.api_key
+    logging_url = base_url if base_url is not None else _service_url(cfg.scheme, "logging", cfg.base_domain)
+    app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
+    headers: dict[str, str] = {}
+    headers.update(cfg.extra_headers or {})
+    headers.update(extra_headers or {})
+    logging_http = AuthenticatedClient(base_url=logging_url.rstrip("/"), token=resolved_key, headers=headers)
+    app_http = _AppAuthClient(base_url=app_url.rstrip("/"), token=resolved_key, headers=headers)
+    return logging_http, app_http, app_url
 
 
 # ---------------------------------------------------------------------------
@@ -153,38 +270,520 @@ def _auto_load_adapters() -> list[LoggingAdapter]:
 
 
 # ---------------------------------------------------------------------------
+# Management sub-clients: loggers
+# ---------------------------------------------------------------------------
+
+
+class _LoggersClient:
+    """Surface for ``client.logging.loggers.*`` (sync).
+
+    Logger CRUD plus the discovery buffer. The buffer is owned by the fused
+    :class:`LoggingClient` and shared here so discovery (driven by
+    :meth:`LoggingClient.install`) and explicit :meth:`register` drain through
+    one queue.
+    """
+
+    def __init__(self, http_client: AuthenticatedClient, *, base_url: str, buffer: _LoggerRegistrationBuffer) -> None:
+        self._http_client = http_client
+        self._base_url = base_url
+        self._buffer = buffer
+
+    def register(
+        self,
+        items: LoggerSource | list[LoggerSource],
+        *,
+        flush: bool = False,
+    ) -> None:
+        """Buffer logger sources for registration; optionally flush immediately."""
+        batch = items if isinstance(items, list) else [items]
+        for src in batch:
+            self._buffer.add(
+                normalize_logger_name(src.name),
+                _loglevel_value(src.level, where="register[level]"),
+                _loglevel_value(src.resolved_level, where="register[resolved_level]"),
+                src.service,
+                src.environment,
+            )
+        if flush:
+            self.flush()
+            return
+        if self._buffer.pending_count >= _LOGGER_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def _threshold_flush(self) -> None:
+        try:
+            self.flush()
+        except Exception as exc:
+            logger.warning("Logger registration flush failed: %s", exc)
+
+    def flush(self) -> None:
+        """Drain the buffer and POST pending logger sources to the bulk endpoint."""
+        body = _build_logger_bulk_request(self._buffer)
+        if body is None:
+            return
+        try:
+            response = bulk_register_loggers.sync_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    def flush_sync(self) -> None:
+        """Synchronous flush — alias of :meth:`flush` for the periodic-flush path."""
+        self.flush()
+
+    @property
+    def pending_count(self) -> int:
+        """Number of sources queued and awaiting flush."""
+        return self._buffer.pending_count
+
+    def new(self, id: str, *, managed: bool = True) -> SmplLogger:
+        """Return a new unsaved :class:`SmplLogger`. Call :meth:`SmplLogger.save` to persist."""
+        return SmplLogger(self, id=id, name=id, managed=managed)
+
+    def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[SmplLogger]:
+        """List loggers for the authenticated account."""
+        kwargs = _pagination_kwargs(page_number, page_size)
+        try:
+            response = list_loggers.sync_detailed(client=self._http_client, **kwargs)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [_logger_resource_to_model(self, r) for r in response.parsed.data]
+
+    def get(self, id: str) -> SmplLogger:
+        """Fetch the editable :class:`SmplLogger` resource by id."""
+        try:
+            response = get_logger.sync_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise NotFoundError(f"Logger with id {id!r} not found", status_code=404)
+        return _logger_resource_to_model(self, response.parsed.data)
+
+    def delete(self, id: str) -> None:
+        """Delete a logger by id."""
+        try:
+            response = delete_logger.sync_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    def _save_logger(self, lg: SmplLogger) -> SmplLogger:
+        body = _build_logger_body(
+            logger_id=lg.id,
+            name=lg.name,
+            level=_loglevel_value(lg.level, where="SmplLogger.save"),
+            managed=lg.managed,
+            group=lg.group,
+            environments=_logger_environments_to_wire(lg._environments) if lg._environments else None,
+        )
+        try:
+            response = update_logger.sync_detailed(lg.id, client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return _logger_resource_to_model(self, response.parsed.data)
+
+
+class _AsyncLoggersClient:
+    """Surface for ``client.logging.loggers.*`` (async)."""
+
+    def __init__(self, http_client: AuthenticatedClient, *, base_url: str, buffer: _LoggerRegistrationBuffer) -> None:
+        self._http_client = http_client
+        self._base_url = base_url
+        self._buffer = buffer
+
+    def register(
+        self,
+        items: LoggerSource | list[LoggerSource],
+    ) -> None:
+        """Buffer logger sources for registration.  Call ``await flush()`` to send them."""
+        batch = items if isinstance(items, list) else [items]
+        for src in batch:
+            self._buffer.add(
+                normalize_logger_name(src.name),
+                _loglevel_value(src.level, where="register[level]"),
+                _loglevel_value(src.resolved_level, where="register[resolved_level]"),
+                src.service,
+                src.environment,
+            )
+        if self._buffer.pending_count >= _LOGGER_BATCH_FLUSH_SIZE:
+            threading.Thread(target=self._threshold_flush, daemon=True).start()
+
+    def _threshold_flush(self) -> None:
+        try:
+            self.flush_sync()
+        except Exception as exc:
+            logger.warning("Logger registration flush failed: %s", exc)
+
+    async def flush(self) -> None:
+        """Drain the buffer and POST pending logger sources to the bulk endpoint."""
+        body = _build_logger_bulk_request(self._buffer)
+        if body is None:
+            return
+        try:
+            response = await bulk_register_loggers.asyncio_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    def flush_sync(self) -> None:
+        """Synchronous flush from a background thread (final flush, threshold flush)."""
+        body = _build_logger_bulk_request(self._buffer)
+        if body is None:
+            return
+        try:
+            response = bulk_register_loggers.sync_detailed(client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    @property
+    def pending_count(self) -> int:
+        """Number of sources queued and awaiting flush."""
+        return self._buffer.pending_count
+
+    def new(self, id: str, *, managed: bool = True) -> AsyncSmplLogger:
+        """Return a new unsaved :class:`AsyncSmplLogger`. Call ``await save()`` to persist."""
+        return AsyncSmplLogger(self, id=id, name=id, managed=managed)
+
+    async def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[AsyncSmplLogger]:
+        """List loggers for the authenticated account (async)."""
+        kwargs = _pagination_kwargs(page_number, page_size)
+        try:
+            response = await list_loggers.asyncio_detailed(client=self._http_client, **kwargs)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [_logger_resource_to_async_model(self, r) for r in response.parsed.data]
+
+    async def get(self, id: str) -> AsyncSmplLogger:
+        """Fetch the editable :class:`AsyncSmplLogger` resource by id (async)."""
+        try:
+            response = await get_logger.asyncio_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise NotFoundError(f"Logger with id {id!r} not found", status_code=404)
+        return _logger_resource_to_async_model(self, response.parsed.data)
+
+    async def delete(self, id: str) -> None:
+        """Delete a logger by id (async)."""
+        try:
+            response = await delete_logger.asyncio_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    async def _save_logger(self, lg: AsyncSmplLogger) -> AsyncSmplLogger:
+        body = _build_logger_body(
+            logger_id=lg.id,
+            name=lg.name,
+            level=_loglevel_value(lg.level, where="AsyncSmplLogger.save"),
+            managed=lg.managed,
+            group=lg.group,
+            environments=_logger_environments_to_wire(lg._environments) if lg._environments else None,
+        )
+        try:
+            response = await update_logger.asyncio_detailed(lg.id, client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return _logger_resource_to_async_model(self, response.parsed.data)
+
+
+# ---------------------------------------------------------------------------
+# Management sub-clients: log groups
+# ---------------------------------------------------------------------------
+
+
+class _LogGroupsClient:
+    """Surface for ``client.logging.log_groups.*`` (sync)."""
+
+    def __init__(self, http_client: AuthenticatedClient, *, base_url: str) -> None:
+        self._http_client = http_client
+        self._base_url = base_url
+
+    def new(self, id: str, *, name: str | None = None, group: str | None = None) -> SmplLogGroup:
+        """Return a new unsaved :class:`SmplLogGroup`. Call :meth:`SmplLogGroup.save` to persist."""
+        return SmplLogGroup(
+            self,
+            id=id,
+            name=name if name is not None else key_to_display_name(id),
+            group=group,
+        )
+
+    def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[SmplLogGroup]:
+        """List log groups for the authenticated account."""
+        kwargs = _pagination_kwargs(page_number, page_size)
+        try:
+            response = list_log_groups.sync_detailed(client=self._http_client, **kwargs)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [_log_group_resource_to_model(self, r) for r in response.parsed.data]
+
+    def get(self, id: str) -> SmplLogGroup:
+        """Fetch the editable :class:`SmplLogGroup` resource by id."""
+        try:
+            response = get_log_group.sync_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise NotFoundError(f"Log group with id {id!r} not found", status_code=404)
+        return _log_group_resource_to_model(self, response.parsed.data)
+
+    def delete(self, id: str) -> None:
+        """Delete a log group by id."""
+        try:
+            response = delete_log_group.sync_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    def _save_group(self, grp: SmplLogGroup) -> SmplLogGroup:
+        body = _build_group_body(
+            group_id=grp.id,
+            name=grp.name,
+            level=_loglevel_value(grp.level, where="SmplLogGroup.save"),
+            group=grp.group,
+            environments=_logger_environments_to_wire(grp._environments) if grp._environments else None,
+        )
+        try:
+            if grp.created_at is None:
+                response = create_log_group.sync_detailed(client=self._http_client, body=body)
+            else:
+                response = update_log_group.sync_detailed(grp.id, client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return _log_group_resource_to_model(self, response.parsed.data)
+
+
+class _AsyncLogGroupsClient:
+    """Surface for ``client.logging.log_groups.*`` (async)."""
+
+    def __init__(self, http_client: AuthenticatedClient, *, base_url: str) -> None:
+        self._http_client = http_client
+        self._base_url = base_url
+
+    def new(self, id: str, *, name: str | None = None, group: str | None = None) -> AsyncSmplLogGroup:
+        """Return a new unsaved :class:`AsyncSmplLogGroup`. Call ``await save()`` to persist."""
+        return AsyncSmplLogGroup(
+            self,
+            id=id,
+            name=name if name is not None else key_to_display_name(id),
+            group=group,
+        )
+
+    async def list(
+        self,
+        *,
+        page_number: int | None = None,
+        page_size: int | None = None,
+    ) -> list[AsyncSmplLogGroup]:
+        """List log groups for the authenticated account (async)."""
+        kwargs = _pagination_kwargs(page_number, page_size)
+        try:
+            response = await list_log_groups.asyncio_detailed(client=self._http_client, **kwargs)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return []
+        return [_log_group_resource_to_async_model(self, r) for r in response.parsed.data]
+
+    async def get(self, id: str) -> AsyncSmplLogGroup:
+        """Fetch the editable :class:`AsyncSmplLogGroup` resource by id (async)."""
+        try:
+            response = await get_log_group.asyncio_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise NotFoundError(f"Log group with id {id!r} not found", status_code=404)
+        return _log_group_resource_to_async_model(self, response.parsed.data)
+
+    async def delete(self, id: str) -> None:
+        """Delete a log group by id (async)."""
+        try:
+            response = await delete_log_group.asyncio_detailed(id, client=self._http_client)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+
+    async def _save_group(self, grp: AsyncSmplLogGroup) -> AsyncSmplLogGroup:
+        body = _build_group_body(
+            group_id=grp.id,
+            name=grp.name,
+            level=_loglevel_value(grp.level, where="AsyncSmplLogGroup.save"),
+            group=grp.group,
+            environments=_logger_environments_to_wire(grp._environments) if grp._environments else None,
+        )
+        try:
+            if grp.created_at is None:
+                response = await create_log_group.asyncio_detailed(client=self._http_client, body=body)
+            else:
+                response = await update_log_group.asyncio_detailed(grp.id, client=self._http_client, body=body)
+        except Exception as exc:
+            _maybe_reraise_network_error(exc, self._base_url)
+            raise
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None:
+            raise ValidationError(
+                f"HTTP {int(response.status_code)}: unexpected response", status_code=int(response.status_code)
+            )
+        return _log_group_resource_to_async_model(self, response.parsed.data)
+
+
+# ---------------------------------------------------------------------------
 # LoggingClient (sync)
 # ---------------------------------------------------------------------------
 
 
 class LoggingClient:
-    """Synchronous logging runtime namespace.  Obtained via ``SmplClient(...).logging``.
+    """The Smpl Logging client (sync).
 
-    CRUD has moved to ``client.manage.loggers`` / ``.log_groups``
-    (``mgmt.loggers.*`` / ``mgmt.log_groups.*``).
+    One client exposes the full surface, reachable as ``client.logging``
+    (:class:`smplkit.SmplClient`) or constructed directly::
+
+        from smplkit import LoggingClient
+
+        with LoggingClient(environment="production", service="my-svc") as logging:
+            logging.loggers.new("sqlalchemy.engine").save()
+            logging.install()
+
+    The management surface (``loggers`` / ``log_groups`` sub-clients) works
+    immediately. :meth:`register_adapter` is a pre-install configuration call.
+    The live surface (``install`` / ``on_change`` / ``refresh``) requires
+    :meth:`install` first; calling ``on_change`` / ``refresh`` earlier raises
+    :class:`NotInstalledError`.
+
+    Args:
+        api_key: API key. When omitted, resolved from ``SMPLKIT_API_KEY`` or
+            ``~/.smplkit``.
+        environment: Deployment environment used to resolve runtime levels and
+            to scope discovery declarations. Optional.
+        base_url: Full logging-service base URL. Usually resolved from
+            ``base_domain``/``scheme``; supplied directly by the top-level
+            clients which have already computed it.
+        profile: Named ``~/.smplkit`` profile section.
+        base_domain: Base domain for API requests (default ``"smplkit.com"``).
+        scheme: URL scheme (default ``"https"``).
+        debug: Enable SDK debug logging.
+        extra_headers: Extra headers attached to every request.
+        parent: Internal — the owning :class:`smplkit.SmplClient`. Not for
+            direct use.
+        transport: Internal — a pre-built logging transport supplied by a
+            top-level client so the logging surface shares one connection pool.
+            Not for direct use.
+        metrics: Internal — the parent's metrics reporter.
     """
+
+    loggers: _LoggersClient
+    log_groups: _LogGroupsClient
 
     def __init__(
         self,
-        parent: SmplClient,
+        api_key: str | None = None,
         *,
-        manage: _ManagementNamespace,
-        metrics: _MetricsReporter | None,
-        logging_base_url: str = _DEFAULT_LOGGING_BASE_URL,
-        app_base_url: str | None = None,
+        environment: str | None = None,
+        base_url: str | None = None,
+        profile: str | None = None,
+        base_domain: str | None = None,
+        scheme: str | None = None,
+        debug: bool | None = None,
         extra_headers: dict[str, str] | None = None,
+        parent: SmplClient | None = None,
+        transport: AuthenticatedClient | None = None,
+        metrics: _MetricsReporter | None = None,
     ) -> None:
         self._parent = parent
-        self._manage = manage
         self._metrics = metrics
-        self._service = parent._service
-        self._environment = parent._environment
-        self._logging_base_url = logging_base_url
-        self._logging_http = AuthenticatedClient(
-            base_url=logging_base_url,
-            token=parent._api_key,
-            headers={**(extra_headers or {})},
-        )
+        self._environment = parent._environment if parent is not None else environment
+        self._service = parent._service if parent is not None else None
+        self._standalone_api_key: str | None = None
+        if transport is not None:
+            self._logging_http = transport
+            self._logging_base_url = str(transport._base_url)
+            self._app_base_url: str | None = None
+            self._owns_transport = False
+        else:
+            self._logging_http, app_http, self._app_base_url = _logging_transport(
+                api_key=api_key,
+                base_url=base_url,
+                profile=profile,
+                base_domain=base_domain,
+                scheme=scheme,
+                debug=debug,
+                extra_headers=extra_headers,
+            )
+            self._logging_base_url = str(self._logging_http._base_url)
+            self._app_http_standalone = app_http
+            self._owns_transport = True
+            self._standalone_api_key = api_key if api_key is not None else self._logging_http.token
+
+        # Discovery buffer is owned by this client; the loggers sub-client
+        # shares it so discovery and explicit registration drain together.
+        self._buffer = _LoggerRegistrationBuffer()
+        self.loggers = _LoggersClient(self._logging_http, base_url=self._logging_base_url, buffer=self._buffer)
+        self.log_groups = _LogGroupsClient(self._logging_http, base_url=self._logging_base_url)
+
+        # Live-surface state.
         self._connected = False
         self._name_map: dict[str, str] = {}  # original_name → normalized_id
         self._loggers_cache: dict[str, dict[str, Any]] = {}  # id → logger data
@@ -193,33 +792,114 @@ class LoggingClient:
         self._key_listeners: dict[str, list[Callable[..., Any]]] = {}
         self._adapters: list[LoggingAdapter] = []
         self._explicit_adapters = False
-        self._ws_manager: Any = None
+        self._ws_manager: SharedWebSocket | None = None
+        self._owns_ws = False
 
-    # --- Adapter registration ---
+    def _close(self) -> None:
+        """Release resources held by this client (alias for :meth:`close`)."""
+        self.close()
+
+    # --- Adapter registration (pre-install, ungated) ---
 
     def register_adapter(self, adapter: LoggingAdapter) -> None:
         """Register a logging adapter. Must be called before install().
 
         If called at least once, auto-loading is disabled — only explicitly
-        registered adapters are used.
+        registered adapters are used. This is a pre-install configuration
+        call: it is intentionally NOT gated by :meth:`install`.
         """
         if self._connected:
             raise RuntimeError("Cannot register adapters after install()")
         self._explicit_adapters = True
         self._adapters.append(adapter)
 
-    # --- Runtime: install & change listeners ---
+    # --- Live surface: install (gate) + transport / WebSocket helpers ---
+
+    def _require_installed(self) -> None:
+        if not self._connected:
+            raise NotInstalledError(_NOT_INSTALLED_MESSAGE)
+
+    def _ensure_ws(self) -> SharedWebSocket:
+        """Return the shared WebSocket — the parent's when wired, else our own."""
+        if self._parent is not None:
+            return self._parent._ensure_ws()
+        if self._ws_manager is None:
+            self._ws_manager = SharedWebSocket(
+                app_base_url=self._app_base_url,
+                api_key=self._standalone_api_key,
+                metrics=self._metrics,
+            )
+            self._ws_manager.start()
+            self._owns_ws = True
+        return self._ws_manager
 
     def install(self) -> None:
         """Hook smplkit into the application's logging machinery.
 
         Loads adapters, scans existing loggers, applies levels from the
-        smplkit server, and wires WebSocket handlers for live updates.
+        smplkit server, and wires WebSocket handlers for live updates. This
+        IS the explicit consent gate — :meth:`on_change` / :meth:`refresh`
+        require it first.
+
         Idempotent — safe to call multiple times.
         """
         debug("lifecycle", "LoggingClient.install() called")
-        self._parent._ensure_started()
-        self._connect_internal()
+        if self._parent is not None:
+            self._parent._ensure_started()
+        if self._connected:
+            return
+
+        # 0. Load adapters
+        if not self._adapters:
+            self._adapters = _auto_load_adapters()
+
+        # 1. Discover existing loggers from all adapters
+        for adapter in self._adapters:
+            try:
+                existing = adapter.discover()
+                debug("discovery", f"adapter {adapter.name!r} discovered {len(existing)} existing loggers")
+                for name, explicit_level, effective_level in existing:
+                    self._name_map[name] = normalize_logger_name(name)
+                    self.loggers.register(self._loggersource_for(name, explicit_level, effective_level))
+            except Exception:
+                logger.warning("Adapter %s discover() failed", adapter.name, exc_info=True)
+
+        # 2. Install continuous discovery hooks
+        for adapter in self._adapters:
+            try:
+                adapter.install_hook(self._on_new_logger)
+            except Exception:
+                logger.warning("Adapter %s install_hook() failed", adapter.name, exc_info=True)
+
+        # 3. Flush initial batch
+        try:
+            self.loggers.flush()
+        except Exception as exc:
+            logger.warning("Bulk logger registration failed: %s", exc)
+            debug("registration", traceback.format_exc().strip())
+
+        # 4-6. Fetch, resolve, apply
+        try:
+            self._fetch_and_apply(trigger="install()")
+        except Exception as exc:
+            logger.warning(
+                "Failed to fetch/apply logging levels during connect (logging: %s): %s",
+                self._logging_base_url,
+                exc,
+            )
+            debug("resolution", traceback.format_exc().strip())
+
+        # 7. Register WebSocket event handlers for real-time level updates
+        self._ws_manager = self._ensure_ws()
+        self._ws_manager.on("logger_changed", self._handle_logger_changed)
+        self._ws_manager.on("logger_deleted", self._handle_logger_deleted)
+        self._ws_manager.on("group_changed", self._handle_group_changed)
+        self._ws_manager.on("group_deleted", self._handle_group_deleted)
+        self._ws_manager.on("loggers_changed", self._handle_loggers_changed)
+
+        self._connected = True
+
+    # --- Live surface: change listeners ---
 
     def on_change(self, fn_or_key: Callable[..., Any] | str | None = None) -> Any:
         """Register a change listener.
@@ -228,7 +908,11 @@ class LoggingClient:
 
         - ``@client.logging.on_change`` — registers a global listener.
         - ``@client.logging.on_change("sqlalchemy.engine")`` — registers a key-scoped listener.
+
+        Requires :meth:`install` first; raises :class:`NotInstalledError`
+        otherwise.
         """
+        self._require_installed()
         if callable(fn_or_key):
             # @on_change (bare decorator)
             self._global_listeners.append(fn_or_key)
@@ -251,63 +935,15 @@ class LoggingClient:
 
             return decorator
 
-    # --- Prescriptive (connect-gated) ---
+    def refresh(self) -> None:
+        """Re-fetch all loggers and groups and fire listener events for any deltas.
 
-    def _connect_internal(self) -> None:
-        """Called by ``SmplClient.connect()`` or :meth:`install`."""
-        if self._connected:
-            return
-
-        # 0. Load adapters
-        if not self._adapters:
-            self._adapters = _auto_load_adapters()
-
-        # 1. Discover existing loggers from all adapters
-        mgmt_loggers = self._manage.loggers
-        for adapter in self._adapters:
-            try:
-                existing = adapter.discover()
-                debug("discovery", f"adapter {adapter.name!r} discovered {len(existing)} existing loggers")
-                for name, explicit_level, effective_level in existing:
-                    self._name_map[name] = normalize_logger_name(name)
-                    mgmt_loggers.register(self._loggersource_for(name, explicit_level, effective_level))
-            except Exception:
-                logger.warning("Adapter %s discover() failed", adapter.name, exc_info=True)
-
-        # 2. Install continuous discovery hooks
-        for adapter in self._adapters:
-            try:
-                adapter.install_hook(self._on_new_logger)
-            except Exception:
-                logger.warning("Adapter %s install_hook() failed", adapter.name, exc_info=True)
-
-        # 3. Flush initial batch
-        try:
-            self._manage.loggers.flush()
-        except Exception as exc:
-            logger.warning("Bulk logger registration failed: %s", exc)
-            debug("registration", traceback.format_exc().strip())
-
-        # 4-6. Fetch, resolve, apply
-        try:
-            self._fetch_and_apply(trigger="install()")
-        except Exception as exc:
-            logger.warning(
-                "Failed to fetch/apply logging levels during connect (logging: %s): %s",
-                self._logging_base_url,
-                exc,
-            )
-            debug("resolution", traceback.format_exc().strip())
-
-        # 7. Register WebSocket event handlers for real-time level updates
-        self._ws_manager = self._parent._ensure_ws()
-        self._ws_manager.on("logger_changed", self._handle_logger_changed)
-        self._ws_manager.on("logger_deleted", self._handle_logger_deleted)
-        self._ws_manager.on("group_changed", self._handle_group_changed)
-        self._ws_manager.on("group_deleted", self._handle_group_deleted)
-        self._ws_manager.on("loggers_changed", self._handle_loggers_changed)
-
-        self._connected = True
+        Requires :meth:`install` first; raises :class:`NotInstalledError`
+        otherwise.
+        """
+        self._require_installed()
+        debug("resolution", "refresh() called, triggering full resolution pass")
+        self._fetch_and_apply_deltas(trigger="refresh()", source="manual")
 
     def _snapshot_effective_levels(self) -> dict[str, str]:
         """Effective level for every locally-tracked managed logger.
@@ -373,6 +1009,8 @@ class LoggingClient:
                 cb(event)
             except Exception:
                 logger.error("Exception in key-scoped logging on_change listener", exc_info=True)
+
+    # --- Internal: event handlers (called by SharedWebSocket) ---
 
     def _handle_logger_changed(self, data: dict) -> None:
         key = data.get("id", "")
@@ -441,14 +1079,16 @@ class LoggingClient:
             logger.warning("Failed to re-fetch/apply logging levels after loggers_changed event: %s", exc)
             debug("websocket", traceback.format_exc().strip())
 
-    def refresh(self) -> None:
-        """Re-fetch all loggers and groups and fire listener events for any deltas."""
-        debug("resolution", "refresh() called, triggering full resolution pass")
-        self._fetch_and_apply_deltas(trigger="refresh()", source="manual")
+    def close(self) -> None:
+        """Release resources — only those this client owns.
 
-    def _close(self) -> None:
-        """Called by ``SmplClient.close()``."""
-        debug("lifecycle", "LoggingClient._close() called")
+        Uninstalls the adapter hooks, unsubscribes from the WebSocket, and
+        tears down the owned WebSocket (standalone install) and the owned
+        logging + app HTTP transports (standalone construction). A wired
+        client borrows the parent's transport and WebSocket and closes
+        neither.
+        """
+        debug("lifecycle", "LoggingClient.close() called")
         for adapter in self._adapters:
             try:
                 adapter.uninstall_hook()
@@ -460,7 +1100,25 @@ class LoggingClient:
             self._ws_manager.off("group_changed", self._handle_group_changed)
             self._ws_manager.off("group_deleted", self._handle_group_deleted)
             self._ws_manager.off("loggers_changed", self._handle_loggers_changed)
+            if self._owns_ws:
+                self._ws_manager.stop()
+                self._owns_ws = False
             self._ws_manager = None
+        if self._owns_transport:
+            client = self._logging_http._client
+            if client is not None:
+                client.close()
+                self._logging_http._client = None
+            app_client = self._app_http_standalone._client
+            if app_client is not None:
+                app_client.close()
+                self._app_http_standalone._client = None
+
+    def __enter__(self) -> LoggingClient:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
 
     # --- Internal ---
 
@@ -481,11 +1139,10 @@ class LoggingClient:
         normalized = normalize_logger_name(name)
         debug("discovery", f"new logger intercepted via callback: {name!r} (normalized: {normalized!r})")
         self._name_map[name] = normalized
-        mgmt_loggers = self._manage.loggers
-        mgmt_loggers.register(self._loggersource_for(name, explicit_level, effective_level))
+        self.loggers.register(self._loggersource_for(name, explicit_level, effective_level))
         debug(
             "registration",
-            f"queued {name!r} for bulk registration (buffer size: {mgmt_loggers.pending_count})",
+            f"queued {name!r} for bulk registration (buffer size: {self.loggers.pending_count})",
         )
 
         # If connected, try to apply level from cache
@@ -622,34 +1279,62 @@ class LoggingClient:
 
 
 class AsyncLoggingClient:
-    """Asynchronous logging runtime namespace.
+    """The Smpl Logging client (async) — counterpart of :class:`LoggingClient`.
 
-    Obtained via ``AsyncSmplClient(...).logging``. CRUD has moved to
-    ``client.manage.loggers`` / ``.log_groups``
-    (``mgmt.loggers.*`` / ``mgmt.log_groups.*``).
+    Reads, CRUD, and discovery flush perform their network round-trips with
+    ``await``. :meth:`register_adapter` is a pre-install configuration call;
+    the live surface (``install`` / ``on_change`` / ``refresh``) requires
+    :meth:`install` first; calling ``on_change`` / ``refresh`` earlier raises
+    :class:`NotInstalledError`.
     """
+
+    loggers: _AsyncLoggersClient
+    log_groups: _AsyncLogGroupsClient
 
     def __init__(
         self,
-        parent: AsyncSmplClient,
+        api_key: str | None = None,
         *,
-        manage: _AsyncManagementNamespace,
-        metrics: _AsyncMetricsReporter | None,
-        logging_base_url: str = _DEFAULT_LOGGING_BASE_URL,
-        app_base_url: str | None = None,
+        environment: str | None = None,
+        base_url: str | None = None,
+        profile: str | None = None,
+        base_domain: str | None = None,
+        scheme: str | None = None,
+        debug: bool | None = None,
         extra_headers: dict[str, str] | None = None,
+        parent: AsyncSmplClient | None = None,
+        transport: AuthenticatedClient | None = None,
+        metrics: _AsyncMetricsReporter | None = None,
     ) -> None:
         self._parent = parent
-        self._manage = manage
         self._metrics = metrics
-        self._service = parent._service
-        self._environment = parent._environment
-        self._logging_base_url = logging_base_url
-        self._logging_http = AuthenticatedClient(
-            base_url=logging_base_url,
-            token=parent._api_key,
-            headers={**(extra_headers or {})},
-        )
+        self._environment = parent._environment if parent is not None else environment
+        self._service = parent._service if parent is not None else None
+        self._standalone_api_key: str | None = None
+        if transport is not None:
+            self._logging_http = transport
+            self._logging_base_url = str(transport._base_url)
+            self._app_base_url: str | None = None
+            self._owns_transport = False
+        else:
+            self._logging_http, app_http, self._app_base_url = _logging_transport(
+                api_key=api_key,
+                base_url=base_url,
+                profile=profile,
+                base_domain=base_domain,
+                scheme=scheme,
+                debug=debug,
+                extra_headers=extra_headers,
+            )
+            self._logging_base_url = str(self._logging_http._base_url)
+            self._app_http_standalone = app_http
+            self._owns_transport = True
+            self._standalone_api_key = api_key if api_key is not None else self._logging_http.token
+
+        self._buffer = _LoggerRegistrationBuffer()
+        self.loggers = _AsyncLoggersClient(self._logging_http, base_url=self._logging_base_url, buffer=self._buffer)
+        self.log_groups = _AsyncLogGroupsClient(self._logging_http, base_url=self._logging_base_url)
+
         self._connected = False
         self._name_map: dict[str, str] = {}
         self._loggers_cache: dict[str, dict[str, Any]] = {}
@@ -658,68 +1343,87 @@ class AsyncLoggingClient:
         self._key_listeners: dict[str, list[Callable[..., Any]]] = {}
         self._adapters: list[LoggingAdapter] = []
         self._explicit_adapters = False
-        self._ws_manager: Any = None
+        self._ws_manager: SharedWebSocket | None = None
+        self._owns_ws = False
 
-    # --- Adapter registration ---
+    def _close(self) -> None:
+        """Synchronous teardown of adapter hooks, WS subscription, and owned
+        sync transports (no event-loop dependency).
+
+        The async transport pools are torn down by :meth:`aclose`. Called by
+        :class:`AsyncSmplClient.close`, which closes the wired async transport
+        pools through the management namespace.
+        """
+        debug("lifecycle", "AsyncLoggingClient._close() called")
+        for adapter in self._adapters:
+            try:
+                adapter.uninstall_hook()
+            except Exception:
+                logger.warning("Adapter %s uninstall_hook() failed", adapter.name, exc_info=True)
+        if self._ws_manager is not None:
+            self._ws_manager.off("logger_changed", self._handle_logger_changed)
+            self._ws_manager.off("logger_deleted", self._handle_logger_deleted)
+            self._ws_manager.off("group_changed", self._handle_group_changed)
+            self._ws_manager.off("group_deleted", self._handle_group_deleted)
+            self._ws_manager.off("loggers_changed", self._handle_loggers_changed)
+            if self._owns_ws:
+                self._ws_manager.stop()
+                self._owns_ws = False
+            self._ws_manager = None
+        if self._owns_transport:
+            client = self._logging_http._client
+            if client is not None:
+                client.close()
+                self._logging_http._client = None
+            app_client = self._app_http_standalone._client
+            if app_client is not None:
+                app_client.close()
+                self._app_http_standalone._client = None
+
+    # --- Adapter registration (pre-install, ungated) ---
 
     def register_adapter(self, adapter: LoggingAdapter) -> None:
         """Register a logging adapter. Must be called before install().
 
         If called at least once, auto-loading is disabled — only explicitly
-        registered adapters are used.
+        registered adapters are used. This is a pre-install configuration
+        call: it is intentionally NOT gated by :meth:`install`.
         """
         if self._connected:
             raise RuntimeError("Cannot register adapters after install()")
         self._explicit_adapters = True
         self._adapters.append(adapter)
 
-    # --- Runtime: install & change listeners ---
+    # --- Live surface: install (gate) + transport / WebSocket helpers ---
+
+    def _require_installed(self) -> None:
+        if not self._connected:
+            raise NotInstalledError(_NOT_INSTALLED_MESSAGE)
+
+    def _ensure_ws(self) -> SharedWebSocket:
+        """Return the shared WebSocket — the parent's when wired, else our own."""
+        if self._parent is not None:
+            return self._parent._ensure_ws()
+        if self._ws_manager is None:
+            self._ws_manager = SharedWebSocket(
+                app_base_url=self._app_base_url,
+                api_key=self._standalone_api_key,
+                metrics=self._metrics,
+            )
+            self._ws_manager.start()
+            self._owns_ws = True
+        return self._ws_manager
 
     async def install(self) -> None:
-        """Hook smplkit into the application's logging machinery.
+        """Hook smplkit into the application's logging machinery (async).
 
-        Loads adapters, scans existing loggers, applies levels from the
-        smplkit server, and wires WebSocket handlers for live updates.
-        Idempotent — safe to call multiple times.
+        See :meth:`LoggingClient.install` for the full contract. Idempotent.
+        This IS the explicit consent gate for :meth:`on_change` /
+        :meth:`refresh`.
         """
         debug("lifecycle", "AsyncLoggingClient.install() called")
-        self._parent._ensure_started()
-        await self._connect_internal()
-
-    def on_change(self, fn_or_key: Callable[..., Any] | str | None = None) -> Any:
-        """Register a change listener.
-
-        Supports two forms:
-
-        - ``@client.logging.on_change`` — registers a global listener.
-        - ``@client.logging.on_change("sqlalchemy.engine")`` — registers a key-scoped listener.
-        """
-        if callable(fn_or_key):
-            # @on_change (bare decorator)
-            self._global_listeners.append(fn_or_key)
-            return fn_or_key
-        elif isinstance(fn_or_key, str):
-            # @on_change("key")
-            key = fn_or_key
-
-            def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
-                self._key_listeners.setdefault(key, []).append(fn)
-                return fn
-
-            return decorator
-        else:
-            # @on_change() — called with parens but no args
-
-            def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
-                self._global_listeners.append(fn)
-                return fn
-
-            return decorator
-
-    # --- Prescriptive (connect-gated) ---
-
-    async def _connect_internal(self) -> None:
-        """Called by ``AsyncSmplClient.connect()`` or :meth:`install`."""
+        if self._parent is not None:
+            self._parent._ensure_started()
         if self._connected:
             return
 
@@ -728,14 +1432,13 @@ class AsyncLoggingClient:
             self._adapters = _auto_load_adapters()
 
         # 1. Discover existing loggers from all adapters
-        mgmt_loggers = self._manage.loggers
         for adapter in self._adapters:
             try:
                 existing = adapter.discover()
                 debug("discovery", f"adapter {adapter.name!r} discovered {len(existing)} existing loggers")
                 for name, explicit_level, effective_level in existing:
                     self._name_map[name] = normalize_logger_name(name)
-                    mgmt_loggers.register(self._loggersource_for(name, explicit_level, effective_level))
+                    self.loggers.register(self._loggersource_for(name, explicit_level, effective_level))
             except Exception:
                 logger.warning("Adapter %s discover() failed", adapter.name, exc_info=True)
 
@@ -759,7 +1462,7 @@ class AsyncLoggingClient:
             debug("resolution", traceback.format_exc().strip())
 
         # Register WebSocket event handlers for real-time level updates
-        self._ws_manager = self._parent._ensure_ws()
+        self._ws_manager = self._ensure_ws()
         self._ws_manager.on("logger_changed", self._handle_logger_changed)
         self._ws_manager.on("logger_deleted", self._handle_logger_deleted)
         self._ws_manager.on("group_changed", self._handle_group_changed)
@@ -767,6 +1470,56 @@ class AsyncLoggingClient:
         self._ws_manager.on("loggers_changed", self._handle_loggers_changed)
 
         self._connected = True
+
+    # --- Live surface: change listeners ---
+
+    def on_change(self, fn_or_key: Callable[..., Any] | str | None = None) -> Any:
+        """Register a change listener.
+
+        Supports two forms:
+
+        - ``@client.logging.on_change`` — registers a global listener.
+        - ``@client.logging.on_change("sqlalchemy.engine")`` — registers a key-scoped listener.
+
+        Requires :meth:`install` first; raises :class:`NotInstalledError`
+        otherwise.
+        """
+        self._require_installed()
+        if callable(fn_or_key):
+            # @on_change (bare decorator)
+            self._global_listeners.append(fn_or_key)
+            return fn_or_key
+        elif isinstance(fn_or_key, str):
+            # @on_change("key")
+            key = fn_or_key
+
+            def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+                self._key_listeners.setdefault(key, []).append(fn)
+                return fn
+
+            return decorator
+        else:
+            # @on_change() — called with parens but no args
+
+            def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+                self._global_listeners.append(fn)
+                return fn
+
+            return decorator
+
+    async def refresh(self) -> None:
+        """Re-fetch all loggers and groups and fire listener events for any deltas.
+
+        Requires :meth:`install` first; raises :class:`NotInstalledError`
+        otherwise.
+        """
+        self._require_installed()
+        debug("resolution", "refresh() called, triggering full resolution pass")
+        pre = self._snapshot_effective_levels()
+        await self._fetch_cache(trigger="refresh()")
+        self._apply_deltas_and_fire(pre, "manual")
+
+    # --- Internal: event handlers (called by SharedWebSocket) ---
 
     def _handle_logger_changed(self, data: dict) -> None:
         key = data.get("id", "")
@@ -813,7 +1566,7 @@ class AsyncLoggingClient:
 
     def _handle_loggers_changed(self, data: dict) -> None:
         debug("websocket", "loggers_changed: full re-fetch")
-        api_key = self._parent._api_key
+        api_key = self._standalone_api_key if self._parent is None else self._parent._api_key
         logging_base_url = self._logging_base_url
         pre = self._snapshot_effective_levels()
 
@@ -845,7 +1598,7 @@ class AsyncLoggingClient:
         before this handler kicks off any mutation; the worker uses it as
         the baseline for the post-update apply + fire pass.
         """
-        api_key = self._parent._api_key
+        api_key = self._standalone_api_key if self._parent is None else self._parent._api_key
         logging_base_url = self._logging_base_url
         import asyncio as _asyncio
 
@@ -962,29 +1715,6 @@ class AsyncLoggingClient:
             except Exception:
                 logger.error("Exception in key-scoped logging on_change listener", exc_info=True)
 
-    async def refresh(self) -> None:
-        """Re-fetch all loggers and groups and fire listener events for any deltas."""
-        debug("resolution", "refresh() called, triggering full resolution pass")
-        pre = self._snapshot_effective_levels()
-        await self._fetch_cache(trigger="refresh()")
-        self._apply_deltas_and_fire(pre, "manual")
-
-    def _close(self) -> None:
-        """Called by ``AsyncSmplClient.close()``."""
-        debug("lifecycle", "AsyncLoggingClient._close() called")
-        for adapter in self._adapters:
-            try:
-                adapter.uninstall_hook()
-            except Exception:
-                logger.warning("Adapter %s uninstall_hook() failed", adapter.name, exc_info=True)
-        if self._ws_manager is not None:
-            self._ws_manager.off("logger_changed", self._handle_logger_changed)
-            self._ws_manager.off("logger_deleted", self._handle_logger_deleted)
-            self._ws_manager.off("group_changed", self._handle_group_changed)
-            self._ws_manager.off("group_deleted", self._handle_group_deleted)
-            self._ws_manager.off("loggers_changed", self._handle_loggers_changed)
-            self._ws_manager = None
-
     # --- Internal ---
 
     def _loggersource_for(self, name: str, explicit_level: int | None, effective_level: int) -> LoggerSource:
@@ -1004,11 +1734,10 @@ class AsyncLoggingClient:
         normalized = normalize_logger_name(name)
         debug("discovery", f"new logger intercepted via callback: {name!r} (normalized: {normalized!r})")
         self._name_map[name] = normalized
-        mgmt_loggers = self._manage.loggers
-        mgmt_loggers.register(self._loggersource_for(name, explicit_level, effective_level))
+        self.loggers.register(self._loggersource_for(name, explicit_level, effective_level))
         debug(
             "registration",
-            f"queued {name!r} for bulk registration (buffer size: {mgmt_loggers.pending_count})",
+            f"queued {name!r} for bulk registration (buffer size: {self.loggers.pending_count})",
         )
 
         if self._connected and normalized in self._loggers_cache:
@@ -1024,9 +1753,9 @@ class AsyncLoggingClient:
                         logger.warning("Adapter %s apply_level() failed for %s", adapter.name, name, exc_info=True)
 
     async def _flush_bulk_async(self) -> None:
-        """Flush the registration buffer (delegates to mgmt.loggers)."""
+        """Flush the registration buffer (delegates to the loggers sub-client)."""
         try:
-            await self._manage.loggers.flush()
+            await self.loggers.flush()
         except Exception as exc:
             status = getattr(exc, "status_code", None)
             if status is not None:
@@ -1148,3 +1877,29 @@ class AsyncLoggingClient:
             metrics = self._metrics
             if metrics is not None:
                 metrics.record("logging.level_changes", unit="changes", dimensions={"logger": normalized_id})
+
+    async def aclose(self) -> None:
+        """Release async resources — only those this client owns.
+
+        Uninstalls adapter hooks, unsubscribes from the WebSocket, tears down
+        the owned WebSocket (standalone install) and the owned async logging +
+        app HTTP transports (standalone construction). A wired client borrows
+        the parent's transport and WebSocket and closes neither.
+        """
+        # Adapter hooks, WS subscription, owned sync clients + WS shutdown.
+        self._close()
+        if self._owns_transport:
+            ac = self._logging_http._async_client
+            if ac is not None:
+                await ac.aclose()
+                self._logging_http._async_client = None
+            app_ac = self._app_http_standalone._async_client
+            if app_ac is not None:
+                await app_ac.aclose()
+                self._app_http_standalone._async_client = None
+
+    async def __aenter__(self) -> AsyncLoggingClient:
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        await self.aclose()

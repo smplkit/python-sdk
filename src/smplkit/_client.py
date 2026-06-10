@@ -23,7 +23,7 @@ from smplkit.audit._client import AsyncAuditClient, AuditClient
 from smplkit.jobs._client import AsyncJobsClient, JobsClient
 from smplkit.config._client import AsyncConfigClient, ConfigClient
 from smplkit.flags._client import AsyncFlagsClient, FlagsClient
-from smplkit.logging.client import AsyncLoggingClient, LoggingClient
+from smplkit.logging._client import AsyncLoggingClient, LoggingClient
 from smplkit.management._client import _AsyncManagementNamespace, _ManagementNamespace
 
 if TYPE_CHECKING:
@@ -135,7 +135,6 @@ class SmplClient:
         self.manage = _ManagementNamespace(_to_management_config(cfg, extra_headers))
 
         app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
-        logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
         audit_url = _service_url(cfg.scheme, "audit", cfg.base_domain)
 
         # Alias the management's HTTP transports — single connection pool per service.
@@ -168,13 +167,14 @@ class SmplClient:
             contexts=self.manage.contexts,
             metrics=self._metrics,
         )
+        # Logging's full surface on one client; wired into this parent so it
+        # borrows the shared logging transport and WebSocket. The two
+        # management sub-clients live at client.logging.loggers /
+        # client.logging.log_groups.
         self.logging = LoggingClient(
-            self,
-            manage=self.manage,
+            parent=self,
+            transport=self.manage._logging_http,
             metrics=self._metrics,
-            logging_base_url=logging_url,
-            app_base_url=app_url,
-            extra_headers=extra_headers,
         )
         # Audit's full surface on one client; this runtime instance carries
         # the configured environment as ``X-Smplkit-Environment`` and owns its
@@ -226,7 +226,7 @@ class SmplClient:
             try:
                 self.manage.contexts.flush()
                 self.flags.flush()
-                self.manage.loggers.flush()
+                self.logging.loggers.flush()
                 self.config.flush()
             except Exception as exc:
                 logger.warning("Periodic registration flush failed: %s", exc)
@@ -243,7 +243,7 @@ class SmplClient:
         for fn in (
             self.manage.contexts.flush,
             self.flags.flush,
-            self.manage.loggers.flush,
+            self.logging.loggers.flush,
             self.config.flush,
         ):
             try:
@@ -437,7 +437,6 @@ class AsyncSmplClient:
         self.manage = _AsyncManagementNamespace(_to_management_config(cfg, extra_headers))
 
         app_url = _service_url(cfg.scheme, "app", cfg.base_domain)
-        logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
         audit_url = _service_url(cfg.scheme, "audit", cfg.base_domain)
 
         self._http_client = self.manage._config_http
@@ -468,13 +467,14 @@ class AsyncSmplClient:
             contexts=self.manage.contexts,
             metrics=self._metrics,
         )
+        # Logging's full surface on one client; wired into this parent so it
+        # borrows the shared logging transport and WebSocket. The two
+        # management sub-clients live at client.logging.loggers /
+        # client.logging.log_groups.
         self.logging = AsyncLoggingClient(
-            self,
-            manage=self.manage,
+            parent=self,
+            transport=self.manage._logging_http,
             metrics=self._metrics,
-            logging_base_url=logging_url,
-            app_base_url=app_url,
-            extra_headers=extra_headers,
         )
         self.audit = AsyncAuditClient(
             api_key=cfg.api_key,
@@ -520,7 +520,7 @@ class AsyncSmplClient:
             for fn in (
                 self.manage.contexts.flush_sync,
                 self.flags.flush_sync,
-                self.manage.loggers.flush_sync,
+                self.logging.loggers.flush_sync,
                 self.config.flush_sync,
             ):
                 try:
@@ -540,7 +540,7 @@ class AsyncSmplClient:
         for fn in (
             self.manage.contexts.flush,
             self.flags.flush,
-            self.manage.loggers.flush,
+            self.logging.loggers.flush,
             self.config.flush,
         ):
             try:

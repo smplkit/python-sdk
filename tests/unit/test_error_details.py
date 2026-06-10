@@ -621,7 +621,7 @@ class TestFlagsClientErrors:
 
 
 class TestLoggingClientErrors:
-    @patch("smplkit.logging.client.update_logger.sync_detailed")
+    @patch("smplkit.logging._client.update_logger.sync_detailed")
     def test_save_new_logger_upserts_via_put(self, mock_update):
         from smplkit._errors import ConnectionError
         import httpx
@@ -631,13 +631,13 @@ class TestLoggingClientErrors:
         mock_update.side_effect = httpx.ConnectError("refused")
         from smplkit import SmplClient
 
-        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
+        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").logging
         lg = mgmt.loggers.new("test-key")
         with pytest.raises(ConnectionError):
             lg.save()
         mock_update.assert_called_once()
 
-    @patch("smplkit.logging.client.get_logger.sync_detailed")
+    @patch("smplkit.logging._client.get_logger.sync_detailed")
     def test_get_logger_404_surfaces_detail(self, mock_get):
         mock_get.return_value = _make_error_response(
             404,
@@ -654,7 +654,7 @@ class TestLoggingClientErrors:
 
         from smplkit import SmplClient
 
-        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").manage
+        mgmt = SmplClient(api_key="sk_test", base_domain="example.test").logging
         with pytest.raises(NotFoundError) as exc_info:
             mgmt.loggers.get("test-key")
         exc = exc_info.value

@@ -20,20 +20,24 @@ from smplkit import AsyncSmplClient, Error, SmplClient
 from smplkit._config import resolve_management_config
 from smplkit.config._client import AsyncConfigClient, ConfigClient
 from smplkit.flags._client import AsyncFlagsClient, FlagsClient
+from smplkit.logging._client import (
+    AsyncLoggingClient,
+    LoggingClient,
+    _AsyncLogGroupsClient,
+    _AsyncLoggersClient,
+    _LogGroupsClient,
+    _LoggersClient,
+)
 from smplkit.management._client import (
     AccountSettingsClient,
     AsyncAccountSettingsClient,
     AsyncContextsClient,
     AsyncContextTypesClient,
     AsyncEnvironmentsClient,
-    AsyncLogGroupsClient,
-    AsyncLoggersClient,
     AsyncServicesClient,
     ContextsClient,
     ContextTypesClient,
     EnvironmentsClient,
-    LogGroupsClient,
-    LoggersClient,
     ServicesClient,
     _AsyncManagementNamespace,
     _ManagementNamespace,
@@ -54,14 +58,20 @@ class TestManagementNamespaceConstruction:
         assert isinstance(mgmt.environments, EnvironmentsClient)
         assert isinstance(mgmt.services, ServicesClient)
         assert isinstance(mgmt.account_settings, AccountSettingsClient)
-        assert isinstance(mgmt.loggers, LoggersClient)
-        assert isinstance(mgmt.log_groups, LogGroupsClient)
-        # config/flags/audit/jobs are top-level (client.config / client.flags /
-        # client.audit / client.jobs), never on manage.
+        # config/flags/logging/audit/jobs are top-level (client.config /
+        # client.flags / client.logging / client.audit / client.jobs), never on
+        # manage. Logger / log-group CRUD lives on client.logging.loggers /
+        # client.logging.log_groups.
         assert isinstance(client.config, ConfigClient)
         assert isinstance(client.flags, FlagsClient)
+        assert isinstance(client.logging, LoggingClient)
+        assert isinstance(client.logging.loggers, _LoggersClient)
+        assert isinstance(client.logging.log_groups, _LogGroupsClient)
         assert not hasattr(mgmt, "config")
         assert not hasattr(mgmt, "flags")
+        assert not hasattr(mgmt, "logging")
+        assert not hasattr(mgmt, "loggers")
+        assert not hasattr(mgmt, "log_groups")
         assert not hasattr(mgmt, "audit")
         assert not hasattr(mgmt, "jobs")
         client.close()
@@ -115,12 +125,16 @@ class TestAsyncManagementNamespaceConstruction:
         assert isinstance(mgmt.environments, AsyncEnvironmentsClient)
         assert isinstance(mgmt.services, AsyncServicesClient)
         assert isinstance(mgmt.account_settings, AsyncAccountSettingsClient)
-        assert isinstance(mgmt.loggers, AsyncLoggersClient)
-        assert isinstance(mgmt.log_groups, AsyncLogGroupsClient)
         assert isinstance(client.config, AsyncConfigClient)
         assert isinstance(client.flags, AsyncFlagsClient)
+        assert isinstance(client.logging, AsyncLoggingClient)
+        assert isinstance(client.logging.loggers, _AsyncLoggersClient)
+        assert isinstance(client.logging.log_groups, _AsyncLogGroupsClient)
         assert not hasattr(mgmt, "config")
         assert not hasattr(mgmt, "flags")
+        assert not hasattr(mgmt, "logging")
+        assert not hasattr(mgmt, "loggers")
+        assert not hasattr(mgmt, "log_groups")
         assert not hasattr(mgmt, "audit")
         assert not hasattr(mgmt, "jobs")
         asyncio.run(client.close())
@@ -311,21 +325,6 @@ class TestModelsRequireClientForSave:
                 await grp.save()
 
         asyncio.run(_run())
-
-
-# ---------------------------------------------------------------------------
-# _maybe_reraise_network_error: SDK exception passthrough
-# ---------------------------------------------------------------------------
-
-
-class TestMaybeReraiseNetworkError:
-    def test_passes_through_sdk_exceptions(self):
-        from smplkit._errors import NotFoundError
-        from smplkit.management._client import _maybe_reraise_network_error
-
-        original = NotFoundError("not found", status_code=404)
-        with pytest.raises(NotFoundError, match="not found"):
-            _maybe_reraise_network_error(original)
 
 
 # ---------------------------------------------------------------------------

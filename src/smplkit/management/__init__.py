@@ -9,12 +9,11 @@ These back the ``client.manage`` namespace on the single
 - ``client.manage.environments.*``
 - ``client.manage.services.*``
 - ``client.manage.account_settings.*``
-- ``client.manage.loggers.*``
-- ``client.manage.log_groups.*``
 
-Config, flags, audit, and jobs are the top-level ``client.config`` /
-``client.flags`` / ``client.audit`` / ``client.jobs`` (each a full client),
-not part of the management namespace.
+Config, flags, logging, audit, and jobs are the top-level ``client.config`` /
+``client.flags`` / ``client.logging`` / ``client.audit`` / ``client.jobs``
+(each a full client), not part of the management namespace. Logging CRUD lives
+on ``client.logging.loggers`` / ``client.logging.log_groups``.
 """
 
 from __future__ import annotations
@@ -31,14 +30,10 @@ from smplkit.management._client import (
     AsyncContextsClient,
     AsyncContextTypesClient,
     AsyncEnvironmentsClient,
-    AsyncLogGroupsClient,
-    AsyncLoggersClient,
     AsyncServicesClient,
     ContextsClient,
     ContextTypesClient,
     EnvironmentsClient,
-    LogGroupsClient,
-    LoggersClient,
     ServicesClient,
 )
 from smplkit.management.models import (
@@ -63,8 +58,6 @@ __all__ = [
     "AsyncContextsClient",
     "AsyncEnvironment",
     "AsyncEnvironmentsClient",
-    "AsyncLogGroupsClient",
-    "AsyncLoggersClient",
     "AsyncService",
     "AsyncServicesClient",
     "AuditAsyncForwardersClient",
@@ -77,8 +70,6 @@ __all__ = [
     "EnvironmentClassification",
     "EnvironmentsClient",
     "ForwarderType",
-    "LogGroupsClient",
-    "LoggersClient",
     "Service",
     "ServicesClient",
     "TransformType",

@@ -687,7 +687,7 @@ def test_smpl_client_close_cancels_timer_and_runs_final_flush():
     with (
         patch.object(client.manage.contexts, "flush") as mock_ctx_flush,
         patch.object(client.flags, "flush") as mock_flag_flush,
-        patch.object(client.manage.loggers, "flush") as mock_log_flush,
+        patch.object(client.logging.loggers, "flush") as mock_log_flush,
     ):
         client.close()
     assert client._closed is True
@@ -719,7 +719,7 @@ def test_async_smpl_client_close_cancels_timer_and_runs_final_flush():
         with (
             patch.object(client.manage.contexts, "flush", new=AsyncMock()) as mock_ctx_flush,
             patch.object(client.flags, "flush", new=AsyncMock()) as mock_flag_flush,
-            patch.object(client.manage.loggers, "flush", new=AsyncMock()) as mock_log_flush,
+            patch.object(client.logging.loggers, "flush", new=AsyncMock()) as mock_log_flush,
         ):
             await client.close()
         assert client._closed is True
@@ -742,7 +742,7 @@ def test_periodic_flush_tick_drains_buffers():
         with (
             patch.object(client.manage.contexts, "flush") as mock_ctx_flush,
             patch.object(client.flags, "flush") as mock_flag_flush,
-            patch.object(client.manage.loggers, "flush") as mock_log_flush,
+            patch.object(client.logging.loggers, "flush") as mock_log_flush,
             patch.object(client, "_schedule_periodic_flush"),
         ):
             timer.function()
@@ -768,7 +768,7 @@ def test_async_periodic_flush_tick_drains_buffers_via_sync_variants():
             with (
                 patch.object(client.manage.contexts, "flush_sync") as mock_ctx_flush,
                 patch.object(client.flags, "flush_sync") as mock_flag_flush,
-                patch.object(client.manage.loggers, "flush_sync") as mock_log_flush,
+                patch.object(client.logging.loggers, "flush_sync") as mock_log_flush,
                 patch.object(client, "_schedule_periodic_flush"),
             ):
                 timer.function()
@@ -850,7 +850,7 @@ def test_async_periodic_flush_tick_swallows_flush_errors():
         with (
             patch.object(client.manage.contexts, "flush_sync", side_effect=RuntimeError("boom")),
             patch.object(client.flags, "flush_sync"),
-            patch.object(client.manage.loggers, "flush_sync"),
+            patch.object(client.logging.loggers, "flush_sync"),
             patch.object(client, "_schedule_periodic_flush") as mock_resched,
         ):
             timer.function()
@@ -869,7 +869,7 @@ def test_final_flush_swallows_errors():
     with (
         patch.object(client.manage.contexts, "flush", side_effect=RuntimeError("boom")),
         patch.object(client.flags, "flush") as mock_flag,
-        patch.object(client.manage.loggers, "flush") as mock_log,
+        patch.object(client.logging.loggers, "flush") as mock_log,
     ):
         client._final_flush()
     mock_flag.assert_called_once()
@@ -885,7 +885,7 @@ def test_async_final_flush_swallows_errors():
         with (
             patch.object(client.manage.contexts, "flush", new=AsyncMock(side_effect=RuntimeError("boom"))),
             patch.object(client.flags, "flush", new=AsyncMock()) as mock_flag,
-            patch.object(client.manage.loggers, "flush", new=AsyncMock()) as mock_log,
+            patch.object(client.logging.loggers, "flush", new=AsyncMock()) as mock_log,
         ):
             await client._final_flush()
         mock_flag.assert_awaited_once()
@@ -896,7 +896,7 @@ def test_async_final_flush_swallows_errors():
         with (
             patch.object(client.manage.contexts, "flush", new=AsyncMock()),
             patch.object(client.flags, "flush", new=AsyncMock()),
-            patch.object(client.manage.loggers, "flush", new=AsyncMock()),
+            patch.object(client.logging.loggers, "flush", new=AsyncMock()),
         ):
             await client.close()
 
@@ -941,7 +941,7 @@ def test_async_flag_get_with_explicit_context_registers():
             with (
                 patch.object(client.manage.contexts, "flush", new=AsyncMock()),
                 patch.object(client.flags, "flush", new=AsyncMock()),
-                patch.object(client.manage.loggers, "flush", new=AsyncMock()),
+                patch.object(client.logging.loggers, "flush", new=AsyncMock()),
             ):
                 await client.close()
 
