@@ -15,6 +15,7 @@ import pytest
 from smplkit import Error, NotFoundError
 from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 from smplkit.audit import (
+    AsyncForwarder,
     Forwarder,
     ForwarderEnvironment,
     ForwarderType,
@@ -219,6 +220,118 @@ class TestModels:
         # Only environments where the forwarder is enabled show in the repr.
         assert "production" in r
         assert "staging" not in r
+
+    # -- in-memory mutators: set_configuration / set_enabled ----------------
+
+    def test_set_configuration_base(self):
+        # environment=None replaces the base configuration.
+        f = Forwarder._from_resource(_forwarder_resource())
+        new_cfg = HttpConfiguration(url="https://base.example.com/in", method=HttpMethod.PUT)
+        f.set_configuration(new_cfg)
+        assert f.configuration is new_cfg
+        # The base set never touches per-environment overrides.
+        assert f.environments == {}
+
+    def test_set_enabled_base(self):
+        # environment=None sets the base enabled flag.
+        f = Forwarder._from_resource(_forwarder_resource())
+        assert f.enabled is False
+        f.set_enabled(True)
+        assert f.enabled is True
+        assert f.environments == {}
+
+    def test_set_configuration_creates_environment_override(self):
+        # A per-env set on an environment with no prior override creates the
+        # ForwarderEnvironment and sets its configuration (matching the
+        # showcase's set_configuration(..., environment="production")).
+        f = Forwarder._from_resource(_forwarder_resource())
+        cfg = HttpConfiguration(
+            headers=[HttpHeader(name="X-Showcase", value="ok")],
+            method=HttpMethod.POST,
+            url="https://httpbin.org/post",
+        )
+        f.set_configuration(cfg, environment="production")
+        assert "production" in f.environments
+        assert f.environments["production"].configuration is cfg
+        assert f.environments["production"].configuration.url == "https://httpbin.org/post"
+        # A freshly-created override defaults enabled to False.
+        assert f.environments["production"].enabled is False
+
+    def test_set_enabled_creates_environment_override(self):
+        # A per-env enable on an environment with no prior override creates
+        # the ForwarderEnvironment with configuration left None.
+        f = Forwarder._from_resource(_forwarder_resource())
+        f.set_enabled(True, environment="production")
+        assert "production" in f.environments
+        assert f.environments["production"].enabled is True
+        assert f.environments["production"].configuration is None
+
+    def test_set_enabled_then_set_configuration_does_not_clobber(self):
+        # Mirrors the showcase ordering: set_configuration then set_enabled on
+        # the same env must not clobber the configuration just set, and
+        # vice-versa — each mutator preserves the other field on an existing
+        # override.
+        f = Forwarder._from_resource(_forwarder_resource())
+        cfg = HttpConfiguration(url="https://httpbin.org/post")
+        f.set_configuration(cfg, environment="production")
+        f.set_enabled(True, environment="production")
+        assert f.environments["production"].configuration is cfg
+        assert f.environments["production"].enabled is True
+
+    def test_set_configuration_updates_existing_override_without_clobbering_enabled(self):
+        # An override already enabled keeps enabled when its configuration is
+        # later replaced.
+        f = Forwarder._from_resource(_forwarder_resource(environments={"production": {"enabled": True}}))
+        assert f.environments["production"].enabled is True
+        assert f.environments["production"].configuration is None
+        cfg = HttpConfiguration(url="https://new.example.com/in")
+        f.set_configuration(cfg, environment="production")
+        assert f.environments["production"].configuration is cfg
+        assert f.environments["production"].enabled is True
+
+    def test_set_enabled_updates_existing_override_without_clobbering_configuration(self):
+        # An override already carrying a configuration keeps it when enabled
+        # is later flipped.
+        f = Forwarder._from_resource(
+            _forwarder_resource(
+                environments={
+                    "production": {
+                        "enabled": False,
+                        "configuration": {
+                            "method": "POST",
+                            "url": "https://existing.example.com/in",
+                            "headers": [],
+                            "success_status": "2xx",
+                        },
+                    }
+                }
+            )
+        )
+        existing_cfg = f.environments["production"].configuration
+        assert existing_cfg is not None
+        f.set_enabled(True, environment="production")
+        assert f.environments["production"].enabled is True
+        # The configuration object is untouched.
+        assert f.environments["production"].configuration is existing_cfg
+        assert f.environments["production"].configuration.url == "https://existing.example.com/in"
+
+    def test_async_forwarder_inherits_in_memory_mutators(self):
+        # AsyncForwarder shares the (non-async) mutators with Forwarder — the
+        # async surface only differs on save()/delete(). Exercise both base
+        # and per-environment paths on the async class.
+        f = AsyncForwarder._from_resource(_forwarder_resource())
+        assert isinstance(f, AsyncForwarder)
+        base_cfg = HttpConfiguration(url="https://async-base.example.com/in")
+        f.set_configuration(base_cfg)
+        f.set_enabled(True)
+        assert f.configuration is base_cfg
+        assert f.enabled is True
+        env_cfg = HttpConfiguration(url="https://httpbin.org/post")
+        f.set_configuration(env_cfg, environment="production")
+        f.set_enabled(True, environment="production")
+        assert f.environments["production"].configuration is env_cfg
+        assert f.environments["production"].configuration.url == "https://httpbin.org/post"
+        assert f.environments["production"].enabled is True
 
 
 # ---------------------------------------------------------------------------

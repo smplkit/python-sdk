@@ -400,6 +400,50 @@ class Forwarder:
             raise RuntimeError("Forwarder was constructed without a client or id; cannot delete")
         self._client.delete(self.id)
 
+    def _environment_override(self, environment: str) -> ForwarderEnvironment:
+        """Return the override for ``environment``, creating an empty one if absent.
+
+        Mirrors :meth:`smplkit.config.models.Config._items_target` — the
+        per-environment mutators reach through here so an existing override's
+        other field is preserved when only one of ``enabled`` / ``configuration``
+        is being set.
+        """
+        env = self.environments.get(environment)
+        if env is None:
+            env = ForwarderEnvironment()
+            self.environments[environment] = env
+        return env
+
+    def set_configuration(self, configuration: HttpConfiguration, environment: str | None = None) -> None:
+        """Set this forwarder's destination configuration in memory.
+
+        With ``environment`` omitted, replaces the base
+        :attr:`configuration`. With ``environment`` given, sets the
+        per-environment override's configuration on
+        :attr:`environments`, creating the override entry if it doesn't
+        exist yet (preserving any already-set ``enabled`` on it). Call
+        :meth:`save` to persist.
+        """
+        if environment is None:
+            self.configuration = configuration
+        else:
+            self._environment_override(environment).configuration = configuration
+
+    def set_enabled(self, enabled: bool, environment: str | None = None) -> None:
+        """Set this forwarder's enablement in memory.
+
+        With ``environment`` omitted, sets the base :attr:`enabled` (which
+        the server pins false regardless — enablement is per-environment).
+        With ``environment`` given, sets the per-environment override's
+        ``enabled`` on :attr:`environments`, creating the override entry if
+        it doesn't exist yet (preserving any already-set ``configuration``
+        on it). Call :meth:`save` to persist.
+        """
+        if environment is None:
+            self.enabled = enabled
+        else:
+            self._environment_override(environment).enabled = enabled
+
     def _apply(self, other: Forwarder) -> None:
         """Copy every server-authoritative field from ``other`` onto self."""
         self.id = other.id
