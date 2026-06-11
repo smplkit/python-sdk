@@ -1323,22 +1323,45 @@ class ConfigClient:
             self._raw_config_cache = raw_cache
         self._fire_change_listeners(old_cache, new_cache, source=source)
 
+    def _ensure_ancestors_cached(self, raw_cache: dict[str, Config]) -> None:
+        """Pull any referenced-but-uncached parent (and ancestors) into ``raw_cache``.
+
+        A ``config_changed`` event fetches only the changed config. If that
+        config inherits from a parent that isn't already in the raw cache — e.g.
+        a parent created via discovery after the initial connect that never
+        broadcast its own event — the chain walk in ``_rebuild_resolved_cache``
+        would stop at the gap and the child would re-resolve missing its
+        inherited values. Walk every config's parent pointers and fetch each
+        absent ancestor so the inheritance chain resolves fully.
+        """
+        pending = [cfg.parent for cfg in raw_cache.values() if cfg.parent is not None]
+        while pending:
+            parent_id = pending.pop()
+            if parent_id in raw_cache:
+                continue
+            parent = self._fetch_config(parent_id)
+            if parent is None:
+                continue
+            raw_cache[parent_id] = parent
+            if parent.parent is not None:
+                pending.append(parent.parent)
+
     def _handle_config_changed(self, data: dict[str, Any]) -> None:
         key = data.get("id")
         if not key:
             self._handle_configs_changed(data)
             return
-        with self._cache_lock:
-            raw_cache = dict(self._raw_config_cache)
         try:
+            with self._cache_lock:
+                raw_cache = dict(self._raw_config_cache)
             cfg = self._fetch_config(key)
+            if cfg is None:
+                return
+            raw_cache[key] = cfg
+            self._ensure_ancestors_cached(raw_cache)
+            self._rebuild_resolved_cache(raw_cache, source="websocket")
         except Exception:
-            ws_logger.error("Failed to fetch config %r after WS event", key, exc_info=True)
-            return
-        if cfg is None:
-            return
-        raw_cache[key] = cfg
-        self._rebuild_resolved_cache(raw_cache, source="websocket")
+            ws_logger.error("Failed to handle config_changed for %r after WS event", key, exc_info=True)
 
     def _handle_config_deleted(self, data: dict[str, Any]) -> None:
         key = data.get("id")
@@ -2023,24 +2046,47 @@ class AsyncConfigClient:
             self._raw_config_cache = raw_cache
         self._fire_change_listeners(old_cache, new_cache, source=source)
 
+    def _fetch_config_sync(self, config_id: str) -> AsyncConfig | None:
+        """Fetch a single config synchronously — the WS dispatch thread is sync."""
+        response = get_config.sync_detailed(config_id, client=self._http)
+        _check_response_status(response.status_code, response.content)
+        if response.parsed is None or not hasattr(response.parsed, "data"):
+            return None
+        return _resource_to_async_config(None, response.parsed.data)
+
+    def _ensure_ancestors_cached(self, raw_cache: dict[str, AsyncConfig]) -> None:
+        """Pull any referenced-but-uncached parent (and ancestors) into ``raw_cache``.
+
+        See :meth:`ConfigClient._ensure_ancestors_cached` for the full rationale.
+        """
+        pending = [cfg.parent for cfg in raw_cache.values() if cfg.parent is not None]
+        while pending:
+            parent_id = pending.pop()
+            if parent_id in raw_cache:
+                continue
+            parent = self._fetch_config_sync(parent_id)
+            if parent is None:
+                continue
+            raw_cache[parent_id] = parent
+            if parent.parent is not None:
+                pending.append(parent.parent)
+
     def _handle_config_changed(self, data: dict[str, Any]) -> None:
         key = data.get("id")
         if not key:
             self._handle_configs_changed(data)
             return
-        with self._cache_lock:
-            raw_cache = dict(self._raw_config_cache)
         try:
-            response = get_config.sync_detailed(key, client=self._http)
-            _check_response_status(response.status_code, response.content)
-            if response.parsed is None or not hasattr(response.parsed, "data"):
+            with self._cache_lock:
+                raw_cache = dict(self._raw_config_cache)
+            cfg = self._fetch_config_sync(key)
+            if cfg is None:
                 return
-            cfg = _resource_to_async_config(None, response.parsed.data)
+            raw_cache[key] = cfg
+            self._ensure_ancestors_cached(raw_cache)
+            self._rebuild_resolved_cache(raw_cache, source="websocket")
         except Exception:
-            ws_logger.error("Failed to fetch config %r after WS event", key, exc_info=True)
-            return
-        raw_cache[key] = cfg
-        self._rebuild_resolved_cache(raw_cache, source="websocket")
+            ws_logger.error("Failed to handle config_changed for %r after WS event", key, exc_info=True)
 
     def _handle_config_deleted(self, data: dict[str, Any]) -> None:
         key = data.get("id")

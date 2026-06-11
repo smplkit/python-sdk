@@ -22,6 +22,7 @@ from smplkit._errors import (
 from smplkit._client import AsyncSmplClient, SmplClient
 from smplkit.config._client import AsyncConfigClient, ConfigClient, LiveConfigProxy
 from smplkit.config.helpers import _resource_to_config
+from smplkit.config.models import AsyncConfig, Config
 
 
 def _new_config() -> ConfigClient:
@@ -1456,6 +1457,52 @@ class TestConfigClientWebSocket:
                 client.config._handle_config_changed({"id": "db"})
         mock_logger.error.assert_called_once()
 
+    def test_handle_config_changed_fetches_uncached_parent_chain(self):
+        """Regression: a config_changed for a child whose parent (and grandparent)
+        are NOT in the raw cache fetches the ancestor chain so the child still
+        resolves with its inherited values."""
+        client = SmplClient(api_key="sk_test", environment="test", service="svc")
+        client.config._connected = True
+        client.config._config_cache = {}
+        client.config._raw_config_cache = {}
+        base = Config(None, id="base", name="Base", parent=None, items={"region": {"value": "us-east"}})
+        mid = Config(None, id="mid", name="Mid", parent="base", items={})
+        child = Config(None, id="db", name="DB", parent="mid", items={"host": {"value": "local"}})
+        fetched = {"db": child, "mid": mid, "base": base}
+        with patch.object(client.config, "_fetch_config", side_effect=lambda cid: fetched[cid]):
+            client.config._handle_config_changed({"id": "db"})
+        # Inherited from the uncached grandparent, plus the child's own value.
+        assert client.config._config_cache["db"]["region"] == "us-east"
+        assert client.config._config_cache["db"]["host"] == "local"
+
+    def test_handle_config_changed_keeps_already_cached_parent(self):
+        client = SmplClient(api_key="sk_test", environment="test", service="svc")
+        client.config._connected = True
+        base = Config(None, id="base", name="Base", parent=None, items={"region": {"value": "us-east"}})
+        client.config._config_cache = {}
+        client.config._raw_config_cache = {"base": base}
+        child = Config(None, id="db", name="DB", parent="base", items={})
+        with patch.object(client.config, "_fetch_config", side_effect=lambda cid: {"db": child}[cid]) as mock_fetch:
+            client.config._handle_config_changed({"id": "db"})
+        # Parent already cached → only the changed config is fetched.
+        mock_fetch.assert_called_once_with("db")
+        assert client.config._config_cache["db"]["region"] == "us-east"
+
+    def test_handle_config_changed_missing_parent_is_logged(self):
+        # A parent the server can't return leaves the chain unresolvable; the sync
+        # resolver raises and the handler logs rather than crashing the WS thread.
+        client = SmplClient(api_key="sk_test", environment="test", service="svc")
+        client.config._connected = True
+        client.config._config_cache = {}
+        client.config._raw_config_cache = {}
+        child = Config(None, id="db", name="DB", parent="ghost", items={"host": {"value": "local"}})
+        fetched = {"db": child, "ghost": None}
+        with patch.object(client.config, "_fetch_config", side_effect=lambda cid: fetched[cid]):
+            with patch("smplkit.config._client.ws_logger") as mock_logger:
+                client.config._handle_config_changed({"id": "db"})
+        mock_logger.error.assert_called_once()
+        assert "db" not in client.config._config_cache
+
     def test_handle_config_deleted_removes_from_cache(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         client.config._connected = True
@@ -1599,6 +1646,66 @@ class TestAsyncConfigClientWebSocket:
         with patch("smplkit.config._client.ws_logger") as mock_logger:
             client.config._handle_config_changed({"id": "db"})
         mock_logger.error.assert_called_once()
+
+    @patch("smplkit.config._client.get_config.sync_detailed")
+    def test_handle_config_changed_fetches_uncached_parent_chain(self, mock_get):
+        """Regression: a config_changed for a child whose parent (and grandparent)
+        are NOT in the raw cache fetches the ancestor chain so the child still
+        resolves with its inherited values."""
+        base = _mock_resource(id="base", name="Base")
+        base.attributes.items = {"region": {"value": "us-east"}}
+        base.attributes.parent = None
+        mid = _mock_resource(id="mid", name="Mid")
+        mid.attributes.items = {}
+        mid.attributes.parent = "base"
+        child = _mock_resource(id="db", name="DB")
+        child.attributes.items = {"host": {"value": "local"}}
+        child.attributes.parent = "mid"
+        responses = {
+            "db": _mock_single_response(child),
+            "mid": _mock_single_response(mid),
+            "base": _mock_single_response(base),
+        }
+        mock_get.side_effect = lambda cid, **kw: responses[cid]
+        client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
+        client.config._connected = True
+        client.config._config_cache = {}
+        client.config._raw_config_cache = {}
+        client.config._handle_config_changed({"id": "db"})
+        assert client.config._config_cache["db"]["region"] == "us-east"
+        assert client.config._config_cache["db"]["host"] == "local"
+
+    @patch("smplkit.config._client.get_config.sync_detailed")
+    def test_handle_config_changed_keeps_already_cached_parent(self, mock_get):
+        child = _mock_resource(id="db", name="DB")
+        child.attributes.items = {}
+        child.attributes.parent = "base"
+        mock_get.return_value = _mock_single_response(child)
+        client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
+        client.config._connected = True
+        base = AsyncConfig(None, id="base", name="Base", parent=None, items={"region": {"value": "us-east"}})
+        client.config._config_cache = {}
+        client.config._raw_config_cache = {"base": base}
+        client.config._handle_config_changed({"id": "db"})
+        # Parent already cached → only the changed config is fetched.
+        mock_get.assert_called_once()
+        assert client.config._config_cache["db"]["region"] == "us-east"
+
+    @patch("smplkit.config._client.get_config.sync_detailed")
+    def test_handle_config_changed_missing_parent_resolves_without_inheritance(self, mock_get):
+        # Parent unavailable → the async resolver breaks the chain and the child
+        # still updates with its own value.
+        child = _mock_resource(id="db", name="DB")
+        child.attributes.items = {"host": {"value": "local"}}
+        child.attributes.parent = "ghost"
+        responses = {"db": _mock_single_response(child), "ghost": _mock_response(parsed=None)}
+        mock_get.side_effect = lambda cid, **kw: responses[cid]
+        client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
+        client.config._connected = True
+        client.config._config_cache = {}
+        client.config._raw_config_cache = {}
+        client.config._handle_config_changed({"id": "db"})
+        assert client.config._config_cache["db"]["host"] == "local"
 
     def test_handle_config_deleted_removes_from_cache_and_fires(self):
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
