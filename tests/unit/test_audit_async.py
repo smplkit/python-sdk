@@ -150,6 +150,23 @@ class TestAsyncEvents:
 
         asyncio.run(_run())
 
+    def test_list_search_filter_threaded(self):
+        seen: list[str] = []
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            seen.append(str(req.url))
+            return httpx.Response(200, json={"data": [], "links": {}, "meta": {"page_size": 50}})
+
+        async def _run():
+            c = _async_client(handler)
+            await c.events.list(search="inv-42")
+            assert "filter%5Bsearch%5D=inv-42" in seen[0]
+            # Omitted → the param is left off the wire entirely.
+            await c.events.list()
+            assert "filter%5Bsearch%5D" not in seen[1]
+
+        asyncio.run(_run())
+
     def test_get_404_raises(self):
         async def _run():
             c = _async_client(lambda req: httpx.Response(404, json={}))

@@ -796,6 +796,30 @@ class TestEventsListEnvironments:
             client._close()
 
 
+class TestEventsListSearch:
+    """``search`` → ``filter[search]`` free-text filter on events.list."""
+
+    def test_omitted_by_default(self):
+        handler, seen = _list_url_capture(_EVENTS_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.events.list()
+            url = seen[0]
+            assert "filter%5Bsearch%5D" not in url
+            assert "filter[search]" not in url
+        finally:
+            client._close()
+
+    def test_supplied_threads_filter_search(self):
+        handler, seen = _list_url_capture(_EVENTS_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.events.list(search="inv-42")
+            assert "filter%5Bsearch%5D=inv-42" in seen[0]
+        finally:
+            client._close()
+
+
 class TestResourceTypesListEnvironments:
     def test_omitted_by_default(self):
         handler, seen = _list_url_capture(_DISCOVERY_BODY)

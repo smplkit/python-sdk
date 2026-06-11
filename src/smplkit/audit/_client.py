@@ -445,6 +445,7 @@ class _EventsClient:
         actor_type: str | None = None,
         actor_id: str | None = None,
         occurred_at_range: str | None = None,
+        search: str | None = None,
         environments: list[str] | None = None,
         page_size: int | None = None,
         page_after: str | None = None,
@@ -455,6 +456,14 @@ class _EventsClient:
         string against whatever the recording call stored. Pagination
         uses an opaque cursor (``page_after``); the returned page
         exposes ``next_cursor`` if more pages are available.
+
+        ``search`` is an optional free-text filter: pass a string to
+        return only events whose ``resource_id`` or ``description``
+        contains it as a case-insensitive substring; omit it (the
+        default) to disable text filtering. A ``search`` filter must be
+        scoped — combine it with ``occurred_at_range``, or with both
+        ``resource_type`` and ``resource_id`` — or the request is
+        rejected.
 
         ``environments`` scopes the read to a set of environments: pass
         a list of environment keys and/or the reserved ``"smplkit"``
@@ -471,6 +480,7 @@ class _EventsClient:
             filteractor_type=actor_type if actor_type is not None else UNSET,
             filteractor_id=actor_id if actor_id is not None else UNSET,
             filteroccurred_at=occurred_at_range if occurred_at_range is not None else UNSET,
+            filtersearch=search if search is not None else UNSET,
             filterenvironment=_join_environments(environments),
             pagesize=page_size if page_size is not None else UNSET,
             pageafter=page_after if page_after is not None else UNSET,
@@ -692,6 +702,7 @@ class _AsyncEventsClient:
         actor_type: str | None = None,
         actor_id: str | None = None,
         occurred_at_range: str | None = None,
+        search: str | None = None,
         environments: list[str] | None = None,
         page_size: int | None = None,
         page_after: str | None = None,
@@ -705,6 +716,7 @@ class _AsyncEventsClient:
             filteractor_type=actor_type if actor_type is not None else UNSET,
             filteractor_id=actor_id if actor_id is not None else UNSET,
             filteroccurred_at=occurred_at_range if occurred_at_range is not None else UNSET,
+            filtersearch=search if search is not None else UNSET,
             filterenvironment=_join_environments(environments),
             pagesize=page_size if page_size is not None else UNSET,
             pageafter=page_after if page_after is not None else UNSET,
