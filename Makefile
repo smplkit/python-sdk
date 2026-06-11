@@ -39,6 +39,7 @@ test:
 
 lint:
 	$(PYTHON) -m ruff check src/ tests/
+	$(PYTHON) -m ruff format --check src/ tests/
 
 config_runtime_showcase:
 	$(SHOWCASE_RUN) examples/config_runtime_showcase.py
