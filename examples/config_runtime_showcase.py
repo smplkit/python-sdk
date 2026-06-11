@@ -55,10 +55,9 @@ class Billing(BaseModel):
 
 
 async def main() -> None:
-    # create the client (use SmplClient for synchronous use)
-    async with AsyncSmplClient(
-        environment="production", service="showcase-billing"
-    ) as client:
+
+    # or SmplClient for synchronous use
+    async with AsyncSmplClient(environment="production") as client:
         await cleanup_runtime_showcase(client)
 
         # bind Pydantic models
@@ -82,6 +81,8 @@ async def main() -> None:
                 f"    [CHANGE] {event.config_id}.{event.item_key}: "
                 f"{event.old_value!r} -> {event.new_value!r}"
             )
+
+        await client.wait_until_ready()
 
         # simulate someone making a change in smplkit console
         await simulate_admin_override(client)

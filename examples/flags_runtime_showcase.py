@@ -82,7 +82,7 @@ def _create_context(user: dict, account: dict) -> list[Context]:
 
 async def main() -> None:
 
-    # create the client (use SmplClient for synchronous use)
+    # or SmplClient for synchronous use
     async with AsyncSmplClient(
         environment="production", service="showcase-service"
     ) as client:

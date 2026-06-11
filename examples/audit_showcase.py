@@ -43,11 +43,6 @@ SIEM_TRANSFORM = """
 }
 """
 
-# A forwarder delivers events in an environment only when that environment is
-# enabled in its ``environments`` map. The environment must exist and be
-# managed for the account.
-ENVIRONMENT = "production"
-
 
 async def main() -> None:
 
@@ -58,23 +53,21 @@ async def main() -> None:
 
         # ----- Events: record / list / get --------------------------------
 
-        # record an event with full customer-supplied actor attribution
+        # record an event
         await audit.events.record(
-            event_type="invoice.created",
-            resource_type="invoice",
-            resource_id=some_resource_id,
-            occurred_at=datetime.now(timezone.utc),
-            actor_type="USER",
             actor_id="billing-bot:42",
             actor_label="finance@example.com",
-            # An optional free-form bucket label — groups related events and
-            # powers the categories discovery listing shown below.
+            actor_type="USER",
             category="billing",
             data={
                 "snapshot": {"total_cents": 4900, "currency": "USD"},
                 "request_id": "req-abc",
             },
+            event_type="invoice.created",
             flush=True,  # or omit to have events flushed asynchronously
+            occurred_at=datetime.now(timezone.utc),
+            resource_id=some_resource_id,
+            resource_type="invoice",
         )
         print(f"Recorded event for invoice {some_resource_id}")
 
@@ -94,10 +87,6 @@ async def main() -> None:
         assert event.actor_id == "billing-bot:42"
         assert event.actor_label == "finance@example.com"
         assert event.category == "billing"
-        # The event is scoped to the environment the client is configured for.
-        # The SDK resolves this from the ``X-Smplkit-Environment`` header — the
-        # recording call never carries it in the request body.
-        assert event.environment == ENVIRONMENT
         print(
             f"Fetched event {event.id}: {event.event_type} "
             f"by {event.actor_label} in {event.environment}"
@@ -120,21 +109,18 @@ async def main() -> None:
         # ----- Forwarders: SIEM streaming CRUD ----------------------------
 
         forwarder_id = f"showcase-{uuid.uuid4().hex[:6]}"
+
         try:
-            # create a forwarder, enabled in our target environment, with a
-            # JSON Logic filter and a JSONata transform. Enablement is
-            # per-environment: a forwarder delivers in an environment only
-            # when ``environments[env].enabled`` is True.
+            # create a forwarder (disabled by default)
             forwarder = audit.forwarders.new(
                 forwarder_id,
-                forwarder_type=ForwarderType.HTTP,
                 configuration=HttpConfiguration(
-                    method=HttpMethod.POST,
-                    url="https://httpbin.org/post",
                     headers=[HttpHeader(name="X-Showcase", value="ok")],
+                    method=HttpMethod.POST,
+                    url="https://example.com",
                 ),
-                environments={ENVIRONMENT: {"enabled": True}},
                 filter=INVOICE_FILTER,
+                forwarder_type=ForwarderType.HTTP,
                 transform=SIEM_TRANSFORM,
                 transform_type=TransformType.JSONATA,
             )
@@ -146,20 +132,34 @@ async def main() -> None:
             assert forwarder.id in {f.id for f in listed.forwarders}
             print(f"Account has {len(listed.forwarders)} forwarder(s)")
 
-            # get a forwarder, then disable it in our environment via
-            # get-mutate-put
-            fetched = await audit.forwarders.get(forwarder.id)
-            assert fetched.environments[ENVIRONMENT].enabled is True
-            fetched.environments[ENVIRONMENT].enabled = False
-            await fetched.save()
-            assert fetched.environments[ENVIRONMENT].enabled is False
-            print(f"Disabled forwarder in {ENVIRONMENT}: {fetched.name}")
+            # get a forwarder
+            forwarder = await client.audit.forwarders.get(forwarder_id)
+            print(f"Fetched forwarder: {forwarder.name} (id={forwarder.id})")
+            assert forwarder.id == forwarder_id
+
+            # configure where to forward events in production
+            forwarder.set_configuration(HttpConfiguration(
+                    headers=[HttpHeader(name="X-Showcase", value="ok")],
+                    method=HttpMethod.POST,
+                    url="https://httpbin.org/post",
+                ),
+                environment="production"
+            )
+            await forwarder.save()
+            assert forwarder.environments["production"].configuration.url == "https://httpbin.org/post"
+            print(f"Updated forwarder: {forwarder.name}")
+
+            # start forwarding events in production
+            forwarder.set_enabled(True, environment="production")
+            await forwarder.save()
+            print(f"Enabled forwarder {forwarder.name} (id={forwarder.id}) "
+                  "to start forwarding events in production")
 
             # delete a forwarder
-            await fetched.delete()
+            await forwarder.delete()
             remaining = await audit.forwarders.list()
             assert forwarder_id not in {f.id for f in remaining.forwarders}
-            print(f"Deleted forwarder: {fetched.name}")
+            print(f"Deleted forwarder: {forwarder.name}")
         finally:
             # tear-down: never leave the showcase forwarder behind, even on failure
             try:

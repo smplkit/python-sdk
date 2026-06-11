@@ -24,7 +24,7 @@ from setup.config_management_setup import (
 
 async def main() -> None:
 
-    # One client (use SmplClient for synchronous use).
+    # or SmplClient for synchronous use
     async with AsyncSmplClient() as client:
         await setup_management_showcase(client)
 

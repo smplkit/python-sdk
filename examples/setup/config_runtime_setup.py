@@ -13,7 +13,7 @@ _DEMO_CONFIG_IDS = [
 
 
 async def simulate_admin_override(client: AsyncSmplClient) -> None:
-    await client.config.flush() # or just client.flush()
+    await client.config.flush()
     billing = await client.config.get("showcase-billing")
     billing.set_number("plan.max_seats", 25, environment="production")
     await billing.save()

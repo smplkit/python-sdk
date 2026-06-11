@@ -24,7 +24,7 @@ from setup.logging_management_setup import (
 
 async def main() -> None:
 
-    # One client (use SmplClient for synchronous use).
+    # or SmplClient for synchronous use
     async with AsyncSmplClient() as client:
         await setup_management_showcase(client)
 
@@ -60,7 +60,7 @@ async def main() -> None:
         print(f"Cleared production override: {root.environments}")
         assert "production" not in root.environments
 
-        # fetch a logger by id
+        # get a logger
         fetched = await client.logging.loggers.get("showcase")
         assert fetched.level == LogLevel.INFO
 

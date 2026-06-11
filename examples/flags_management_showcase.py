@@ -24,7 +24,7 @@ from setup.flags_management_setup import (
 
 async def main() -> None:
 
-    # One client (use SmplClient for synchronous use).
+    # or SmplClient for synchronous use
     async with AsyncSmplClient() as client:
         await setup_management_showcase(client)
 
@@ -41,8 +41,8 @@ async def main() -> None:
         banner_flag = client.flags.new_string_flag(
             "banner-color",
             default="red",
-            name="Banner Color",
             description="Controls the banner color shown to users.",
+            name="Banner Color",
             values=[
                 FlagValue(name="Red", value="red"),
                 FlagValue(name="Green", value="green"),
