@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
@@ -32,27 +33,37 @@ class _StubResponse:
 
 
 def test_buffer_drops_oldest_when_over_capacity():
-    """When the buffer is full, the oldest item is dropped to make room."""
+    """When the buffer is full, the oldest queued item is dropped to make room."""
     posts: list[_PendingEvent] = []
+    worker_parked = threading.Event()
+    release_worker = threading.Event()
 
-    def post(item: _PendingEvent) -> httpx.Response:
-        # Hold the worker by returning success only after we've populated.
+    def post(item: _PendingEvent) -> int:
+        # Park the worker inside the first POST so it cannot drain the queue
+        # while we fill it past capacity. This makes the drop-oldest branch
+        # fire deterministically, independent of worker-thread timing.
+        if not worker_parked.is_set():
+            worker_parked.set()
+            release_worker.wait(timeout=5.0)
         posts.append(item)
         return 201
 
     buf = AuditEventBuffer(post_fn=post, max_size=3, watermark=999)
     try:
-        for i in range(5):
+        buf.enqueue({"i": 0})
+        # Wait until the worker has popped event 0 and is parked in post().
+        assert worker_parked.wait(timeout=2.0)
+        # With the worker parked, these fill the queue to capacity; the fifth
+        # enqueue overflows and drops the oldest queued item (i=1).
+        for i in range(1, 5):
             buf.enqueue({"i": i})
-        # Allow the worker a brief tick — but posting is fast in this stub,
-        # so by the time we check, the queue should be drained.
+        release_worker.set()
         buf.flush(timeout=2.0)
-        assert len(posts) >= 3  # at least three events made it through
-        # The oldest items are the ones dropped, so events with the largest
-        # ``i`` values should be present in posts.
         seen = {p.body["i"] for p in posts}
-        assert max(seen) == 4
+        assert max(seen) == 4  # the newest event survived
+        assert 1 not in seen  # the oldest queued event was dropped
     finally:
+        release_worker.set()
         buf.close(timeout=2.0)
 
 
