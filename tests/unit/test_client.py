@@ -138,14 +138,14 @@ def test_wait_until_ready_returns_when_connected():
     client = SmplClient(api_key="sk_api_test", environment="test")
     with (
         patch.object(SharedWebSocket, "start"),
-        patch.object(client.flags, "install"),
-        patch.object(client.config, "install"),
+        patch.object(client.flags, "_ensure_connected"),
+        patch.object(client.config, "_ensure_connected"),
     ):
         ws = client._ensure_ws()
         ws._connection_status = "connected"
         client.wait_until_ready(timeout=1.0)
-        client.flags.install.assert_called_once()
-        client.config.install.assert_called_once()
+        client.flags._ensure_connected.assert_called_once()
+        client.config._ensure_connected.assert_called_once()
 
 
 def test_wait_until_ready_raises_on_timeout():
@@ -156,8 +156,8 @@ def test_wait_until_ready_raises_on_timeout():
     client = SmplClient(api_key="sk_api_test", environment="test")
     with (
         patch.object(SharedWebSocket, "start"),
-        patch.object(client.flags, "install"),
-        patch.object(client.config, "install"),
+        patch.object(client.flags, "_ensure_connected"),
+        patch.object(client.config, "_ensure_connected"),
     ):
         ws = client._ensure_ws()
         ws._connection_status = "disconnected"
@@ -170,14 +170,14 @@ def test_async_wait_until_ready_returns_when_connected():
         client = AsyncSmplClient(api_key="sk_api_test", environment="test")
         with (
             patch.object(SharedWebSocket, "start"),
-            patch.object(client.flags, "install", new=AsyncMock()),
-            patch.object(client.config, "install", new=AsyncMock()),
+            patch.object(client.flags, "_ensure_connected", new=AsyncMock()),
+            patch.object(client.config, "_ensure_connected", new=AsyncMock()),
         ):
             ws = client._ensure_ws()
             ws._connection_status = "connected"
             await client.wait_until_ready(timeout=1.0)
-            client.flags.install.assert_awaited_once()
-            client.config.install.assert_awaited_once()
+            client.flags._ensure_connected.assert_awaited_once()
+            client.config._ensure_connected.assert_awaited_once()
 
     asyncio.run(_run())
 
@@ -191,8 +191,8 @@ def test_async_wait_until_ready_raises_on_timeout():
         client = AsyncSmplClient(api_key="sk_api_test", environment="test")
         with (
             patch.object(SharedWebSocket, "start"),
-            patch.object(client.flags, "install", new=AsyncMock()),
-            patch.object(client.config, "install", new=AsyncMock()),
+            patch.object(client.flags, "_ensure_connected", new=AsyncMock()),
+            patch.object(client.config, "_ensure_connected", new=AsyncMock()),
         ):
             ws = client._ensure_ws()
             ws._connection_status = "disconnected"
@@ -914,7 +914,7 @@ def test_flag_get_with_explicit_context_registers():
 
     client = SmplClient(api_key="sk_api_test", environment="test")
     try:
-        client.flags._installed = True  # skip the live install() round-trip
+        client.flags._connected = True  # skip the live install() round-trip
         flag = client.flags.boolean_flag("dark-mode", default=False)
         client.flags._flag_store = {"dark-mode": {"id": "dark-mode", "default": False, "environments": {}}}
         before = client.platform.contexts._buffer.pending_count
@@ -931,7 +931,7 @@ def test_async_flag_get_with_explicit_context_registers():
     async def _run():
         client = AsyncSmplClient(api_key="sk_api_test", environment="test")
         try:
-            client.flags._installed = True
+            client.flags._connected = True
             flag = client.flags.boolean_flag("dark-mode", default=False)
             client.flags._flag_store = {"dark-mode": {"id": "dark-mode", "default": False, "environments": {}}}
             before = client.platform.contexts._buffer.pending_count
@@ -954,7 +954,7 @@ def test_flag_get_with_set_context_does_not_double_register():
 
     client = SmplClient(api_key="sk_api_test", environment="test")
     try:
-        client.flags._installed = True
+        client.flags._connected = True
         flag = client.flags.boolean_flag("dark-mode", default=False)
         client.flags._flag_store = {"dark-mode": {"id": "dark-mode", "default": False, "environments": {}}}
         client.set_context([Context("user", "u-set", plan="free")])

@@ -284,24 +284,26 @@ class SmplClient:
         return self._ws_manager
 
     def wait_until_ready(self, timeout: float = 10.0) -> None:
-        """Eagerly initialize the SDK and block until it is fully ready.
+        """Optionally pre-warm the SDK and block until the live socket is up.
 
-        Pre-fetches all flags and configs into the local cache, opens the
-        live-updates WebSocket, and waits for the handshake to complete.
-        After this returns, ``flag.get()`` / ``client.config.get()`` hit cache
-        (no first-request connect tax) and any ``on_change`` listeners
-        receive every server event from this point forward.
+        Eagerly connects config and flags — flushing discovery, pre-fetching
+        all flags and configs into the local cache, opening the live-updates
+        WebSocket — and waits for the handshake to complete. After this
+        returns, ``flag.get()`` / ``client.config.subscribe()`` hit cache (no
+        first-request connect tax) and any ``on_change`` listeners receive
+        every server event from this point forward.
 
-        Logging integration is *not* installed here — call
-        ``client.logging.install()`` separately if you want it (it installs
-        adapters and hooks into your application's logger, which should be
-        opt-in).
+        Optional: config and flags connect lazily on first live use, so this
+        is purely a pre-warm / WebSocket-ready barrier. Logging integration is
+        *not* connected here — call ``client.logging.install()`` separately if
+        you want it (it installs adapters and hooks into your application's
+        logger, which should be opt-in).
 
         Raises:
             TimeoutError: If the WebSocket fails to connect within *timeout* seconds.
         """
-        self.flags.install()
-        self.config.install()
+        self.flags._ensure_connected()
+        self.config._ensure_connected()
         ws = self._ensure_ws()
         deadline = time.monotonic() + timeout
         while ws.connection_status != "connected":
@@ -608,24 +610,26 @@ class AsyncSmplClient:
         return self._ws_manager
 
     async def wait_until_ready(self, timeout: float = 10.0) -> None:
-        """Eagerly initialize the SDK and wait until it is fully ready.
+        """Optionally pre-warm the SDK and wait until the live socket is up.
 
-        Pre-fetches all flags and configs into the local cache, opens the
-        live-updates WebSocket, and waits for the handshake to complete.
-        After this returns, ``flag.get()`` / ``client.config.get()`` hit cache
-        (no first-request connect tax) and any ``on_change`` listeners
-        receive every server event from this point forward.
+        Eagerly connects config and flags — flushing discovery, pre-fetching
+        all flags and configs into the local cache, opening the live-updates
+        WebSocket — and waits for the handshake to complete. After this
+        returns, ``flag.get()`` / ``client.config.subscribe()`` hit cache (no
+        first-request connect tax) and any ``on_change`` listeners receive
+        every server event from this point forward.
 
-        Logging integration is *not* installed here — call
-        ``await client.logging.install()`` separately if you want it (it
-        installs adapters and hooks into your application's logger, which
-        should be opt-in).
+        Optional: config and flags connect lazily on first live use, so this
+        is purely a pre-warm / WebSocket-ready barrier. Logging integration is
+        *not* connected here — call ``await client.logging.install()``
+        separately if you want it (it installs adapters and hooks into your
+        application's logger, which should be opt-in).
 
         Raises:
             TimeoutError: If the WebSocket fails to connect within *timeout* seconds.
         """
-        await self.flags.install()
-        await self.config.install()
+        await self.flags._ensure_connected()
+        await self.config._ensure_connected()
         ws = self._ensure_ws()
         deadline = time.monotonic() + timeout
         while ws.connection_status != "connected":

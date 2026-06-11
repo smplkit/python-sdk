@@ -3,18 +3,19 @@
 Smpl Flags has two surfaces on a single client, mirroring how the config,
 audit, and jobs clients expose their full surface from one class:
 
-* **Management surface** — works immediately, no :meth:`install` required:
+* **Management surface** — pure CRUD, no live connection:
   ``new_boolean_flag`` / ``new_string_flag`` / ``new_number_flag`` /
   ``new_json_flag`` constructors, ``get`` / ``list`` / ``delete`` CRUD, and
   the flag-declaration discovery buffer (``register`` / ``flush`` /
   ``flush_sync`` / ``pending_count``). The client owns the discovery buffer
   directly.
-* **Live surface** — requires :meth:`install` first (it opens a live
-  connection to your running service): the typed handle declarations
-  (``boolean_flag`` / ``string_flag`` / ``number_flag`` / ``json_flag``)
-  whose ``.get()`` evaluates against the cached definitions, plus
-  ``refresh`` / ``stats`` / ``on_change``. Calling any of these before
-  :meth:`install` raises :class:`NotInstalledError`.
+* **Live surface** — lazily connects to your running service on first use:
+  the typed handle declarations (``boolean_flag`` / ``string_flag`` /
+  ``number_flag`` / ``json_flag``) whose ``.get()`` evaluates against the
+  cached definitions, plus ``refresh`` / ``stats`` / ``on_change``. The
+  first live call transparently flushes discovery, fetches all flag
+  definitions into the local cache, and opens the live-updates WebSocket —
+  no explicit install step.
 
 The client supports two construction shapes:
 
@@ -24,7 +25,7 @@ The client supports two construction shapes:
   evaluation-context registration. This is the common path.
 * **Standalone** — ``FlagsClient(api_key=..., base_url=..., ...)`` builds
   and owns its own flags transport and a contexts client (against its own
-  app transport), and on :meth:`install` opens and owns its own WebSocket.
+  app transport), and on first live use opens and owns its own WebSocket.
   ``close()`` / ``aclose()`` tears down only the owned transports and owned
   WebSocket.
 """
@@ -45,7 +46,6 @@ from smplkit._context import get_context as _get_request_context
 from smplkit._errors import (
     ConnectionError,
     NotFoundError,
-    NotInstalledError,
     TimeoutError,
     ValidationError,
     _raise_for_status,
@@ -93,14 +93,6 @@ logger = logging.getLogger("smplkit")
 ws_logger = logging.getLogger("smplkit.flags.ws")
 
 _CACHE_MAX_SIZE = 10_000
-
-_NOT_INSTALLED_MESSAGE = (
-    "Smpl Flags live operations require install() first — this opens a live "
-    "connection to your running service. Call client.flags.install() (await "
-    "for async) before declaring typed flag handles "
-    "(boolean_flag()/string_flag()/number_flag()/json_flag()) or calling "
-    "refresh()/stats()/on_change()."
-)
 
 
 # ---------------------------------------------------------------------------
@@ -304,16 +296,16 @@ class FlagsClient:
         with FlagsClient(environment="production") as flags:
             new_flag = flags.new_boolean_flag("beta", default=False)
             new_flag.save()
-            flags.install()
             beta = flags.boolean_flag("beta", default=False)
             if beta.get():
                 ...
 
     The management surface (``new_*`` / ``get`` / ``list`` / ``delete`` and
-    discovery) works immediately. The live surface (``install`` /
-    ``boolean_flag`` / ``string_flag`` / ``number_flag`` / ``json_flag`` /
-    ``refresh`` / ``stats`` / ``on_change``) requires :meth:`install` first;
-    calling it earlier raises :class:`NotInstalledError`.
+    discovery) is pure CRUD. The live surface (``boolean_flag`` /
+    ``string_flag`` / ``number_flag`` / ``json_flag`` / ``refresh`` /
+    ``stats`` / ``on_change``) connects lazily on first use — the first call
+    flushes discovery, fetches all flag definitions into the local cache, and
+    opens the live-updates WebSocket. No explicit install step is required.
 
     Args:
         api_key: API key. When omitted, resolved from ``SMPLKIT_API_KEY`` or
@@ -392,7 +384,7 @@ class FlagsClient:
 
         # Live-surface state.
         self._flag_store: dict[str, dict[str, Any]] = {}
-        self._installed = False
+        self._connected = False
         self._ws_subscribed = False
         self._cache = _ResolutionCache()
         self._handles: dict[str, Flag] = {}
@@ -406,7 +398,7 @@ class FlagsClient:
         self.close()
 
     # ------------------------------------------------------------------
-    # Management surface: CRUD (works immediately, no install required)
+    # Management surface: CRUD (no live connection)
     # ------------------------------------------------------------------
 
     def new_boolean_flag(
@@ -621,12 +613,8 @@ class FlagsClient:
         )
 
     # ------------------------------------------------------------------
-    # Live surface: install (gate) + transport / WebSocket helpers
+    # Live surface: lazy connect + transport / WebSocket helpers
     # ------------------------------------------------------------------
-
-    def _require_installed(self) -> None:
-        if not self._installed:
-            raise NotInstalledError(_NOT_INSTALLED_MESSAGE)
 
     def _ensure_ws(self) -> SharedWebSocket:
         """Return the shared WebSocket — the parent's when wired, else our own."""
@@ -642,7 +630,7 @@ class FlagsClient:
             self._owns_ws = True
         return self._ws_manager
 
-    def install(self) -> None:
+    def _ensure_connected(self) -> None:
         """Open the live connection to the running Smpl Flags service.
 
         Flushes any buffered discovery declarations, fetches all flag
@@ -650,14 +638,12 @@ class FlagsClient:
         subscribes to ``flag_changed`` / ``flag_deleted`` / ``flags_changed``
         events.
 
-        Idempotent — safe to call multiple times. Required before declaring
-        typed handles (:meth:`boolean_flag`, etc.) or calling
-        :meth:`refresh` / :meth:`stats` / :meth:`on_change`; calling those
-        first raises :class:`NotInstalledError`.
+        Idempotent and internal — every live method calls it on first use, so
+        the live surface auto-connects with no explicit step.
         """
         if self._parent is not None:
             self._parent._ensure_started()
-        if self._installed:
+        if self._connected:
             return
 
         # Flush discovered flags BEFORE fetching definitions so the fetch
@@ -665,11 +651,11 @@ class FlagsClient:
         try:
             self.flush()
         except Exception as exc:
-            logger.warning("Pre-install flags discovery flush failed: %s", exc)
+            logger.warning("Flags discovery flush before connect failed: %s", exc)
 
         self._fetch_all_flags()
         self._cache.clear()
-        self._installed = True
+        self._connected = True
 
         self._ws_manager = self._ensure_ws()
         if not self._ws_subscribed:
@@ -683,32 +669,32 @@ class FlagsClient:
     # ------------------------------------------------------------------
 
     def boolean_flag(self, id: str, *, default: bool) -> BooleanFlag:
-        """Declare a boolean flag handle for live evaluation. Requires :meth:`install`."""
-        self._require_installed()
+        """Declare a boolean flag handle for live evaluation. Connects lazily on first use."""
+        self._ensure_connected()
         handle = BooleanFlag(self, id=id, name=id, type="BOOLEAN", default=default)
         self._handles[id] = handle
         self._observe_declaration(id, "BOOLEAN", default)
         return handle
 
     def string_flag(self, id: str, *, default: str) -> StringFlag:
-        """Declare a string flag handle for live evaluation. Requires :meth:`install`."""
-        self._require_installed()
+        """Declare a string flag handle for live evaluation. Connects lazily on first use."""
+        self._ensure_connected()
         handle = StringFlag(self, id=id, name=id, type="STRING", default=default)
         self._handles[id] = handle
         self._observe_declaration(id, "STRING", default)
         return handle
 
     def number_flag(self, id: str, *, default: int | float) -> NumberFlag:
-        """Declare a numeric flag handle for live evaluation. Requires :meth:`install`."""
-        self._require_installed()
+        """Declare a numeric flag handle for live evaluation. Connects lazily on first use."""
+        self._ensure_connected()
         handle = NumberFlag(self, id=id, name=id, type="NUMERIC", default=default)
         self._handles[id] = handle
         self._observe_declaration(id, "NUMERIC", default)
         return handle
 
     def json_flag(self, id: str, *, default: dict[str, Any]) -> JsonFlag:
-        """Declare a JSON flag handle for live evaluation. Requires :meth:`install`."""
-        self._require_installed()
+        """Declare a JSON flag handle for live evaluation. Connects lazily on first use."""
+        self._ensure_connected()
         handle = JsonFlag(self, id=id, name=id, type="JSON", default=default)
         self._handles[id] = handle
         self._observe_declaration(id, "JSON", default)
@@ -721,10 +707,9 @@ class FlagsClient:
     def refresh(self) -> None:
         """Re-fetch all flag definitions and clear cache.
 
-        Requires :meth:`install` first; raises :class:`NotInstalledError`
-        otherwise.
+        Connects lazily on first use — no explicit install step.
         """
-        self._require_installed()
+        self._ensure_connected()
         self._do_refresh("manual")
 
     def _do_refresh(self, source: str) -> None:
@@ -733,8 +718,8 @@ class FlagsClient:
         self._fire_change_listeners_all(source)
 
     def stats(self) -> FlagStats:
-        """Return evaluation statistics. Requires :meth:`install` first."""
-        self._require_installed()
+        """Return evaluation statistics. Connects lazily on first use."""
+        self._ensure_connected()
         return FlagStats(cache_hits=self._cache.cache_hits, cache_misses=self._cache.cache_misses)
 
     def on_change(self, fn_or_id: Callable[[FlagChangeEvent], None] | str | None = None) -> Any:
@@ -745,10 +730,9 @@ class FlagsClient:
         - ``@client.flags.on_change`` — registers a global listener.
         - ``@client.flags.on_change("flag-id")`` — registers an id-scoped listener.
 
-        Requires :meth:`install` first; raises :class:`NotInstalledError`
-        otherwise.
+        Connects lazily on first use — no explicit install step.
         """
-        self._require_installed()
+        self._ensure_connected()
         if callable(fn_or_id):
             self._global_listeners.append(fn_or_id)
             return fn_or_id
@@ -773,7 +757,12 @@ class FlagsClient:
     # ------------------------------------------------------------------
 
     def _evaluate_handle(self, flag_id: str, default: Any, context: list[Context] | None) -> Any:
-        """Core evaluation used by flag handles."""
+        """Core evaluation used by flag handles (the ``.get()`` path).
+
+        Connects lazily on first use so ``flag.get()`` works without an
+        explicit install step.
+        """
+        self._ensure_connected()
         if context is not None:
             # Explicit context: register here.  (Implicit set_context registers
             # at the entry point, so the contextvar branch below doesn't need to.)
@@ -968,10 +957,13 @@ class AsyncFlagsClient:
     """The Smpl Flags client (async) — counterpart of :class:`FlagsClient`.
 
     Reads, CRUD, and discovery flush perform their network round-trips with
-    ``await``. The live surface (``install`` / ``boolean_flag`` /
-    ``string_flag`` / ``number_flag`` / ``json_flag`` / ``refresh`` /
-    ``stats`` / ``on_change``) requires :meth:`install` first; calling it
-    earlier raises :class:`NotInstalledError`.
+    ``await``. The live surface connects lazily — ``await refresh()`` (or
+    ``await client.wait_until_ready()``) opens the connection: it flushes
+    discovery, fetches all flag definitions, and opens the WebSocket. The
+    synchronous helpers (``boolean_flag`` / ``string_flag`` / ``number_flag``
+    / ``json_flag`` / ``stats`` / ``on_change`` and a handle's ``.get()``)
+    operate against whatever cache state exists, so warm the cache first via
+    an awaitable live method. No explicit install step is required.
     """
 
     def __init__(
@@ -1023,7 +1015,7 @@ class AsyncFlagsClient:
         self._buffer = _FlagRegistrationBuffer()
 
         self._flag_store: dict[str, dict[str, Any]] = {}
-        self._installed = False
+        self._connected = False
         self._ws_subscribed = False
         self._cache = _ResolutionCache()
         self._handles: dict[str, AsyncFlag] = {}
@@ -1056,7 +1048,7 @@ class AsyncFlagsClient:
                     self._app_http_standalone._client = None
 
     # ------------------------------------------------------------------
-    # Management surface: CRUD (works immediately, no install required)
+    # Management surface: CRUD (no live connection)
     # ------------------------------------------------------------------
 
     def new_boolean_flag(
@@ -1274,12 +1266,8 @@ class AsyncFlagsClient:
         )
 
     # ------------------------------------------------------------------
-    # Live surface: install (gate) + transport / WebSocket helpers
+    # Live surface: lazy connect + transport / WebSocket helpers
     # ------------------------------------------------------------------
-
-    def _require_installed(self) -> None:
-        if not self._installed:
-            raise NotInstalledError(_NOT_INSTALLED_MESSAGE)
 
     def _ensure_ws(self) -> SharedWebSocket:
         """Return the shared WebSocket — the parent's when wired, else our own."""
@@ -1295,24 +1283,26 @@ class AsyncFlagsClient:
             self._owns_ws = True
         return self._ws_manager
 
-    async def install(self) -> None:
+    async def _ensure_connected(self) -> None:
         """Open the live connection to the running Smpl Flags service (async).
 
-        See :meth:`FlagsClient.install` for the full contract. Idempotent.
+        See :meth:`FlagsClient._ensure_connected` for the full contract.
+        Idempotent and internal — the awaitable live methods call it on first
+        use, so the live surface auto-connects with no explicit step.
         """
         if self._parent is not None:
             self._parent._ensure_started()
-        if self._installed:
+        if self._connected:
             return
 
         try:
             await self.flush()
         except Exception as exc:
-            logger.warning("Pre-install flags discovery flush failed: %s", exc)
+            logger.warning("Flags discovery flush before connect failed: %s", exc)
 
         await self._fetch_all_flags()
         self._cache.clear()
-        self._installed = True
+        self._connected = True
 
         self._ws_manager = self._ensure_ws()
         if not self._ws_subscribed:
@@ -1326,32 +1316,44 @@ class AsyncFlagsClient:
     # ------------------------------------------------------------------
 
     def boolean_flag(self, id: str, *, default: bool) -> AsyncBooleanFlag:
-        """Declare a boolean flag handle for live evaluation. Requires :meth:`install`."""
-        self._require_installed()
+        """Declare a boolean flag handle for live evaluation.
+
+        Synchronous; warm the cache via ``await refresh()`` /
+        ``await client.wait_until_ready()`` for live values.
+        """
         handle = AsyncBooleanFlag(self, id=id, name=id, type="BOOLEAN", default=default)
         self._handles[id] = handle
         self._observe_declaration(id, "BOOLEAN", default)
         return handle
 
     def string_flag(self, id: str, *, default: str) -> AsyncStringFlag:
-        """Declare a string flag handle for live evaluation. Requires :meth:`install`."""
-        self._require_installed()
+        """Declare a string flag handle for live evaluation.
+
+        Synchronous; warm the cache via ``await refresh()`` /
+        ``await client.wait_until_ready()`` for live values.
+        """
         handle = AsyncStringFlag(self, id=id, name=id, type="STRING", default=default)
         self._handles[id] = handle
         self._observe_declaration(id, "STRING", default)
         return handle
 
     def number_flag(self, id: str, *, default: int | float) -> AsyncNumberFlag:
-        """Declare a numeric flag handle for live evaluation. Requires :meth:`install`."""
-        self._require_installed()
+        """Declare a numeric flag handle for live evaluation.
+
+        Synchronous; warm the cache via ``await refresh()`` /
+        ``await client.wait_until_ready()`` for live values.
+        """
         handle = AsyncNumberFlag(self, id=id, name=id, type="NUMERIC", default=default)
         self._handles[id] = handle
         self._observe_declaration(id, "NUMERIC", default)
         return handle
 
     def json_flag(self, id: str, *, default: dict[str, Any]) -> AsyncJsonFlag:
-        """Declare a JSON flag handle for live evaluation. Requires :meth:`install`."""
-        self._require_installed()
+        """Declare a JSON flag handle for live evaluation.
+
+        Synchronous; warm the cache via ``await refresh()`` /
+        ``await client.wait_until_ready()`` for live values.
+        """
         handle = AsyncJsonFlag(self, id=id, name=id, type="JSON", default=default)
         self._handles[id] = handle
         self._observe_declaration(id, "JSON", default)
@@ -1364,26 +1366,27 @@ class AsyncFlagsClient:
     async def refresh(self) -> None:
         """Re-fetch all flag definitions and clear cache (async).
 
-        Requires :meth:`install` first; raises :class:`NotInstalledError`
-        otherwise.
+        Connects lazily on first use — no explicit install step.
         """
-        self._require_installed()
+        await self._ensure_connected()
         await self._fetch_all_flags()
         self._cache.clear()
         self._fire_change_listeners_all("manual")
 
     def stats(self) -> FlagStats:
-        """Return evaluation statistics. Requires :meth:`install` first."""
-        self._require_installed()
+        """Return evaluation statistics.
+
+        Synchronous; reflects evaluations performed so far.
+        """
         return FlagStats(cache_hits=self._cache.cache_hits, cache_misses=self._cache.cache_misses)
 
     def on_change(self, fn_or_id: Callable[[FlagChangeEvent], None] | str | None = None) -> Any:
         """Register a change listener (global or id-scoped).
 
-        Requires :meth:`install` first; raises :class:`NotInstalledError`
-        otherwise.
+        Synchronous; only records the listener. Open the live connection
+        first via an awaitable live method or ``client.wait_until_ready()``
+        so events flow.
         """
-        self._require_installed()
         if callable(fn_or_id):
             self._global_listeners.append(fn_or_id)
             return fn_or_id

@@ -3,15 +3,16 @@
 Smpl Config has two surfaces on a single client, mirroring how the audit
 and jobs clients expose their full surface from one class:
 
-* **Management surface** — works immediately, no :meth:`install` required:
-  ``new`` / ``get`` / ``list`` / ``delete`` CRUD and the discovery buffer
-  (``register_config`` / ``register_config_item`` / ``flush`` /
-  ``pending_count``). The client owns the discovery buffer directly.
-* **Live surface** — requires :meth:`install` first (it opens a live
-  connection to your running service): ``subscribe`` (a live dict-like
-  :class:`LiveConfigProxy`), ``bind`` (a live Pydantic/dict binding),
-  ``on_change``, and ``refresh``. Calling any of these before
-  :meth:`install` raises :class:`NotInstalledError`.
+* **Management surface** — pure CRUD, no live connection: ``new`` / ``get``
+  / ``list`` / ``delete`` and the discovery buffer (``register_config`` /
+  ``register_config_item`` / ``flush`` / ``pending_count``). The client owns
+  the discovery buffer directly.
+* **Live surface** — lazily connects to your running service on first use:
+  ``subscribe`` (a live dict-like :class:`LiveConfigProxy`), ``get_value``
+  (an ad-hoc resolved read), ``bind`` (a live Pydantic/dict binding),
+  ``on_change``, and ``refresh``. The first live call transparently flushes
+  discovery, fetches and resolves every config into the local cache, and
+  opens the live-updates WebSocket — no explicit install step.
 
 The client supports two construction shapes:
 
@@ -19,7 +20,7 @@ The client supports two construction shapes:
   transport for both runtime fetch and CRUD and the parent's shared
   WebSocket for the live channel. This is the common path.
 * **Standalone** — ``ConfigClient(api_key=..., base_url=..., ...)`` builds
-  and owns its own config transport, and on :meth:`install` opens and owns
+  and owns its own config transport, and on first live use opens and owns
   its own WebSocket. ``close()`` / ``aclose()`` tears down only the owned
   transport and owned WebSocket.
 """
@@ -42,7 +43,6 @@ from smplkit._errors import (
     ConflictError,
     ConnectionError,
     NotFoundError,
-    NotInstalledError,
     TimeoutError,
     ValidationError,
     _raise_for_status,
@@ -92,11 +92,9 @@ ws_logger = logging.getLogger("smplkit.config.ws")
 # subclass on the way out, dict users see ``dict[str, Any]``.
 _T = TypeVar("_T", bound="BaseModel | dict[str, Any]")
 
-_NOT_INSTALLED_MESSAGE = (
-    "Smpl Config live operations require install() first — this opens a live "
-    "connection to your running service. Call client.config.install() (await "
-    "for async) before subscribe()/bind()/on_change()/refresh()."
-)
+# Sentinel distinguishing "no default supplied" from an explicit ``None``
+# default in :meth:`ConfigClient.get_value`.
+_MISSING: Any = object()
 
 
 def _resolve_parent_id(parent: str | Config | AsyncConfig | None) -> str | None:
@@ -389,6 +387,24 @@ def _build_chain_sync(model: Any, models_by_id: dict[str, Any]) -> list[dict[str
     return chain
 
 
+def _bound_items_to_flat(config: BaseModel | dict[str, Any], *, explicit_only: bool) -> dict[str, Any]:
+    """Flatten a bound Pydantic instance or dict to ``{dotted_key: value}``.
+
+    Mirrors the discovery-declaration walk (``_iter_pydantic_items_from_instance``
+    / ``_iter_dict_items``). When ``explicit_only`` is ``True`` (the config
+    has a bound parent), only fields the caller explicitly set are kept, so
+    the rest inherit from the parent — matching ``bind``'s discovery rule.
+    For dict binds ``explicit_only`` has no effect (every key is explicit).
+    Used to seed the local resolved cache from in-memory bindings without any
+    network round-trip.
+    """
+    if isinstance(config, BaseModel):
+        items_iter = _iter_pydantic_items_from_instance(config, explicit_only=explicit_only)
+    else:
+        items_iter = _iter_dict_items(config)
+    return {item_key: value for item_key, _item_type, value, _description in items_iter}
+
+
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class ConfigChangeEvent:
     """Describes a single config value change.
@@ -533,15 +549,15 @@ class ConfigClient:
             billing = config.new("billing", name="Billing")
             billing.set_number("max_seats", 50)
             billing.save()
-            config.install()
             proxy = config.subscribe("billing")
             print(proxy["max_seats"])
 
     The management surface (``new`` / ``get`` / ``list`` / ``delete`` and
-    discovery) works immediately. The live surface (``install`` /
-    ``subscribe`` / ``bind`` / ``on_change`` / ``refresh``) requires
-    :meth:`install` first; calling it earlier raises
-    :class:`NotInstalledError`.
+    discovery) is pure CRUD. The live surface (``subscribe`` / ``get_value``
+    / ``bind`` / ``on_change`` / ``refresh``) connects lazily on first use —
+    the first call flushes discovery, fetches and resolves all configs into
+    the local cache, and opens the live-updates WebSocket. No explicit
+    install step is required.
 
     Args:
         api_key: API key. When omitted, resolved from ``SMPLKIT_API_KEY`` or
@@ -609,14 +625,17 @@ class ConfigClient:
         self._raw_config_cache: dict[str, Any] = {}
         self._proxies: dict[str, LiveConfigProxy] = {}
         self._bindings: dict[str, BaseModel] = {}
-        self._installed = False
+        # Parent config id each binding was bound under (None for roots) —
+        # drives in-memory cache seeding through the bound parent chain.
+        self._bound_parents: dict[str, str | None] = {}
+        self._connected = False
         self._cache_lock = threading.Lock()
         self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
         self._ws_manager: SharedWebSocket | None = None
         self._owns_ws = False
 
     # ------------------------------------------------------------------
-    # Management surface: CRUD (works immediately, no install required)
+    # Management surface: CRUD (no live connection)
     # ------------------------------------------------------------------
 
     def new(
@@ -795,12 +814,8 @@ class ConfigClient:
         return self._buffer.pending_count
 
     # ------------------------------------------------------------------
-    # Live surface: install (gate) + transport / WebSocket helpers
+    # Live surface: lazy connect + transport / WebSocket helpers
     # ------------------------------------------------------------------
-
-    def _require_installed(self) -> None:
-        if not self._installed:
-            raise NotInstalledError(_NOT_INSTALLED_MESSAGE)
 
     def _ensure_ws(self) -> SharedWebSocket:
         """Return the shared WebSocket — the parent's when wired, else our own."""
@@ -816,7 +831,7 @@ class ConfigClient:
             self._owns_ws = True
         return self._ws_manager
 
-    def install(self) -> None:
+    def _ensure_connected(self) -> None:
         """Open the live connection to the running Smpl Config service.
 
         Flushes any buffered discovery declarations, fetches and resolves
@@ -824,14 +839,12 @@ class ConfigClient:
         opens the shared WebSocket, and subscribes to ``config_changed`` /
         ``config_deleted`` / ``configs_changed`` events.
 
-        Idempotent — safe to call multiple times. Required before any live
-        operation (:meth:`subscribe`, :meth:`bind`, :meth:`on_change`,
-        :meth:`refresh`); calling those first raises
-        :class:`NotInstalledError`.
+        Idempotent and internal — every live method calls it on first use, so
+        the live surface auto-connects with no explicit step.
         """
         if self._parent is not None:
             self._parent._ensure_started()
-        if self._installed:
+        if self._connected:
             return
 
         # Flush any buffered discovery declarations BEFORE the initial fetch,
@@ -839,12 +852,12 @@ class ConfigClient:
         try:
             self.flush()
         except Exception as exc:
-            logger.warning("Pre-install config discovery flush failed: %s", exc)
+            logger.warning("Config discovery flush before connect failed: %s", exc)
 
         # Fetch + resolve + cache + fire change listeners (against empty old_cache,
         # so any registered listeners see "initial" events).
         self._do_refresh("initial")
-        self._installed = True
+        self._connected = True
 
         self._ws_manager = self._ensure_ws()
         self._ws_manager.on("config_changed", self._handle_config_changed)
@@ -909,18 +922,20 @@ class ConfigClient:
           caller wants to inherit are simply omitted from the dict.
 
         On first boot the schema and values are registered with the
-        server. The bound object's values are then synced from the cache
-        (in case the server has overrides from a previous run). On every
-        WebSocket-delivered change thereafter the bound object is mutated
-        in place — Pydantic instances via ``object.__setattr__``, dicts
-        via ``__setitem__``. Readers always see the current resolved
-        value with no proxy indirection.
+        server. The local cache is then seeded so reads work immediately:
+        if the config already exists server-side (fetched on connect) its
+        values are authoritative and synced onto the bound object; if it is
+        brand-new, the cache entry is seeded in-memory from the bound
+        object's values resolved through its bound parent chain (no network
+        round-trip). On every WebSocket-delivered change thereafter the
+        bound object is mutated in place — Pydantic instances via
+        ``object.__setattr__``, dicts via ``__setitem__``. Readers always
+        see the current resolved value with no proxy indirection.
 
         Idempotent. Repeated calls with the same ``id`` return the
         originally-bound object; the new ``config`` argument is ignored.
 
-        Requires :meth:`install` first; raises :class:`NotInstalledError`
-        otherwise.
+        Connects lazily on first use — no explicit install step.
 
         Args:
             id: The config id to register under.
@@ -935,23 +950,23 @@ class ConfigClient:
             The same ``config`` object, registered and live.
 
         Raises:
-            NotInstalledError: If :meth:`install` has not been called.
             TypeError: If ``config`` is neither a ``BaseModel`` nor a ``dict``.
             ValueError: If ``parent`` is provided but was not previously
                 bound via :meth:`bind`.
         """
-        self._require_installed()
+        self._ensure_connected()
         if not isinstance(config, (BaseModel, dict)):
             raise TypeError(f"bind() requires a Pydantic BaseModel instance or dict; got {type(config).__name__}")
 
         if id in self._bindings:
             return self._bindings[id]  # type: ignore[return-value]
 
-        self._register_binding_declaration(id, config, parent)
+        parent_id = self._register_binding_declaration(id, config, parent)
 
         # Register the binding BEFORE syncing so WebSocket dispatch finds it.
         self._bindings[id] = config
-        self._sync_target_from_cache(config, id)
+        self._bound_parents[id] = parent_id
+        self._seed_or_sync_binding(id, config)
         return config
 
     def subscribe(self, id: str) -> LiveConfigProxy:
@@ -962,10 +977,10 @@ class ConfigClient:
         Subscribing registers the config declaration for code-first
         observability so the reference appears in the smplkit console.
 
-        Requires :meth:`install` first; raises :class:`NotInstalledError`
-        otherwise. Raises :class:`NotFoundError` if the config is unknown.
+        Connects lazily on first use — no explicit install step. Raises
+        :class:`NotFoundError` if the config is unknown.
         """
-        self._require_installed()
+        self._ensure_connected()
         self._observe_config_declaration(id, parent=None, name=None, description=None)
         if id not in self._config_cache:
             raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
@@ -973,6 +988,47 @@ class ConfigClient:
         if metrics is not None:
             metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
         return self._cached_proxy(id)
+
+    def get_value(self, id: str, key: str, default: Any = _MISSING) -> Any:
+        """Read a single resolved config value (inheritance-aware).
+
+        The value comes from the locally-cached resolved chain, so parent
+        configs are already folded in.
+
+        Two forms:
+
+        - ``get_value(id, key)`` returns the resolved value. Raises
+          :class:`NotFoundError` if the config is unknown and
+          :class:`KeyError` if the key is absent.
+        - ``get_value(id, key, default=X)`` returns the resolved value,
+          falling back to ``X`` if the config or key is missing. Never
+          raises. **Registers** the config (if new) and the key (inferred
+          type, ``X`` as default) for code-first observability, so the
+          reference appears in the smplkit console.
+
+        For a live dict-like view use :meth:`subscribe`; for typed access via
+        a Pydantic schema use :meth:`bind`. Connects lazily on first use — no
+        explicit install step.
+        """
+        self._ensure_connected()
+        has_default = default is not _MISSING
+        if has_default:
+            # Register the config + key so the reference shows up in the
+            # console even if it's never been declared via bind(). The
+            # buffer is idempotent at the (config_id, item_key) level.
+            self._observe_config_declaration(id, parent=None, name=None, description=None)
+            self._observe_item_declaration(id, key, _value_to_item_type(default), default, None)
+
+        if id not in self._config_cache:
+            if has_default:
+                return default
+            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
+        values = self._config_cache[id]
+        if key not in values:
+            if has_default:
+                return default
+            raise KeyError(f"Config item '{key}' not found in config '{id}'")
+        return values[key]
 
     # ------------------------------------------------------------------
     # Internal: binding helpers
@@ -1043,6 +1099,47 @@ class ConfigClient:
         for dotted_key, value in cache.items():
             _apply_change_to_target(target, dotted_key, value)
 
+    def _seed_or_sync_binding(self, config_id: str, target: BaseModel | dict[str, Any]) -> None:
+        """Seed the resolved cache for a freshly-bound config, or sync from it.
+
+        If ``config_id`` is already in the resolved cache it existed
+        server-side (fetched on connect), so server values are authoritative
+        — sync them onto the bound object (today's behavior). Otherwise the
+        config is brand-new: seed ``_config_cache[config_id]`` in-memory by
+        resolving this object's values through its bound parent chain, so
+        :meth:`subscribe` / :meth:`get_value` work immediately with no flush
+        or refresh. Pure in-memory — no network.
+        """
+        if config_id in self._config_cache:
+            self._sync_target_from_cache(target, config_id)
+            return
+        self._config_cache[config_id] = self._resolve_bound_chain(config_id)
+
+    def _resolve_bound_chain(self, config_id: str) -> dict[str, Any]:
+        """Resolve a bound config's values through its bound parent chain.
+
+        Walks ``_bound_parents`` from the child up through already-bound
+        ancestors, flattening each bound object's in-code values, then runs
+        the same deep-merge :func:`resolve` used everywhere else (child wins
+        over parent). Ancestors that aren't bound objects stop the walk.
+
+        A config that has a bound parent contributes only the fields the
+        caller explicitly set (matching ``bind``'s ``explicit_only`` discovery
+        rule via ``model_fields_set``); fields left at their class default are
+        omitted so they inherit from the parent. The chain's root ancestor
+        (no bound parent) contributes all its fields.
+        """
+        chain: list[dict[str, Any]] = []
+        current: str | None = config_id
+        seen: set[str] = set()
+        while current is not None and current in self._bindings and current not in seen:
+            seen.add(current)
+            has_bound_parent = self._bound_parents.get(current) in self._bindings
+            items = _bound_items_to_flat(self._bindings[current], explicit_only=has_bound_parent)
+            chain.append({"items": items, "environments": {}})
+            current = self._bound_parents.get(current)
+        return resolve(chain, self._environment)
+
     def _cached_proxy(self, id: str) -> LiveConfigProxy:
         """Return (and cache) the canonical proxy for a config id."""
         proxy = self._proxies.get(id)
@@ -1088,13 +1185,12 @@ class ConfigClient:
         """Re-fetch all configs and update resolved values.
 
         Fires change listeners for any values that differ from the previous
-        state. Requires :meth:`install` first; raises
-        :class:`NotInstalledError` otherwise.
+        state. Connects lazily on first use — no explicit install step.
 
         Raises:
             ConnectionError: If the fetch fails.
         """
-        self._require_installed()
+        self._ensure_connected()
         self._do_refresh("manual")
 
     def _do_refresh(self, source: str) -> None:
@@ -1121,10 +1217,9 @@ class ConfigClient:
         - ``@client.config.on_change("id")`` — config-scoped listener.
         - ``@client.config.on_change("id", item_key="field")`` — item-scoped.
 
-        Requires :meth:`install` first; raises :class:`NotInstalledError`
-        otherwise.
+        Connects lazily on first use — no explicit install step.
         """
-        self._require_installed()
+        self._ensure_connected()
         if callable(fn_or_id):
             self._listeners.append((fn_or_id, None, None))
             return fn_or_id
@@ -1256,9 +1351,10 @@ class ConfigClient:
     def close(self) -> None:
         """Release resources — only those this client owns.
 
-        Tears down the owned WebSocket (standalone install) and the owned
-        HTTP transport (standalone construction). A wired client borrows the
-        parent's transport and WebSocket and closes neither.
+        Tears down the owned WebSocket (opened by a standalone client on
+        first live use) and the owned HTTP transport (standalone
+        construction). A wired client borrows the parent's transport and
+        WebSocket and closes neither.
         """
         if self._owns_ws and self._ws_manager is not None:
             self._ws_manager.stop()
@@ -1281,9 +1377,10 @@ class AsyncConfigClient:
     """The Smpl Config client (async) — counterpart of :class:`ConfigClient`.
 
     Reads, CRUD, and discovery flush perform their network round-trips with
-    ``await``. The live surface (``install`` / ``subscribe`` / ``bind`` /
-    ``on_change`` / ``refresh``) requires :meth:`install` first; calling it
-    earlier raises :class:`NotInstalledError`.
+    ``await``. The live surface (``subscribe`` / ``get_value`` / ``bind`` /
+    ``on_change`` / ``refresh``) connects lazily on first use — the first
+    live call (awaited) flushes discovery, fetches and resolves all configs,
+    and opens the WebSocket. No explicit install step is required.
     """
 
     def __init__(
@@ -1329,14 +1426,15 @@ class AsyncConfigClient:
         self._raw_config_cache: dict[str, Any] = {}
         self._proxies: dict[str, LiveConfigProxy] = {}
         self._bindings: dict[str, BaseModel] = {}
-        self._installed = False
+        self._bound_parents: dict[str, str | None] = {}
+        self._connected = False
         self._cache_lock = threading.Lock()
         self._listeners: list[tuple[Callable[[ConfigChangeEvent], None], str | None, str | None]] = []
         self._ws_manager: SharedWebSocket | None = None
         self._owns_ws = False
 
     # ------------------------------------------------------------------
-    # Management surface: CRUD (works immediately, no install required)
+    # Management surface: CRUD (no live connection)
     # ------------------------------------------------------------------
 
     def new(
@@ -1519,12 +1617,8 @@ class AsyncConfigClient:
         return self._buffer.pending_count
 
     # ------------------------------------------------------------------
-    # Live surface: install (gate) + transport / WebSocket helpers
+    # Live surface: lazy connect + transport / WebSocket helpers
     # ------------------------------------------------------------------
-
-    def _require_installed(self) -> None:
-        if not self._installed:
-            raise NotInstalledError(_NOT_INSTALLED_MESSAGE)
 
     def _ensure_ws(self) -> SharedWebSocket:
         """Return the shared WebSocket — the parent's when wired, else our own."""
@@ -1540,23 +1634,25 @@ class AsyncConfigClient:
             self._owns_ws = True
         return self._ws_manager
 
-    async def install(self) -> None:
+    async def _ensure_connected(self) -> None:
         """Open the live connection to the running Smpl Config service (async).
 
-        See :meth:`ConfigClient.install` for the full contract. Idempotent.
+        See :meth:`ConfigClient._ensure_connected` for the full contract.
+        Idempotent and internal — every live method awaits it on first use,
+        so the live surface auto-connects with no explicit step.
         """
         if self._parent is not None:
             self._parent._ensure_started()
-        if self._installed:
+        if self._connected:
             return
 
         try:
             await self.flush()
         except Exception as exc:
-            logger.warning("Pre-install config discovery flush failed: %s", exc)
+            logger.warning("Config discovery flush before connect failed: %s", exc)
 
         await self._do_refresh("initial")
-        self._installed = True
+        self._connected = True
 
         self._ws_manager = self._ensure_ws()
         self._ws_manager.on("config_changed", self._handle_config_changed)
@@ -1594,29 +1690,33 @@ class AsyncConfigClient:
     ) -> _T:
         """Bind a Pydantic instance or dict to a config id; return it live.
 
-        See :meth:`ConfigClient.bind` for the full contract. Requires
-        :meth:`install` first; raises :class:`NotInstalledError` otherwise.
+        See :meth:`ConfigClient.bind` for the full contract. Connects lazily
+        on first use — no explicit install step.
         """
-        self._require_installed()
+        await self._ensure_connected()
         if not isinstance(config, (BaseModel, dict)):
             raise TypeError(f"bind() requires a Pydantic BaseModel instance or dict; got {type(config).__name__}")
 
         if id in self._bindings:
             return self._bindings[id]  # type: ignore[return-value]
 
-        self._register_binding_declaration(id, config, parent)
+        parent_id = self._register_binding_declaration(id, config, parent)
 
         self._bindings[id] = config
-        self._sync_target_from_cache(config, id)
+        self._bound_parents[id] = parent_id
+        self._seed_or_sync_binding(id, config)
         return config
 
     def subscribe(self, id: str) -> LiveConfigProxy:
         """Return a live :class:`LiveConfigProxy` for a config id.
 
-        See :meth:`ConfigClient.subscribe` for the full contract. Requires
-        :meth:`install` first; raises :class:`NotInstalledError` otherwise.
+        See :meth:`ConfigClient.subscribe` for the full contract. Connects
+        lazily on first use — no explicit install step.
+
+        Note: subscribe is synchronous on the async client (it reads the
+        already-populated cache); call an awaitable live method or
+        ``wait_until_ready()`` first if the cache is not yet warm.
         """
-        self._require_installed()
         self._observe_config_declaration(id, parent=None, name=None, description=None)
         if id not in self._config_cache:
             raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
@@ -1624,6 +1724,29 @@ class AsyncConfigClient:
         if metrics is not None:
             metrics.record("config.resolutions", unit="resolutions", dimensions={"config": id})
         return self._cached_proxy(id)
+
+    async def get_value(self, id: str, key: str, default: Any = _MISSING) -> Any:
+        """Read a single resolved config value (inheritance-aware, async).
+
+        See :meth:`ConfigClient.get_value` for the full contract. Connects
+        lazily on first use — no explicit install step.
+        """
+        await self._ensure_connected()
+        has_default = default is not _MISSING
+        if has_default:
+            self._observe_config_declaration(id, parent=None, name=None, description=None)
+            self._observe_item_declaration(id, key, _value_to_item_type(default), default, None)
+
+        if id not in self._config_cache:
+            if has_default:
+                return default
+            raise NotFoundError(f"Config with id '{id}' not found", status_code=404)
+        values = self._config_cache[id]
+        if key not in values:
+            if has_default:
+                return default
+            raise KeyError(f"Config item '{key}' not found in config '{id}'")
+        return values[key]
 
     # ------------------------------------------------------------------
     # Internal: binding helpers
@@ -1682,6 +1805,32 @@ class AsyncConfigClient:
         for dotted_key, value in cache.items():
             _apply_change_to_target(target, dotted_key, value)
 
+    def _seed_or_sync_binding(self, config_id: str, target: BaseModel | dict[str, Any]) -> None:
+        """Seed the resolved cache for a freshly-bound config, or sync from it.
+
+        See :meth:`ConfigClient._seed_or_sync_binding`. Pure in-memory.
+        """
+        if config_id in self._config_cache:
+            self._sync_target_from_cache(target, config_id)
+            return
+        self._config_cache[config_id] = self._resolve_bound_chain(config_id)
+
+    def _resolve_bound_chain(self, config_id: str) -> dict[str, Any]:
+        """Resolve a bound config's values through its bound parent chain.
+
+        See :meth:`ConfigClient._resolve_bound_chain`.
+        """
+        chain: list[dict[str, Any]] = []
+        current: str | None = config_id
+        seen: set[str] = set()
+        while current is not None and current in self._bindings and current not in seen:
+            seen.add(current)
+            has_bound_parent = self._bound_parents.get(current) in self._bindings
+            items = _bound_items_to_flat(self._bindings[current], explicit_only=has_bound_parent)
+            chain.append({"items": items, "environments": {}})
+            current = self._bound_parents.get(current)
+        return resolve(chain, self._environment)
+
     def _cached_proxy(self, id: str) -> LiveConfigProxy:
         proxy = self._proxies.get(id)
         if proxy is None:
@@ -1723,13 +1872,13 @@ class AsyncConfigClient:
     async def refresh(self) -> None:
         """Re-fetch all configs and update resolved values.
 
-        See :meth:`ConfigClient.refresh`. Requires :meth:`install` first;
-        raises :class:`NotInstalledError` otherwise.
+        See :meth:`ConfigClient.refresh`. Connects lazily on first use — no
+        explicit install step.
 
         Raises:
             ConnectionError: If the fetch fails.
         """
-        self._require_installed()
+        await self._ensure_connected()
         await self._do_refresh("manual")
 
     async def _do_refresh(self, source: str) -> None:
@@ -1750,10 +1899,12 @@ class AsyncConfigClient:
     ) -> Any:
         """Register a change listener.
 
-        See :meth:`ConfigClient.on_change` for the full contract. Requires
-        :meth:`install` first; raises :class:`NotInstalledError` otherwise.
+        See :meth:`ConfigClient.on_change` for the full contract.
+
+        Note: synchronous on the async client (it only records the listener).
+        Open the live connection first via an awaitable live method or
+        ``wait_until_ready()`` so events flow.
         """
-        self._require_installed()
         if callable(fn_or_id):
             self._listeners.append((fn_or_id, None, None))
             return fn_or_id
@@ -1904,9 +2055,10 @@ class AsyncConfigClient:
     async def close(self) -> None:
         """Release async resources — only those this client owns.
 
-        Tears down the owned WebSocket (standalone install) and the owned
-        async HTTP transport (standalone construction). A wired client
-        borrows the parent's transport and WebSocket and closes neither.
+        Tears down the owned WebSocket (opened by a standalone client on
+        first live use) and the owned async HTTP transport (standalone
+        construction). A wired client borrows the parent's transport and
+        WebSocket and closes neither.
         """
         if self._owns_ws and self._ws_manager is not None:
             self._ws_manager.stop()

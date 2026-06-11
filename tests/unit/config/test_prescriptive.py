@@ -30,7 +30,7 @@ def _make_connected_client(cache=None):
             },
         }
     client.config._config_cache = cache
-    client.config._installed = True
+    client.config._connected = True
     return client
 
 
@@ -49,7 +49,7 @@ def _make_connected_async_client(cache=None):
             },
         }
     client.config._config_cache = cache
-    client.config._installed = True
+    client.config._connected = True
     return client
 
 
@@ -77,14 +77,18 @@ class TestResolveSyncPrescriptive:
         with pytest.raises(NotFoundError, match="Config with id 'nonexistent' not found"):
             client.config.subscribe("nonexistent")
 
-    def test_subscribe_requires_install_first(self):
-        from smplkit._errors import NotInstalledError
-
+    def test_subscribe_lazy_connects_without_explicit_install(self):
         client = SmplClient(api_key="sk_test", environment="production", service="svc")
-        client.config._config_cache = {"db": {"host": "h"}}
-        # No lazy auto-start anymore — install() is the explicit gate.
-        with pytest.raises(NotInstalledError):
-            client.config.subscribe("db")
+        # No explicit install — subscribe connects lazily on first use.
+        mock_cfg = MagicMock()
+        mock_cfg.id = "db"
+        mock_cfg._items_raw = {"host": {"value": "h"}}
+        mock_cfg.environments = {}
+        mock_cfg._build_chain.return_value = [{"id": "db", "items": {"host": {"value": "h"}}, "environments": {}}]
+        with patch.object(client.config, "_fetch_all_configs", return_value=[mock_cfg]):
+            proxy = client.config.subscribe("db")
+        assert client.config._connected is True
+        assert proxy["host"] == "h"
 
 
 # ===================================================================

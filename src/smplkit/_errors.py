@@ -141,13 +141,12 @@ class PaymentRequiredError(Error):
 
 
 class NotInstalledError(Error):
-    """Raised when a live operation is attempted before ``install()``.
+    """Raised when a logging operation is attempted before ``install()``.
 
-    Smpl Config's live surface (``subscribe``/``bind``/``on_change``/
-    ``refresh``) opens a live connection to your running service and
-    therefore requires an explicit :meth:`ConfigClient.install` first.
-    The management surface (``new``/``get``/``list``/``delete`` and
-    discovery) works immediately and never raises this."""
+    Smpl Logging monkey-patches the standard logging framework, so it stays
+    opt-in: its live surface requires an explicit
+    :meth:`LoggingClient.install` first. Config and flags connect lazily on
+    first live use and never raise this."""
 
 
 def _raise_for_status(status_code: int, content: bytes) -> None:

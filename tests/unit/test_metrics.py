@@ -754,7 +754,7 @@ class TestFlagsInstrumentation:
             from smplkit.flags._client import FlagsClient
 
             client = FlagsClient(parent=parent, transport=MagicMock(), contexts=MagicMock(), metrics=parent._metrics)
-        client._installed = True
+        client._connected = True
         return client, parent
 
     def test_evaluation_records_metrics(self):
@@ -853,7 +853,7 @@ class TestConfigInstrumentation:
 
     def test_subscribe_records_metric(self):
         client, parent = self._make_config_client()
-        client._installed = True
+        client._connected = True
         client._config_cache["my-config"] = {"host": "localhost"}
 
         result = client.subscribe("my-config")
@@ -872,7 +872,7 @@ class TestConfigInstrumentation:
 
     def test_subscribe_no_metrics_when_disabled(self):
         client, parent = self._make_config_client(with_metrics=False)
-        client._installed = True
+        client._connected = True
         client._config_cache["my-config"] = {"host": "localhost"}
 
         result = client.subscribe("my-config")

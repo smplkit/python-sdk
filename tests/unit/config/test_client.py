@@ -1,8 +1,9 @@
 """Tests for the fused ConfigClient and AsyncConfigClient.
 
-The config client exposes one surface: management CRUD + discovery (works
-immediately) and the live surface (``install`` / ``subscribe`` / ``bind`` /
-``on_change`` / ``refresh``, gated behind :meth:`install`).
+The config client exposes one surface: management CRUD + discovery (pure
+CRUD) and the live surface (``subscribe`` / ``get_value`` / ``bind`` /
+``on_change`` / ``refresh``) which connects lazily on first use — no explicit
+install step.
 """
 
 import asyncio
@@ -15,7 +16,6 @@ import pytest
 from smplkit._errors import (
     ConnectionError,
     NotFoundError,
-    NotInstalledError,
     TimeoutError,
     ValidationError,
 )
@@ -327,11 +327,11 @@ class TestConfigClientCreateUpdate:
 
 
 # ===================================================================
-# ConfigClient — install (the live-surface gate)
+# ConfigClient — lazy connect (_ensure_connected)
 # ===================================================================
 
 
-class TestConfigClientInstall:
+class TestConfigClientConnect:
     def _make_mock_config(self, id, items_raw, environments=None):
         cfg = MagicMock()
         cfg.id = id
@@ -340,53 +340,63 @@ class TestConfigClientInstall:
         cfg._build_chain.return_value = [{"id": id, "items": items_raw, "environments": environments or {}}]
         return cfg
 
-    def test_install_populates_cache(self):
+    def test_ensure_connected_populates_cache(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         mock_cfg = self._make_mock_config("db", {"host": {"value": "localhost"}})
         with patch.object(client.config, "_fetch_all_configs", return_value=[mock_cfg]):
-            client.config.install()
-        assert client.config._installed is True
+            client.config._ensure_connected()
+        assert client.config._connected is True
         assert "db" in client.config._config_cache
 
-    def test_install_is_idempotent(self):
+    def test_ensure_connected_is_idempotent(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         mock_cfg = self._make_mock_config("db", {"host": {"value": "localhost"}})
         with patch.object(client.config, "_fetch_all_configs", return_value=[mock_cfg]) as mock_list:
-            client.config.install()
-            client.config.install()
+            client.config._ensure_connected()
+            client.config._ensure_connected()
         mock_list.assert_called_once()
 
 
 # ===================================================================
-# ConfigClient — NotInstalledError gating
+# ConfigClient — live methods auto-connect (no explicit install)
 # ===================================================================
 
 
-class TestConfigClientGating:
-    def test_subscribe_before_install_raises(self):
+class TestConfigClientLazyConnect:
+    def _make_mock_config(self, id, items_raw, environments=None):
+        cfg = MagicMock()
+        cfg.id = id
+        cfg._items_raw = items_raw
+        cfg.environments = environments or {}
+        cfg._build_chain.return_value = [{"id": id, "items": items_raw, "environments": environments or {}}]
+        return cfg
+
+    def test_subscribe_lazy_connects(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        with pytest.raises(NotInstalledError, match="install"):
-            client.config.subscribe("db")
+        mock_cfg = self._make_mock_config("db", {"host": {"value": "localhost"}})
+        with patch.object(client.config, "_fetch_all_configs", return_value=[mock_cfg]):
+            proxy = client.config.subscribe("db")
+        assert client.config._connected is True
+        assert proxy["host"] == "localhost"
 
-    def test_bind_before_install_raises(self):
-        from pydantic import BaseModel
-
-        class Cfg(BaseModel):
-            x: int = 1
-
+    def test_refresh_lazy_connects(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        with pytest.raises(NotInstalledError, match="install"):
-            client.config.bind("db", Cfg())
-
-    def test_on_change_before_install_raises(self):
-        client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        with pytest.raises(NotInstalledError, match="install"):
-            client.config.on_change(lambda e: None)
-
-    def test_refresh_before_install_raises(self):
-        client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        with pytest.raises(NotInstalledError, match="install"):
+        with patch.object(client.config, "_fetch_all_configs", return_value=[]):
             client.config.refresh()
+        assert client.config._connected is True
+
+    def test_on_change_lazy_connects(self):
+        client = SmplClient(api_key="sk_test", environment="test", service="svc")
+        with patch.object(client.config, "_fetch_all_configs", return_value=[]):
+            client.config.on_change(lambda e: None)
+        assert client.config._connected is True
+
+    def test_get_value_lazy_connects(self):
+        client = SmplClient(api_key="sk_test", environment="test", service="svc")
+        mock_cfg = self._make_mock_config("db", {"host": {"value": "localhost"}})
+        with patch.object(client.config, "_fetch_all_configs", return_value=[mock_cfg]):
+            assert client.config.get_value("db", "host") == "localhost"
+        assert client.config._connected is True
 
 
 # ===================================================================
@@ -397,7 +407,7 @@ class TestConfigClientGating:
 class TestConfigClientSubscribe:
     def test_subscribe_returns_live_proxy(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "localhost", "port": 5432}}
 
         result = client.config.subscribe("db")
@@ -406,7 +416,7 @@ class TestConfigClientSubscribe:
 
     def test_subscribe_raises_not_found_for_missing_id(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {}
 
         with pytest.raises(NotFoundError, match="Config with id 'missing' not found"):
@@ -414,7 +424,7 @@ class TestConfigClientSubscribe:
 
     def test_subscribe_registers_config_declaration(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "h"}}
         with patch.object(client.config, "register_config") as register:
             client.config.subscribe("db")
@@ -423,7 +433,7 @@ class TestConfigClientSubscribe:
 
     def test_subscribe_returns_same_cached_proxy(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "h"}}
         a = client.config.subscribe("db")
         b = client.config.subscribe("db")
@@ -438,7 +448,7 @@ class TestConfigClientSubscribe:
 class TestLiveConfigProxyOnChange:
     def _proxy(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "localhost"}}
         return client, client.config.subscribe("db")
 
@@ -489,7 +499,7 @@ class TestConfigClientRefresh:
     @patch("smplkit.config._client.list_configs.sync_detailed")
     def test_refresh_updates_cache(self, mock_list):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "old"}}
 
         resource = _mock_resource(id="db", name="DB")
@@ -506,7 +516,7 @@ class TestConfigClientRefresh:
     @patch("smplkit.config._client.list_configs.sync_detailed")
     def test_refresh_fires_listeners(self, mock_list):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "old"}}
 
         events = []
@@ -537,7 +547,7 @@ class TestConfigClientRefresh:
 class TestConfigClientOnChange:
     def _installed_client(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         return client
 
     def test_bare_decorator(self):
@@ -620,7 +630,7 @@ class TestConfigClientOnChange:
 class TestFireChangeListeners:
     def _installed_client(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         return client
 
     def test_filters_by_config_id(self):
@@ -1068,11 +1078,11 @@ class TestAsyncConfigClientCreateUpdate:
 
 
 # ===================================================================
-# AsyncConfigClient — install
+# AsyncConfigClient — lazy connect (_ensure_connected)
 # ===================================================================
 
 
-class TestAsyncConfigClientInstall:
+class TestAsyncConfigClientConnect:
     def _make_mock_config(self, id, items_raw, environments=None):
         cfg = MagicMock()
         cfg.id = id
@@ -1081,69 +1091,83 @@ class TestAsyncConfigClientInstall:
         cfg._build_chain = AsyncMock(return_value=[{"id": id, "items": items_raw, "environments": environments or {}}])
         return cfg
 
-    def test_install_populates_cache(self):
+    def test_ensure_connected_populates_cache(self):
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             mock_cfg = self._make_mock_config("db", {"host": {"value": "localhost"}})
             with patch.object(
                 client.config, "_fetch_all_configs_async", new_callable=AsyncMock, return_value=[mock_cfg]
             ):
-                await client.config.install()
-            assert client.config._installed is True
+                await client.config._ensure_connected()
+            assert client.config._connected is True
             assert "db" in client.config._config_cache
 
         asyncio.run(_run())
 
-    def test_install_is_idempotent(self):
+    def test_ensure_connected_is_idempotent(self):
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             mock_cfg = self._make_mock_config("db", {"host": {"value": "localhost"}})
             with patch.object(
                 client.config, "_fetch_all_configs_async", new_callable=AsyncMock, return_value=[mock_cfg]
             ) as mock_list:
-                await client.config.install()
-                await client.config.install()
+                await client.config._ensure_connected()
+                await client.config._ensure_connected()
             mock_list.assert_called_once()
 
         asyncio.run(_run())
 
 
 # ===================================================================
-# AsyncConfigClient — NotInstalledError gating
+# AsyncConfigClient — live methods auto-connect (no explicit install)
 # ===================================================================
 
 
-class TestAsyncConfigClientGating:
-    def test_subscribe_before_install_raises(self):
-        client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        with pytest.raises(NotInstalledError, match="install"):
-            client.config.subscribe("db")
+class TestAsyncConfigClientLazyConnect:
+    def _make_mock_config(self, id, items_raw, environments=None):
+        cfg = MagicMock()
+        cfg.id = id
+        cfg._items_raw = items_raw
+        cfg.environments = environments or {}
+        cfg._build_chain = AsyncMock(return_value=[{"id": id, "items": items_raw, "environments": environments or {}}])
+        return cfg
 
-    def test_bind_before_install_raises(self):
+    def test_refresh_lazy_connects(self):
+        async def _run():
+            client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
+            with patch.object(client.config, "_fetch_all_configs_async", new_callable=AsyncMock, return_value=[]):
+                await client.config.refresh()
+            assert client.config._connected is True
+
+        asyncio.run(_run())
+
+    def test_bind_lazy_connects(self):
         from pydantic import BaseModel
 
         class Cfg(BaseModel):
             x: int = 1
 
-        client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-
         async def _run():
-            with pytest.raises(NotInstalledError, match="install"):
-                await client.config.bind("db", Cfg())
+            client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
+            mock_cfg = self._make_mock_config("db", {"host": {"value": "localhost"}})
+            with patch.object(
+                client.config, "_fetch_all_configs_async", new_callable=AsyncMock, return_value=[mock_cfg]
+            ):
+                bound = await client.config.bind("db", Cfg())
+            assert client.config._connected is True
+            assert bound.x == 1
 
         asyncio.run(_run())
 
-    def test_on_change_before_install_raises(self):
-        client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        with pytest.raises(NotInstalledError, match="install"):
-            client.config.on_change(lambda e: None)
-
-    def test_refresh_before_install_raises(self):
-        client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-
+    def test_get_value_lazy_connects(self):
         async def _run():
-            with pytest.raises(NotInstalledError, match="install"):
-                await client.config.refresh()
+            client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
+            mock_cfg = self._make_mock_config("db", {"host": {"value": "localhost"}})
+            with patch.object(
+                client.config, "_fetch_all_configs_async", new_callable=AsyncMock, return_value=[mock_cfg]
+            ):
+                assert await client.config.get_value("db", "host") == "localhost"
+            assert client.config._connected is True
 
         asyncio.run(_run())
 
@@ -1156,7 +1180,7 @@ class TestAsyncConfigClientGating:
 class TestAsyncConfigClientSubscribe:
     def test_subscribe_returns_live_proxy(self):
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "localhost", "port": 5432}}
         result = client.config.subscribe("db")
         assert isinstance(result, LiveConfigProxy)
@@ -1164,7 +1188,7 @@ class TestAsyncConfigClientSubscribe:
 
     def test_subscribe_raises_not_found_for_missing_id(self):
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {}
         with pytest.raises(NotFoundError, match="Config with id 'missing' not found"):
             client.config.subscribe("missing")
@@ -1187,7 +1211,7 @@ class TestAsyncConfigClientRefresh:
 
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            client.config._installed = True
+            client.config._connected = True
             client.config._config_cache = {"db": {"host": "old"}}
             with patch(
                 "smplkit.config.models.AsyncConfig._build_chain",
@@ -1209,7 +1233,7 @@ class TestAsyncConfigClientRefresh:
 
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-            client.config._installed = True
+            client.config._connected = True
             client.config._config_cache = {"db": {"host": "old"}}
             events = []
             client.config.on_change(lambda e: events.append(e))
@@ -1233,7 +1257,7 @@ class TestAsyncConfigClientRefresh:
 class TestAsyncConfigClientOnChange:
     def _installed_client(self):
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         return client
 
     def test_bare_decorator(self):
@@ -1377,13 +1401,13 @@ class TestConfigClientWebSocket:
         cfg._build_chain.return_value = [{"id": id, "items": items_raw, "environments": environments or {}}]
         return cfg
 
-    def test_install_registers_ws_handlers(self):
+    def test_connect_registers_ws_handlers(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
         mock_ws = MagicMock()
         client._ensure_ws = MagicMock(return_value=mock_ws)
         mock_cfg = self._make_mock_config("db", {"host": {"value": "localhost"}})
         with patch.object(client.config, "_fetch_all_configs", return_value=[mock_cfg]):
-            client.config.install()
+            client.config._ensure_connected()
         client._ensure_ws.assert_called_once()
         mock_ws.on.assert_any_call("config_changed", client.config._handle_config_changed)
         mock_ws.on.assert_any_call("config_deleted", client.config._handle_config_deleted)
@@ -1393,7 +1417,7 @@ class TestConfigClientWebSocket:
 
     def test_handle_config_changed_scoped_fetch_updates_cache(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "old"}}
         mock_cfg = self._make_mock_config("db", {"host": {"value": "new"}})
         with patch.object(client.config, "_fetch_config", return_value=mock_cfg):
@@ -1402,7 +1426,7 @@ class TestConfigClientWebSocket:
 
     def test_handle_config_changed_fires_listener_on_change(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "old"}}
         events = []
         client.config.on_change(lambda e: events.append(e))
@@ -1417,7 +1441,7 @@ class TestConfigClientWebSocket:
     def test_handle_config_changed_no_id_falls_back_to_full_refresh(self):
         # When no "id" in payload, should do full refresh (configs_changed path)
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "old"}}
         mock_cfg = self._make_mock_config("db", {"host": {"value": "new"}})
         with patch.object(client.config, "_fetch_all_configs", return_value=[mock_cfg]):
@@ -1426,7 +1450,7 @@ class TestConfigClientWebSocket:
 
     def test_handle_config_changed_logs_error_on_fetch_failure(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         with patch.object(client.config, "_fetch_config", side_effect=RuntimeError("boom")):
             with patch("smplkit.config._client.ws_logger") as mock_logger:
                 client.config._handle_config_changed({"id": "db"})
@@ -1434,7 +1458,7 @@ class TestConfigClientWebSocket:
 
     def test_handle_config_deleted_removes_from_cache(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "localhost"}, "app": {"debug": True}}
         client.config._raw_config_cache = {"db": MagicMock(), "app": MagicMock()}
         client.config._handle_config_deleted({"id": "db"})
@@ -1443,7 +1467,7 @@ class TestConfigClientWebSocket:
 
     def test_handle_config_deleted_fires_listener(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "localhost"}}
         client.config._raw_config_cache = {"db": MagicMock()}
         events = []
@@ -1453,7 +1477,7 @@ class TestConfigClientWebSocket:
 
     def test_handle_config_deleted_no_id_falls_back_to_full_refresh(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "old"}}
         mock_cfg = self._make_mock_config("db", {"host": {"value": "new"}})
         with patch.object(client.config, "_fetch_all_configs", return_value=[mock_cfg]):
@@ -1462,7 +1486,7 @@ class TestConfigClientWebSocket:
 
     def test_handle_config_deleted_unknown_id_is_noop(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         before = {"db": {"host": "localhost"}}
         client.config._config_cache = dict(before)
         client.config._raw_config_cache = {"db": MagicMock()}
@@ -1474,7 +1498,7 @@ class TestConfigClientWebSocket:
 
     def test_handle_configs_changed_does_full_refresh(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "old"}}
         mock_cfg = self._make_mock_config("db", {"host": {"value": "new"}})
         with patch.object(client.config, "_fetch_all_configs", return_value=[mock_cfg]):
@@ -1483,7 +1507,7 @@ class TestConfigClientWebSocket:
 
     def test_refresh_uses_manual_source(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "old"}}
         events = []
         client.config.on_change(lambda e: events.append(e))
@@ -1494,7 +1518,7 @@ class TestConfigClientWebSocket:
 
     def test_handle_configs_changed_error_is_swallowed(self):
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         with patch.object(client.config, "_fetch_all_configs", side_effect=RuntimeError("boom")):
             client.config._handle_configs_changed({})  # should not raise
 
@@ -1505,7 +1529,7 @@ class TestConfigClientWebSocket:
 
 
 class TestAsyncConfigClientWebSocket:
-    def test_install_registers_ws_handlers(self):
+    def test_connect_registers_ws_handlers(self):
         async def _run():
             client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
             mock_ws = MagicMock()
@@ -1518,7 +1542,7 @@ class TestAsyncConfigClientWebSocket:
             with patch.object(
                 client.config, "_fetch_all_configs_async", new_callable=AsyncMock, return_value=[mock_cfg]
             ):
-                await client.config.install()
+                await client.config._ensure_connected()
             client._ensure_ws.assert_called_once()
             mock_ws.on.assert_any_call("config_changed", client.config._handle_config_changed)
             mock_ws.on.assert_any_call("config_deleted", client.config._handle_config_deleted)
@@ -1535,7 +1559,7 @@ class TestAsyncConfigClientWebSocket:
         resource.attributes.parent = None
         mock_get.return_value = _mock_single_response(resource)
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "old"}}
         client.config._handle_config_changed({"id": "db"})
         mock_get.assert_called_once()
@@ -1548,7 +1572,7 @@ class TestAsyncConfigClientWebSocket:
         resource.attributes.parent = None
         mock_get.return_value = _mock_single_response(resource)
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "old"}}
         events = []
         client.config.on_change(lambda e: events.append(e))
@@ -1563,7 +1587,7 @@ class TestAsyncConfigClientWebSocket:
         resource.attributes.parent = None
         mock_list.return_value = _mock_list_response([resource])
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "old"}}
         client.config._handle_config_changed({})
         assert client.config._config_cache["db"]["host"] == "new"
@@ -1578,7 +1602,7 @@ class TestAsyncConfigClientWebSocket:
 
     def test_handle_config_deleted_removes_from_cache_and_fires(self):
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "localhost"}, "app": {"debug": True}}
         client.config._raw_config_cache = {"db": MagicMock(), "app": MagicMock()}
         events = []
@@ -1590,7 +1614,7 @@ class TestAsyncConfigClientWebSocket:
 
     def test_handle_config_deleted_unknown_id_is_noop(self):
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         before = {"db": {"host": "localhost"}}
         client.config._config_cache = dict(before)
         client.config._raw_config_cache = {"db": MagicMock()}
@@ -1607,7 +1631,7 @@ class TestAsyncConfigClientWebSocket:
         resource.attributes.parent = None
         mock_list.return_value = _mock_list_response([resource])
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "old"}}
         client.config._handle_configs_changed({})
         assert client.config._config_cache["db"]["host"] == "new"
@@ -1622,7 +1646,7 @@ class TestAsyncConfigClientWebSocket:
         child_resource.attributes.parent = "base"
         mock_list.return_value = _mock_list_response([parent_resource, child_resource])
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {}
         client.config._handle_configs_changed({})
         assert client.config._config_cache["db"]["host"] == "base-host"
@@ -1635,7 +1659,7 @@ class TestAsyncConfigClientWebSocket:
         child_resource.attributes.parent = "missing-parent"
         mock_list.return_value = _mock_list_response([child_resource])
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {}
         client.config._handle_configs_changed({})
         assert client.config._config_cache["db"]["host"] == "local"
@@ -1645,14 +1669,14 @@ class TestAsyncConfigClientWebSocket:
         # parsed is None → early return, cache unchanged
         mock_get.return_value = _mock_response(parsed=None)
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         original = {"db": {"host": "old"}}
         client.config._config_cache = original
         client.config._handle_config_changed({"id": "db"})
 
     def test_handle_config_deleted_no_id_falls_back_to_full_refresh(self):
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         client.config._config_cache = {"db": {"host": "old"}}
         from unittest.mock import patch as _patch
 
@@ -1674,7 +1698,7 @@ class TestAsyncConfigClientWebSocket:
     def test_handle_configs_changed_null_parsed_returns_early(self, mock_list):
         mock_list.return_value = _mock_response(parsed=None)
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._installed = True
+        client.config._connected = True
         original = {"db": {"host": "old"}}
         client.config._config_cache = dict(original)
         client.config._handle_configs_changed({})
@@ -1704,12 +1728,12 @@ class TestStandaloneConstruction:
         assert config._app_base_url == "https://app.example.test"
         config.close()
 
-    def test_standalone_install_opens_own_ws(self):
+    def test_standalone_connect_opens_own_ws(self):
         config = ConfigClient(api_key="sk_test", base_domain="example.test", environment="prod")
         fake_ws = MagicMock()
         with patch("smplkit.config._client.SharedWebSocket", return_value=fake_ws) as ws_cls:
             with patch.object(config, "_fetch_all_configs", return_value=[]):
-                config.install()
+                config._ensure_connected()
         ws_cls.assert_called_once()
         assert config._owns_ws is True
         assert config._ws_manager is fake_ws
@@ -1747,13 +1771,13 @@ class TestStandaloneAsyncConstruction:
         assert config._parent is None
         assert config._environment == "prod"
 
-    def test_standalone_install_opens_own_ws(self):
+    def test_standalone_connect_opens_own_ws(self):
         async def _run():
             config = AsyncConfigClient(api_key="sk_test", base_domain="example.test", environment="prod")
             fake_ws = MagicMock()
             with patch("smplkit.config._client.SharedWebSocket", return_value=fake_ws) as ws_cls:
                 with patch.object(config, "_fetch_all_configs_async", new_callable=AsyncMock, return_value=[]):
-                    await config.install()
+                    await config._ensure_connected()
             ws_cls.assert_called_once()
             assert config._owns_ws is True
             await config.close()

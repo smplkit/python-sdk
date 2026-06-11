@@ -17,7 +17,6 @@ import pytest
 from smplkit._errors import (
     ConnectionError,
     NotFoundError,
-    NotInstalledError,
     TimeoutError,
     ValidationError,
 )
@@ -228,9 +227,9 @@ def _make_async_flags_client():
     return client
 
 
-def _installed(client):
-    """Mark a flags client installed without a network round-trip."""
-    client._installed = True
+def _connected(client):
+    """Mark a flags client connected without a network round-trip."""
+    client._connected = True
     return client
 
 
@@ -1139,55 +1138,80 @@ class TestFlagsClientCreateUpdateFlag:
 
 
 # ===========================================================================
-# Sync FlagsClient: NotInstalledError gating on live methods
+# Sync FlagsClient: live methods auto-connect (no explicit install)
 # ===========================================================================
 
 
-class TestFlagsClientNotInstalled:
-    def test_boolean_flag_requires_install(self):
+class TestFlagsClientLazyConnect:
+    @patch("smplkit.flags._client.bulk_register_flags.sync_detailed")
+    @patch("smplkit.flags._client.list_flags.sync_detailed")
+    def _make_connectable(self, mock_list, mock_bulk):
+        mock_list.return_value = _ok_json_response({"data": []})
+        mock_bulk.return_value = _ok_response()
         client = _make_flags_client()
-        with pytest.raises(NotInstalledError):
+        client._parent._ensure_ws.return_value = MagicMock()
+        return client
+
+    def test_boolean_flag_lazy_connects(self):
+        client = self._make_connectable()
+        with patch.object(client, "_ensure_connected") as connect:
             client.boolean_flag("x", default=False)
+        connect.assert_called_once()
 
-    def test_string_flag_requires_install(self):
-        client = _make_flags_client()
-        with pytest.raises(NotInstalledError):
+    def test_string_flag_lazy_connects(self):
+        client = self._make_connectable()
+        with patch.object(client, "_ensure_connected") as connect:
             client.string_flag("x", default="a")
+        connect.assert_called_once()
 
-    def test_number_flag_requires_install(self):
-        client = _make_flags_client()
-        with pytest.raises(NotInstalledError):
+    def test_number_flag_lazy_connects(self):
+        client = self._make_connectable()
+        with patch.object(client, "_ensure_connected") as connect:
             client.number_flag("x", default=1)
+        connect.assert_called_once()
 
-    def test_json_flag_requires_install(self):
-        client = _make_flags_client()
-        with pytest.raises(NotInstalledError):
+    def test_json_flag_lazy_connects(self):
+        client = self._make_connectable()
+        with patch.object(client, "_ensure_connected") as connect:
             client.json_flag("x", default={})
+        connect.assert_called_once()
 
-    def test_refresh_requires_install(self):
-        client = _make_flags_client()
-        with pytest.raises(NotInstalledError):
-            client.refresh()
+    def test_refresh_lazy_connects(self):
+        client = self._make_connectable()
+        with patch.object(client, "_ensure_connected") as connect:
+            with patch.object(client, "_do_refresh"):
+                client.refresh()
+        connect.assert_called_once()
 
-    def test_stats_requires_install(self):
-        client = _make_flags_client()
-        with pytest.raises(NotInstalledError):
+    def test_stats_lazy_connects(self):
+        client = self._make_connectable()
+        with patch.object(client, "_ensure_connected") as connect:
             client.stats()
+        connect.assert_called_once()
 
-    def test_on_change_requires_install(self):
-        client = _make_flags_client()
-        with pytest.raises(NotInstalledError):
+    def test_on_change_lazy_connects(self):
+        client = self._make_connectable()
+        with patch.object(client, "_ensure_connected") as connect:
             client.on_change(lambda e: None)
+        connect.assert_called_once()
+
+    def test_flag_get_lazy_connects(self):
+        client = self._make_connectable()
+        handle = _connected(client).boolean_flag("x", default=False)
+        client._connected = False  # reset to prove .get() reconnects
+        with patch.object(client, "_ensure_connected") as connect:
+            handle.get()
+        connect.assert_called_once()
 
 
 # ===========================================================================
-# Sync FlagsClient: typed flag handles (live, after install)
+# Sync FlagsClient: typed flag handles (live)
 # ===========================================================================
 
 
 class TestFlagsClientTypedHandles:
     def test_booleanFlag(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         handle = client.boolean_flag("checkout-v2", default=False)
         assert isinstance(handle, BooleanFlag)
         assert handle.id == "checkout-v2"
@@ -1195,21 +1219,21 @@ class TestFlagsClientTypedHandles:
         assert "checkout-v2" in client._handles
 
     def test_stringFlag(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         handle = client.string_flag("color", default="red")
         assert isinstance(handle, StringFlag)
         assert handle.id == "color"
         assert handle.default == "red"
 
     def test_numberFlag(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         handle = client.number_flag("retries", default=3)
         assert isinstance(handle, NumberFlag)
         assert handle.id == "retries"
         assert handle.default == 3
 
     def test_jsonFlag(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         handle = client.json_flag("config", default={"a": 1})
         assert isinstance(handle, JsonFlag)
         assert handle.id == "config"
@@ -1223,7 +1247,7 @@ class TestFlagsClientTypedHandles:
 
 class TestFlagsClientOnChange:
     def test_bare_decorator(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
 
         @client.on_change
         def listener(event):
@@ -1233,7 +1257,7 @@ class TestFlagsClientOnChange:
         assert client._global_listeners[0] is listener
 
     def test_key_scoped_decorator(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
 
         @client.on_change("my-flag")
         def listener(event):
@@ -1244,7 +1268,7 @@ class TestFlagsClientOnChange:
         assert client._key_listeners["my-flag"][0] is listener
 
     def test_empty_parens_decorator(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
 
         @client.on_change()
         def listener(event):
@@ -1255,23 +1279,23 @@ class TestFlagsClientOnChange:
 
 
 # ===========================================================================
-# Sync FlagsClient: install / refresh / stats
+# Sync FlagsClient: connect / refresh / stats
 # ===========================================================================
 
 
 class TestFlagsClientLifecycle:
     @patch("smplkit.flags._client.bulk_register_flags.sync_detailed")
     @patch("smplkit.flags._client.list_flags.sync_detailed")
-    def test_install(self, mock_list, mock_bulk):
+    def test_connect(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         mock_bulk.return_value = _ok_response()
         client = _make_flags_client()
         mock_ws = MagicMock()
         client._parent._ensure_ws.return_value = mock_ws
 
-        client.install()
+        client._ensure_connected()
 
-        assert client._installed is True
+        assert client._connected is True
         assert client._ws_manager is mock_ws
         assert mock_ws.on.call_count == 3
         registered_events = {call.args[0] for call in mock_ws.on.call_args_list}
@@ -1280,20 +1304,20 @@ class TestFlagsClientLifecycle:
 
     @patch("smplkit.flags._client.bulk_register_flags.sync_detailed")
     @patch("smplkit.flags._client.list_flags.sync_detailed")
-    def test_install_idempotent(self, mock_list, mock_bulk):
+    def test_connect_idempotent(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         mock_bulk.return_value = _ok_response()
         client = _make_flags_client()
         client._parent._ensure_ws.return_value = MagicMock()
 
-        client.install()
-        client.install()
+        client._ensure_connected()
+        client._ensure_connected()
 
         assert mock_list.call_count == 1
 
     @patch("smplkit.flags._client.bulk_register_flags.sync_detailed")
     @patch("smplkit.flags._client.list_flags.sync_detailed")
-    def test_install_flushes_before_fetch(self, mock_list, mock_bulk):
+    def test_connect_flushes_before_fetch(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         mock_bulk.return_value = _ok_response()
         client = _make_flags_client()
@@ -1303,15 +1327,15 @@ class TestFlagsClientLifecycle:
 
         client.register(FlagDeclaration(id="f1", type="BOOLEAN", default=True))
 
-        client.install()
+        client._ensure_connected()
 
         mock_bulk.assert_called_once()
         mock_list.assert_called_once()
 
     @patch("smplkit.flags._client.bulk_register_flags.sync_detailed")
     @patch("smplkit.flags._client.list_flags.sync_detailed")
-    def test_install_swallows_flush_failure(self, mock_list, mock_bulk):
-        """A failing pre-install flush is logged, not raised — install proceeds."""
+    def test_connect_swallows_flush_failure(self, mock_list, mock_bulk):
+        """A failing pre-connect flush is logged, not raised — connect proceeds."""
         mock_list.return_value = _ok_json_response({"data": []})
         mock_bulk.side_effect = httpx.ConnectError("flags down")
         client = _make_flags_client()
@@ -1320,13 +1344,13 @@ class TestFlagsClientLifecycle:
 
         client.register(FlagDeclaration(id="f1", type="BOOLEAN", default=True))
 
-        client.install()  # should not raise
-        assert client._installed is True
+        client._ensure_connected()  # should not raise
+        assert client._connected is True
 
     @patch("smplkit.flags._client.list_flags.sync_detailed")
     def test_refresh(self, mock_list):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client._flag_store = {"old-flag": {"id": "old-flag"}}
         listener = MagicMock()
         client._global_listeners.append(listener)
@@ -1337,7 +1361,7 @@ class TestFlagsClientLifecycle:
         assert listener.called
 
     def test_stats(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         stats = client.stats()
         assert stats.cache_hits == 0
         assert stats.cache_misses == 0
@@ -1350,7 +1374,7 @@ class TestFlagsClientLifecycle:
 
 class TestFlagsClientEvaluateHandle:
     def test_with_explicit_context(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client._environment = "staging"
         client._service = None
         client._flag_store = {
@@ -1379,7 +1403,7 @@ class TestFlagsClientEvaluateHandle:
         """
         from smplkit._context import _request_context
 
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client._environment = "staging"
         client._service = None
         client._flag_store = {
@@ -1401,7 +1425,7 @@ class TestFlagsClientEvaluateHandle:
 
     def test_explicit_context_registers(self):
         """``flag.get(context=[...])`` must push the explicit context to the buffer."""
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client._environment = "staging"
         client._service = None
         client._flag_store = {
@@ -1416,7 +1440,7 @@ class TestFlagsClientEvaluateHandle:
 
     def test_no_contexts_dependency_skips_registration(self):
         """When no contexts client is injected, explicit registration is a no-op."""
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client._contexts = None
         client._environment = "staging"
         client._service = None
@@ -1433,7 +1457,7 @@ class TestFlagsClientEvaluateHandle:
     def test_no_provider_reads_from_set_context(self):
         from smplkit._context import _request_context
 
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client._environment = "staging"
         client._service = None
         client._flag_store = {
@@ -1458,7 +1482,7 @@ class TestFlagsClientEvaluateHandle:
             _request_context.reset(token)
 
     def test_no_provider_empty_context(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client._environment = "staging"
         client._service = None
         client._flag_store = {
@@ -1472,14 +1496,14 @@ class TestFlagsClientEvaluateHandle:
         assert result == "fallback"
 
     def test_flag_not_in_store_returns_default(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client._service = None
         client._flag_store = {}
         result = client._evaluate_handle("missing", "default_val", [Context("user", "u-1")])
         assert result == "default_val"
 
     def test_evaluate_none_becomes_default(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client._environment = "staging"
         client._service = None
         client._flag_store = {"flag-a": {"id": "flag-a", "default": None, "environments": {}}}
@@ -1487,7 +1511,7 @@ class TestFlagsClientEvaluateHandle:
         assert result == "my-default"
 
     def test_cache_hit(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client._environment = "staging"
         client._service = None
         client._flag_store = {
@@ -1505,7 +1529,7 @@ class TestFlagsClientEvaluateHandle:
         assert client._cache.cache_misses == 1
 
     def test_service_context_injected(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client._environment = "staging"
         client._service = "my-svc"
         client._flag_store = {
@@ -1519,7 +1543,7 @@ class TestFlagsClientEvaluateHandle:
         assert client._cache.cache_misses == 1
 
     def test_service_context_not_overridden_by_explicit(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client._environment = "staging"
         client._service = "my-svc"
         client._flag_store = {
@@ -1541,7 +1565,7 @@ class TestFlagsClientEvaluateHandle:
         assert result == "matched"
 
     def test_metrics_recorded_on_cache_hit_and_miss(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         metrics = MagicMock()
         client._metrics = metrics
         client._environment = "staging"
@@ -1867,7 +1891,7 @@ class TestFlagsClientFetchInternals:
 
 class TestFlagsClientRuntimeIntegration:
     def test_handle_get_with_installed_store(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client._environment = "staging"
         client._service = None
         client._flag_store = {
@@ -1889,7 +1913,7 @@ class TestFlagsClientRuntimeIntegration:
         assert handle.get(context=[Context("user", "u-2", plan="free")]) is False
 
     def test_cache_hits_on_repeated_evaluation(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client._environment = "staging"
         client._service = None
         client._flag_store = {
@@ -2200,48 +2224,51 @@ class TestAsyncFlagsClientCreateUpdateFlag:
 
 
 # ===========================================================================
-# AsyncFlagsClient: NotInstalledError gating
+# AsyncFlagsClient: no install gate (synchronous helpers; refresh auto-connects)
 # ===========================================================================
 
 
-class TestAsyncFlagsClientNotInstalled:
-    def test_boolean_flag_requires_install(self):
-        client = _make_async_flags_client()
-        with pytest.raises(NotInstalledError):
-            client.boolean_flag("x", default=False)
+class TestAsyncFlagsClientNoGate:
+    """The async helpers are synchronous and never gate; ``refresh`` connects."""
 
-    def test_string_flag_requires_install(self):
+    def test_boolean_flag_no_gate(self):
         client = _make_async_flags_client()
-        with pytest.raises(NotInstalledError):
-            client.string_flag("x", default="a")
+        handle = client.boolean_flag("x", default=False)
+        assert handle.id == "x"
 
-    def test_number_flag_requires_install(self):
+    def test_string_flag_no_gate(self):
         client = _make_async_flags_client()
-        with pytest.raises(NotInstalledError):
-            client.number_flag("x", default=1)
+        handle = client.string_flag("x", default="a")
+        assert handle.id == "x"
 
-    def test_json_flag_requires_install(self):
+    def test_number_flag_no_gate(self):
         client = _make_async_flags_client()
-        with pytest.raises(NotInstalledError):
-            client.json_flag("x", default={})
+        handle = client.number_flag("x", default=1)
+        assert handle.id == "x"
 
-    def test_refresh_requires_install(self):
+    def test_json_flag_no_gate(self):
+        client = _make_async_flags_client()
+        handle = client.json_flag("x", default={})
+        assert handle.id == "x"
+
+    def test_refresh_lazy_connects(self):
         async def _run():
             client = _make_async_flags_client()
-            with pytest.raises(NotInstalledError):
-                await client.refresh()
+            with patch.object(client, "_ensure_connected", new_callable=AsyncMock) as connect:
+                with patch.object(client, "_fetch_all_flags", new_callable=AsyncMock):
+                    await client.refresh()
+            connect.assert_awaited_once()
 
         asyncio.run(_run())
 
-    def test_stats_requires_install(self):
+    def test_stats_no_gate(self):
         client = _make_async_flags_client()
-        with pytest.raises(NotInstalledError):
-            client.stats()
+        assert client.stats() is not None
 
-    def test_on_change_requires_install(self):
+    def test_on_change_no_gate(self):
         client = _make_async_flags_client()
-        with pytest.raises(NotInstalledError):
-            client.on_change(lambda e: None)
+        client.on_change(lambda e: None)
+        assert len(client._global_listeners) == 1
 
 
 # ===========================================================================
@@ -2251,26 +2278,26 @@ class TestAsyncFlagsClientNotInstalled:
 
 class TestAsyncFlagsClientTypedHandles:
     def test_booleanFlag(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         handle = client.boolean_flag("test", default=False)
         assert isinstance(handle, AsyncBooleanFlag)
         assert handle.id == "test"
         assert "test" in client._handles
 
     def test_stringFlag(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         handle = client.string_flag("color", default="red")
         assert isinstance(handle, AsyncStringFlag)
         assert handle.id == "color"
 
     def test_numberFlag(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         handle = client.number_flag("retries", default=3)
         assert isinstance(handle, AsyncNumberFlag)
         assert handle.id == "retries"
 
     def test_jsonFlag(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         handle = client.json_flag("config", default={"a": 1})
         assert isinstance(handle, AsyncJsonFlag)
         assert handle.id == "config"
@@ -2283,7 +2310,7 @@ class TestAsyncFlagsClientTypedHandles:
 
 class TestAsyncFlagsClientOnChange:
     def test_bare_decorator(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
 
         @client.on_change
         def listener(event):
@@ -2292,7 +2319,7 @@ class TestAsyncFlagsClientOnChange:
         assert len(client._global_listeners) == 1
 
     def test_key_scoped_decorator(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
 
         @client.on_change("my-flag")
         def listener(event):
@@ -2301,7 +2328,7 @@ class TestAsyncFlagsClientOnChange:
         assert "my-flag" in client._key_listeners
 
     def test_empty_parens_decorator(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
 
         @client.on_change()
         def listener(event):
@@ -2318,7 +2345,7 @@ class TestAsyncFlagsClientOnChange:
 class TestAsyncFlagsClientLifecycle:
     @patch("smplkit.flags._client.bulk_register_flags.asyncio_detailed")
     @patch("smplkit.flags._client.list_flags.asyncio_detailed")
-    def test_install(self, mock_list, mock_bulk):
+    def test_connect(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         mock_bulk.return_value = _ok_response()
 
@@ -2326,8 +2353,8 @@ class TestAsyncFlagsClientLifecycle:
             client = _make_async_flags_client()
             mock_ws = MagicMock()
             client._parent._ensure_ws.return_value = mock_ws
-            await client.install()
-            assert client._installed is True
+            await client._ensure_connected()
+            assert client._connected is True
             assert client._ws_manager is mock_ws
             assert mock_ws.on.call_count == 3
             registered_events = {call.args[0] for call in mock_ws.on.call_args_list}
@@ -2337,22 +2364,22 @@ class TestAsyncFlagsClientLifecycle:
 
     @patch("smplkit.flags._client.bulk_register_flags.asyncio_detailed")
     @patch("smplkit.flags._client.list_flags.asyncio_detailed")
-    def test_install_idempotent(self, mock_list, mock_bulk):
+    def test_connect_idempotent(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
         mock_bulk.return_value = _ok_response()
 
         async def _run():
             client = _make_async_flags_client()
             client._parent._ensure_ws.return_value = MagicMock()
-            await client.install()
-            await client.install()
+            await client._ensure_connected()
+            await client._ensure_connected()
             assert mock_list.call_count == 1
 
         asyncio.run(_run())
 
     @patch("smplkit.flags._client.bulk_register_flags.asyncio_detailed")
     @patch("smplkit.flags._client.list_flags.asyncio_detailed")
-    def test_install_flushes_before_fetch(self, mock_list, mock_bulk):
+    def test_connect_flushes_before_fetch(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": []})
         mock_bulk.return_value = _ok_response()
 
@@ -2362,7 +2389,7 @@ class TestAsyncFlagsClientLifecycle:
             from smplkit.flags.types import FlagDeclaration
 
             client.register(FlagDeclaration(id="f1", type="BOOLEAN", default=True))
-            await client.install()
+            await client._ensure_connected()
             mock_bulk.assert_called_once()
             mock_list.assert_called_once()
 
@@ -2370,7 +2397,7 @@ class TestAsyncFlagsClientLifecycle:
 
     @patch("smplkit.flags._client.bulk_register_flags.asyncio_detailed")
     @patch("smplkit.flags._client.list_flags.asyncio_detailed")
-    def test_install_swallows_flush_failure(self, mock_list, mock_bulk):
+    def test_connect_swallows_flush_failure(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": []})
         mock_bulk.side_effect = httpx.ConnectError("flags down")
 
@@ -2380,8 +2407,8 @@ class TestAsyncFlagsClientLifecycle:
             from smplkit.flags.types import FlagDeclaration
 
             client.register(FlagDeclaration(id="f1", type="BOOLEAN", default=True))
-            await client.install()  # should not raise
-            assert client._installed is True
+            await client._ensure_connected()  # should not raise
+            assert client._connected is True
 
         asyncio.run(_run())
 
@@ -2390,7 +2417,7 @@ class TestAsyncFlagsClientLifecycle:
         mock_list.return_value = _ok_json_response({"data": [_flag_json()]})
 
         async def _run():
-            client = _installed(_make_async_flags_client())
+            client = _connected(_make_async_flags_client())
             client._flag_store = {"old-flag": {"id": "old-flag"}}
             listener = MagicMock()
             client._global_listeners.append(listener)
@@ -2401,7 +2428,7 @@ class TestAsyncFlagsClientLifecycle:
         asyncio.run(_run())
 
     def test_stats(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         stats = client.stats()
         assert stats.cache_hits == 0
 
@@ -2413,7 +2440,7 @@ class TestAsyncFlagsClientLifecycle:
 
 class TestAsyncFlagsClientEvaluateHandle:
     def test_with_explicit_context(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         client._environment = "staging"
         client._service = None
         client._flag_store = {
@@ -2436,7 +2463,7 @@ class TestAsyncFlagsClientEvaluateHandle:
     def test_with_set_context_does_not_register_again(self):
         from smplkit._context import _request_context
 
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         client._environment = "staging"
         client._service = None
         client._flag_store = {
@@ -2457,7 +2484,7 @@ class TestAsyncFlagsClientEvaluateHandle:
             _request_context.reset(token)
 
     def test_explicit_context_registers(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         client._environment = "staging"
         client._service = None
         client._flag_store = {
@@ -2471,7 +2498,7 @@ class TestAsyncFlagsClientEvaluateHandle:
         assert client._contexts._buffer.pending_count >= 1
 
     def test_no_contexts_dependency_skips_registration(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         client._contexts = None
         client._environment = "staging"
         client._service = None
@@ -2485,7 +2512,7 @@ class TestAsyncFlagsClientEvaluateHandle:
         assert client._evaluate_handle("flag-a", "off", [Context("user", "u-1")]) == "off"
 
     def test_no_provider_empty_context(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         client._environment = "staging"
         client._service = None
         client._flag_store = {
@@ -2498,20 +2525,20 @@ class TestAsyncFlagsClientEvaluateHandle:
         assert client._evaluate_handle("flag-a", "fallback", None) == "fallback"
 
     def test_flag_not_in_store(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         client._service = None
         client._flag_store = {}
         assert client._evaluate_handle("missing", "default_val", [Context("user", "u-1")]) == "default_val"
 
     def test_evaluate_none_becomes_default(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         client._environment = "staging"
         client._service = None
         client._flag_store = {"flag-a": {"id": "flag-a", "default": None, "environments": {}}}
         assert client._evaluate_handle("flag-a", "my-default", [Context("user", "u-1")]) == "my-default"
 
     def test_cache_hit(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         client._environment = "staging"
         client._service = None
         client._flag_store = {
@@ -2527,7 +2554,7 @@ class TestAsyncFlagsClientEvaluateHandle:
         assert client._cache.cache_hits == 1
 
     def test_service_context_injected(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         client._environment = "staging"
         client._service = "my-svc"
         client._flag_store = {
@@ -2541,7 +2568,7 @@ class TestAsyncFlagsClientEvaluateHandle:
         assert client._cache.cache_misses == 1
 
     def test_metrics_recorded(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         metrics = MagicMock()
         client._metrics = metrics
         client._environment = "staging"
@@ -2976,7 +3003,7 @@ class TestFlagRegistrationBuffer:
 
 class TestFlagsClientDiscoveryBuffer:
     def test_booleanFlag_adds_to_buffer(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client._service = "my-svc"
         client._environment = "prod"
         client.boolean_flag("dark-mode", default=False)
@@ -2989,7 +3016,7 @@ class TestFlagsClientDiscoveryBuffer:
         assert batch[0]["environment"] == "prod"
 
     def test_stringFlag_adds_to_buffer(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client.string_flag("color", default="red")
         batch = client._buffer.drain()
         assert len(batch) == 1
@@ -2997,7 +3024,7 @@ class TestFlagsClientDiscoveryBuffer:
         assert batch[0]["default"] == "red"
 
     def test_numberFlag_adds_to_buffer(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client.number_flag("retries", default=3)
         batch = client._buffer.drain()
         assert len(batch) == 1
@@ -3005,7 +3032,7 @@ class TestFlagsClientDiscoveryBuffer:
         assert batch[0]["default"] == 3
 
     def test_jsonFlag_adds_to_buffer(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client.json_flag("config", default={"a": 1})
         batch = client._buffer.drain()
         assert len(batch) == 1
@@ -3013,7 +3040,7 @@ class TestFlagsClientDiscoveryBuffer:
         assert batch[0]["default"] == {"a": 1}
 
     def test_dedup_across_typed_methods(self):
-        client = _installed(_make_flags_client())
+        client = _connected(_make_flags_client())
         client.boolean_flag("flag-a", default=True)
         client.boolean_flag("flag-a", default=False)  # same id, different default
         batch = client._buffer.drain()
@@ -3132,7 +3159,7 @@ class TestFlagsClientDiscoveryBuffer:
 
 class TestAsyncFlagsClientDiscoveryBuffer:
     def test_booleanFlag_adds_to_buffer(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         client._service = "my-svc"
         client._environment = "prod"
         client.boolean_flag("dark-mode", default=False)
@@ -3144,19 +3171,19 @@ class TestAsyncFlagsClientDiscoveryBuffer:
         assert batch[0]["service"] == "my-svc"
 
     def test_stringFlag_adds_to_buffer(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         client.string_flag("color", default="red")
         batch = client._buffer.drain()
         assert batch[0]["type"] == "STRING"
 
     def test_numberFlag_adds_to_buffer(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         client.number_flag("retries", default=3)
         batch = client._buffer.drain()
         assert batch[0]["type"] == "NUMERIC"
 
     def test_jsonFlag_adds_to_buffer(self):
-        client = _installed(_make_async_flags_client())
+        client = _connected(_make_async_flags_client())
         client.json_flag("config", default={"a": 1})
         batch = client._buffer.drain()
         assert batch[0]["type"] == "JSON"
@@ -3333,13 +3360,13 @@ class TestStandaloneConstruction:
 
     @patch("smplkit.flags._client.bulk_register_flags.sync_detailed")
     @patch("smplkit.flags._client.list_flags.sync_detailed")
-    def test_standalone_install_opens_own_ws(self, mock_list, mock_bulk):
+    def test_standalone_connect_opens_own_ws(self, mock_list, mock_bulk):
         mock_list.return_value = _ok_json_response({"data": []})
         mock_bulk.return_value = _ok_response()
         flags = FlagsClient(api_key="sk_test", base_domain="example.test", environment="prod")
         fake_ws = MagicMock()
         with patch("smplkit.flags._client.SharedWebSocket", return_value=fake_ws) as ws_cls:
-            flags.install()
+            flags._ensure_connected()
         ws_cls.assert_called_once()
         assert flags._owns_ws is True
         assert flags._ws_manager is fake_ws
@@ -3384,14 +3411,14 @@ class TestStandaloneAsyncConstruction:
         assert flags._environment == "prod"
         assert isinstance(flags._contexts, AsyncContextsClient)
 
-    def test_standalone_install_opens_own_ws(self):
+    def test_standalone_connect_opens_own_ws(self):
         async def _run():
             flags = AsyncFlagsClient(api_key="sk_test", base_domain="example.test", environment="prod")
             fake_ws = MagicMock()
             with patch("smplkit.flags._client.SharedWebSocket", return_value=fake_ws) as ws_cls:
                 with patch.object(flags, "_fetch_all_flags", new_callable=AsyncMock):
                     with patch.object(flags, "flush", new_callable=AsyncMock):
-                        await flags.install()
+                        await flags._ensure_connected()
             ws_cls.assert_called_once()
             assert flags._owns_ws is True
             await flags.aclose()
