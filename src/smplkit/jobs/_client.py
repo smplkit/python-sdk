@@ -1,22 +1,16 @@
 """Smpl Jobs SDK client (``client.jobs`` on SmplClient, or standalone ``JobsClient``).
 
-Unlike Config/Flags/Logging, Jobs installs no in-process machinery — no
-environment registration, no WebSocket, no logger monkey-patching. It is a
-product you *use*, not infrastructure you *install*, so it has no
-runtime/management split: a single :class:`JobsClient` (and its async
-counterpart :class:`AsyncJobsClient`) exposes the full surface, reachable
-two ways:
+Smpl Jobs runs an HTTP call on a schedule and records what happened each
+time it fired. A single :class:`JobsClient` (and its async counterpart
+:class:`AsyncJobsClient`) exposes the full surface, reachable two ways:
 
 * ``client.jobs.*`` on :class:`smplkit.SmplClient`
 * directly — ``JobsClient(api_key=...)`` — for callers that only need jobs.
 
 A :class:`Job` is an active record: build it with :meth:`JobsClient.new`,
 set fields, and call ``save()`` (create when new, full-replace update when it
-already exists) or ``delete()``. Runs are read-only views; run actions live on
-``jobs.runs``.
-
-Every call delegates HTTP to the auto-generated ``smplkit._generated.jobs``
-client; this wrapper only shapes models and raises SDK exceptions.
+already exists) or ``delete()``. A :class:`Run` is a read-only record of one
+execution; run history and run actions live on ``jobs.runs``.
 """
 
 from __future__ import annotations
@@ -27,7 +21,7 @@ import re
 from typing import Any, Optional
 from uuid import UUID
 
-from smplkit._config import _service_url, resolve_management_config
+from smplkit._config import _service_url, resolve_client_config
 from smplkit._errors import _raise_for_status
 from smplkit._generated.jobs.api.jobs import (
     create_job as _gen_create_job,
@@ -54,6 +48,8 @@ __all__ = [
     "AsyncJob",
     "Run",
     "Usage",
+    "RunsClient",
+    "AsyncRunsClient",
     "JobsClient",
     "AsyncJobsClient",
 ]
@@ -93,13 +89,13 @@ def _jobs_transport(
 ) -> _JobsAuthClient:
     """Build a standalone Smpl Jobs transport from resolved config.
 
-    Reuses the management config resolver (jobs is account-global and never
+    Reuses the config resolver (jobs is account-global and never
     environment-scoped) and the shared per-service URL helper, so a
     standalone jobs client resolves credentials/base-domain from
     ``~/.smplkit`` / env vars / constructor args exactly like the top-level
     clients do.
     """
-    cfg = resolve_management_config(
+    cfg = resolve_client_config(
         profile=profile,
         api_key=api_key,
         base_domain=base_domain,
@@ -128,6 +124,25 @@ class HttpConfig:
         tls_verify: bool = True,
         ca_cert: Optional[str] = None,
     ) -> None:
+        """Describe the HTTP request a job sends when it fires.
+
+        Args:
+            url: Destination URL the job sends its request to.
+            method: HTTP verb used for the request. Defaults to ``"POST"``.
+            headers: Headers attached to the request, as ``(name, value)``
+                tuples. Defaults to no extra headers.
+            body: Request body sent with the call, or ``None`` for no body.
+            success_status: Status the destination must return for the run to
+                count as a success — an exact code (``"200"``) or a class
+                (``"2xx"``). Defaults to ``"2xx"``.
+            timeout: Seconds to wait for a response before the run is treated
+                as failed. Defaults to ``30``.
+            tls_verify: Whether the destination's TLS certificate is verified.
+                Defaults to ``True``.
+            ca_cert: PEM-encoded certificate authority used to verify the
+                destination, for self-signed or private CAs. ``None`` uses the
+                system trust store.
+        """
         self.url = url
         self.method = method
         self.headers: list[HttpHeader] = list(headers or [])
@@ -151,6 +166,17 @@ class HttpConfig:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "HttpConfig":
+        """Build an :class:`HttpConfig` from its dictionary representation.
+
+        Args:
+            d: HTTP configuration as a mapping, with at least a ``"url"`` key
+                and optional ``method``, ``headers``, ``body``,
+                ``success_status``, ``timeout``, ``tls_verify``, and
+                ``ca_cert`` entries. Omitted keys fall back to their defaults.
+
+        Returns:
+            The corresponding :class:`HttpConfig`.
+        """
         return cls(
             url=d["url"],
             method=d.get("method", "POST"),
@@ -259,7 +285,7 @@ class Job(_JobBase):
         self._apply(other)
 
     def delete(self) -> None:
-        """Soft-delete this job."""
+        """Delete this job."""
         if self._client is None:
             raise RuntimeError("Job was constructed without a client; cannot delete")
         self._client.delete(self.id)
@@ -377,8 +403,13 @@ def _list_jobs_kwargs(enabled, page_number, page_size) -> dict[str, Any]:
     return kwargs
 
 
-class _RunsClient:
-    """Run history and run actions (``jobs.runs``)."""
+class RunsClient:
+    """Read a job's run history and act on individual runs (``jobs.runs``).
+
+    Reached as ``client.jobs.runs``. Use this to list past runs, fetch one by
+    id, cancel a run that is still pending, or re-run a finished one. To
+    trigger a fresh ad-hoc run of a job, use :meth:`JobsClient.run` instead.
+    """
 
     def __init__(self, auth: _JobsAuthClient) -> None:
         self._auth = auth
@@ -386,48 +417,130 @@ class _RunsClient:
     def list(
         self, *, job: Optional[str] = None, page_size: Optional[int] = None, after: Optional[str] = None
     ) -> list[Run]:
+        """List past runs, most recent first.
+
+        Args:
+            job: Return only runs of the job with this id. ``None`` lists runs
+                across all jobs in the account.
+            page_size: Maximum number of runs to return in this page. ``None``
+                uses the server default.
+            after: Opaque cursor from a previous page; returns the runs that
+                follow it. ``None`` starts from the first page.
+
+        Returns:
+            The runs in this page, as a list of :class:`Run`.
+        """
         resp = _gen_list_runs.sync_detailed(client=self._auth, **_run_list_kwargs(job, page_size, after))
         _check(resp)
         return [Run._from_resource(r) for r in _data(resp)]
 
     def get(self, run_id: str | UUID) -> Run:
+        """Fetch a single run by its id.
+
+        Args:
+            run_id: Identifier of the run to fetch.
+
+        Returns:
+            The matching :class:`Run`.
+        """
         resp = _gen_get_run.sync_detailed(UUID(str(run_id)), client=self._auth)
         _check(resp)
         return Run._from_resource(_data(resp))
 
     def cancel(self, run_id: str | UUID) -> Run:
+        """Cancel a run that has not finished yet.
+
+        Args:
+            run_id: Identifier of the run to cancel.
+
+        Returns:
+            The updated :class:`Run` reflecting the cancellation.
+        """
         resp = _gen_cancel_run.sync_detailed(UUID(str(run_id)), client=self._auth)
         _check(resp)
         return Run._from_resource(_data(resp))
 
     def rerun(self, run_id: str | UUID) -> Run:
+        """Start a new run that repeats a previous one.
+
+        Args:
+            run_id: Identifier of the run to repeat.
+
+        Returns:
+            The new :class:`Run`, with ``rerun_of`` set to ``run_id``.
+        """
         resp = _gen_rerun_run.sync_detailed(UUID(str(run_id)), client=self._auth)
         _check(resp)
         return Run._from_resource(_data(resp))
 
 
-class _AsyncRunsClient:
+class AsyncRunsClient:
+    """Read a job's run history and act on individual runs (``jobs.runs``), awaited.
+
+    Reached as ``client.jobs.runs`` on an async client. Use this to list past
+    runs, fetch one by id, cancel a run that is still pending, or re-run a
+    finished one. To trigger a fresh ad-hoc run of a job, use
+    :meth:`AsyncJobsClient.run` instead.
+    """
+
     def __init__(self, auth: _JobsAuthClient) -> None:
         self._auth = auth
 
     async def list(
         self, *, job: Optional[str] = None, page_size: Optional[int] = None, after: Optional[str] = None
     ) -> list[Run]:
+        """List past runs, most recent first.
+
+        Args:
+            job: Return only runs of the job with this id. ``None`` lists runs
+                across all jobs in the account.
+            page_size: Maximum number of runs to return in this page. ``None``
+                uses the server default.
+            after: Opaque cursor from a previous page; returns the runs that
+                follow it. ``None`` starts from the first page.
+
+        Returns:
+            The runs in this page, as a list of :class:`Run`.
+        """
         resp = await _gen_list_runs.asyncio_detailed(client=self._auth, **_run_list_kwargs(job, page_size, after))
         _check(resp)
         return [Run._from_resource(r) for r in _data(resp)]
 
     async def get(self, run_id: str | UUID) -> Run:
+        """Fetch a single run by its id.
+
+        Args:
+            run_id: Identifier of the run to fetch.
+
+        Returns:
+            The matching :class:`Run`.
+        """
         resp = await _gen_get_run.asyncio_detailed(UUID(str(run_id)), client=self._auth)
         _check(resp)
         return Run._from_resource(_data(resp))
 
     async def cancel(self, run_id: str | UUID) -> Run:
+        """Cancel a run that has not finished yet.
+
+        Args:
+            run_id: Identifier of the run to cancel.
+
+        Returns:
+            The updated :class:`Run` reflecting the cancellation.
+        """
         resp = await _gen_cancel_run.asyncio_detailed(UUID(str(run_id)), client=self._auth)
         _check(resp)
         return Run._from_resource(_data(resp))
 
     async def rerun(self, run_id: str | UUID) -> Run:
+        """Start a new run that repeats a previous one.
+
+        Args:
+            run_id: Identifier of the run to repeat.
+
+        Returns:
+            The new :class:`Run`, with ``rerun_of`` set to ``run_id``.
+        """
         resp = await _gen_rerun_run.asyncio_detailed(UUID(str(run_id)), client=self._auth)
         _check(resp)
         return Run._from_resource(_data(resp))
@@ -482,7 +595,7 @@ class JobsClient:
                 extra_headers=extra_headers,
             )
             self._owns_transport = True
-        self.runs = _RunsClient(self._auth)
+        self.runs = RunsClient(self._auth)
 
     def new(
         self,
@@ -501,6 +614,22 @@ class JobsClient:
             id: Caller-supplied unique identifier for the job. Unique within
                 the account and immutable; the service returns 409 if another
                 live job already uses this id.
+            name: Human-readable name for the job.
+            schedule: When the job runs. One of: a 5-field cron expression
+                evaluated in UTC (recurring), an ISO-8601 datetime (a one-off
+                run at that instant), or the literal ``"now"`` (run once, as
+                soon as possible). A datetime or ``"now"`` job disables itself
+                after it fires.
+            configuration: The HTTP request the job sends each time it fires.
+            description: Free-text description for the job. Defaults to none.
+            enabled: Whether the job schedules runs. Set to ``False`` to pause
+                it without deleting. Defaults to ``True``.
+            concurrency_policy: How overlapping runs are handled. ``"ALLOW"``
+                (the default and only value today) permits a new run to start
+                while a previous one is still in flight.
+
+        Returns:
+            An unsaved :class:`Job` bound to this client.
         """
         return Job(
             self,
@@ -518,27 +647,70 @@ class JobsClient:
     def list(
         self, *, enabled: Optional[bool] = None, page_number: Optional[int] = None, page_size: Optional[int] = None
     ) -> list[Job]:
+        """List jobs in the account.
+
+        Args:
+            enabled: Return only jobs with this enabled state. ``None`` lists
+                both enabled and paused jobs.
+            page_number: 1-based page to return. ``None`` returns the first
+                page.
+            page_size: Maximum number of jobs to return in this page. ``None``
+                uses the server default.
+
+        Returns:
+            The jobs in this page, as a list of :class:`Job`.
+        """
         resp = _gen_list_jobs.sync_detailed(client=self._auth, **_list_jobs_kwargs(enabled, page_number, page_size))
         _check(resp)
         return [Job._from_resource(r, self) for r in _data(resp)]
 
     def get(self, id: str) -> Job:
+        """Fetch a single job by its id.
+
+        Args:
+            id: Identifier of the job to fetch.
+
+        Returns:
+            The matching :class:`Job`.
+        """
         resp = _gen_get_job.sync_detailed(id, client=self._auth)
         _check(resp)
         return Job._from_resource(_data(resp), self)
 
     def delete(self, id: str) -> None:
+        """Delete a job by its id.
+
+        Args:
+            id: Identifier of the job to delete.
+        """
         resp = _gen_delete_job.sync_detailed(id, client=self._auth)
         _check(resp)
 
     def run(self, id: str) -> Run:
-        """Trigger one immediate ``MANUAL`` run of the job."""
+        """Trigger one immediate, manual run of a job, ignoring its schedule.
+
+        This starts an ad-hoc run right now in addition to any scheduled runs;
+        it does not alter the job's schedule. To read or act on existing runs,
+        use ``jobs.runs``.
+
+        Args:
+            id: Identifier of the job to run.
+
+        Returns:
+            The :class:`Run` that was started, with ``trigger`` set to
+            ``"MANUAL"``.
+        """
         resp = _gen_run_job_now.sync_detailed(id, client=self._auth)
         _check(resp)
         return Run._from_resource(_data(resp))
 
     def usage(self) -> Usage:
-        """Current-period usage counters for the account."""
+        """Report current-period usage against the account's plan allotments.
+
+        Returns:
+            A :class:`Usage` snapshot with runs used/included and active-job
+            counts for the current period.
+        """
         resp = _gen_get_usage.sync_detailed(client=self._auth)
         _check(resp)
         return Usage._from_resource(_data(resp))
@@ -600,7 +772,7 @@ class AsyncJobsClient:
                 extra_headers=extra_headers,
             )
             self._owns_transport = True
-        self.runs = _AsyncRunsClient(self._auth)
+        self.runs = AsyncRunsClient(self._auth)
 
     def new(
         self,
@@ -613,6 +785,29 @@ class AsyncJobsClient:
         enabled: bool = True,
         concurrency_policy: str = "ALLOW",
     ) -> AsyncJob:
+        """Return an unsaved :class:`AsyncJob`. ``await .save()`` to create it.
+
+        Args:
+            id: Caller-supplied unique identifier for the job. Unique within
+                the account and immutable; the service returns 409 if another
+                live job already uses this id.
+            name: Human-readable name for the job.
+            schedule: When the job runs. One of: a 5-field cron expression
+                evaluated in UTC (recurring), an ISO-8601 datetime (a one-off
+                run at that instant), or the literal ``"now"`` (run once, as
+                soon as possible). A datetime or ``"now"`` job disables itself
+                after it fires.
+            configuration: The HTTP request the job sends each time it fires.
+            description: Free-text description for the job. Defaults to none.
+            enabled: Whether the job schedules runs. Set to ``False`` to pause
+                it without deleting. Defaults to ``True``.
+            concurrency_policy: How overlapping runs are handled. ``"ALLOW"``
+                (the default and only value today) permits a new run to start
+                while a previous one is still in flight.
+
+        Returns:
+            An unsaved :class:`AsyncJob` bound to this client.
+        """
         return AsyncJob(
             self,
             **_new_kwargs(
@@ -629,6 +824,19 @@ class AsyncJobsClient:
     async def list(
         self, *, enabled: Optional[bool] = None, page_number: Optional[int] = None, page_size: Optional[int] = None
     ) -> list[AsyncJob]:
+        """List jobs in the account.
+
+        Args:
+            enabled: Return only jobs with this enabled state. ``None`` lists
+                both enabled and paused jobs.
+            page_number: 1-based page to return. ``None`` returns the first
+                page.
+            page_size: Maximum number of jobs to return in this page. ``None``
+                uses the server default.
+
+        Returns:
+            The jobs in this page, as a list of :class:`AsyncJob`.
+        """
         resp = await _gen_list_jobs.asyncio_detailed(
             client=self._auth, **_list_jobs_kwargs(enabled, page_number, page_size)
         )
@@ -636,20 +844,52 @@ class AsyncJobsClient:
         return [AsyncJob._from_resource(r, self) for r in _data(resp)]
 
     async def get(self, id: str) -> AsyncJob:
+        """Fetch a single job by its id.
+
+        Args:
+            id: Identifier of the job to fetch.
+
+        Returns:
+            The matching :class:`AsyncJob`.
+        """
         resp = await _gen_get_job.asyncio_detailed(id, client=self._auth)
         _check(resp)
         return AsyncJob._from_resource(_data(resp), self)
 
     async def delete(self, id: str) -> None:
+        """Delete a job by its id.
+
+        Args:
+            id: Identifier of the job to delete.
+        """
         resp = await _gen_delete_job.asyncio_detailed(id, client=self._auth)
         _check(resp)
 
     async def run(self, id: str) -> Run:
+        """Trigger one immediate, manual run of a job, ignoring its schedule.
+
+        This starts an ad-hoc run right now in addition to any scheduled runs;
+        it does not alter the job's schedule. To read or act on existing runs,
+        use ``jobs.runs``.
+
+        Args:
+            id: Identifier of the job to run.
+
+        Returns:
+            The :class:`Run` that was started, with ``trigger`` set to
+            ``"MANUAL"``.
+        """
         resp = await _gen_run_job_now.asyncio_detailed(id, client=self._auth)
         _check(resp)
         return Run._from_resource(_data(resp))
 
     async def usage(self) -> Usage:
+        """Report current-period usage against the account's plan allotments.
+
+        Returns:
+            A :class:`Usage` snapshot with runs used/included and active-job
+            counts for the current period.
+        """
         resp = await _gen_get_usage.asyncio_detailed(client=self._auth)
         _check(resp)
         return Usage._from_resource(_data(resp))
@@ -681,3 +921,10 @@ class AsyncJobsClient:
 
     async def __aexit__(self, *args: object) -> None:
         await self.aclose()
+
+
+# The runs sub-client is reached through ``client.jobs.runs``; present it as
+# ``smplkit.jobs.<Name>`` in IDE hover / help() rather than the private
+# ``smplkit.jobs._client`` path.
+RunsClient.__module__ = "smplkit.jobs"
+AsyncRunsClient.__module__ = "smplkit.jobs"

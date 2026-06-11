@@ -28,28 +28,28 @@ from smplkit import (
     PlatformClient,
     SmplClient,
 )
-from smplkit._config import resolve_management_config
+from smplkit._config import resolve_client_config
 from smplkit._transport import _to_transport_config, build_service_transports
-from smplkit.account._client import _AsyncSettingsClient, _SettingsClient
+from smplkit.account._client import AsyncSettingsClient, SettingsClient
 from smplkit.config._client import AsyncConfigClient, ConfigClient
 from smplkit.flags._client import AsyncFlagsClient, FlagsClient
 from smplkit.logging._client import (
     AsyncLoggingClient,
     LoggingClient,
-    _AsyncLogGroupsClient,
-    _AsyncLoggersClient,
-    _LogGroupsClient,
-    _LoggersClient,
+    AsyncLogGroupsClient,
+    AsyncLoggersClient,
+    LogGroupsClient,
+    LoggersClient,
 )
 from smplkit.platform._client import (
     AsyncContextsClient,
     AsyncContextTypesClient,
     AsyncEnvironmentsClient,
     AsyncServicesClient,
-    _ContextsClient,
-    _ContextTypesClient,
-    _EnvironmentsClient,
-    _ServicesClient,
+    ContextsClient,
+    ContextTypesClient,
+    EnvironmentsClient,
+    ServicesClient,
 )
 
 
@@ -63,20 +63,20 @@ class TestSmplClientConstruction:
         client = SmplClient(api_key="sk_test", base_domain="example.test")
         platform = client.platform
         assert isinstance(platform, PlatformClient)
-        assert isinstance(platform.contexts, _ContextsClient)
-        assert isinstance(platform.context_types, _ContextTypesClient)
-        assert isinstance(platform.environments, _EnvironmentsClient)
-        assert isinstance(platform.services, _ServicesClient)
+        assert isinstance(platform.contexts, ContextsClient)
+        assert isinstance(platform.context_types, ContextTypesClient)
+        assert isinstance(platform.environments, EnvironmentsClient)
+        assert isinstance(platform.services, ServicesClient)
         assert isinstance(client.account, AccountClient)
-        assert isinstance(client.account.settings, _SettingsClient)
+        assert isinstance(client.account.settings, SettingsClient)
         # config/flags/logging/audit/jobs are top-level (client.config /
         # client.flags / client.logging / client.audit / client.jobs). Logger /
         # log-group CRUD lives on client.logging.loggers / log_groups.
         assert isinstance(client.config, ConfigClient)
         assert isinstance(client.flags, FlagsClient)
         assert isinstance(client.logging, LoggingClient)
-        assert isinstance(client.logging.loggers, _LoggersClient)
-        assert isinstance(client.logging.log_groups, _LogGroupsClient)
+        assert isinstance(client.logging.loggers, LoggersClient)
+        assert isinstance(client.logging.log_groups, LogGroupsClient)
         # The management namespace is gone entirely.
         assert not hasattr(client, "manage")
         client.close()
@@ -94,7 +94,7 @@ class TestSmplClientConstruction:
 
     def test_transport_construction_has_no_side_effects(self):
         """Building the per-service transports must not start threads or HTTP."""
-        cfg = _to_transport_config(resolve_management_config(api_key="sk_test", base_domain="example.test"))
+        cfg = _to_transport_config(resolve_client_config(api_key="sk_test", base_domain="example.test"))
         before = {t.ident for t in threading.enumerate()}
         with patch("httpx.Client") as mock_sync_client, patch("httpx.AsyncClient") as mock_async_client:
             build_service_transports(cfg)
@@ -140,12 +140,12 @@ class TestAsyncSmplClientConstruction:
         assert isinstance(platform.environments, AsyncEnvironmentsClient)
         assert isinstance(platform.services, AsyncServicesClient)
         assert isinstance(client.account, AsyncAccountClient)
-        assert isinstance(client.account.settings, _AsyncSettingsClient)
+        assert isinstance(client.account.settings, AsyncSettingsClient)
         assert isinstance(client.config, AsyncConfigClient)
         assert isinstance(client.flags, AsyncFlagsClient)
         assert isinstance(client.logging, AsyncLoggingClient)
-        assert isinstance(client.logging.loggers, _AsyncLoggersClient)
-        assert isinstance(client.logging.log_groups, _AsyncLogGroupsClient)
+        assert isinstance(client.logging.loggers, AsyncLoggersClient)
+        assert isinstance(client.logging.log_groups, AsyncLogGroupsClient)
         assert not hasattr(client, "manage")
         asyncio.run(client.close())
 
@@ -186,8 +186,8 @@ class TestStandalonePlatformClient:
         platform = PlatformClient(api_key="sk_test", base_domain="example.test")
         assert platform._owns_transport is True
         assert platform._app_http._base_url == "https://app.example.test"
-        assert isinstance(platform.environments, _EnvironmentsClient)
-        assert isinstance(platform.contexts, _ContextsClient)
+        assert isinstance(platform.environments, EnvironmentsClient)
+        assert isinstance(platform.contexts, ContextsClient)
         platform.close()
 
     def test_standalone_close_tears_down_owned_transport(self):
@@ -270,7 +270,7 @@ class TestStandaloneAsyncPlatformClient:
 class TestStandaloneAccountClient:
     def test_standalone_builds_settings_client(self):
         account = AccountClient(api_key="sk_test", base_domain="example.test")
-        assert isinstance(account.settings, _SettingsClient)
+        assert isinstance(account.settings, SettingsClient)
         assert account.settings._base_url == "https://app.example.test"
         account.close()  # no-op
 
@@ -290,7 +290,7 @@ class TestStandaloneAccountClient:
 class TestStandaloneAsyncAccountClient:
     def test_standalone_builds_settings_client(self):
         account = AsyncAccountClient(api_key="sk_test", base_domain="example.test")
-        assert isinstance(account.settings, _AsyncSettingsClient)
+        assert isinstance(account.settings, AsyncSettingsClient)
         assert account.settings._base_url == "https://app.example.test"
 
     def test_aclose_is_noop(self):
@@ -309,7 +309,7 @@ class TestStandaloneAsyncAccountClient:
 
 
 # ---------------------------------------------------------------------------
-# resolve_management_config edge cases
+# resolve_client_config edge cases
 # ---------------------------------------------------------------------------
 
 
@@ -320,30 +320,30 @@ class TestResolveManagementConfig:
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
         with pytest.raises(Error, match="No API key provided"):
-            resolve_management_config(_home_dir=tmp_path)
+            resolve_client_config(_home_dir=tmp_path)
 
     def test_debug_env_var_parsed(self, monkeypatch):
         monkeypatch.setenv("SMPLKIT_API_KEY", "sk_env")
         monkeypatch.setenv("SMPLKIT_DEBUG", "true")
-        from smplkit._config import resolve_management_config
+        from smplkit._config import resolve_client_config
 
-        cfg = resolve_management_config()
+        cfg = resolve_client_config()
         assert cfg.debug is True
 
     def test_constructor_arg_overrides_env_for_debug(self, monkeypatch):
         monkeypatch.setenv("SMPLKIT_API_KEY", "sk_env")
         monkeypatch.setenv("SMPLKIT_DEBUG", "false")
-        from smplkit._config import resolve_management_config
+        from smplkit._config import resolve_client_config
 
-        cfg = resolve_management_config(debug=True)
+        cfg = resolve_client_config(debug=True)
         assert cfg.debug is True
 
     def test_default_base_domain_and_scheme(self, monkeypatch):
         monkeypatch.delenv("SMPLKIT_BASE_DOMAIN", raising=False)
         monkeypatch.delenv("SMPLKIT_SCHEME", raising=False)
-        from smplkit._config import resolve_management_config
+        from smplkit._config import resolve_client_config
 
-        cfg = resolve_management_config(api_key="sk_test")
+        cfg = resolve_client_config(api_key="sk_test")
         assert cfg.base_domain == "smplkit.com"
         assert cfg.scheme == "https"
 
@@ -357,9 +357,9 @@ class TestResolveManagementConfig:
         (tmp_path / ".smplkit").write_text(
             "[default]\napi_key = sk_from_file\nbase_domain = file.smplkit.com\ndebug = true\n"
         )
-        from smplkit._config import resolve_management_config
+        from smplkit._config import resolve_client_config
 
-        cfg = resolve_management_config(_home_dir=tmp_path)
+        cfg = resolve_client_config(_home_dir=tmp_path)
         assert cfg.api_key == "sk_from_file"
         assert cfg.base_domain == "file.smplkit.com"
         assert cfg.debug is True

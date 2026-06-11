@@ -1,11 +1,10 @@
 """Smpl Audit SDK namespace.
 
-ADR-047. The audit subsystem records who did what to which resource and
-when. Audit installs no in-process machinery, so it has no
-runtime/management split: a single :class:`AuditClient` (sync) /
-:class:`AsyncAuditClient` (async) exposes the full surface and is
-reachable as ``client.audit`` on :class:`smplkit.SmplClient` or
-constructed directly via :class:`AuditClient`.
+The audit subsystem records who did what to which resource and when. A
+single :class:`AuditClient` (sync) / :class:`AsyncAuditClient` (async)
+exposes the full surface and is reachable as ``client.audit`` on
+:class:`smplkit.SmplClient` or constructed directly via
+:class:`AuditClient`.
 
 The client owns event recording and read-side queries plus SIEM forwarder
 CRUD:
@@ -26,6 +25,25 @@ The shared dataclasses (``Event``, ``Forwarder``, ``AsyncForwarder``,
 re-exported here for convenience.
 """
 
+from smplkit.audit._client import (
+    AsyncCategoriesClient,
+    AsyncEventsClient,
+    AsyncEventTypesClient,
+    AsyncResourceTypesClient,
+    CategoriesClient,
+    CategoryListPage,
+    EventListPage,
+    EventsClient,
+    EventTypeListPage,
+    EventTypesClient,
+    ResourceTypeListPage,
+    ResourceTypesClient,
+)
+from smplkit.audit._forwarders import (
+    AsyncForwardersClient,
+    ForwarderListPage,
+    ForwardersClient,
+)
 from smplkit.audit.models import (
     AsyncForwarder,
     Category,
@@ -42,16 +60,31 @@ from smplkit.audit.models import (
 )
 
 __all__ = [
+    "AsyncCategoriesClient",
+    "AsyncEventTypesClient",
+    "AsyncEventsClient",
     "AsyncForwarder",
+    "AsyncForwardersClient",
+    "AsyncResourceTypesClient",
+    "CategoriesClient",
     "Category",
+    "CategoryListPage",
     "Event",
+    "EventListPage",
     "EventType",
+    "EventTypeListPage",
+    "EventTypesClient",
+    "EventsClient",
     "Forwarder",
     "ForwarderEnvironment",
+    "ForwarderListPage",
     "ForwarderType",
+    "ForwardersClient",
     "HttpConfiguration",
     "HttpHeader",
     "HttpMethod",
     "ResourceType",
+    "ResourceTypeListPage",
+    "ResourceTypesClient",
     "TransformType",
 ]

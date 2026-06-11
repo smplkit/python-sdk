@@ -31,7 +31,7 @@ import logging
 import threading
 from typing import Any, overload
 
-from smplkit._config import _service_url, resolve_management_config
+from smplkit._config import _service_url, resolve_client_config
 from smplkit._errors import (
     NotFoundError,
     ValidationError,
@@ -132,7 +132,7 @@ def _env_to_resource(env: Environment | AsyncEnvironment) -> _GenEnvironmentRequ
 
 
 def _env_from_parsed(
-    parsed: Any, sync_client: _EnvironmentsClient | None, async_client: AsyncEnvironmentsClient | None
+    parsed: Any, sync_client: EnvironmentsClient | None, async_client: AsyncEnvironmentsClient | None
 ) -> Any:
     """Build an Environment / AsyncEnvironment from a parsed EnvironmentResponse."""
     data = parsed.data
@@ -179,7 +179,7 @@ def _ct_to_resource(ct: ContextType | AsyncContextType) -> _GenContextTypeReques
 
 
 def _ct_from_parsed(
-    parsed: Any, sync_client: _ContextTypesClient | None, async_client: AsyncContextTypesClient | None
+    parsed: Any, sync_client: ContextTypesClient | None, async_client: AsyncContextTypesClient | None
 ) -> Any:
     data = parsed.data
     attrs = data.attributes
@@ -294,10 +294,10 @@ def _platform_transport(
 
     ``base_url``/``api_key`` are used directly when both are supplied (the
     path the top-level client takes after it has already resolved them);
-    otherwise the management config resolver fills in whatever is missing
+    otherwise the config resolver fills in whatever is missing
     (``~/.smplkit`` / env vars / defaults).
     """
-    cfg = resolve_management_config(
+    cfg = resolve_client_config(
         profile=profile,
         api_key=api_key,
         base_domain=base_domain,
@@ -317,7 +317,7 @@ def _platform_transport(
 # ---------------------------------------------------------------------------
 
 
-class _EnvironmentsClient:
+class EnvironmentsClient:
     """Sync environment CRUD (``client.platform.environments``)."""
 
     def __init__(self, app_http: _AppAuthClient) -> None:
@@ -331,7 +331,21 @@ class _EnvironmentsClient:
         color: Color | str | None = None,
         classification: EnvironmentClassification = EnvironmentClassification.STANDARD,
     ) -> Environment:
-        """Return an unsaved :class:`Environment`. Call ``.save()`` to persist."""
+        """Build an unsaved :class:`Environment`; call ``.save()`` to persist it.
+
+        Args:
+            id: Stable, human-readable identifier for the environment
+                (for example ``"production"``).
+            name: Display name shown in the Console.
+            color: Accent color for the environment, as a :class:`Color` or a
+                CSS hex string. Defaults to no color.
+            classification: Whether the environment participates in the
+                standard environment ordering. Defaults to
+                ``EnvironmentClassification.STANDARD``.
+
+        Returns:
+            An unsaved :class:`Environment` bound to this client.
+        """
         return Environment(
             self,
             id=id,
@@ -346,6 +360,16 @@ class _EnvironmentsClient:
         page_number: int | None = None,
         page_size: int | None = None,
     ) -> list[Environment]:
+        """List environments in the account.
+
+        Args:
+            page_number: 1-based page to fetch. Defaults to the first page.
+            page_size: Maximum number of environments per page. Defaults to
+                the server's page size.
+
+        Returns:
+            The environments on the requested page.
+        """
         kwargs = _pagination_kwargs(page_number, page_size)
         resp = _gen_list_environments.sync_detailed(client=self._app_http, **kwargs)
         _check_status(int(resp.status_code), resp.content)
@@ -353,6 +377,17 @@ class _EnvironmentsClient:
         return [_env_resource_from_dict(item, sync_client=self) for item in body.get("data", [])]
 
     def get(self, id: str) -> Environment:
+        """Fetch a single environment by id.
+
+        Args:
+            id: Identifier of the environment to fetch.
+
+        Returns:
+            The matching :class:`Environment`.
+
+        Raises:
+            NotFoundError: If no environment with that id exists.
+        """
         resp = _gen_get_environment.sync_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
@@ -360,6 +395,11 @@ class _EnvironmentsClient:
         return _env_from_parsed(resp.parsed, sync_client=self, async_client=None)
 
     def delete(self, id: str) -> None:
+        """Delete an environment by id.
+
+        Args:
+            id: Identifier of the environment to delete.
+        """
         resp = _gen_delete_environment.sync_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
 
@@ -402,6 +442,21 @@ class AsyncEnvironmentsClient:
         color: Color | str | None = None,
         classification: EnvironmentClassification = EnvironmentClassification.STANDARD,
     ) -> AsyncEnvironment:
+        """Build an unsaved :class:`AsyncEnvironment`; ``await .save()`` to persist it.
+
+        Args:
+            id: Stable, human-readable identifier for the environment
+                (for example ``"production"``).
+            name: Display name shown in the Console.
+            color: Accent color for the environment, as a :class:`Color` or a
+                CSS hex string. Defaults to no color.
+            classification: Whether the environment participates in the
+                standard environment ordering. Defaults to
+                ``EnvironmentClassification.STANDARD``.
+
+        Returns:
+            An unsaved :class:`AsyncEnvironment` bound to this client.
+        """
         return AsyncEnvironment(
             self,
             id=id,
@@ -416,6 +471,16 @@ class AsyncEnvironmentsClient:
         page_number: int | None = None,
         page_size: int | None = None,
     ) -> list[AsyncEnvironment]:
+        """List environments in the account. Awaits the round-trip.
+
+        Args:
+            page_number: 1-based page to fetch. Defaults to the first page.
+            page_size: Maximum number of environments per page. Defaults to
+                the server's page size.
+
+        Returns:
+            The environments on the requested page.
+        """
         kwargs = _pagination_kwargs(page_number, page_size)
         resp = await _gen_list_environments.asyncio_detailed(client=self._app_http, **kwargs)
         _check_status(int(resp.status_code), resp.content)
@@ -423,6 +488,17 @@ class AsyncEnvironmentsClient:
         return [_env_resource_from_dict(item, async_client=self) for item in body.get("data", [])]
 
     async def get(self, id: str) -> AsyncEnvironment:
+        """Fetch a single environment by id. Awaits the round-trip.
+
+        Args:
+            id: Identifier of the environment to fetch.
+
+        Returns:
+            The matching :class:`AsyncEnvironment`.
+
+        Raises:
+            NotFoundError: If no environment with that id exists.
+        """
         resp = await _gen_get_environment.asyncio_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
@@ -430,6 +506,11 @@ class AsyncEnvironmentsClient:
         return _env_from_parsed(resp.parsed, sync_client=None, async_client=self)
 
     async def delete(self, id: str) -> None:
+        """Delete an environment by id. Awaits the round-trip.
+
+        Args:
+            id: Identifier of the environment to delete.
+        """
         resp = await _gen_delete_environment.asyncio_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
 
@@ -461,7 +542,7 @@ class AsyncEnvironmentsClient:
 def _env_resource_from_dict(
     item: dict[str, Any],
     *,
-    sync_client: _EnvironmentsClient | None = None,
+    sync_client: EnvironmentsClient | None = None,
     async_client: AsyncEnvironmentsClient | None = None,
 ) -> Any:
     """Build an Environment from a raw JSON resource dict (used by list)."""
@@ -507,7 +588,7 @@ def _svc_to_resource(svc: Service | AsyncService) -> _GenServiceRequest:
     return _GenServiceRequest(data=resource)
 
 
-def _svc_from_parsed(parsed: Any, sync_client: _ServicesClient | None, async_client: AsyncServicesClient | None) -> Any:
+def _svc_from_parsed(parsed: Any, sync_client: ServicesClient | None, async_client: AsyncServicesClient | None) -> Any:
     """Build a Service / AsyncService from a parsed ServiceResponse."""
     data = parsed.data
     attrs = data.attributes
@@ -528,7 +609,7 @@ def _svc_from_parsed(parsed: Any, sync_client: _ServicesClient | None, async_cli
     )
 
 
-class _ServicesClient:
+class ServicesClient:
     """Sync service CRUD (``client.platform.services``)."""
 
     def __init__(self, app_http: _AppAuthClient) -> None:
@@ -540,7 +621,15 @@ class _ServicesClient:
         *,
         name: str,
     ) -> Service:
-        """Return an unsaved :class:`Service`. Call ``.save()`` to persist."""
+        """Build an unsaved :class:`Service`; call ``.save()`` to persist it.
+
+        Args:
+            id: Stable, human-readable identifier for the service.
+            name: Display name shown in the Console.
+
+        Returns:
+            An unsaved :class:`Service` bound to this client.
+        """
         return Service(
             self,
             id=id,
@@ -553,6 +642,16 @@ class _ServicesClient:
         page_number: int | None = None,
         page_size: int | None = None,
     ) -> list[Service]:
+        """List services in the account.
+
+        Args:
+            page_number: 1-based page to fetch. Defaults to the first page.
+            page_size: Maximum number of services per page. Defaults to the
+                server's page size.
+
+        Returns:
+            The services on the requested page.
+        """
         kwargs = _pagination_kwargs(page_number, page_size)
         resp = _gen_list_services.sync_detailed(client=self._app_http, **kwargs)
         _check_status(int(resp.status_code), resp.content)
@@ -560,6 +659,17 @@ class _ServicesClient:
         return [_svc_resource_from_dict(item, sync_client=self) for item in body.get("data", [])]
 
     def get(self, id: str) -> Service:
+        """Fetch a single service by id.
+
+        Args:
+            id: Identifier of the service to fetch.
+
+        Returns:
+            The matching :class:`Service`.
+
+        Raises:
+            NotFoundError: If no service with that id exists.
+        """
         resp = _gen_get_service.sync_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
@@ -567,6 +677,11 @@ class _ServicesClient:
         return _svc_from_parsed(resp.parsed, sync_client=self, async_client=None)
 
     def delete(self, id: str) -> None:
+        """Delete a service by id.
+
+        Args:
+            id: Identifier of the service to delete.
+        """
         resp = _gen_delete_service.sync_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
 
@@ -607,6 +722,15 @@ class AsyncServicesClient:
         *,
         name: str,
     ) -> AsyncService:
+        """Build an unsaved :class:`AsyncService`; ``await .save()`` to persist it.
+
+        Args:
+            id: Stable, human-readable identifier for the service.
+            name: Display name shown in the Console.
+
+        Returns:
+            An unsaved :class:`AsyncService` bound to this client.
+        """
         return AsyncService(
             self,
             id=id,
@@ -619,6 +743,16 @@ class AsyncServicesClient:
         page_number: int | None = None,
         page_size: int | None = None,
     ) -> list[AsyncService]:
+        """List services in the account. Awaits the round-trip.
+
+        Args:
+            page_number: 1-based page to fetch. Defaults to the first page.
+            page_size: Maximum number of services per page. Defaults to the
+                server's page size.
+
+        Returns:
+            The services on the requested page.
+        """
         kwargs = _pagination_kwargs(page_number, page_size)
         resp = await _gen_list_services.asyncio_detailed(client=self._app_http, **kwargs)
         _check_status(int(resp.status_code), resp.content)
@@ -626,6 +760,17 @@ class AsyncServicesClient:
         return [_svc_resource_from_dict(item, async_client=self) for item in body.get("data", [])]
 
     async def get(self, id: str) -> AsyncService:
+        """Fetch a single service by id. Awaits the round-trip.
+
+        Args:
+            id: Identifier of the service to fetch.
+
+        Returns:
+            The matching :class:`AsyncService`.
+
+        Raises:
+            NotFoundError: If no service with that id exists.
+        """
         resp = await _gen_get_service.asyncio_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
@@ -633,6 +778,11 @@ class AsyncServicesClient:
         return _svc_from_parsed(resp.parsed, sync_client=None, async_client=self)
 
     async def delete(self, id: str) -> None:
+        """Delete a service by id. Awaits the round-trip.
+
+        Args:
+            id: Identifier of the service to delete.
+        """
         resp = await _gen_delete_service.asyncio_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
 
@@ -664,7 +814,7 @@ class AsyncServicesClient:
 def _svc_resource_from_dict(
     item: dict[str, Any],
     *,
-    sync_client: _ServicesClient | None = None,
+    sync_client: ServicesClient | None = None,
     async_client: AsyncServicesClient | None = None,
 ) -> Any:
     """Build a Service from a raw JSON resource dict (used by list)."""
@@ -691,7 +841,7 @@ def _svc_resource_from_dict(
 # ---------------------------------------------------------------------------
 
 
-class _ContextTypesClient:
+class ContextTypesClient:
     """Sync context-type CRUD (``client.platform.context_types``)."""
 
     def __init__(self, app_http: _AppAuthClient) -> None:
@@ -704,6 +854,19 @@ class _ContextTypesClient:
         name: str | None = None,
         attributes: dict[str, dict[str, Any]] | None = None,
     ) -> ContextType:
+        """Build an unsaved :class:`ContextType`; call ``.save()`` to persist it.
+
+        Args:
+            id: Stable, human-readable identifier for the context type
+                (for example ``"user"``).
+            name: Display name shown in the Console. Defaults to ``id`` when
+                omitted.
+            attributes: Known-attribute slots, keyed by attribute name, with a
+                metadata dict per slot. Defaults to no declared attributes.
+
+        Returns:
+            An unsaved :class:`ContextType` bound to this client.
+        """
         return ContextType(
             self,
             id=id,
@@ -717,6 +880,16 @@ class _ContextTypesClient:
         page_number: int | None = None,
         page_size: int | None = None,
     ) -> list[ContextType]:
+        """List context types in the account.
+
+        Args:
+            page_number: 1-based page to fetch. Defaults to the first page.
+            page_size: Maximum number of context types per page. Defaults to
+                the server's page size.
+
+        Returns:
+            The context types on the requested page.
+        """
         kwargs = _pagination_kwargs(page_number, page_size)
         resp = _gen_list_context_types.sync_detailed(client=self._app_http, **kwargs)
         _check_status(int(resp.status_code), resp.content)
@@ -724,6 +897,17 @@ class _ContextTypesClient:
         return [_ct_resource_from_dict(item, sync_client=self) for item in body.get("data", [])]
 
     def get(self, id: str) -> ContextType:
+        """Fetch a single context type by id.
+
+        Args:
+            id: Identifier of the context type to fetch.
+
+        Returns:
+            The matching :class:`ContextType`.
+
+        Raises:
+            NotFoundError: If no context type with that id exists.
+        """
         resp = _gen_get_context_type.sync_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
@@ -731,6 +915,11 @@ class _ContextTypesClient:
         return _ct_from_parsed(resp.parsed, sync_client=self, async_client=None)
 
     def delete(self, id: str) -> None:
+        """Delete a context type by id.
+
+        Args:
+            id: Identifier of the context type to delete.
+        """
         resp = _gen_delete_context_type.sync_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
 
@@ -770,6 +959,19 @@ class AsyncContextTypesClient:
         name: str | None = None,
         attributes: dict[str, dict[str, Any]] | None = None,
     ) -> AsyncContextType:
+        """Build an unsaved :class:`AsyncContextType`; ``await .save()`` to persist it.
+
+        Args:
+            id: Stable, human-readable identifier for the context type
+                (for example ``"user"``).
+            name: Display name shown in the Console. Defaults to ``id`` when
+                omitted.
+            attributes: Known-attribute slots, keyed by attribute name, with a
+                metadata dict per slot. Defaults to no declared attributes.
+
+        Returns:
+            An unsaved :class:`AsyncContextType` bound to this client.
+        """
         return AsyncContextType(
             self,
             id=id,
@@ -783,6 +985,16 @@ class AsyncContextTypesClient:
         page_number: int | None = None,
         page_size: int | None = None,
     ) -> list[AsyncContextType]:
+        """List context types in the account. Awaits the round-trip.
+
+        Args:
+            page_number: 1-based page to fetch. Defaults to the first page.
+            page_size: Maximum number of context types per page. Defaults to
+                the server's page size.
+
+        Returns:
+            The context types on the requested page.
+        """
         kwargs = _pagination_kwargs(page_number, page_size)
         resp = await _gen_list_context_types.asyncio_detailed(client=self._app_http, **kwargs)
         _check_status(int(resp.status_code), resp.content)
@@ -790,6 +1002,17 @@ class AsyncContextTypesClient:
         return [_ct_resource_from_dict(item, async_client=self) for item in body.get("data", [])]
 
     async def get(self, id: str) -> AsyncContextType:
+        """Fetch a single context type by id. Awaits the round-trip.
+
+        Args:
+            id: Identifier of the context type to fetch.
+
+        Returns:
+            The matching :class:`AsyncContextType`.
+
+        Raises:
+            NotFoundError: If no context type with that id exists.
+        """
         resp = await _gen_get_context_type.asyncio_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
         if resp.parsed is None:
@@ -797,6 +1020,11 @@ class AsyncContextTypesClient:
         return _ct_from_parsed(resp.parsed, sync_client=None, async_client=self)
 
     async def delete(self, id: str) -> None:
+        """Delete a context type by id. Awaits the round-trip.
+
+        Args:
+            id: Identifier of the context type to delete.
+        """
         resp = await _gen_delete_context_type.asyncio_detailed(id, client=self._app_http)
         _check_status(int(resp.status_code), resp.content)
 
@@ -828,7 +1056,7 @@ class AsyncContextTypesClient:
 def _ct_resource_from_dict(
     item: dict[str, Any],
     *,
-    sync_client: _ContextTypesClient | None = None,
+    sync_client: ContextTypesClient | None = None,
     async_client: AsyncContextTypesClient | None = None,
 ) -> Any:
     attrs = item.get("attributes") or {}
@@ -878,7 +1106,7 @@ def _build_bulk_register_body(items: list[dict[str, Any]]) -> _GenContextBulkReg
     return _GenContextBulkRegister(contexts=bulk)
 
 
-class _ContextsClient:
+class ContextsClient:
     """Sync context registration + read/delete (``client.platform.contexts``)."""
 
     def __init__(
@@ -890,7 +1118,17 @@ class _ContextsClient:
         self._buffer = buffer
 
     def register(self, items: Context | list[Context], *, flush: bool = False) -> None:
-        """Buffer contexts for registration; optionally flush immediately."""
+        """Buffer one or more contexts for registration.
+
+        Buffered contexts are sent in batches: a background flush kicks in once
+        enough have accumulated, and any remainder is sent on the next explicit
+        flush. Pass ``flush=True`` to send everything buffered right away.
+
+        Args:
+            items: A single context or a list of contexts to register.
+            flush: When ``True``, send all buffered contexts immediately rather
+                than waiting for the batch threshold. Defaults to ``False``.
+        """
         batch = items if isinstance(items, list) else [items]
         self._buffer.observe(batch)
         if flush:
@@ -926,7 +1164,17 @@ class _ContextsClient:
         page_number: int | None = None,
         page_size: int | None = None,
     ) -> list[Context]:
-        """List all contexts of a given type."""
+        """List all contexts of a given type.
+
+        Args:
+            type: Context type to list (for example ``"user"``).
+            page_number: 1-based page to fetch. Defaults to the first page.
+            page_size: Maximum number of contexts per page. Defaults to the
+                server's page size.
+
+        Returns:
+            The contexts of the given type on the requested page.
+        """
         kwargs = _pagination_kwargs(page_number, page_size)
         resp = _gen_list_contexts.sync_detailed(
             client=self._app_http,
@@ -942,6 +1190,21 @@ class _ContextsClient:
     @overload
     def get(self, type: str, key: str) -> Context: ...
     def get(self, id_or_type: str, key: str | None = None) -> Context:
+        """Fetch a single context, identified by composite id or by type and key.
+
+        Args:
+            id_or_type: Either the composite context id ``"type:key"`` (when
+                ``key`` is omitted) or just the context type (when ``key`` is
+                supplied).
+            key: The context key. Provide it to use the two-argument form;
+                omit it when ``id_or_type`` already carries the composite id.
+
+        Returns:
+            The matching :class:`Context`.
+
+        Raises:
+            NotFoundError: If no context with that id exists.
+        """
         ctx_type, ctx_key = _split_context_id(id_or_type, key)
         composite = f"{ctx_type}:{ctx_key}"
         resp = _gen_get_context.sync_detailed(composite, client=self._app_http)
@@ -958,6 +1221,15 @@ class _ContextsClient:
     @overload
     def delete(self, type: str, key: str) -> None: ...
     def delete(self, id_or_type: str, key: str | None = None) -> None:
+        """Delete a single context, identified by composite id or by type and key.
+
+        Args:
+            id_or_type: Either the composite context id ``"type:key"`` (when
+                ``key`` is omitted) or just the context type (when ``key`` is
+                supplied).
+            key: The context key. Provide it to use the two-argument form;
+                omit it when ``id_or_type`` already carries the composite id.
+        """
         ctx_type, ctx_key = _split_context_id(id_or_type, key)
         composite = f"{ctx_type}:{ctx_key}"
         resp = _gen_delete_context.sync_detailed(composite, client=self._app_http)
@@ -985,7 +1257,15 @@ class AsyncContextsClient:
         self._buffer = buffer
 
     def register(self, items: Context | list[Context]) -> None:
-        """Buffer contexts for registration.  Call ``await flush()`` to send them."""
+        """Buffer one or more contexts for registration.
+
+        Buffered contexts are sent in batches: a background flush kicks in once
+        enough have accumulated. Call ``await flush()`` to send any remainder
+        immediately.
+
+        Args:
+            items: A single context or a list of contexts to register.
+        """
         batch = items if isinstance(items, list) else [items]
         self._buffer.observe(batch)
         if self._buffer.pending_count >= _CONTEXT_BATCH_FLUSH_SIZE:
@@ -1026,6 +1306,17 @@ class AsyncContextsClient:
         page_number: int | None = None,
         page_size: int | None = None,
     ) -> list[AsyncContext]:
+        """List all contexts of a given type. Awaits the round-trip.
+
+        Args:
+            type: Context type to list (for example ``"user"``).
+            page_number: 1-based page to fetch. Defaults to the first page.
+            page_size: Maximum number of contexts per page. Defaults to the
+                server's page size.
+
+        Returns:
+            The contexts of the given type on the requested page.
+        """
         kwargs = _pagination_kwargs(page_number, page_size)
         resp = await _gen_list_contexts.asyncio_detailed(
             client=self._app_http,
@@ -1041,6 +1332,23 @@ class AsyncContextsClient:
     @overload
     async def get(self, type: str, key: str) -> AsyncContext: ...
     async def get(self, id_or_type: str, key: str | None = None) -> AsyncContext:
+        """Fetch a single context, identified by composite id or by type and key.
+
+        Awaits the round-trip.
+
+        Args:
+            id_or_type: Either the composite context id ``"type:key"`` (when
+                ``key`` is omitted) or just the context type (when ``key`` is
+                supplied).
+            key: The context key. Provide it to use the two-argument form;
+                omit it when ``id_or_type`` already carries the composite id.
+
+        Returns:
+            The matching :class:`AsyncContext`.
+
+        Raises:
+            NotFoundError: If no context with that id exists.
+        """
         ctx_type, ctx_key = _split_context_id(id_or_type, key)
         composite = f"{ctx_type}:{ctx_key}"
         resp = await _gen_get_context.asyncio_detailed(composite, client=self._app_http)
@@ -1057,6 +1365,17 @@ class AsyncContextsClient:
     @overload
     async def delete(self, type: str, key: str) -> None: ...
     async def delete(self, id_or_type: str, key: str | None = None) -> None:
+        """Delete a single context, identified by composite id or by type and key.
+
+        Awaits the round-trip.
+
+        Args:
+            id_or_type: Either the composite context id ``"type:key"`` (when
+                ``key`` is omitted) or just the context type (when ``key`` is
+                supplied).
+            key: The context key. Provide it to use the two-argument form;
+                omit it when ``id_or_type`` already carries the composite id.
+        """
         ctx_type, ctx_key = _split_context_id(id_or_type, key)
         composite = f"{ctx_type}:{ctx_key}"
         resp = await _gen_delete_context.asyncio_detailed(composite, client=self._app_http)
@@ -1136,10 +1455,10 @@ class PlatformClient:
             Not for direct use.
     """
 
-    environments: _EnvironmentsClient
-    services: _ServicesClient
-    contexts: _ContextsClient
-    context_types: _ContextTypesClient
+    environments: EnvironmentsClient
+    services: ServicesClient
+    contexts: ContextsClient
+    context_types: ContextTypesClient
 
     def __init__(
         self,
@@ -1172,10 +1491,10 @@ class PlatformClient:
         buffer = context_buffer if context_buffer is not None else _ContextRegistrationBuffer()
         self._context_buffer = buffer
 
-        self.environments = _EnvironmentsClient(self._app_http)
-        self.services = _ServicesClient(self._app_http)
-        self.contexts = _ContextsClient(self._app_http, buffer)
-        self.context_types = _ContextTypesClient(self._app_http)
+        self.environments = EnvironmentsClient(self._app_http)
+        self.services = ServicesClient(self._app_http)
+        self.contexts = ContextsClient(self._app_http, buffer)
+        self.context_types = ContextTypesClient(self._app_http)
 
     def close(self) -> None:
         """Close the app transport — only when this client owns it.
@@ -1256,3 +1575,17 @@ class AsyncPlatformClient:
 
     async def __aexit__(self, *args: object) -> None:
         await self.aclose()
+
+
+# The platform sub-clients are reached through ``client.platform.environments``
+# / ``.services`` / ``.contexts`` / ``.context_types``; present them as
+# ``smplkit.platform.<Name>`` in IDE hover / help() rather than the private
+# ``smplkit.platform._client`` path.
+EnvironmentsClient.__module__ = "smplkit.platform"
+AsyncEnvironmentsClient.__module__ = "smplkit.platform"
+ServicesClient.__module__ = "smplkit.platform"
+AsyncServicesClient.__module__ = "smplkit.platform"
+ContextsClient.__module__ = "smplkit.platform"
+AsyncContextsClient.__module__ = "smplkit.platform"
+ContextTypesClient.__module__ = "smplkit.platform"
+AsyncContextTypesClient.__module__ = "smplkit.platform"

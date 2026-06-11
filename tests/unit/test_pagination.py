@@ -166,7 +166,7 @@ class TestFlagsRuntimePagination:
     def _flags_client(self):
         from smplkit._buffer import _ContextRegistrationBuffer
         from smplkit.flags._client import FlagsClient
-        from smplkit.platform._client import _ContextsClient as ContextsClient
+        from smplkit.platform._client import ContextsClient as ContextsClient
 
         parent = MagicMock()
         parent._environment = "test"

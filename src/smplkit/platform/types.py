@@ -55,7 +55,20 @@ class Color:
 
     @classmethod
     def rgb(cls, r: int, g: int, b: int) -> Color:
-        """Construct a ``Color`` from 0–255 RGB components."""
+        """Construct a ``Color`` from 0–255 RGB components.
+
+        Args:
+            r: Red component, an integer in the range 0–255.
+            g: Green component, an integer in the range 0–255.
+            b: Blue component, an integer in the range 0–255.
+
+        Returns:
+            A :class:`Color` with the equivalent hex value.
+
+        Raises:
+            TypeError: If any component is not an integer.
+            ValueError: If any component is outside the range 0–255.
+        """
         for name, val in (("r", r), ("g", g), ("b", b)):
             if not isinstance(val, int) or isinstance(val, bool):
                 raise TypeError(f"Color.rgb {name} must be an integer, got {val.__class__.__name__}: {val!r}")

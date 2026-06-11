@@ -203,12 +203,12 @@ def _make_flags_client():
     evaluation-context registration seam, and the parent provides the shared
     WebSocket.
     """
-    from smplkit.platform._client import _ContextsClient
+    from smplkit.platform._client import ContextsClient
 
     parent = MagicMock()
     parent._environment = "test"
     parent._service = None
-    contexts = _ContextsClient(MagicMock(), _ContextRegistrationBuffer())
+    contexts = ContextsClient(MagicMock(), _ContextRegistrationBuffer())
     with patch("smplkit.flags._client.AuthenticatedClient"):
         client = FlagsClient(parent=parent, transport=MagicMock(), contexts=contexts, metrics=parent._metrics)
     return client
@@ -3347,7 +3347,7 @@ class TestAsyncFlagsClientDiscoveryBuffer:
 
 class TestStandaloneConstruction:
     def test_standalone_builds_own_transport_and_contexts(self):
-        from smplkit.platform._client import _ContextsClient
+        from smplkit.platform._client import ContextsClient
 
         flags = FlagsClient(api_key="sk_test", base_domain="example.test", environment="prod")
         assert flags._owns_transport is True
@@ -3355,7 +3355,7 @@ class TestStandaloneConstruction:
         assert flags._parent is None
         assert flags._environment == "prod"
         assert flags._app_base_url == "https://app.example.test"
-        assert isinstance(flags._contexts, _ContextsClient)
+        assert isinstance(flags._contexts, ContextsClient)
         flags.close()
 
     @patch("smplkit.flags._client.bulk_register_flags.sync_detailed")

@@ -5,6 +5,7 @@ import enum
 from smplkit.account._client import AccountClient, AsyncAccountClient
 from smplkit.audit._client import AsyncAuditClient, AuditClient
 from smplkit._client import AsyncSmplClient, SmplClient
+from smplkit._context import ContextScope
 from smplkit._errors import (
     ApiErrorDetail,
     Error,
@@ -27,6 +28,11 @@ from smplkit.logging._sources import LoggerSource
 from smplkit.platform._client import AsyncPlatformClient, PlatformClient
 from smplkit.platform.types import Color, EnvironmentClassification
 
+# ContextScope is the public return type of ``SmplClient.set_context`` /
+# ``AsyncSmplClient.set_context``; surface it as ``smplkit.ContextScope`` in
+# IDE hover / help() rather than the private ``smplkit._context`` path.
+ContextScope.__module__ = "smplkit"
+
 
 class LogLevel(str, enum.Enum):
     """Log severity levels used by the Smpl Logging service.
@@ -34,8 +40,7 @@ class LogLevel(str, enum.Enum):
     Members are declared in ascending order of severity, the canonical
     convention in Python's ``logging`` module and the wider ecosystem:
     ``TRACE < DEBUG < INFO < WARN < ERROR < FATAL < SILENT``. ``SILENT``
-    sits at the top because it suppresses every lower level. See
-    :mod:`smplkit.logging._levels` for the integer mapping.
+    sits at the top because it suppresses every lower level.
     """
 
     TRACE = "TRACE"
@@ -68,6 +73,7 @@ __all__ = [
     "ConflictError",
     "ConnectionError",
     "Context",
+    "ContextScope",
     "EnvironmentClassification",
     "Error",
     "FlagChangeEvent",

@@ -3,7 +3,7 @@
 Smpl Config has two surfaces on a single client, mirroring how the audit
 and jobs clients expose their full surface from one class:
 
-* **Management surface** — pure CRUD, no live connection: ``new`` / ``get``
+* **CRUD surface** — pure CRUD, no live connection: ``new`` / ``get``
   / ``list`` / ``delete`` and the discovery buffer (``register_config`` /
   ``register_config_item`` / ``flush`` / ``pending_count``). The client owns
   the discovery buffer directly.
@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 import httpx
 from pydantic import BaseModel
 
-from smplkit._config import _service_url, resolve_management_config
+from smplkit._config import _service_url, resolve_client_config
 from smplkit._errors import (
     ConflictError,
     ConnectionError,
@@ -167,12 +167,12 @@ def _config_transport(
 
     ``base_url``/``api_key`` are used directly when both are supplied (the
     path a top-level client takes after it has already resolved them);
-    otherwise the management config resolver fills in whatever is missing
+    otherwise the config resolver fills in whatever is missing
     (``~/.smplkit`` / env vars / defaults). The app base URL is returned
     alongside so a standalone client can open its own WebSocket against the
     event gateway.
     """
-    cfg = resolve_management_config(
+    cfg = resolve_client_config(
         profile=profile,
         api_key=api_key,
         base_domain=base_domain,
@@ -470,9 +470,18 @@ class LiveConfigProxy:
         - ``@proxy.on_change("item_key")`` — fires only when ``item_key`` changes.
         - ``@proxy.on_change()`` — same as the bare-decorator form.
 
-        Equivalent to ``client.config.on_change(self._config_id, ...)``;
-        offered as sugar so callers who already have a live proxy can
-        register listeners without re-stating the config id.
+        Sugar so callers who already hold a live proxy can register listeners
+        without re-stating the config id.
+
+        Args:
+            fn_or_key: Either the listener function (bare-decorator form), an
+                item key to scope the listener to, or ``None`` to listen for
+                any change to this config via the returned decorator.
+
+        Returns:
+            In the bare-decorator form, the listener function unchanged.
+            Otherwise, a decorator that registers the function it wraps and
+            returns it.
         """
         client = object.__getattribute__(self, "_client")
         config_id = object.__getattribute__(self, "_config_id")
@@ -512,6 +521,17 @@ class LiveConfigProxy:
         return self._current_values().items()
 
     def get(self, key: str, default: Any = None) -> Any:
+        """Return the current resolved value for ``key``, or a fallback.
+
+        Args:
+            key: The config item key to read.
+            default: Value returned when ``key`` is not present. Defaults to
+                ``None``.
+
+        Returns:
+            The current resolved value for ``key``, or ``default`` if the key
+            is absent.
+        """
         return self._current_values().get(key, default)
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -550,7 +570,7 @@ class ConfigClient:
             proxy = config.subscribe("billing")
             print(proxy["max_seats"])
 
-    The management surface (``new`` / ``get`` / ``list`` / ``delete`` and
+    The CRUD surface (``new`` / ``get`` / ``list`` / ``delete`` and
     discovery) is pure CRUD. The live surface (``subscribe`` / ``get_value``
     / ``bind`` / ``on_change`` / ``refresh``) connects lazily on first use —
     the first call flushes discovery, fetches and resolves all configs into
@@ -646,9 +666,18 @@ class ConfigClient:
     ) -> Config:
         """Return a new unsaved :class:`Config`. Call :meth:`Config.save` to persist.
 
-        ``parent`` accepts either a config id (string) or an existing
-        :class:`Config` instance — passing the instance lets you skip naming
-        the id explicitly when you already have the parent in scope.
+        Args:
+            id: The config identifier (slug) the resource will be saved under.
+            name: Display name. Defaults to a title-cased form of ``id``.
+            description: Optional human-readable description.
+            parent: Optional parent config to inherit values from. Accepts
+                either a config id (string) or an existing :class:`Config`
+                instance — passing the instance lets you skip naming the id
+                explicitly when you already have the parent in scope.
+
+        Returns:
+            A new, unsaved :class:`Config`. Nothing is sent to the server
+            until you call :meth:`Config.save`.
         """
         return Config(
             self,
@@ -661,7 +690,14 @@ class ConfigClient:
     def get(self, id: str) -> Config:
         """Fetch the editable :class:`Config` resource by id.
 
-        Raises :class:`NotFoundError` if no config with that id exists.
+        Args:
+            id: The config identifier (slug) to fetch.
+
+        Returns:
+            The editable :class:`Config` resource.
+
+        Raises:
+            NotFoundError: If no config with that id exists.
         """
         try:
             response = get_config.sync_detailed(id, client=self._http)
@@ -679,7 +715,18 @@ class ConfigClient:
         page_number: int | None = None,
         page_size: int | None = None,
     ) -> list[Config]:
-        """List configs for the authenticated account."""
+        """List configs for the authenticated account.
+
+        Args:
+            page_number: 1-based page to fetch. When omitted, the server's
+                default first page is returned.
+            page_size: Number of configs per page. When omitted, the server's
+                default page size is used.
+
+        Returns:
+            The configs on the requested page, or an empty list if there are
+            none.
+        """
         kwargs = _pagination_kwargs(page_number, page_size)
         try:
             response = list_configs.sync_detailed(client=self._http, **kwargs)
@@ -692,7 +739,11 @@ class ConfigClient:
         return [_resource_to_config(self, r) for r in response.parsed.data]
 
     def delete(self, id: str) -> None:
-        """Delete a config by id."""
+        """Delete a config by id.
+
+        Args:
+            id: The config identifier (slug) to delete.
+        """
         try:
             response = delete_config.sync_detailed(id, client=self._http)
         except Exception as exc:
@@ -756,7 +807,19 @@ class ConfigClient:
         name: str | None = None,
         description: str | None = None,
     ) -> None:
-        """Queue a configuration declaration for bulk-discovery upload."""
+        """Queue a configuration declaration for bulk-discovery upload.
+
+        The declaration is buffered and sent in the background; it surfaces
+        the config in the smplkit console even if no values are set yet.
+
+        Args:
+            config_id: The config identifier (slug) being declared.
+            service: Name of the service declaring the config, or ``None``.
+            environment: Environment the declaration is scoped to, or ``None``.
+            parent: Optional parent config id this config inherits from.
+            name: Optional display name for the config.
+            description: Optional human-readable description.
+        """
         self._buffer.declare(
             config_id,
             service=service,
@@ -776,7 +839,19 @@ class ConfigClient:
         default: Any,
         description: str | None = None,
     ) -> None:
-        """Queue a config item declaration. ``register_config`` must run first."""
+        """Queue a config item declaration. ``register_config`` must run first.
+
+        The declaration is buffered and sent in the background, surfacing the
+        item (with its type and default) in the smplkit console.
+
+        Args:
+            config_id: The config identifier (slug) the item belongs to.
+            item_key: Key of the item within the config.
+            item_type: Item value type — one of ``"STRING"``, ``"NUMBER"``,
+                ``"BOOLEAN"``, or ``"JSON"``.
+            default: The in-code default value for the item.
+            description: Optional human-readable description.
+        """
         self._buffer.add_item(config_id, item_key, item_type, default, description)
         if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
             threading.Thread(target=self._threshold_flush, daemon=True).start()
@@ -788,12 +863,11 @@ class ConfigClient:
             logger.warning("Config registration flush failed: %s", exc)
 
     def flush(self) -> None:
-        """POST pending declarations to ``/api/v1/configs/bulk``.
+        """Send any queued config and item declarations to the server.
 
-        Per ADR-024 §2.9, bulk registration always lands rows as
-        ``managed=false`` and is plan-limit-exempt — failures here never
-        propagate to customer code. Drained entries are not requeued;
-        the SDK will re-observe on the next process start.
+        Discovery is best-effort — failures here never propagate to your
+        code. Drained entries are not requeued; the SDK re-observes them on
+        the next process start.
         """
         batch = self._buffer.drain()
         body = _build_config_bulk_request(batch)
@@ -972,11 +1046,19 @@ class ConfigClient:
 
         The proxy always reflects the latest resolved values; reads happen
         through it (``proxy["key"]``, ``proxy.get("key", default)``).
-        Subscribing registers the config declaration for code-first
-        observability so the reference appears in the smplkit console.
+        Subscribing also registers the config so the reference appears in the
+        smplkit console. Connects lazily on first use — no explicit install
+        step.
 
-        Connects lazily on first use — no explicit install step. Raises
-        :class:`NotFoundError` if the config is unknown.
+        Args:
+            id: The config identifier (slug) to subscribe to.
+
+        Returns:
+            A live :class:`LiveConfigProxy` whose reads always see the current
+            resolved values.
+
+        Raises:
+            NotFoundError: If the config is unknown.
         """
         self._ensure_connected()
         self._observe_config_declaration(id, parent=None, name=None, description=None)
@@ -991,22 +1073,27 @@ class ConfigClient:
         """Read a single resolved config value (inheritance-aware).
 
         The value comes from the locally-cached resolved chain, so parent
-        configs are already folded in.
+        configs are already folded in. For a live dict-like view use
+        :meth:`subscribe`; for typed access via a Pydantic schema use
+        :meth:`bind`. Connects lazily on first use — no explicit install step.
 
-        Two forms:
+        Args:
+            id: The config identifier (slug) to read from.
+            key: The item key within the config.
+            default: Value returned when the config or key is missing. When
+                omitted, a missing config or key raises instead of returning a
+                fallback. Supplying a default also registers the config (if
+                new) and the key — with its type inferred and ``default`` as
+                its value — so the reference appears in the smplkit console.
 
-        - ``get_value(id, key)`` returns the resolved value. Raises
-          :class:`NotFoundError` if the config is unknown and
-          :class:`KeyError` if the key is absent.
-        - ``get_value(id, key, default=X)`` returns the resolved value,
-          falling back to ``X`` if the config or key is missing. Never
-          raises. **Registers** the config (if new) and the key (inferred
-          type, ``X`` as default) for code-first observability, so the
-          reference appears in the smplkit console.
+        Returns:
+            The resolved value. When ``default`` is supplied and the config or
+            key is missing, returns ``default`` instead.
 
-        For a live dict-like view use :meth:`subscribe`; for typed access via
-        a Pydantic schema use :meth:`bind`. Connects lazily on first use — no
-        explicit install step.
+        Raises:
+            NotFoundError: If the config is unknown and no ``default`` was
+                supplied.
+            KeyError: If the key is absent and no ``default`` was supplied.
         """
         self._ensure_connected()
         has_default = default is not _MISSING
@@ -1230,6 +1317,18 @@ class ConfigClient:
         - ``@client.config.on_change("id", item_key="field")`` — item-scoped.
 
         Connects lazily on first use — no explicit install step.
+
+        Args:
+            fn_or_id: Either the listener function (bare-decorator form) or the
+                config id to scope the listener to. Omit or pass ``None`` for a
+                global listener registered via the returned decorator.
+            item_key: When ``fn_or_id`` is a config id, restrict the listener to
+                changes of this single item key.
+
+        Returns:
+            In the bare-decorator form, the listener function unchanged.
+            Otherwise, a decorator that registers the function it wraps and
+            returns it.
         """
         self._ensure_connected()
         if callable(fn_or_id):
@@ -1483,9 +1582,18 @@ class AsyncConfigClient:
     ) -> AsyncConfig:
         """Return a new unsaved :class:`AsyncConfig`. Call ``await save()`` to persist.
 
-        ``parent`` accepts either a config id (string) or an existing
-        :class:`AsyncConfig` instance — passing the instance lets you skip
-        naming the id explicitly when you already have the parent in scope.
+        Args:
+            id: The config identifier (slug) the resource will be saved under.
+            name: Display name. Defaults to a title-cased form of ``id``.
+            description: Optional human-readable description.
+            parent: Optional parent config to inherit values from. Accepts
+                either a config id (string) or an existing :class:`AsyncConfig`
+                instance — passing the instance lets you skip naming the id
+                explicitly when you already have the parent in scope.
+
+        Returns:
+            A new, unsaved :class:`AsyncConfig`. Nothing is sent to the server
+            until you ``await`` its :meth:`AsyncConfig.save`.
         """
         return AsyncConfig(
             self,
@@ -1496,7 +1604,19 @@ class AsyncConfigClient:
         )
 
     async def get(self, id: str) -> AsyncConfig:
-        """Fetch the editable :class:`AsyncConfig` resource by id."""
+        """Fetch the editable :class:`AsyncConfig` resource by id.
+
+        Awaits the network round-trip.
+
+        Args:
+            id: The config identifier (slug) to fetch.
+
+        Returns:
+            The editable :class:`AsyncConfig` resource.
+
+        Raises:
+            NotFoundError: If no config with that id exists.
+        """
         try:
             response = await get_config.asyncio_detailed(id, client=self._http)
         except Exception as exc:
@@ -1513,7 +1633,20 @@ class AsyncConfigClient:
         page_number: int | None = None,
         page_size: int | None = None,
     ) -> list[AsyncConfig]:
-        """List configs for the authenticated account (async)."""
+        """List configs for the authenticated account.
+
+        Awaits the network round-trip.
+
+        Args:
+            page_number: 1-based page to fetch. When omitted, the server's
+                default first page is returned.
+            page_size: Number of configs per page. When omitted, the server's
+                default page size is used.
+
+        Returns:
+            The configs on the requested page, or an empty list if there are
+            none.
+        """
         kwargs = _pagination_kwargs(page_number, page_size)
         try:
             response = await list_configs.asyncio_detailed(client=self._http, **kwargs)
@@ -1526,7 +1659,13 @@ class AsyncConfigClient:
         return [_resource_to_async_config(self, r) for r in response.parsed.data]
 
     async def delete(self, id: str) -> None:
-        """Delete a config by id (async)."""
+        """Delete a config by id.
+
+        Awaits the network round-trip.
+
+        Args:
+            id: The config identifier (slug) to delete.
+        """
         try:
             response = await delete_config.asyncio_detailed(id, client=self._http)
         except Exception as exc:
@@ -1590,7 +1729,19 @@ class AsyncConfigClient:
         name: str | None = None,
         description: str | None = None,
     ) -> None:
-        """Queue a configuration declaration for bulk-discovery upload."""
+        """Queue a configuration declaration for bulk-discovery upload.
+
+        The declaration is buffered and sent in the background; it surfaces
+        the config in the smplkit console even if no values are set yet.
+
+        Args:
+            config_id: The config identifier (slug) being declared.
+            service: Name of the service declaring the config, or ``None``.
+            environment: Environment the declaration is scoped to, or ``None``.
+            parent: Optional parent config id this config inherits from.
+            name: Optional display name for the config.
+            description: Optional human-readable description.
+        """
         self._buffer.declare(
             config_id,
             service=service,
@@ -1610,7 +1761,19 @@ class AsyncConfigClient:
         default: Any,
         description: str | None = None,
     ) -> None:
-        """Queue a config item declaration. ``register_config`` must run first."""
+        """Queue a config item declaration. ``register_config`` must run first.
+
+        The declaration is buffered and sent in the background, surfacing the
+        item (with its type and default) in the smplkit console.
+
+        Args:
+            config_id: The config identifier (slug) the item belongs to.
+            item_key: Key of the item within the config.
+            item_type: Item value type — one of ``"STRING"``, ``"NUMBER"``,
+                ``"BOOLEAN"``, or ``"JSON"``.
+            default: The in-code default value for the item.
+            description: Optional human-readable description.
+        """
         self._buffer.add_item(config_id, item_key, item_type, default, description)
         if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
             threading.Thread(target=self._threshold_flush_sync, daemon=True).start()
@@ -1726,8 +1889,43 @@ class AsyncConfigClient:
     ) -> _T:
         """Bind a Pydantic instance or dict to a config id; return it live.
 
-        See :meth:`ConfigClient.bind` for the full contract. Connects lazily
+        Declarative, code-first API. Two flavors:
+
+        - **Pydantic instance**: the class is the schema; the instance
+          carries the defaults. With ``parent`` set, only fields the
+          caller explicitly passed to the constructor are registered as
+          overrides — fields that took their class default are left to
+          inherit from the parent.
+        - **Dict**: every key is a leaf to register, with its value as the
+          in-code default. Nested dicts flatten to dot-notation. Keys the
+          caller wants to inherit are simply omitted from the dict.
+
+        On first use the schema and values are registered with the server,
+        then the local cache is seeded so reads work immediately: if the
+        config already exists server-side its values are authoritative and
+        synced onto the bound object; if it is brand-new, the cache is seeded
+        in-memory from the bound object's values resolved through its bound
+        parent chain. On every change thereafter the bound object is mutated
+        in place. Idempotent — repeated calls with the same ``id`` return the
+        originally-bound object and ignore the new ``config``. Connects lazily
         on first use — no explicit install step.
+
+        Args:
+            id: The config id to register under.
+            config: A populated Pydantic ``BaseModel`` instance or a dict. Both
+                supply the schema (via ``type(config)`` or the dict's keys) and
+                the in-code defaults.
+            parent: Optional parent — any object previously returned from a
+                :meth:`bind` call (Pydantic or dict). Activates parent-chain
+                inheritance for fields the caller omitted.
+
+        Returns:
+            The same ``config`` object, registered and live.
+
+        Raises:
+            TypeError: If ``config`` is neither a ``BaseModel`` nor a ``dict``.
+            ValueError: If ``parent`` is provided but was not previously bound
+                via :meth:`bind`.
         """
         await self._ensure_connected()
         if not isinstance(config, (BaseModel, dict)):
@@ -1744,14 +1942,26 @@ class AsyncConfigClient:
         return config
 
     def subscribe(self, id: str) -> LiveConfigProxy:
-        """Return a live :class:`LiveConfigProxy` for a config id.
+        """Return a live, dict-like :class:`LiveConfigProxy` for a config id.
 
-        See :meth:`ConfigClient.subscribe` for the full contract. Connects
-        lazily on first use — no explicit install step.
+        The proxy always reflects the latest resolved values; reads happen
+        through it (``proxy["key"]``, ``proxy.get("key", default)``).
+        Subscribing also registers the config so the reference appears in the
+        smplkit console.
 
-        Note: subscribe is synchronous on the async client (it reads the
-        already-populated cache); call an awaitable live method or
-        ``wait_until_ready()`` first if the cache is not yet warm.
+        Synchronous on the async client — it reads the already-populated
+        cache. Call an awaitable live method or ``wait_until_ready()`` first if
+        the cache is not yet warm.
+
+        Args:
+            id: The config identifier (slug) to subscribe to.
+
+        Returns:
+            A live :class:`LiveConfigProxy` whose reads always see the current
+            resolved values.
+
+        Raises:
+            NotFoundError: If the config is unknown.
         """
         self._observe_config_declaration(id, parent=None, name=None, description=None)
         if id not in self._config_cache:
@@ -1762,10 +1972,31 @@ class AsyncConfigClient:
         return self._cached_proxy(id)
 
     async def get_value(self, id: str, key: str, default: Any = _MISSING) -> Any:
-        """Read a single resolved config value (inheritance-aware, async).
+        """Read a single resolved config value (inheritance-aware).
 
-        See :meth:`ConfigClient.get_value` for the full contract. Connects
-        lazily on first use — no explicit install step.
+        The value comes from the locally-cached resolved chain, so parent
+        configs are already folded in. For a live dict-like view use
+        :meth:`subscribe`; for typed access via a Pydantic schema use
+        :meth:`bind`. Awaits the lazy live-connect on first use — no explicit
+        install step.
+
+        Args:
+            id: The config identifier (slug) to read from.
+            key: The item key within the config.
+            default: Value returned when the config or key is missing. When
+                omitted, a missing config or key raises instead of returning a
+                fallback. Supplying a default also registers the config (if
+                new) and the key — with its type inferred and ``default`` as
+                its value — so the reference appears in the smplkit console.
+
+        Returns:
+            The resolved value. When ``default`` is supplied and the config or
+            key is missing, returns ``default`` instead.
+
+        Raises:
+            NotFoundError: If the config is unknown and no ``default`` was
+                supplied.
+            KeyError: If the key is absent and no ``default`` was supplied.
         """
         await self._ensure_connected()
         has_default = default is not _MISSING
@@ -1908,8 +2139,9 @@ class AsyncConfigClient:
     async def refresh(self) -> None:
         """Re-fetch all configs and update resolved values.
 
-        See :meth:`ConfigClient.refresh`. Connects lazily on first use — no
-        explicit install step.
+        Fires change listeners for any values that differ from the previous
+        state. Awaits the lazy live-connect on first use — no explicit install
+        step.
 
         Raises:
             ConnectionError: If the fetch fails.
@@ -1949,11 +2181,27 @@ class AsyncConfigClient:
     ) -> Any:
         """Register a change listener.
 
-        See :meth:`ConfigClient.on_change` for the full contract.
+        Supports three forms:
 
-        Note: synchronous on the async client (it only records the listener).
-        Open the live connection first via an awaitable live method or
+        - ``@client.config.on_change`` — global listener (bare decorator).
+        - ``@client.config.on_change("id")`` — config-scoped listener.
+        - ``@client.config.on_change("id", item_key="field")`` — item-scoped.
+
+        Synchronous on the async client — it only records the listener. Open
+        the live connection first via an awaitable live method or
         ``wait_until_ready()`` so events flow.
+
+        Args:
+            fn_or_id: Either the listener function (bare-decorator form) or the
+                config id to scope the listener to. Omit or pass ``None`` for a
+                global listener registered via the returned decorator.
+            item_key: When ``fn_or_id`` is a config id, restrict the listener to
+                changes of this single item key.
+
+        Returns:
+            In the bare-decorator form, the listener function unchanged.
+            Otherwise, a decorator that registers the function it wraps and
+            returns it.
         """
         if callable(fn_or_id):
             self._listeners.append((fn_or_id, None, None))
@@ -2178,3 +2426,12 @@ def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) ->
         raise ConnectionError(msg) from exc
     if isinstance(exc, (NotFoundError, ConflictError, ValidationError)):
         raise exc
+
+
+# These classes are part of the public surface (``smplkit.ConfigClient`` and
+# the live-config helpers), so present them as ``smplkit.config.<Name>`` in
+# IDE hover / help() rather than the private ``smplkit.config._client`` path.
+ConfigClient.__module__ = "smplkit.config"
+AsyncConfigClient.__module__ = "smplkit.config"
+LiveConfigProxy.__module__ = "smplkit.config"
+ConfigChangeEvent.__module__ = "smplkit.config"

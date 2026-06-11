@@ -55,7 +55,7 @@ def _make_environments(
 ) -> ConfigEnvironmentsType0 | None:
     """Convert a plain dict to the generated ConfigEnvironmentsType0.
 
-    Per ADR-024 §2.4 the wire shape is now flat: ``{env: {key: rawValue}}``.
+    The wire shape is flat: ``{env: {key: rawValue}}``.
     """
     if environments is None:
         return None
@@ -104,8 +104,8 @@ def _extract_items(items: Any) -> dict[str, Any]:
 def _extract_environments(environments: Any) -> dict[str, Any]:
     """Extract a plain dict from a generated environments object.
 
-    Per ADR-024 §2.4 the wire shape is flat ``{env: {key: rawValue}}`` —
-    so this is a defensive shallow copy of the per-env override maps.
+    The wire shape is flat ``{env: {key: rawValue}}`` — so this is a
+    defensive shallow copy of the per-env override maps.
     """
     if environments is None or isinstance(environments, type(None)):
         return {}

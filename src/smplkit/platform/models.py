@@ -93,6 +93,27 @@ class Environment(_EnvironmentBase):
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
     ) -> None:
+        """Create an environment instance.
+
+        Prefer ``client.platform.environments.new(...)`` to build an unsaved
+        environment; this constructor is also used internally to wrap server
+        responses.
+
+        Args:
+            client: Client used to persist and delete this environment.
+                ``None`` produces a detached instance that cannot ``save()``.
+            id: Stable, human-readable identifier for the environment.
+            name: Display name shown in the Console.
+            color: Accent color, as a :class:`Color` or a CSS hex string.
+                Defaults to no color.
+            classification: Whether the environment participates in the
+                standard environment ordering. Defaults to
+                ``EnvironmentClassification.STANDARD``.
+            created_at: When the environment was created. Set on instances
+                returned by the server; leave ``None`` for unsaved ones.
+            updated_at: When the environment was last updated. Set on instances
+                returned by the server; leave ``None`` for unsaved ones.
+        """
         super().__init__(
             id=id,
             name=name,
@@ -134,6 +155,27 @@ class AsyncEnvironment(_EnvironmentBase):
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
     ) -> None:
+        """Create an environment instance.
+
+        Prefer ``client.platform.environments.new(...)`` to build an unsaved
+        environment; this constructor is also used internally to wrap server
+        responses.
+
+        Args:
+            client: Client used to persist and delete this environment.
+                ``None`` produces a detached instance that cannot ``save()``.
+            id: Stable, human-readable identifier for the environment.
+            name: Display name shown in the Console.
+            color: Accent color, as a :class:`Color` or a CSS hex string.
+                Defaults to no color.
+            classification: Whether the environment participates in the
+                standard environment ordering. Defaults to
+                ``EnvironmentClassification.STANDARD``.
+            created_at: When the environment was created. Set on instances
+                returned by the server; leave ``None`` for unsaved ones.
+            updated_at: When the environment was last updated. Set on instances
+                returned by the server; leave ``None`` for unsaved ones.
+        """
         super().__init__(
             id=id,
             name=name,
@@ -208,6 +250,22 @@ class Service(_ServiceBase):
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
     ) -> None:
+        """Create a service instance.
+
+        Prefer ``client.platform.services.new(...)`` to build an unsaved
+        service; this constructor is also used internally to wrap server
+        responses.
+
+        Args:
+            client: Client used to persist and delete this service. ``None``
+                produces a detached instance that cannot ``save()``.
+            id: Stable, human-readable identifier for the service.
+            name: Display name shown in the Console.
+            created_at: When the service was created. Set on instances returned
+                by the server; leave ``None`` for unsaved ones.
+            updated_at: When the service was last updated. Set on instances
+                returned by the server; leave ``None`` for unsaved ones.
+        """
         super().__init__(
             id=id,
             name=name,
@@ -245,6 +303,22 @@ class AsyncService(_ServiceBase):
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
     ) -> None:
+        """Create a service instance.
+
+        Prefer ``client.platform.services.new(...)`` to build an unsaved
+        service; this constructor is also used internally to wrap server
+        responses.
+
+        Args:
+            client: Client used to persist and delete this service. ``None``
+                produces a detached instance that cannot ``save()``.
+            id: Stable, human-readable identifier for the service.
+            name: Display name shown in the Console.
+            created_at: When the service was created. Set on instances returned
+                by the server; leave ``None`` for unsaved ones.
+            updated_at: When the service was last updated. Set on instances
+                returned by the server; leave ``None`` for unsaved ones.
+        """
         super().__init__(
             id=id,
             name=name,
@@ -299,15 +373,31 @@ class _ContextTypeBase:
         self.updated_at = updated_at
 
     def add_attribute(self, name: str, **metadata: Any) -> None:
-        """Add a known-attribute slot. Local; call :meth:`save` to persist."""
+        """Add a known-attribute slot. Local-only; call :meth:`save` to persist.
+
+        Args:
+            name: Attribute name to declare on this context type.
+            **metadata: Arbitrary metadata stored for the attribute slot.
+        """
         self.attributes[name] = dict(metadata)
 
     def remove_attribute(self, name: str) -> None:
-        """Remove a known-attribute slot. Local; call :meth:`save` to persist."""
+        """Remove a known-attribute slot. Local-only; call :meth:`save` to persist.
+
+        Args:
+            name: Attribute name to remove. A no-op if the attribute is not
+                declared on this context type.
+        """
         self.attributes.pop(name, None)
 
     def update_attribute(self, name: str, **metadata: Any) -> None:
-        """Replace a known-attribute slot's metadata. Local; call :meth:`save`."""
+        """Replace a known-attribute slot's metadata. Local-only; call :meth:`save`.
+
+        Args:
+            name: Attribute name whose metadata to replace.
+            **metadata: New metadata for the attribute slot, replacing any
+                existing metadata.
+        """
         self.attributes[name] = dict(metadata)
 
     def __repr__(self) -> str:
@@ -332,6 +422,24 @@ class ContextType(_ContextTypeBase):
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
     ) -> None:
+        """Create a context-type instance.
+
+        Prefer ``client.platform.context_types.new(...)`` to build an unsaved
+        context type; this constructor is also used internally to wrap server
+        responses.
+
+        Args:
+            client: Client used to persist and delete this context type.
+                ``None`` produces a detached instance that cannot ``save()``.
+            id: Stable, human-readable identifier for the context type.
+            name: Display name shown in the Console.
+            attributes: Known-attribute slots, keyed by attribute name, with a
+                metadata dict per slot. Defaults to no declared attributes.
+            created_at: When the context type was created. Set on instances
+                returned by the server; leave ``None`` for unsaved ones.
+            updated_at: When the context type was last updated. Set on instances
+                returned by the server; leave ``None`` for unsaved ones.
+        """
         super().__init__(
             id=id,
             name=name,
@@ -368,6 +476,24 @@ class AsyncContextType(_ContextTypeBase):
         created_at: datetime.datetime | None = None,
         updated_at: datetime.datetime | None = None,
     ) -> None:
+        """Create a context-type instance.
+
+        Prefer ``client.platform.context_types.new(...)`` to build an unsaved
+        context type; this constructor is also used internally to wrap server
+        responses.
+
+        Args:
+            client: Client used to persist and delete this context type.
+                ``None`` produces a detached instance that cannot ``save()``.
+            id: Stable, human-readable identifier for the context type.
+            name: Display name shown in the Console.
+            attributes: Known-attribute slots, keyed by attribute name, with a
+                metadata dict per slot. Defaults to no declared attributes.
+            created_at: When the context type was created. Set on instances
+                returned by the server; leave ``None`` for unsaved ones.
+            updated_at: When the context type was last updated. Set on instances
+                returned by the server; leave ``None`` for unsaved ones.
+        """
         super().__init__(
             id=id,
             name=name,

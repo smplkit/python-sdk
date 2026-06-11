@@ -1,9 +1,8 @@
 """The Smpl Audit client.
 
-Audit installs no in-process machinery, so it has no runtime/management
-split: one :class:`AuditClient` (sync) / :class:`AsyncAuditClient`
-(async) exposes the full surface, reachable as ``client.audit``,
-``mgmt.audit``, or standalone:
+Audit installs no in-process machinery, so a single client exposes the
+full surface: one :class:`AuditClient` (sync) / :class:`AsyncAuditClient`
+(async), reachable as ``client.audit`` or standalone:
 
     audit.events.record(event_type, resource_type, resource_id, ..., flush=False)
     audit.events.flush(timeout=5.0)
@@ -37,12 +36,12 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import httpx
 
-from smplkit._config import _service_url, resolve_management_config
+from smplkit._config import _service_url, resolve_client_config
 
 from smplkit._generated.audit.api.categories import (
     list_categories as _gen_list_categories,
@@ -67,6 +66,9 @@ from smplkit._generated.audit.models.event_response import EventResponse as _Gen
 from smplkit._generated.audit.types import UNSET
 from smplkit.audit._buffer import AuditEventBuffer, _PendingEvent
 from smplkit.audit.models import Category, Event, EventType, ResourceType
+
+if TYPE_CHECKING:  # pragma: no cover
+    from smplkit.audit._forwarders import AsyncForwardersClient, ForwardersClient
 
 logger = logging.getLogger("smplkit.audit")
 
@@ -229,7 +231,7 @@ def _audit_transport(
 
     ``base_url``/``api_key`` are used directly when both are supplied (the
     path a top-level client takes after it has already resolved them);
-    otherwise the management config resolver fills in whatever is missing
+    otherwise the config resolver fills in whatever is missing
     (``~/.smplkit`` / env vars / defaults). ``environment`` is optional —
     when present it is stamped as ``X-Smplkit-Environment`` so event
     recording and reads scope to it server-side (ADR-055); when absent the
@@ -237,7 +239,7 @@ def _audit_transport(
     and reads accept an explicit ``environments=[...]`` filter).
     """
     if api_key is None or base_url is None:
-        cfg = resolve_management_config(
+        cfg = resolve_client_config(
             profile=profile,
             api_key=api_key,
             base_domain=base_domain,
@@ -321,7 +323,7 @@ def _record_post_fn(auth: AuthenticatedClient):
     return _post
 
 
-class _EventsClient:
+class EventsClient:
     """Surface for ``client.audit.events.*`` (sync)."""
 
     def __init__(self, *, auth_client: AuthenticatedClient) -> None:
@@ -433,6 +435,10 @@ class _EventsClient:
         Equivalent to passing ``flush=True`` to a final
         :meth:`record` call. Useful for draining buffered events at
         process shutdown or after a batch of fire-and-forget records.
+
+        Args:
+            timeout: Upper bound on the blocking flush, in seconds.
+                ``None`` blocks indefinitely. Defaults to ``5.0``.
         """
         self._buffer.flush(timeout=timeout)
 
@@ -471,6 +477,36 @@ class _EventsClient:
         ``filter[environment]``. Omit it (the default) to leave the
         param off entirely and let environment scope fall back to the
         ``X-Smplkit-Environment`` request header.
+
+        Args:
+            event_type: Return only events with this ``event_type``. Omit
+                to match any.
+            resource_type: Return only events about this ``resource_type``.
+                Omit to match any.
+            resource_id: Return only events about this resource id. Omit
+                to match any.
+            actor_type: Return only events whose ``actor_type`` equals this
+                value. Omit to match any.
+            actor_id: Return only events whose ``actor_id`` matches this
+                value as a literal string. Omit to match any.
+            occurred_at_range: Restrict to events whose ``occurred_at``
+                falls in this range. Omit to leave the time window open.
+            search: Optional free-text filter — returns only events whose
+                ``resource_id`` or ``description`` contains it as a
+                case-insensitive substring. Must be scoped (combine with
+                ``occurred_at_range``, or with both ``resource_type`` and
+                ``resource_id``) or the request is rejected. Omit to
+                disable text filtering.
+            environments: Environment keys and/or the reserved
+                ``"smplkit"`` control-plane bucket to scope the read to.
+                Omit to leave the filter off entirely.
+            page_size: Maximum number of events to return in this page.
+            page_after: Opaque cursor from a previous page's
+                ``next_cursor``. Omit for the first page.
+
+        Returns:
+            An :class:`EventListPage` of the matching events; its
+            ``next_cursor`` is set when more pages are available.
         """
         resp = _gen_list_events.sync_detailed(
             client=self._auth,
@@ -493,8 +529,16 @@ class _EventsClient:
     def get(self, event_id: UUID | str) -> Event:
         """Retrieve a single audit event by id.
 
-        Raises :class:`NotFoundError` if no event with that id exists in
-        the caller's account.
+        Args:
+            event_id: The event's UUID, as a :class:`uuid.UUID` or a
+                string parseable as one.
+
+        Returns:
+            The matching :class:`Event`.
+
+        Raises:
+            NotFoundError: If no event with that id exists in the
+                caller's account.
         """
         eid = event_id if isinstance(event_id, UUID) else UUID(str(event_id))
         resp = _gen_get_event.sync_detailed(eid, client=self._auth)
@@ -505,7 +549,7 @@ class _EventsClient:
         self._buffer.close()
 
 
-class _ResourceTypesClient:
+class ResourceTypesClient:
     """Surface for ``client.audit.resource_types.*``."""
 
     def __init__(self, *, auth_client: AuthenticatedClient) -> None:
@@ -521,16 +565,28 @@ class _ResourceTypesClient:
     ) -> ResourceTypeListPage:
         """List the distinct ``resource_type`` slugs seen in the account.
 
-        Backed by a maintain-by-write side table (ADR-047 §2.5), so the
-        response time is independent of how many years of events the
-        account has accumulated. Sorted alphabetically; offset paginated
-        per ADR-014.
+        Response time is independent of how many years of events the
+        account has accumulated. Sorted alphabetically; offset paginated.
 
         ``environments`` scopes the listing to a set of environments:
         pass a list of environment keys and/or the reserved ``"smplkit"``
         control-plane bucket; the values are sent comma-separated as
         ``filter[environment]``. Omit it (the default) to leave the
         param off entirely.
+
+        Args:
+            environments: Environment keys and/or the reserved
+                ``"smplkit"`` control-plane bucket to scope the listing
+                to. Omit to leave the filter off entirely.
+            page_number: 1-based page index. Omit for the first page.
+            page_size: Maximum number of slugs to return in this page.
+            meta_total: When ``True``, populate ``total`` and
+                ``total_pages`` in the returned page's ``pagination``
+                dict (costs an extra count server-side). Omit to skip it.
+
+        Returns:
+            A :class:`ResourceTypeListPage` of the matching resource-type
+            slugs.
         """
         resp = _gen_list_resource_types.sync_detailed(
             client=self._auth,
@@ -548,7 +604,7 @@ class _ResourceTypesClient:
         )
 
 
-class _EventTypesClient:
+class EventTypesClient:
     """Surface for ``client.audit.event_types.*``."""
 
     def __init__(self, *, auth_client: AuthenticatedClient) -> None:
@@ -568,8 +624,8 @@ class _EventTypesClient:
         Without ``filter_resource_type``, returns one row per distinct
         event_type — an event_type recorded with multiple resource_types
         appears once. With the filter, returns the event_types seen with
-        that specific resource_type, powering the cascading-filter
-        behavior on the Activity tab.
+        that specific resource_type, which supports building a cascading
+        resource-type-then-event-type filter.
 
         ``environments`` scopes the listing to a set of environments:
         pass a list of environment keys and/or the reserved ``"smplkit"``
@@ -577,8 +633,24 @@ class _EventTypesClient:
         ``filter[environment]``. Omit it (the default) to leave the
         param off entirely.
 
-        ADR-047 §2.5. Sorted alphabetically; offset paginated per
-        ADR-014.
+        Sorted alphabetically; offset paginated.
+
+        Args:
+            filter_resource_type: Restrict the listing to event_types seen
+                with this ``resource_type``. Omit to list every distinct
+                event_type.
+            environments: Environment keys and/or the reserved
+                ``"smplkit"`` control-plane bucket to scope the listing
+                to. Omit to leave the filter off entirely.
+            page_number: 1-based page index. Omit for the first page.
+            page_size: Maximum number of slugs to return in this page.
+            meta_total: When ``True``, populate ``total`` and
+                ``total_pages`` in the returned page's ``pagination``
+                dict (costs an extra count server-side). Omit to skip it.
+
+        Returns:
+            An :class:`EventTypeListPage` of the matching event-type
+            slugs.
         """
         resp = _gen_list_event_types.sync_detailed(
             client=self._auth,
@@ -597,7 +669,7 @@ class _EventTypesClient:
         )
 
 
-class _CategoriesClient:
+class CategoriesClient:
     """Surface for ``client.audit.categories.*``."""
 
     def __init__(self, *, auth_client: AuthenticatedClient) -> None:
@@ -613,16 +685,27 @@ class _CategoriesClient:
     ) -> CategoryListPage:
         """List the distinct ``category`` values seen in the account.
 
-        Backed by a maintain-by-write side table (ADR-047 §2.5), so the
-        response time is independent of how many years of events the
-        account has accumulated. Sorted alphabetically; offset paginated
-        per ADR-014.
+        Response time is independent of how many years of events the
+        account has accumulated. Sorted alphabetically; offset paginated.
 
         ``environments`` scopes the listing to a set of environments:
         pass a list of environment keys and/or the reserved ``"smplkit"``
         control-plane bucket; the values are sent comma-separated as
         ``filter[environment]``. Omit it (the default) to leave the
         param off entirely.
+
+        Args:
+            environments: Environment keys and/or the reserved
+                ``"smplkit"`` control-plane bucket to scope the listing
+                to. Omit to leave the filter off entirely.
+            page_number: 1-based page index. Omit for the first page.
+            page_size: Maximum number of categories to return in this page.
+            meta_total: When ``True``, populate ``total`` and
+                ``total_pages`` in the returned page's ``pagination``
+                dict (costs an extra count server-side). Omit to skip it.
+
+        Returns:
+            A :class:`CategoryListPage` of the matching category values.
         """
         resp = _gen_list_categories.sync_detailed(
             client=self._auth,
@@ -640,7 +723,7 @@ class _CategoriesClient:
         )
 
 
-class _AsyncEventsClient:
+class AsyncEventsClient:
     """Surface for ``client.audit.events.*`` (async)."""
 
     def __init__(self, *, auth_client: AuthenticatedClient) -> None:
@@ -668,10 +751,53 @@ class _AsyncEventsClient:
 
         Fire-and-forget: the event is appended to an in-memory buffer drained
         by a background worker thread, so this returns without awaiting any
-        network round-trip — nothing blocks the event loop. The arguments
-        match :meth:`smplkit.audit.AuditClient.events.record`. When
+        network round-trip — nothing blocks the event loop. When
         ``flush=True`` the buffer drain is awaited off the loop (run in a
         thread executor) so it stays loop-safe.
+
+        Args:
+            event_type: What happened (e.g. ``"invoice.created"``). Any
+                non-empty string.
+            resource_type: Kind of resource the event is about (e.g.
+                ``"invoice"``). Any non-empty string. Customer events
+                must NOT use the ``smpl.`` prefix — that namespace is
+                reserved for smplkit-emitted events and the server will
+                reject customer attempts with a 403.
+            resource_id: Identifier of the affected resource.
+            occurred_at: When the event happened in the originating
+                system. Defaults to ``now`` server-side if omitted.
+            actor_type: Free-form label for the kind of actor that caused
+                the event (e.g. ``"USER"``, ``"API_KEY"``, ``"SYSTEM"``,
+                or any custom value). The audit service never backfills
+                this from the request credential — supply it explicitly
+                when you want the event attributed.
+            actor_id: Free-form identifier of the actor that caused the
+                event. Any string scheme is accepted.
+            actor_label: Human-readable label for the actor (e.g. an
+                email address or API key name).
+            category: Optional free-form bucket label for the event (e.g.
+                ``"auth"``, ``"billing"``, ``"config-change"``). Stored
+                exactly as supplied; powers the audit log's category
+                filter and the ``categories`` discovery listing. Omit it
+                to leave the event uncategorized.
+            data: Free-form contextual JSON. To record a resource
+                snapshot, place it inside ``data`` — smplkit's own
+                convention nests it at ``data["snapshot"]`` for
+                consistency, but the shape is unconstrained.
+            idempotency_key: Optional caller-supplied idempotency key. If
+                omitted, the server derives one from event content
+                (account_id + event_type + resource_type + resource_id +
+                occurred_at + actor_* + data).
+            do_not_forward: When ``True``, the audit service records the
+                event normally but does NOT POST it through any configured
+                SIEM forwarder. A ``skipped_do_not_forward`` delivery row
+                is recorded for each enabled forwarder so the skip is
+                visible in the forwarder delivery log.
+            flush: When ``True``, await the buffer drain (or until
+                ``flush_timeout`` elapses) before returning.
+            flush_timeout: Upper bound on the awaited flush, in seconds.
+                Ignored when ``flush`` is ``False``. ``None`` waits
+                indefinitely. Defaults to ``5.0``.
         """
         body = _build_record_body(
             event_type,
@@ -690,7 +816,16 @@ class _AsyncEventsClient:
             await self.flush(timeout=flush_timeout)
 
     async def flush(self, timeout: float | None = 5.0) -> None:
-        """Drain the in-memory buffer, awaited off the event loop."""
+        """Drain the in-memory buffer, awaited off the event loop.
+
+        Use this to drain buffered events at process shutdown or after a
+        batch of fire-and-forget records. The drain runs in a thread
+        executor so it never blocks the event loop.
+
+        Args:
+            timeout: Upper bound on the awaited drain, in seconds. ``None``
+                waits indefinitely. Defaults to ``5.0``.
+        """
         await asyncio.get_running_loop().run_in_executor(None, self._buffer.flush, timeout)
 
     async def list(
@@ -707,7 +842,58 @@ class _AsyncEventsClient:
         page_size: int | None = None,
         page_after: str | None = None,
     ) -> EventListPage:
-        """List audit events (async). See the sync client for argument semantics."""
+        """List audit events for the authenticated account, awaited.
+
+        Filters apply server-side. ``actor_id`` is matched as a literal
+        string against whatever the recording call stored. Pagination
+        uses an opaque cursor (``page_after``); the returned page
+        exposes ``next_cursor`` if more pages are available.
+
+        ``search`` is an optional free-text filter: pass a string to
+        return only events whose ``resource_id`` or ``description``
+        contains it as a case-insensitive substring; omit it (the
+        default) to disable text filtering. A ``search`` filter must be
+        scoped — combine it with ``occurred_at_range``, or with both
+        ``resource_type`` and ``resource_id`` — or the request is
+        rejected.
+
+        ``environments`` scopes the read to a set of environments: pass
+        a list of environment keys and/or the reserved ``"smplkit"``
+        control-plane bucket; the values are sent comma-separated as
+        ``filter[environment]``. Omit it (the default) to leave the
+        param off entirely and let environment scope fall back to the
+        ``X-Smplkit-Environment`` request header.
+
+        Args:
+            event_type: Return only events with this ``event_type``. Omit
+                to match any.
+            resource_type: Return only events about this ``resource_type``.
+                Omit to match any.
+            resource_id: Return only events about this resource id. Omit
+                to match any.
+            actor_type: Return only events whose ``actor_type`` equals this
+                value. Omit to match any.
+            actor_id: Return only events whose ``actor_id`` matches this
+                value as a literal string. Omit to match any.
+            occurred_at_range: Restrict to events whose ``occurred_at``
+                falls in this range. Omit to leave the time window open.
+            search: Optional free-text filter — returns only events whose
+                ``resource_id`` or ``description`` contains it as a
+                case-insensitive substring. Must be scoped (combine with
+                ``occurred_at_range``, or with both ``resource_type`` and
+                ``resource_id``) or the request is rejected. Omit to
+                disable text filtering.
+            environments: Environment keys and/or the reserved
+                ``"smplkit"`` control-plane bucket to scope the read to.
+                Omit to leave the filter off entirely.
+            page_size: Maximum number of events to return in this page.
+            page_after: Opaque cursor from a previous page's
+                ``next_cursor``. Omit for the first page.
+
+        Returns:
+            An :class:`EventListPage` of the matching events; its
+            ``next_cursor`` is set when more pages are available.
+        """
         resp = await _gen_list_events.asyncio_detailed(
             client=self._auth,
             filterevent_type=event_type if event_type is not None else UNSET,
@@ -727,7 +913,19 @@ class _AsyncEventsClient:
         return EventListPage(events=events, next_cursor=_extract_next_cursor(body_dict))
 
     async def get(self, event_id: UUID | str) -> Event:
-        """Retrieve a single audit event by id (async)."""
+        """Retrieve a single audit event by id, awaited.
+
+        Args:
+            event_id: The event's UUID, as a :class:`uuid.UUID` or a
+                string parseable as one.
+
+        Returns:
+            The matching :class:`Event`.
+
+        Raises:
+            NotFoundError: If no event with that id exists in the
+                caller's account.
+        """
         eid = event_id if isinstance(event_id, UUID) else UUID(str(event_id))
         resp = await _gen_get_event.asyncio_detailed(eid, client=self._auth)
         _expect_status(resp, 200)
@@ -737,7 +935,7 @@ class _AsyncEventsClient:
         self._buffer.close()
 
 
-class _AsyncResourceTypesClient:
+class AsyncResourceTypesClient:
     """Surface for ``client.audit.resource_types.*`` (async)."""
 
     def __init__(self, *, auth_client: AuthenticatedClient) -> None:
@@ -751,7 +949,31 @@ class _AsyncResourceTypesClient:
         page_size: int | None = None,
         meta_total: bool | None = None,
     ) -> ResourceTypeListPage:
-        """List distinct ``resource_type`` slugs (async). See sync client for semantics."""
+        """List the distinct ``resource_type`` slugs seen in the account, awaited.
+
+        Response time is independent of how many years of events the
+        account has accumulated. Sorted alphabetically; offset paginated.
+
+        ``environments`` scopes the listing to a set of environments:
+        pass a list of environment keys and/or the reserved ``"smplkit"``
+        control-plane bucket; the values are sent comma-separated as
+        ``filter[environment]``. Omit it (the default) to leave the
+        param off entirely.
+
+        Args:
+            environments: Environment keys and/or the reserved
+                ``"smplkit"`` control-plane bucket to scope the listing
+                to. Omit to leave the filter off entirely.
+            page_number: 1-based page index. Omit for the first page.
+            page_size: Maximum number of slugs to return in this page.
+            meta_total: When ``True``, populate ``total`` and
+                ``total_pages`` in the returned page's ``pagination``
+                dict (costs an extra count server-side). Omit to skip it.
+
+        Returns:
+            A :class:`ResourceTypeListPage` of the matching resource-type
+            slugs.
+        """
         resp = await _gen_list_resource_types.asyncio_detailed(
             client=self._auth,
             filterenvironment=_join_environments(environments),
@@ -765,7 +987,7 @@ class _AsyncResourceTypesClient:
         return ResourceTypeListPage(resource_types=rows, pagination=_extract_pagination(body_dict))
 
 
-class _AsyncEventTypesClient:
+class AsyncEventTypesClient:
     """Surface for ``client.audit.event_types.*`` (async)."""
 
     def __init__(self, *, auth_client: AuthenticatedClient) -> None:
@@ -780,7 +1002,39 @@ class _AsyncEventTypesClient:
         page_size: int | None = None,
         meta_total: bool | None = None,
     ) -> EventTypeListPage:
-        """List distinct ``event_type`` slugs (async). See sync client for semantics."""
+        """List the distinct ``event_type`` slugs seen in the account, awaited.
+
+        Without ``filter_resource_type``, returns one row per distinct
+        event_type — an event_type recorded with multiple resource_types
+        appears once. With the filter, returns the event_types seen with
+        that specific resource_type, which supports building a cascading
+        resource-type-then-event-type filter.
+
+        ``environments`` scopes the listing to a set of environments:
+        pass a list of environment keys and/or the reserved ``"smplkit"``
+        control-plane bucket; the values are sent comma-separated as
+        ``filter[environment]``. Omit it (the default) to leave the
+        param off entirely.
+
+        Sorted alphabetically; offset paginated.
+
+        Args:
+            filter_resource_type: Restrict the listing to event_types seen
+                with this ``resource_type``. Omit to list every distinct
+                event_type.
+            environments: Environment keys and/or the reserved
+                ``"smplkit"`` control-plane bucket to scope the listing
+                to. Omit to leave the filter off entirely.
+            page_number: 1-based page index. Omit for the first page.
+            page_size: Maximum number of slugs to return in this page.
+            meta_total: When ``True``, populate ``total`` and
+                ``total_pages`` in the returned page's ``pagination``
+                dict (costs an extra count server-side). Omit to skip it.
+
+        Returns:
+            An :class:`EventTypeListPage` of the matching event-type
+            slugs.
+        """
         resp = await _gen_list_event_types.asyncio_detailed(
             client=self._auth,
             filterresource_type=(filter_resource_type if filter_resource_type is not None else UNSET),
@@ -795,7 +1049,7 @@ class _AsyncEventTypesClient:
         return EventTypeListPage(event_types=rows, pagination=_extract_pagination(body_dict))
 
 
-class _AsyncCategoriesClient:
+class AsyncCategoriesClient:
     """Surface for ``client.audit.categories.*`` (async)."""
 
     def __init__(self, *, auth_client: AuthenticatedClient) -> None:
@@ -809,7 +1063,30 @@ class _AsyncCategoriesClient:
         page_size: int | None = None,
         meta_total: bool | None = None,
     ) -> CategoryListPage:
-        """List distinct ``category`` values (async). See sync client for semantics."""
+        """List the distinct ``category`` values seen in the account, awaited.
+
+        Response time is independent of how many years of events the
+        account has accumulated. Sorted alphabetically; offset paginated.
+
+        ``environments`` scopes the listing to a set of environments:
+        pass a list of environment keys and/or the reserved ``"smplkit"``
+        control-plane bucket; the values are sent comma-separated as
+        ``filter[environment]``. Omit it (the default) to leave the
+        param off entirely.
+
+        Args:
+            environments: Environment keys and/or the reserved
+                ``"smplkit"`` control-plane bucket to scope the listing
+                to. Omit to leave the filter off entirely.
+            page_number: 1-based page index. Omit for the first page.
+            page_size: Maximum number of categories to return in this page.
+            meta_total: When ``True``, populate ``total`` and
+                ``total_pages`` in the returned page's ``pagination``
+                dict (costs an extra count server-side). Omit to skip it.
+
+        Returns:
+            A :class:`CategoryListPage` of the matching category values.
+        """
         resp = await _gen_list_categories.asyncio_detailed(
             client=self._auth,
             filterenvironment=_join_environments(environments),
@@ -826,10 +1103,10 @@ class _AsyncCategoriesClient:
 class AuditClient:
     """The Smpl Audit client (sync).
 
-    Audit installs no in-process machinery, so it has no runtime/management
-    split: one client exposes the full surface — event recording and reads,
-    distinct-value discovery, and SIEM forwarder CRUD — reachable as
-    ``client.audit`` (:class:`smplkit.SmplClient`) or constructed directly::
+    Audit installs no in-process machinery, so a single client exposes the
+    full surface — event recording and reads, distinct-value discovery, and
+    SIEM forwarder CRUD — reachable as ``client.audit``
+    (:class:`smplkit.SmplClient`) or constructed directly::
 
         from smplkit import AuditClient
 
@@ -848,9 +1125,9 @@ class AuditClient:
             sent as ``X-Smplkit-Environment``. Optional — forwarder CRUD and
             discovery are environment-agnostic, and reads accept an explicit
             ``environments=[...]`` filter. When reached via ``SmplClient`` this
-            is the SDK's configured runtime environment; via ``mgmt.audit`` or
-            a standalone client without it, recording falls back to the
-            server-side default environment.
+            is the SDK's configured runtime environment; on a standalone client
+            without it, recording falls back to the server-side default
+            environment.
         profile: Named ``~/.smplkit`` profile section.
         base_url: Full audit-service base URL. Usually resolved from
             ``base_domain``/``scheme``; supplied directly by the top-level
@@ -865,10 +1142,11 @@ class AuditClient:
             direct use.
     """
 
-    events: _EventsClient
-    resource_types: _ResourceTypesClient
-    event_types: _EventTypesClient
-    categories: _CategoriesClient
+    events: EventsClient
+    resource_types: ResourceTypesClient
+    event_types: EventTypesClient
+    categories: CategoriesClient
+    forwarders: ForwardersClient
 
     def __init__(
         self,
@@ -904,10 +1182,10 @@ class AuditClient:
         # before this client module.
         from smplkit.audit._forwarders import ForwardersClient
 
-        self.events = _EventsClient(auth_client=self._auth)
-        self.resource_types = _ResourceTypesClient(auth_client=self._auth)
-        self.event_types = _EventTypesClient(auth_client=self._auth)
-        self.categories = _CategoriesClient(auth_client=self._auth)
+        self.events = EventsClient(auth_client=self._auth)
+        self.resource_types = ResourceTypesClient(auth_client=self._auth)
+        self.event_types = EventTypesClient(auth_client=self._auth)
+        self.categories = CategoriesClient(auth_client=self._auth)
         self.forwarders = ForwardersClient(auth_client=self._auth)
 
     def _close(self) -> None:
@@ -940,10 +1218,11 @@ class AsyncAuditClient:
     without awaiting), which is the correct shape for the hot path.
     """
 
-    events: _AsyncEventsClient
-    resource_types: _AsyncResourceTypesClient
-    event_types: _AsyncEventTypesClient
-    categories: _AsyncCategoriesClient
+    events: AsyncEventsClient
+    resource_types: AsyncResourceTypesClient
+    event_types: AsyncEventTypesClient
+    categories: AsyncCategoriesClient
+    forwarders: AsyncForwardersClient
 
     def __init__(
         self,
@@ -976,10 +1255,10 @@ class AsyncAuditClient:
             self._owns_transport = True
         from smplkit.audit._forwarders import AsyncForwardersClient
 
-        self.events = _AsyncEventsClient(auth_client=self._auth)
-        self.resource_types = _AsyncResourceTypesClient(auth_client=self._auth)
-        self.event_types = _AsyncEventTypesClient(auth_client=self._auth)
-        self.categories = _AsyncCategoriesClient(auth_client=self._auth)
+        self.events = AsyncEventsClient(auth_client=self._auth)
+        self.resource_types = AsyncResourceTypesClient(auth_client=self._auth)
+        self.event_types = AsyncEventTypesClient(auth_client=self._auth)
+        self.categories = AsyncCategoriesClient(auth_client=self._auth)
         self.forwarders = AsyncForwardersClient(auth_client=self._auth)
 
     async def _close(self) -> None:
@@ -1001,3 +1280,17 @@ class AsyncAuditClient:
 
     async def __aexit__(self, *args: object) -> None:
         await self.aclose()
+
+
+# The events / resource_types / event_types / categories sub-clients are
+# reached through ``client.audit.<name>``; present them as
+# ``smplkit.audit.<Name>`` in IDE hover / help() rather than the private
+# ``smplkit.audit._client`` path.
+EventsClient.__module__ = "smplkit.audit"
+AsyncEventsClient.__module__ = "smplkit.audit"
+ResourceTypesClient.__module__ = "smplkit.audit"
+AsyncResourceTypesClient.__module__ = "smplkit.audit"
+EventTypesClient.__module__ = "smplkit.audit"
+AsyncEventTypesClient.__module__ = "smplkit.audit"
+CategoriesClient.__module__ = "smplkit.audit"
+AsyncCategoriesClient.__module__ = "smplkit.audit"

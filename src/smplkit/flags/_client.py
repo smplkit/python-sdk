@@ -3,7 +3,7 @@
 Smpl Flags has two surfaces on a single client, mirroring how the config,
 audit, and jobs clients expose their full surface from one class:
 
-* **Management surface** — pure CRUD, no live connection:
+* **CRUD surface** — pure CRUD, no live connection:
   ``new_boolean_flag`` / ``new_string_flag`` / ``new_number_flag`` /
   ``new_json_flag`` constructors, ``get`` / ``list`` / ``delete`` CRUD, and
   the flag-declaration discovery buffer (``register`` / ``flush`` /
@@ -41,7 +41,7 @@ from collections import OrderedDict
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from smplkit._config import _service_url, resolve_management_config
+from smplkit._config import _service_url, resolve_client_config
 from smplkit._context import get_context as _get_request_context
 from smplkit._errors import (
     ConnectionError,
@@ -86,7 +86,7 @@ if TYPE_CHECKING:
     from smplkit.flags.types import Context, FlagDeclaration
     from smplkit.platform._client import (
         AsyncContextsClient,
-        _ContextsClient,
+        ContextsClient,
     )
 
 logger = logging.getLogger("smplkit")
@@ -188,13 +188,13 @@ def _flags_transport(
 
     ``base_url``/``api_key`` are used directly when both are supplied (the
     path a top-level client takes after it has already resolved them);
-    otherwise the management config resolver fills in whatever is missing
+    otherwise the config resolver fills in whatever is missing
     (``~/.smplkit`` / env vars / defaults). The app transport backs the
     standalone contexts client (evaluation-context registration); the app
     base URL is returned so a standalone client can open its own WebSocket
     against the event gateway.
     """
-    cfg = resolve_management_config(
+    cfg = resolve_client_config(
         profile=profile,
         api_key=api_key,
         base_domain=base_domain,
@@ -300,7 +300,7 @@ class FlagsClient:
             if beta.get():
                 ...
 
-    The management surface (``new_*`` / ``get`` / ``list`` / ``delete`` and
+    The CRUD surface (``new_*`` / ``get`` / ``list`` / ``delete`` and
     discovery) is pure CRUD. The live surface (``boolean_flag`` /
     ``string_flag`` / ``number_flag`` / ``json_flag`` / ``refresh`` /
     ``stats`` / ``on_change``) connects lazily on first use — the first call
@@ -343,7 +343,7 @@ class FlagsClient:
         extra_headers: dict[str, str] | None = None,
         parent: SmplClient | None = None,
         transport: AuthenticatedClient | None = None,
-        contexts: _ContextsClient | None = None,
+        contexts: ContextsClient | None = None,
         metrics: _MetricsReporter | None = None,
     ) -> None:
         self._parent = parent
@@ -358,7 +358,7 @@ class FlagsClient:
             self._owns_transport = False
             # Wired: borrow client.platform.contexts as the evaluation-context
             # registration seam.
-            self._contexts: _ContextsClient | None = contexts
+            self._contexts: ContextsClient | None = contexts
         else:
             self._flags_http, app_http, self._app_base_url = _flags_transport(
                 api_key=api_key,
@@ -373,10 +373,10 @@ class FlagsClient:
             self._standalone_api_key = api_key if api_key is not None else self._flags_http.token
             # Standalone: build our own contexts client (and own its app transport).
             from smplkit._buffer import _ContextRegistrationBuffer
-            from smplkit.platform._client import _ContextsClient
+            from smplkit.platform._client import ContextsClient
 
             self._app_http_standalone = app_http
-            self._contexts = _ContextsClient(app_http, _ContextRegistrationBuffer())
+            self._contexts = ContextsClient(app_http, _ContextRegistrationBuffer())
             self._owns_contexts = True
 
         # Discovery buffer is owned by this client (no management delegation).
@@ -409,7 +409,18 @@ class FlagsClient:
         name: str | None = None,
         description: str | None = None,
     ) -> BooleanFlag:
-        """Return a new unsaved boolean :class:`BooleanFlag`. Call ``save()`` to persist."""
+        """Return a new unsaved boolean :class:`BooleanFlag`. Call ``save()`` to persist.
+
+        Args:
+            id: Stable flag identifier. Unique per account.
+            default: Value served when no environment override or rule applies.
+            name: Human-readable display name. Defaults to a title-cased form of
+                ``id``.
+            description: Optional free-text description of the flag.
+
+        Returns:
+            An unsaved :class:`BooleanFlag`; call ``save()`` to persist it.
+        """
         return BooleanFlag(
             self,
             id=id,
@@ -429,7 +440,20 @@ class FlagsClient:
         description: str | None = None,
         values: list[FlagValue] | None = None,
     ) -> StringFlag:
-        """Return a new unsaved string :class:`StringFlag`. Call ``save()`` to persist."""
+        """Return a new unsaved string :class:`StringFlag`. Call ``save()`` to persist.
+
+        Args:
+            id: Stable flag identifier. Unique per account.
+            default: Value served when no environment override or rule applies.
+            name: Human-readable display name. Defaults to a title-cased form of
+                ``id``.
+            description: Optional free-text description of the flag.
+            values: Optional list of allowed values constraining what the flag may
+                serve. When omitted, the flag is unconstrained.
+
+        Returns:
+            An unsaved :class:`StringFlag`; call ``save()`` to persist it.
+        """
         return StringFlag(
             self,
             id=id,
@@ -449,7 +473,20 @@ class FlagsClient:
         description: str | None = None,
         values: list[FlagValue] | None = None,
     ) -> NumberFlag:
-        """Return a new unsaved numeric :class:`NumberFlag`. Call ``save()`` to persist."""
+        """Return a new unsaved numeric :class:`NumberFlag`. Call ``save()`` to persist.
+
+        Args:
+            id: Stable flag identifier. Unique per account.
+            default: Value served when no environment override or rule applies.
+            name: Human-readable display name. Defaults to a title-cased form of
+                ``id``.
+            description: Optional free-text description of the flag.
+            values: Optional list of allowed values constraining what the flag may
+                serve. When omitted, the flag is unconstrained.
+
+        Returns:
+            An unsaved :class:`NumberFlag`; call ``save()`` to persist it.
+        """
         return NumberFlag(
             self,
             id=id,
@@ -469,7 +506,20 @@ class FlagsClient:
         description: str | None = None,
         values: list[FlagValue] | None = None,
     ) -> JsonFlag:
-        """Return a new unsaved JSON :class:`JsonFlag`. Call ``save()`` to persist."""
+        """Return a new unsaved JSON :class:`JsonFlag`. Call ``save()`` to persist.
+
+        Args:
+            id: Stable flag identifier. Unique per account.
+            default: Value served when no environment override or rule applies.
+            name: Human-readable display name. Defaults to a title-cased form of
+                ``id``.
+            description: Optional free-text description of the flag.
+            values: Optional list of allowed values constraining what the flag may
+                serve. When omitted, the flag is unconstrained.
+
+        Returns:
+            An unsaved :class:`JsonFlag`; call ``save()`` to persist it.
+        """
         return JsonFlag(
             self,
             id=id,
@@ -481,7 +531,17 @@ class FlagsClient:
         )
 
     def get(self, id: str) -> Flag:
-        """Fetch the editable :class:`Flag` resource by id."""
+        """Fetch the editable :class:`Flag` resource by id.
+
+        Args:
+            id: Identifier of the flag to fetch.
+
+        Returns:
+            The :class:`Flag`, ready to mutate and ``save()``.
+
+        Raises:
+            NotFoundError: No flag with that id exists for the account.
+        """
         try:
             response = get_flag.sync_detailed(id, client=self._flags_http)
         except Exception as exc:
@@ -497,7 +557,17 @@ class FlagsClient:
         page_number: int | None = None,
         page_size: int | None = None,
     ) -> list[Flag]:
-        """List flags for the authenticated account."""
+        """List flags for the authenticated account.
+
+        Args:
+            page_number: 1-based page index to fetch. When omitted, the server
+                default applies.
+            page_size: Number of flags per page. When omitted, the server default
+                applies.
+
+        Returns:
+            The flags on the requested page as a list of :class:`Flag`.
+        """
         kwargs = _pagination_kwargs(page_number, page_size)
         try:
             response = list_flags.sync_detailed(client=self._flags_http, **kwargs)
@@ -509,7 +579,14 @@ class FlagsClient:
         return [self._model_from_json(r) for r in body.get("data", [])]
 
     def delete(self, id: str) -> None:
-        """Delete a flag by id."""
+        """Delete a flag by id.
+
+        Args:
+            id: Identifier of the flag to delete.
+
+        Raises:
+            NotFoundError: No flag with that id exists for the account.
+        """
         try:
             response = delete_flag.sync_detailed(id, client=self._flags_http)
         except Exception as exc:
@@ -553,7 +630,17 @@ class FlagsClient:
         *,
         flush: bool = False,
     ) -> None:
-        """Buffer flag declarations for bulk-discovery upload; optionally flush now."""
+        """Buffer flag declarations for bulk-discovery upload; optionally flush now.
+
+        Args:
+            items: A single :class:`FlagDeclaration` or a list of them to queue.
+            flush: When ``True``, send the buffered declarations immediately via
+                :meth:`flush` before returning. When ``False`` (the default), they
+                stay buffered and are sent on the next flush — automatic once the
+                buffer reaches its batch size, or on the first live call. The async
+                client has no ``flush`` parameter because it offers no synchronous
+                flush path; on that client always ``await flush()`` to send.
+        """
         batch = items if isinstance(items, list) else [items]
         for d in batch:
             self._buffer.add(d.id, d.type, d.default, d.service, d.environment)
@@ -669,7 +756,17 @@ class FlagsClient:
     # ------------------------------------------------------------------
 
     def boolean_flag(self, id: str, *, default: bool) -> BooleanFlag:
-        """Declare a boolean flag handle for live evaluation. Connects lazily on first use."""
+        """Declare a boolean flag handle for live evaluation. Connects lazily on first use.
+
+        Args:
+            id: Identifier of the flag to evaluate.
+            default: Value returned by ``handle.get()`` when the flag is unknown or
+                no environment override or rule applies.
+
+        Returns:
+            A :class:`BooleanFlag` handle whose ``get()`` evaluates against the live
+            cache.
+        """
         self._ensure_connected()
         handle = BooleanFlag(self, id=id, name=id, type="BOOLEAN", default=default)
         self._handles[id] = handle
@@ -677,7 +774,17 @@ class FlagsClient:
         return handle
 
     def string_flag(self, id: str, *, default: str) -> StringFlag:
-        """Declare a string flag handle for live evaluation. Connects lazily on first use."""
+        """Declare a string flag handle for live evaluation. Connects lazily on first use.
+
+        Args:
+            id: Identifier of the flag to evaluate.
+            default: Value returned by ``handle.get()`` when the flag is unknown or
+                no environment override or rule applies.
+
+        Returns:
+            A :class:`StringFlag` handle whose ``get()`` evaluates against the live
+            cache.
+        """
         self._ensure_connected()
         handle = StringFlag(self, id=id, name=id, type="STRING", default=default)
         self._handles[id] = handle
@@ -685,7 +792,17 @@ class FlagsClient:
         return handle
 
     def number_flag(self, id: str, *, default: int | float) -> NumberFlag:
-        """Declare a numeric flag handle for live evaluation. Connects lazily on first use."""
+        """Declare a numeric flag handle for live evaluation. Connects lazily on first use.
+
+        Args:
+            id: Identifier of the flag to evaluate.
+            default: Value returned by ``handle.get()`` when the flag is unknown or
+                no environment override or rule applies.
+
+        Returns:
+            A :class:`NumberFlag` handle whose ``get()`` evaluates against the live
+            cache.
+        """
         self._ensure_connected()
         handle = NumberFlag(self, id=id, name=id, type="NUMERIC", default=default)
         self._handles[id] = handle
@@ -693,7 +810,17 @@ class FlagsClient:
         return handle
 
     def json_flag(self, id: str, *, default: dict[str, Any]) -> JsonFlag:
-        """Declare a JSON flag handle for live evaluation. Connects lazily on first use."""
+        """Declare a JSON flag handle for live evaluation. Connects lazily on first use.
+
+        Args:
+            id: Identifier of the flag to evaluate.
+            default: Value returned by ``handle.get()`` when the flag is unknown or
+                no environment override or rule applies.
+
+        Returns:
+            A :class:`JsonFlag` handle whose ``get()`` evaluates against the live
+            cache.
+        """
         self._ensure_connected()
         handle = JsonFlag(self, id=id, name=id, type="JSON", default=default)
         self._handles[id] = handle
@@ -731,6 +858,17 @@ class FlagsClient:
         - ``@client.flags.on_change("flag-id")`` — registers an id-scoped listener.
 
         Connects lazily on first use — no explicit install step.
+
+        Args:
+            fn_or_id: Either the listener callable (used directly as
+                ``@on_change``), or a flag id string scoping the listener to that
+                flag (used as ``@on_change("flag-id")``). When ``None``, returns a
+                decorator that registers a global listener.
+
+        Returns:
+            The listener callable when one is passed directly, otherwise a decorator
+            that registers the callable it wraps. Each listener receives a
+            :class:`FlagChangeEvent`.
         """
         self._ensure_connected()
         if callable(fn_or_id):
@@ -964,6 +1102,28 @@ class AsyncFlagsClient:
     / ``json_flag`` / ``stats`` / ``on_change`` and a handle's ``.get()``)
     operate against whatever cache state exists, so warm the cache first via
     an awaitable live method. No explicit install step is required.
+
+    Args:
+        api_key: API key. When omitted, resolved from ``SMPLKIT_API_KEY`` or
+            ``~/.smplkit``.
+        environment: Deployment environment used to resolve runtime flag
+            values and to scope discovery declarations. Optional.
+        base_url: Full flags-service base URL. Usually resolved from
+            ``base_domain``/``scheme``; supplied directly by the top-level
+            clients which have already computed it.
+        profile: Named ``~/.smplkit`` profile section.
+        base_domain: Base domain for API requests (default ``"smplkit.com"``).
+        scheme: URL scheme (default ``"https"``).
+        debug: Enable SDK debug logging.
+        extra_headers: Extra headers attached to every request.
+        parent: Internal — the owning :class:`smplkit.AsyncSmplClient`. Not for
+            direct use.
+        transport: Internal — a pre-built flags transport supplied by a
+            top-level client so the flags surface shares one connection pool.
+            Not for direct use.
+        contexts: Internal — ``client.platform.contexts`` used for
+            evaluation-context registration. Not for direct use.
+        metrics: Internal — the parent's metrics reporter.
     """
 
     def __init__(
@@ -1059,7 +1219,18 @@ class AsyncFlagsClient:
         name: str | None = None,
         description: str | None = None,
     ) -> AsyncBooleanFlag:
-        """Return a new unsaved :class:`AsyncBooleanFlag`. Call ``await save()`` to persist."""
+        """Return a new unsaved :class:`AsyncBooleanFlag`. Call ``await save()`` to persist.
+
+        Args:
+            id: Stable flag identifier. Unique per account.
+            default: Value served when no environment override or rule applies.
+            name: Human-readable display name. Defaults to a title-cased form of
+                ``id``.
+            description: Optional free-text description of the flag.
+
+        Returns:
+            An unsaved :class:`AsyncBooleanFlag`; call ``await save()`` to persist it.
+        """
         return AsyncBooleanFlag(
             self,
             id=id,
@@ -1079,7 +1250,20 @@ class AsyncFlagsClient:
         description: str | None = None,
         values: list[FlagValue] | None = None,
     ) -> AsyncStringFlag:
-        """Return a new unsaved :class:`AsyncStringFlag`. Call ``await save()`` to persist."""
+        """Return a new unsaved :class:`AsyncStringFlag`. Call ``await save()`` to persist.
+
+        Args:
+            id: Stable flag identifier. Unique per account.
+            default: Value served when no environment override or rule applies.
+            name: Human-readable display name. Defaults to a title-cased form of
+                ``id``.
+            description: Optional free-text description of the flag.
+            values: Optional list of allowed values constraining what the flag may
+                serve. When omitted, the flag is unconstrained.
+
+        Returns:
+            An unsaved :class:`AsyncStringFlag`; call ``await save()`` to persist it.
+        """
         return AsyncStringFlag(
             self,
             id=id,
@@ -1099,7 +1283,20 @@ class AsyncFlagsClient:
         description: str | None = None,
         values: list[FlagValue] | None = None,
     ) -> AsyncNumberFlag:
-        """Return a new unsaved :class:`AsyncNumberFlag`. Call ``await save()`` to persist."""
+        """Return a new unsaved :class:`AsyncNumberFlag`. Call ``await save()`` to persist.
+
+        Args:
+            id: Stable flag identifier. Unique per account.
+            default: Value served when no environment override or rule applies.
+            name: Human-readable display name. Defaults to a title-cased form of
+                ``id``.
+            description: Optional free-text description of the flag.
+            values: Optional list of allowed values constraining what the flag may
+                serve. When omitted, the flag is unconstrained.
+
+        Returns:
+            An unsaved :class:`AsyncNumberFlag`; call ``await save()`` to persist it.
+        """
         return AsyncNumberFlag(
             self,
             id=id,
@@ -1119,7 +1316,20 @@ class AsyncFlagsClient:
         description: str | None = None,
         values: list[FlagValue] | None = None,
     ) -> AsyncJsonFlag:
-        """Return a new unsaved :class:`AsyncJsonFlag`. Call ``await save()`` to persist."""
+        """Return a new unsaved :class:`AsyncJsonFlag`. Call ``await save()`` to persist.
+
+        Args:
+            id: Stable flag identifier. Unique per account.
+            default: Value served when no environment override or rule applies.
+            name: Human-readable display name. Defaults to a title-cased form of
+                ``id``.
+            description: Optional free-text description of the flag.
+            values: Optional list of allowed values constraining what the flag may
+                serve. When omitted, the flag is unconstrained.
+
+        Returns:
+            An unsaved :class:`AsyncJsonFlag`; call ``await save()`` to persist it.
+        """
         return AsyncJsonFlag(
             self,
             id=id,
@@ -1131,7 +1341,17 @@ class AsyncFlagsClient:
         )
 
     async def get(self, id: str) -> AsyncFlag:
-        """Fetch the editable :class:`AsyncFlag` resource by id (async)."""
+        """Fetch the editable :class:`AsyncFlag` resource by id. Awaited.
+
+        Args:
+            id: Identifier of the flag to fetch.
+
+        Returns:
+            The :class:`AsyncFlag`, ready to mutate and ``await save()``.
+
+        Raises:
+            NotFoundError: No flag with that id exists for the account.
+        """
         try:
             response = await get_flag.asyncio_detailed(id, client=self._flags_http)
         except Exception as exc:
@@ -1147,7 +1367,17 @@ class AsyncFlagsClient:
         page_number: int | None = None,
         page_size: int | None = None,
     ) -> list[AsyncFlag]:
-        """List flags for the authenticated account (async)."""
+        """List flags for the authenticated account. Awaited.
+
+        Args:
+            page_number: 1-based page index to fetch. When omitted, the server
+                default applies.
+            page_size: Number of flags per page. When omitted, the server default
+                applies.
+
+        Returns:
+            The flags on the requested page as a list of :class:`AsyncFlag`.
+        """
         kwargs = _pagination_kwargs(page_number, page_size)
         try:
             response = await list_flags.asyncio_detailed(client=self._flags_http, **kwargs)
@@ -1159,7 +1389,14 @@ class AsyncFlagsClient:
         return [self._model_from_json(r) for r in body.get("data", [])]
 
     async def delete(self, id: str) -> None:
-        """Delete a flag by id (async)."""
+        """Delete a flag by id. Awaited.
+
+        Args:
+            id: Identifier of the flag to delete.
+
+        Raises:
+            NotFoundError: No flag with that id exists for the account.
+        """
         try:
             response = await delete_flag.asyncio_detailed(id, client=self._flags_http)
         except Exception as exc:
@@ -1201,7 +1438,17 @@ class AsyncFlagsClient:
         self,
         items: FlagDeclaration | list[FlagDeclaration],
     ) -> None:
-        """Buffer flag declarations for bulk-discovery upload.  Call ``await flush()`` to send."""
+        """Buffer flag declarations for bulk-discovery upload.  Call ``await flush()`` to send.
+
+        Unlike the sync client's ``register``, this method has no ``flush``
+        parameter: the async client offers no synchronous flush path, so always
+        ``await flush()`` to send the buffered declarations. Until then they stay
+        buffered and are sent on the next flush — automatic once the buffer reaches
+        its batch size, or on the first live call.
+
+        Args:
+            items: A single :class:`FlagDeclaration` or a list of them to queue.
+        """
         batch = items if isinstance(items, list) else [items]
         for d in batch:
             self._buffer.add(d.id, d.type, d.default, d.service, d.environment)
@@ -1320,6 +1567,15 @@ class AsyncFlagsClient:
 
         Synchronous; warm the cache via ``await refresh()`` /
         ``await client.wait_until_ready()`` for live values.
+
+        Args:
+            id: Identifier of the flag to evaluate.
+            default: Value returned by ``handle.get()`` when the flag is unknown or
+                no environment override or rule applies.
+
+        Returns:
+            An :class:`AsyncBooleanFlag` handle whose ``get()`` evaluates against the
+            live cache.
         """
         handle = AsyncBooleanFlag(self, id=id, name=id, type="BOOLEAN", default=default)
         self._handles[id] = handle
@@ -1331,6 +1587,15 @@ class AsyncFlagsClient:
 
         Synchronous; warm the cache via ``await refresh()`` /
         ``await client.wait_until_ready()`` for live values.
+
+        Args:
+            id: Identifier of the flag to evaluate.
+            default: Value returned by ``handle.get()`` when the flag is unknown or
+                no environment override or rule applies.
+
+        Returns:
+            An :class:`AsyncStringFlag` handle whose ``get()`` evaluates against the
+            live cache.
         """
         handle = AsyncStringFlag(self, id=id, name=id, type="STRING", default=default)
         self._handles[id] = handle
@@ -1342,6 +1607,15 @@ class AsyncFlagsClient:
 
         Synchronous; warm the cache via ``await refresh()`` /
         ``await client.wait_until_ready()`` for live values.
+
+        Args:
+            id: Identifier of the flag to evaluate.
+            default: Value returned by ``handle.get()`` when the flag is unknown or
+                no environment override or rule applies.
+
+        Returns:
+            An :class:`AsyncNumberFlag` handle whose ``get()`` evaluates against the
+            live cache.
         """
         handle = AsyncNumberFlag(self, id=id, name=id, type="NUMERIC", default=default)
         self._handles[id] = handle
@@ -1353,6 +1627,15 @@ class AsyncFlagsClient:
 
         Synchronous; warm the cache via ``await refresh()`` /
         ``await client.wait_until_ready()`` for live values.
+
+        Args:
+            id: Identifier of the flag to evaluate.
+            default: Value returned by ``handle.get()`` when the flag is unknown or
+                no environment override or rule applies.
+
+        Returns:
+            An :class:`AsyncJsonFlag` handle whose ``get()`` evaluates against the
+            live cache.
         """
         handle = AsyncJsonFlag(self, id=id, name=id, type="JSON", default=default)
         self._handles[id] = handle
@@ -1386,6 +1669,17 @@ class AsyncFlagsClient:
         Synchronous; only records the listener. Open the live connection
         first via an awaitable live method or ``client.wait_until_ready()``
         so events flow.
+
+        Args:
+            fn_or_id: Either the listener callable (used directly as
+                ``@on_change``), or a flag id string scoping the listener to that
+                flag (used as ``@on_change("flag-id")``). When ``None``, returns a
+                decorator that registers a global listener.
+
+        Returns:
+            The listener callable when one is passed directly, otherwise a decorator
+            that registers the callable it wraps. Each listener receives a
+            :class:`FlagChangeEvent`.
         """
         if callable(fn_or_id):
             self._global_listeners.append(fn_or_id)
@@ -1648,7 +1942,6 @@ def _store_entry(d: dict[str, Any]) -> dict[str, Any]:
 def _evaluate_flag(flag_def: dict[str, Any], environment: str | None, eval_dict: dict[str, Any]) -> Any:
     """Evaluate a flag definition against the given context.
 
-    Follows ADR-022 §2.6 semantics:
     1. Look up the environment.  If missing, return flag-level default.
     2. If disabled, return env default or flag default.
     3. Iterate rules; first match wins.

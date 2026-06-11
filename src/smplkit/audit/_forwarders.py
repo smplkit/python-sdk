@@ -1,8 +1,7 @@
 """SIEM forwarder CRUD for the Smpl Audit client.
 
-Forwarders are part of the single unified audit surface — there is no
-runtime/management split for audit (see :mod:`smplkit.audit._client`). This
-module holds the forwarder CRUD sub-clients that the unified
+Forwarders are part of the single unified audit surface. This module holds
+the forwarder CRUD sub-clients that the
 :class:`smplkit.audit.AuditClient` / :class:`AsyncAuditClient` expose
 as ``.forwarders``:
 
@@ -82,8 +81,8 @@ def _expect_status(resp: Any, *expected: int) -> None:
 def _extract_pagination(body_dict: dict[str, Any]) -> dict[str, int]:
     """Return the `meta.pagination` block from a list response.
 
-    Always present per ADR-014; `total` and `total_pages` are only
-    populated when the request included `meta[total]=true`.
+    Always present; `total` and `total_pages` are only populated when the
+    request included `meta[total]=true`.
     """
     return (body_dict.get("meta") or {}).get("pagination") or {}
 
@@ -94,7 +93,7 @@ def _extract_pagination(body_dict: dict[str, Any]) -> dict[str, int]:
 
 
 class ForwarderListPage:
-    """A single page from ``mgmt.audit.forwarders.list(...)``.
+    """A single page from ``client.audit.forwarders.list(...)``.
 
     ``forwarders`` is the page's forwarders; ``pagination`` is the
     response's ``meta.pagination`` block (`page`, `size`, and — only
@@ -233,7 +232,7 @@ def _build_forwarder_attrs(
 
 
 class ForwardersClient:
-    """Surface for ``mgmt.audit.forwarders.*``."""
+    """Surface for ``client.audit.forwarders.*``."""
 
     def __init__(self, *, auth_client: _AuditAuthClient) -> None:
         self._auth = auth_client
@@ -264,9 +263,10 @@ class ForwardersClient:
             forwarder_type: A :class:`ForwarderType` enum member
                 (e.g. ``ForwarderType.HTTP``, ``ForwarderType.DATADOG``).
             configuration: Destination HTTP request configuration —
-                an :class:`HttpConfiguration` instance. Headers carry
-                credentials and are encrypted at rest server-side;
-                reads return them redacted.
+                an :class:`HttpConfiguration` instance. Header values
+                carry credentials: supply them plaintext on writes; reads
+                return them redacted, so re-supply real values before
+                saving.
             environments: Per-environment overrides keyed by environment
                 key (e.g. ``"production"``). A forwarder delivers in an
                 environment only when that environment's entry has
@@ -326,10 +326,21 @@ class ForwardersClient:
     ) -> ForwarderListPage:
         """List forwarders for the authenticated account.
 
-        Offset paginated per ADR-014: pass ``page_number`` (1-based) and
-        ``page_size`` (default 1000, max 1000). Pass ``meta_total=True``
-        to populate ``total`` and ``total_pages`` in the returned
-        ``pagination`` dict (costs an extra COUNT query server-side).
+        Offset paginated: pass ``page_number`` (1-based) and ``page_size``
+        (default 1000, max 1000).
+
+        Args:
+            forwarder_type: Restrict the listing to forwarders of this
+                :class:`ForwarderType`. Omit to list every type.
+            page_number: 1-based page index. Omit for the first page.
+            page_size: Maximum number of forwarders to return in this page
+                (default 1000, max 1000).
+            meta_total: When ``True``, populate ``total`` and
+                ``total_pages`` in the returned page's ``pagination`` dict
+                (costs an extra count server-side). Omit to skip it.
+
+        Returns:
+            A :class:`ForwarderListPage` of the matching forwarders.
         """
         ft = ForwarderType(forwarder_type).value if forwarder_type is not None else UNSET
         resp = _gen_list_forwarders.sync_detailed(
@@ -348,8 +359,22 @@ class ForwardersClient:
         )
 
     def get(self, forwarder_id: str) -> Forwarder:
-        """Fetch a single forwarder by id; returned instance is bound to this
-        client so ``forwarder.save()`` and ``forwarder.delete()`` work."""
+        """Fetch a single forwarder by id.
+
+        The returned instance is bound to this client, so
+        ``forwarder.save()`` and ``forwarder.delete()`` work. Header values
+        come back redacted — re-supply real values before saving.
+
+        Args:
+            forwarder_id: The forwarder's id (key).
+
+        Returns:
+            The matching :class:`Forwarder`, bound to this client.
+
+        Raises:
+            NotFoundError: If no live forwarder with that id exists in the
+                caller's account.
+        """
         resp = _gen_get_forwarder.sync_detailed(forwarder_id=forwarder_id, client=self._auth)
         _expect_status(resp, 200)
         return Forwarder._from_resource(resp.parsed.to_dict()["data"], client=self)
@@ -405,7 +430,11 @@ class ForwardersClient:
         return Forwarder._from_resource(resp.parsed.to_dict()["data"], client=self)
 
     def delete(self, forwarder_id: str) -> None:
-        """Soft-delete a forwarder."""
+        """Delete a forwarder.
+
+        Args:
+            forwarder_id: The id (key) of the forwarder to delete.
+        """
         resp = _gen_delete_forwarder.sync_detailed(forwarder_id=forwarder_id, client=self._auth)
         if resp.status_code != 204:
             _raise_for_status(resp.status_code, resp.content)
@@ -442,7 +471,53 @@ class AsyncForwardersClient:
     ) -> AsyncForwarder:
         """Return an unsaved :class:`AsyncForwarder`. ``await forwarder.save()`` to persist.
 
-        Arguments mirror :meth:`ForwardersClient.new`.
+        Args:
+            id: Caller-supplied unique identifier (the forwarder's key).
+                Unique within the account; immutable for the lifetime of
+                the forwarder. The audit service returns 409 if another
+                live forwarder already uses this id.
+            name: Display name. Free-form. Defaults to ``id`` when not
+                supplied.
+            forwarder_type: A :class:`ForwarderType` enum member
+                (e.g. ``ForwarderType.HTTP``, ``ForwarderType.DATADOG``).
+            configuration: Destination HTTP request configuration —
+                an :class:`HttpConfiguration` instance. Header values
+                carry credentials: supply them plaintext on writes; reads
+                return them redacted, so re-supply real values before
+                saving.
+            environments: Per-environment overrides keyed by environment
+                key (e.g. ``"production"``). A forwarder delivers in an
+                environment only when that environment's entry has
+                ``enabled=True``. Values may be :class:`ForwarderEnvironment`
+                instances or plain dicts (``{"enabled": True}``, optionally
+                with a ``"configuration"`` :class:`HttpConfiguration`
+                override). Omit to create a forwarder that delivers
+                nowhere until enabled per environment.
+            description: Optional free-text description.
+            forward_smplkit_events: When ``True``, this forwarder also
+                receives platform change events that smplkit records about
+                your own resources (flag, configuration, and similar
+                changes), delivered through every environment this forwarder
+                is enabled in. Independent of the per-environment
+                ``environments`` settings. Defaults to ``False`` — platform
+                change events are not forwarded unless you opt in.
+            filter: Optional JSON Logic filter; events that don't match
+                are recorded as ``filtered_out`` deliveries.
+            transform: Optional template applied to the event payload
+                before POST. Shape depends on ``transform_type`` — for
+                :attr:`TransformType.JSONATA`, a string containing a
+                JSONata expression. Any value of any type is accepted.
+                ``None`` sends the event as-is.
+            transform_type: A :class:`TransformType` enum member naming
+                the engine that evaluates ``transform``. Must be
+                provided together with ``transform`` — neither field is
+                meaningful in isolation.
+
+        Raises:
+            ValueError: If exactly one of ``transform`` /
+                ``transform_type`` is provided, or if ``transform_type``
+                is :attr:`TransformType.JSONATA` and ``transform`` is
+                not a string.
         """
         _validate_transform(transform, transform_type)
         return AsyncForwarder(
@@ -467,7 +542,24 @@ class AsyncForwardersClient:
         page_size: int | None = None,
         meta_total: bool | None = None,
     ) -> ForwarderListPage:
-        """List forwarders for the authenticated account (async)."""
+        """List forwarders for the authenticated account, awaited.
+
+        Offset paginated: pass ``page_number`` (1-based) and ``page_size``
+        (default 1000, max 1000).
+
+        Args:
+            forwarder_type: Restrict the listing to forwarders of this
+                :class:`ForwarderType`. Omit to list every type.
+            page_number: 1-based page index. Omit for the first page.
+            page_size: Maximum number of forwarders to return in this page
+                (default 1000, max 1000).
+            meta_total: When ``True``, populate ``total`` and
+                ``total_pages`` in the returned page's ``pagination`` dict
+                (costs an extra count server-side). Omit to skip it.
+
+        Returns:
+            A :class:`ForwarderListPage` of the matching forwarders.
+        """
         ft = ForwarderType(forwarder_type).value if forwarder_type is not None else UNSET
         resp = await _gen_list_forwarders.asyncio_detailed(
             client=self._auth,
@@ -482,7 +574,23 @@ class AsyncForwardersClient:
         return ForwarderListPage(forwarders=forwarders, pagination=_extract_pagination(body_dict))
 
     async def get(self, forwarder_id: str) -> AsyncForwarder:
-        """Fetch a single forwarder by id (async); bound to this client for save/delete."""
+        """Fetch a single forwarder by id, awaited.
+
+        The returned instance is bound to this client, so
+        ``await forwarder.save()`` and ``await forwarder.delete()`` work.
+        Header values come back redacted — re-supply real values before
+        saving.
+
+        Args:
+            forwarder_id: The forwarder's id (key).
+
+        Returns:
+            The matching :class:`AsyncForwarder`, bound to this client.
+
+        Raises:
+            NotFoundError: If no live forwarder with that id exists in the
+                caller's account.
+        """
         resp = await _gen_get_forwarder.asyncio_detailed(forwarder_id=forwarder_id, client=self._auth)
         _expect_status(resp, 200)
         return AsyncForwarder._from_resource(resp.parsed.to_dict()["data"], client=self)
@@ -526,7 +634,11 @@ class AsyncForwardersClient:
         return AsyncForwarder._from_resource(resp.parsed.to_dict()["data"], client=self)
 
     async def delete(self, forwarder_id: str) -> None:
-        """Soft-delete a forwarder (async)."""
+        """Delete a forwarder, awaited.
+
+        Args:
+            forwarder_id: The id (key) of the forwarder to delete.
+        """
         resp = await _gen_delete_forwarder.asyncio_detailed(forwarder_id=forwarder_id, client=self._auth)
         if resp.status_code != 204:
             _raise_for_status(resp.status_code, resp.content)
@@ -544,3 +656,10 @@ __all__ = [
     "ForwarderType",
     "TransformType",
 ]
+
+
+# The forwarders sub-client is reached through ``client.audit.forwarders``;
+# present it as ``smplkit.audit.<Name>`` in IDE hover / help() rather than the
+# private ``smplkit.audit._forwarders`` path.
+ForwardersClient.__module__ = "smplkit.audit"
+AsyncForwardersClient.__module__ = "smplkit.audit"

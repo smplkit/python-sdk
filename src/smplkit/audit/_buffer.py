@@ -1,7 +1,7 @@
 """Bounded in-memory buffer + worker thread for fire-and-forget audit emits.
 
-ADR-047 §2.6. The buffer caps at ``MAX_BUFFER_SIZE`` to bound memory
-consumption under sustained back-pressure. When full, the oldest queued
+The buffer caps at ``MAX_BUFFER_SIZE`` to bound memory consumption under
+sustained back-pressure. When full, the oldest queued
 event is dropped to make room — recent events are more useful for
 debugging than ancient ones, and the loss is acknowledged as part of the
 async-emit trade-off.

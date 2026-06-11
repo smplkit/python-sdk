@@ -50,9 +50,11 @@ class SmplClient:
             checkout_v2 = client.flags.boolean_flag("checkout-v2", default=False)
             if checkout_v2.get(): ...
 
-    All parameters are optional. When omitted, the SDK resolves them from
-    environment variables (``SMPLKIT_*``) or the ``~/.smplkit`` configuration
-    file. See ADR-021 for the full resolution algorithm.
+    All parameters are optional. When omitted, the SDK resolves each one in
+    precedence order, lowest to highest: built-in defaults, then the
+    ``~/.smplkit`` configuration file, then ``SMPLKIT_*`` environment
+    variables, then the explicit constructor arguments below (a value
+    supplied at a higher level overrides the lower ones).
 
     Args:
         api_key: API key for authenticating with the smplkit platform.
@@ -63,6 +65,8 @@ class SmplClient:
         scheme: URL scheme (default ``"https"``).
         debug: Enable debug logging in the SDK.
         telemetry: Enable anonymous usage telemetry (default ``True``).
+        extra_headers: Extra HTTP headers attached to every request the
+            client sends.
     """
 
     platform: PlatformClient
@@ -299,6 +303,10 @@ class SmplClient:
         you want it (it installs adapters and hooks into your application's
         logger, which should be opt-in).
 
+        Args:
+            timeout: Maximum seconds to wait for the live-updates WebSocket
+                handshake before giving up. Defaults to ``10.0``.
+
         Raises:
             TimeoutError: If the WebSocket fails to connect within *timeout* seconds.
         """
@@ -321,8 +329,8 @@ class SmplClient:
         that request automatically picks it up.  ``contextvars`` provides per-task
         / per-thread isolation so concurrent requests don't cross-contaminate.
 
-        Each unique ``(type, key)`` is also queued for bulk registration on
-        the management API (deduplicated via an LRU; flushed in the background).
+        Each unique ``(type, key)`` is also registered with the platform
+        (deduplicated via an LRU; sent in the background).
 
         Two usage shapes::
 
@@ -333,6 +341,15 @@ class SmplClient:
             with client.set_context([Context("user", "impersonated")]):
                 ...
             # original context restored here
+
+        Args:
+            contexts: The contexts to make active for the current task/thread
+                (e.g. the request's user and account). An empty list clears
+                any registration step but still returns a scope.
+
+        Returns:
+            A ``ContextScope`` you can ignore for fire-and-forget use, or
+            enter as a ``with`` block to restore the previous context on exit.
         """
         self._ensure_started()
         if contexts:
@@ -378,9 +395,23 @@ class AsyncSmplClient:
             checkout_v2 = client.flags.boolean_flag("checkout-v2", default=False)
             if checkout_v2.get(): ...
 
-    All parameters are optional. When omitted, the SDK resolves them from
-    environment variables (``SMPLKIT_*``) or the ``~/.smplkit`` configuration
-    file. See ADR-021 for the full resolution algorithm.
+    All parameters are optional. When omitted, the SDK resolves each one in
+    precedence order, lowest to highest: built-in defaults, then the
+    ``~/.smplkit`` configuration file, then ``SMPLKIT_*`` environment
+    variables, then the explicit constructor arguments below (a value
+    supplied at a higher level overrides the lower ones).
+
+    Args:
+        api_key: API key for authenticating with the smplkit platform.
+        environment: The environment to connect to (e.g. ``"production"``).
+        service: Service name (e.g. ``"user-service"``).
+        profile: Named profile section to read from ``~/.smplkit``.
+        base_domain: Base domain for API requests (default ``"smplkit.com"``).
+        scheme: URL scheme (default ``"https"``).
+        debug: Enable debug logging in the SDK.
+        telemetry: Enable anonymous usage telemetry (default ``True``).
+        extra_headers: Extra HTTP headers attached to every request the
+            client sends.
     """
 
     platform: AsyncPlatformClient
@@ -625,6 +656,10 @@ class AsyncSmplClient:
         separately if you want it (it installs adapters and hooks into your
         application's logger, which should be opt-in).
 
+        Args:
+            timeout: Maximum seconds to wait for the live-updates WebSocket
+                handshake before giving up. Defaults to ``10.0``.
+
         Raises:
             TimeoutError: If the WebSocket fails to connect within *timeout* seconds.
         """
@@ -647,8 +682,8 @@ class AsyncSmplClient:
         that request automatically picks it up.  ``contextvars`` provides per-task
         / per-thread isolation so concurrent requests don't cross-contaminate.
 
-        Each unique ``(type, key)`` is also queued for bulk registration on
-        the management API (deduplicated via an LRU; flushed in the background).
+        Each unique ``(type, key)`` is also registered with the platform
+        (deduplicated via an LRU; sent in the background).
 
         Two usage shapes::
 
@@ -659,6 +694,16 @@ class AsyncSmplClient:
             with client.set_context([Context("user", "impersonated")]):
                 ...
             # original context restored here
+
+        Args:
+            contexts: The contexts to make active for the current task/thread
+                (e.g. the request's user and account). An empty list clears
+                any registration step but still returns a scope.
+
+        Returns:
+            A ``ContextScope`` you can ignore for fire-and-forget use, or
+            enter as a ``with`` / ``async with`` block to restore the previous
+            context on exit.
         """
         self._ensure_started()
         if contexts:

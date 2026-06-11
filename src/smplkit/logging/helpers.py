@@ -1,4 +1,4 @@
-"""Stateless helpers shared between the runtime and management logging clients."""
+"""Stateless helpers shared across the logging clients."""
 
 from __future__ import annotations
 
@@ -19,10 +19,10 @@ if TYPE_CHECKING:  # pragma: no cover
     from smplkit.logging._client import (
         AsyncLoggingClient,
         LoggingClient,
-        _AsyncLogGroupsClient,
-        _AsyncLoggersClient,
-        _LogGroupsClient,
-        _LoggersClient,
+        AsyncLogGroupsClient,
+        AsyncLoggersClient,
+        LogGroupsClient,
+        LoggersClient,
     )
 
 
@@ -164,7 +164,7 @@ def _build_log_group_body(
     return LogGroupResponse(data=resource)
 
 
-def _logger_resource_to_model(client: LoggingClient | _LoggersClient | None, resource: Any) -> SmplLogger:
+def _logger_resource_to_model(client: LoggingClient | LoggersClient | None, resource: Any) -> SmplLogger:
     attrs = resource.attributes
     return SmplLogger(
         client,
@@ -181,7 +181,7 @@ def _logger_resource_to_model(client: LoggingClient | _LoggersClient | None, res
 
 
 def _logger_resource_to_async_model(
-    client: AsyncLoggingClient | _AsyncLoggersClient | None, resource: Any
+    client: AsyncLoggingClient | AsyncLoggersClient | None, resource: Any
 ) -> AsyncSmplLogger:
     attrs = resource.attributes
     return AsyncSmplLogger(
@@ -198,7 +198,7 @@ def _logger_resource_to_async_model(
     )
 
 
-def _log_group_resource_to_model(client: LoggingClient | _LogGroupsClient | None, resource: Any) -> SmplLogGroup:
+def _log_group_resource_to_model(client: LoggingClient | LogGroupsClient | None, resource: Any) -> SmplLogGroup:
     attrs = resource.attributes
     return SmplLogGroup(
         client,
@@ -213,7 +213,7 @@ def _log_group_resource_to_model(client: LoggingClient | _LogGroupsClient | None
 
 
 def _log_group_resource_to_async_model(
-    client: AsyncLoggingClient | _AsyncLogGroupsClient | None, resource: Any
+    client: AsyncLoggingClient | AsyncLogGroupsClient | None, resource: Any
 ) -> AsyncSmplLogGroup:
     attrs = resource.attributes
     return AsyncSmplLogGroup(

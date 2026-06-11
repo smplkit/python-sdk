@@ -25,7 +25,7 @@ from typing import Any
 
 import httpx
 
-from smplkit._config import _service_url, resolve_management_config
+from smplkit._config import _service_url, resolve_client_config
 from smplkit._errors import _raise_for_status
 from smplkit.account.models import AccountSettings, AsyncAccountSettings
 
@@ -48,9 +48,9 @@ def _resolve_account_target(
 
     ``base_url``/``api_key`` are used directly when both are supplied (the
     path the top-level client takes after it has already resolved them);
-    otherwise the management config resolver fills in whatever is missing.
+    otherwise the config resolver fills in whatever is missing.
     """
-    cfg = resolve_management_config(
+    cfg = resolve_client_config(
         profile=profile,
         api_key=api_key,
         base_domain=base_domain,
@@ -65,7 +65,7 @@ def _resolve_account_target(
     return app_url.rstrip("/"), resolved_key, headers
 
 
-class _SettingsClient:
+class SettingsClient:
     """Sync account-settings get/save (``client.account.settings``).
 
     The endpoint isn't JSON:API — body is a raw JSON object — so we
@@ -81,6 +81,12 @@ class _SettingsClient:
         }
 
     def get(self) -> AccountSettings:
+        """Fetch the authenticated account's current settings.
+
+        Returns:
+            An :class:`AccountSettings` active record. Mutate its fields and
+            call ``save()`` to persist the changes.
+        """
         with httpx.Client(base_url=self._base_url, headers=self._headers, timeout=30.0) as h:
             resp = h.get("/api/v1/accounts/current/settings")
         _check_status(resp.status_code, resp.content)
@@ -93,7 +99,13 @@ class _SettingsClient:
         return AccountSettings(self, data=resp.json() or {})
 
 
-class _AsyncSettingsClient:
+class AsyncSettingsClient:
+    """Async account-settings get/save (``client.account.settings``).
+
+    The async counterpart of :class:`SettingsClient`; reads and saves
+    perform their network round-trips with ``await``.
+    """
+
     def __init__(self, app_base_url: str, api_key: str, extra_headers: dict[str, str] | None = None) -> None:
         self._base_url = app_base_url
         self._headers = {
@@ -103,6 +115,12 @@ class _AsyncSettingsClient:
         }
 
     async def get(self) -> AsyncAccountSettings:
+        """Fetch the authenticated account's current settings.
+
+        Returns:
+            An :class:`AsyncAccountSettings` active record. Mutate its fields
+            and ``await`` its ``save()`` to persist the changes.
+        """
         async with httpx.AsyncClient(base_url=self._base_url, headers=self._headers, timeout=30.0) as h:
             resp = await h.get("/api/v1/accounts/current/settings")
         _check_status(resp.status_code, resp.content)
@@ -148,7 +166,7 @@ class AccountClient:
         extra_headers: Extra headers attached to every request.
     """
 
-    settings: _SettingsClient
+    settings: SettingsClient
 
     def __init__(
         self,
@@ -170,7 +188,7 @@ class AccountClient:
             debug=debug,
             extra_headers=extra_headers,
         )
-        self.settings = _SettingsClient(app_url, resolved_key, headers or None)
+        self.settings = SettingsClient(app_url, resolved_key, headers or None)
 
     def close(self) -> None:
         """No-op — the settings client opens a short-lived httpx client per call."""
@@ -187,9 +205,21 @@ class AsyncAccountClient:
 
     Reads and saves perform their network round-trips with ``await``. Pure
     CRUD; no ``install()`` required.
+
+    Args:
+        api_key: API key. When omitted, resolved from ``SMPLKIT_API_KEY`` or
+            ``~/.smplkit``.
+        base_url: Full app-service base URL. Usually resolved from
+            ``base_domain``/``scheme``; supplied directly by the top-level
+            clients which have already computed it.
+        profile: Named ``~/.smplkit`` profile section.
+        base_domain: Base domain for API requests (default ``"smplkit.com"``).
+        scheme: URL scheme (default ``"https"``).
+        debug: Enable SDK debug logging.
+        extra_headers: Extra headers attached to every request.
     """
 
-    settings: _AsyncSettingsClient
+    settings: AsyncSettingsClient
 
     def __init__(
         self,
@@ -211,7 +241,7 @@ class AsyncAccountClient:
             debug=debug,
             extra_headers=extra_headers,
         )
-        self.settings = _AsyncSettingsClient(app_url, resolved_key, headers or None)
+        self.settings = AsyncSettingsClient(app_url, resolved_key, headers or None)
 
     async def aclose(self) -> None:
         """No-op — the settings client opens a short-lived httpx client per call."""
@@ -221,3 +251,10 @@ class AsyncAccountClient:
 
     async def __aexit__(self, *args: object) -> None:
         await self.aclose()
+
+
+# The settings sub-clients are reached through ``client.account.settings``;
+# present them as ``smplkit.account.<Name>`` in IDE hover / help() rather
+# than the private ``smplkit.account._client`` path.
+SettingsClient.__module__ = "smplkit.account"
+AsyncSettingsClient.__module__ = "smplkit.account"

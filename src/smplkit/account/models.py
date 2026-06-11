@@ -55,6 +55,8 @@ class _AccountSettingsBase:
 
 
 class AccountSettings(_AccountSettingsBase):
+    """Active-record account-settings model (sync ``save()``)."""
+
     def __init__(
         self,
         client: SettingsClient | None = None,
@@ -65,6 +67,12 @@ class AccountSettings(_AccountSettingsBase):
         self._client = client
 
     def save(self) -> None:
+        """Write the full settings object back to the account.
+
+        Raises:
+            RuntimeError: If this model was constructed without a client
+                (e.g. built by hand rather than returned from ``get()``).
+        """
         if self._client is None:
             raise RuntimeError("AccountSettings was constructed without a client; cannot save")
         other = self._client._save(self._data)
@@ -72,6 +80,8 @@ class AccountSettings(_AccountSettingsBase):
 
 
 class AsyncAccountSettings(_AccountSettingsBase):
+    """Active-record account-settings model (async ``save()``)."""
+
     def __init__(
         self,
         client: AsyncSettingsClient | None = None,
@@ -82,6 +92,12 @@ class AsyncAccountSettings(_AccountSettingsBase):
         self._client = client
 
     async def save(self) -> None:
+        """Write the full settings object back to the account.
+
+        Raises:
+            RuntimeError: If this model was constructed without a client
+                (e.g. built by hand rather than returned from ``get()``).
+        """
         if self._client is None:
             raise RuntimeError("AsyncAccountSettings was constructed without a client; cannot save")
         other = await self._client._save(self._data)

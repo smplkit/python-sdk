@@ -5,18 +5,18 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from smplkit.account._client import _AsyncSettingsClient, _SettingsClient
+from smplkit.account._client import AsyncSettingsClient, SettingsClient
 from smplkit.account.models import AccountSettings, AsyncAccountSettings
 
 
 # ---------------------------------------------------------------------------
-# _SettingsClient (sync)
+# SettingsClient (sync)
 # ---------------------------------------------------------------------------
 
 
 class Test_SettingsClient:
     def _make_client(self):
-        return _SettingsClient("http://app:8000", "sk_test")
+        return SettingsClient("http://app:8000", "sk_test")
 
     def test_get(self):
         with patch("smplkit.account._client.httpx.Client") as MockClient:
@@ -66,13 +66,13 @@ class Test_SettingsClient:
 
 
 # ---------------------------------------------------------------------------
-# _AsyncSettingsClient
+# AsyncSettingsClient
 # ---------------------------------------------------------------------------
 
 
 class Test_AsyncSettingsClient:
     def _make_client(self):
-        return _AsyncSettingsClient("http://app:8000", "sk_test")
+        return AsyncSettingsClient("http://app:8000", "sk_test")
 
     def test_get(self):
         async def _run():

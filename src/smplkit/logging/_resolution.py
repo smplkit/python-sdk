@@ -1,4 +1,5 @@
-"""Level resolution algorithm per ADR-034 §3.1."""
+"""Level resolution algorithm: pick a logger's effective level from its own
+override, its group, dot-notation ancestors, and the system default."""
 
 from __future__ import annotations
 

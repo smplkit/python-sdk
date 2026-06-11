@@ -1,30 +1,33 @@
 """Smpl Jobs SDK namespace.
 
-Smpl Jobs schedules HTTP calls (cron-style ``schedule`` + ``http``
-configuration) and records their run history. Unlike Config/Flags/Logging it
-installs no in-process machinery, so it has no runtime/management split: a
-single :class:`JobsClient` (sync) / :class:`AsyncJobsClient` (async)
-exposes the full surface and is reachable as ``client.jobs`` on
-:class:`smplkit.SmplClient` or constructed directly via
-:class:`JobsClient`.
+Smpl Jobs runs an HTTP call on a schedule (a 5-field cron expression, a
+one-off datetime, or ``now``) and records the run history for each fire —
+the request sent, the response received, timing, and outcome.
+
+Reachable as ``client.jobs`` on :class:`smplkit.SmplClient`, or constructed
+directly via :class:`JobsClient` (sync) / :class:`AsyncJobsClient` (async)
+for callers that only need jobs.
 
 The shared dataclasses (:class:`Job`, :class:`AsyncJob`, :class:`Run`,
-:class:`Usage`, :class:`HttpConfig`) live in :mod:`smplkit.jobs._client` and are
-re-exported here.
+:class:`Usage`, :class:`HttpConfig`) are re-exported here.
 """
 
 from smplkit.jobs._client import (
     AsyncJob,
+    AsyncRunsClient,
     HttpConfig,
     Job,
     Run,
+    RunsClient,
     Usage,
 )
 
 __all__ = [
     "AsyncJob",
+    "AsyncRunsClient",
     "HttpConfig",
     "Job",
     "Run",
+    "RunsClient",
     "Usage",
 ]

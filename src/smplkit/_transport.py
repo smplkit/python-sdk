@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from smplkit._config import ResolvedConfig, ResolvedManagementConfig, _service_url
+from smplkit._config import ResolvedConfig, ResolvedClientConfig, _service_url
 from smplkit._generated.app.client import AuthenticatedClient as _AppAuthClient
 from smplkit._generated.config.client import AuthenticatedClient as _ConfigAuthClient
 from smplkit._generated.flags.client import AuthenticatedClient as _FlagsAuthClient
@@ -22,13 +22,13 @@ from smplkit._generated.jobs.client import AuthenticatedClient as _JobsAuthClien
 from smplkit._generated.logging.client import AuthenticatedClient as _LoggingAuthClient
 
 
-def _to_transport_config(cfg: ResolvedConfig, extra_headers: dict[str, str] | None = None) -> ResolvedManagementConfig:
+def _to_transport_config(cfg: ResolvedConfig, extra_headers: dict[str, str] | None = None) -> ResolvedClientConfig:
     """Project the runtime :class:`ResolvedConfig` down to the transport subset.
 
     SmplClient's resolved config is a superset of what the transports need;
     this drops the runtime-only fields (environment, service, telemetry).
     """
-    return ResolvedManagementConfig(
+    return ResolvedClientConfig(
         api_key=cfg.api_key,
         base_domain=cfg.base_domain,
         scheme=cfg.scheme,
@@ -81,7 +81,7 @@ class _ServiceTransports:
                 http._async_client = None  # type: ignore[attr-defined]
 
 
-def build_service_transports(cfg: ResolvedManagementConfig) -> _ServiceTransports:
+def build_service_transports(cfg: ResolvedClientConfig) -> _ServiceTransports:
     """Build the five per-service transports from a resolved transport config.
 
     Side-effect-free — the underlying httpx clients are created lazily on the

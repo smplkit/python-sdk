@@ -42,12 +42,12 @@ class ResolvedConfig:
 
 
 @dataclass(frozen=True)
-class ResolvedManagementConfig:
-    """Resolved configuration for the management-only client.
+class ResolvedClientConfig:
+    """Resolved configuration for a product client.
 
-    Management operations (CRUD against the platform API) are not tied
-    to an environment or service, so those fields are not part of the
-    resolved config and not required at construction time.
+    CRUD operations against the platform are not tied to an environment
+    or service, so those fields are not part of the resolved config and
+    not required at construction time.
     """
 
     api_key: str
@@ -222,7 +222,7 @@ def resolve_config(
     )
 
 
-def resolve_management_config(
+def resolve_client_config(
     *,
     profile: str | None = None,
     api_key: str | None = None,
@@ -230,8 +230,8 @@ def resolve_management_config(
     scheme: str | None = None,
     debug: bool | None = None,
     _home_dir: Path | None = None,
-) -> ResolvedManagementConfig:
-    """Resolve management-only configuration.
+) -> ResolvedClientConfig:
+    """Resolve configuration for a product client.
 
     Mirrors :func:`resolve_config` but skips ``environment`` / ``service``
     requirements — they have no meaning for CRUD operations.
@@ -285,7 +285,7 @@ def resolve_management_config(
             f"  3. Add api_key to the [{active_profile}] section in ~/.smplkit"
         )
 
-    return ResolvedManagementConfig(
+    return ResolvedClientConfig(
         api_key=str(resolved["api_key"]),
         base_domain=str(resolved["base_domain"]),
         scheme=str(resolved["scheme"]),

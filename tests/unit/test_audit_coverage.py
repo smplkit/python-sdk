@@ -186,11 +186,11 @@ def test_post_wrapper_returns_httpx_error_on_connection_failure() -> None:
 def test_async_client_owns_its_own_genuinely_async_surface() -> None:
     """The async client is no longer a sync delegate — it builds its own
     transport and async sub-clients (no ``_inner``)."""
-    from smplkit.audit._client import _AsyncEventsClient
+    from smplkit.audit._client import AsyncEventsClient
 
     client = AsyncAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     assert not hasattr(client, "_inner")
-    assert isinstance(client.events, _AsyncEventsClient)
+    assert isinstance(client.events, AsyncEventsClient)
     assert client._owns_transport is True
     import asyncio
 

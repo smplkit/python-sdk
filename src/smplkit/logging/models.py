@@ -10,10 +10,10 @@ if TYPE_CHECKING:
     from smplkit.logging._client import (
         AsyncLoggingClient,
         LoggingClient,
-        _AsyncLogGroupsClient,
-        _AsyncLoggersClient,
-        _LogGroupsClient,
-        _LoggersClient,
+        AsyncLogGroupsClient,
+        AsyncLoggersClient,
+        LogGroupsClient,
+        LoggersClient,
     )
 
 
@@ -89,7 +89,7 @@ class SmplLogger:
 
     def __init__(
         self,
-        client: _LoggersClient | LoggingClient | None = None,
+        client: LoggersClient | LoggingClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -140,6 +140,13 @@ class SmplLogger:
         With ``environment=None`` (the default), sets the base log level used
         when no environment-specific override applies.  With ``environment="..."``,
         sets the per-environment override.
+
+        Changes are local until you call :meth:`save`.
+
+        Args:
+            level: The log level to apply.
+            environment: When given, set the override for that environment
+                only. When ``None`` (the default), set the base level.
         """
         if environment is None:
             self.level = level
@@ -153,6 +160,12 @@ class SmplLogger:
         (the logger then inherits from its group / dot-notation ancestor /
         system default).  With ``environment="..."``, removes the per-environment
         override only.
+
+        Changes are local until you call :meth:`save`.
+
+        Args:
+            environment: When given, remove the override for that environment
+                only. When ``None`` (the default), remove the base level.
         """
         if environment is None:
             self.level = None
@@ -193,7 +206,7 @@ class AsyncSmplLogger:
 
     def __init__(
         self,
-        client: _AsyncLoggersClient | AsyncLoggingClient | None = None,
+        client: AsyncLoggersClient | AsyncLoggingClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -244,6 +257,13 @@ class AsyncSmplLogger:
         With ``environment=None`` (the default), sets the base log level used
         when no environment-specific override applies.  With ``environment="..."``,
         sets the per-environment override.
+
+        Changes are local until you call :meth:`save`.
+
+        Args:
+            level: The log level to apply.
+            environment: When given, set the override for that environment
+                only. When ``None`` (the default), set the base level.
         """
         if environment is None:
             self.level = level
@@ -257,6 +277,12 @@ class AsyncSmplLogger:
         (the logger then inherits from its group / dot-notation ancestor /
         system default).  With ``environment="..."``, removes the per-environment
         override only.
+
+        Changes are local until you call :meth:`save`.
+
+        Args:
+            environment: When given, remove the override for that environment
+                only. When ``None`` (the default), remove the base level.
         """
         if environment is None:
             self.level = None
@@ -295,7 +321,7 @@ class SmplLogGroup:
 
     def __init__(
         self,
-        client: _LogGroupsClient | LoggingClient | None = None,
+        client: LogGroupsClient | LoggingClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -342,6 +368,13 @@ class SmplLogGroup:
         With ``environment=None`` (the default), sets the base log level used
         when no environment-specific override applies.  With ``environment="..."``,
         sets the per-environment override.
+
+        Changes are local until you call :meth:`save`.
+
+        Args:
+            level: The log level to apply.
+            environment: When given, set the override for that environment
+                only. When ``None`` (the default), set the base level.
         """
         if environment is None:
             self.level = level
@@ -355,6 +388,12 @@ class SmplLogGroup:
         (the logger then inherits from its group / dot-notation ancestor /
         system default).  With ``environment="..."``, removes the per-environment
         override only.
+
+        Changes are local until you call :meth:`save`.
+
+        Args:
+            environment: When given, remove the override for that environment
+                only. When ``None`` (the default), remove the base level.
         """
         if environment is None:
             self.level = None
@@ -391,7 +430,7 @@ class AsyncSmplLogGroup:
 
     def __init__(
         self,
-        client: _AsyncLogGroupsClient | AsyncLoggingClient | None = None,
+        client: AsyncLogGroupsClient | AsyncLoggingClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -438,6 +477,13 @@ class AsyncSmplLogGroup:
         With ``environment=None`` (the default), sets the base log level used
         when no environment-specific override applies.  With ``environment="..."``,
         sets the per-environment override.
+
+        Changes are local until you call :meth:`save`.
+
+        Args:
+            level: The log level to apply.
+            environment: When given, set the override for that environment
+                only. When ``None`` (the default), set the base level.
         """
         if environment is None:
             self.level = level
@@ -451,6 +497,12 @@ class AsyncSmplLogGroup:
         (the logger then inherits from its group / dot-notation ancestor /
         system default).  With ``environment="..."``, removes the per-environment
         override only.
+
+        Changes are local until you call :meth:`save`.
+
+        Args:
+            environment: When given, remove the override for that environment
+                only. When ``None`` (the default), remove the base level.
         """
         if environment is None:
             self.level = None
