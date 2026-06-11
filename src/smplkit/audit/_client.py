@@ -887,10 +887,10 @@ class AuditClient:
                 extra_headers=extra_headers,
             )
             self._owns_transport = True
-        # Lazy import breaks the cycle: smplkit.management.audit imports the
+        # Lazy import breaks the cycle: smplkit.audit._forwarders imports the
         # shared audit dataclasses from smplkit.audit.models, which is loaded
         # before this client module.
-        from smplkit.management.audit import ForwardersClient
+        from smplkit.audit._forwarders import ForwardersClient
 
         self.events = _EventsClient(auth_client=self._auth)
         self.resource_types = _ResourceTypesClient(auth_client=self._auth)
@@ -962,7 +962,7 @@ class AsyncAuditClient:
                 extra_headers=extra_headers,
             )
             self._owns_transport = True
-        from smplkit.management.audit import AsyncForwardersClient
+        from smplkit.audit._forwarders import AsyncForwardersClient
 
         self.events = _AsyncEventsClient(auth_client=self._auth)
         self.resource_types = _AsyncResourceTypesClient(auth_client=self._auth)

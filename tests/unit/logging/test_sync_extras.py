@@ -83,7 +83,7 @@ def _make_logging_client(**kwargs):
 def _new_mgmt_loggers():
     """Return a sync loggers sub-client bound to a mock http (for management-flavored tests)."""
     from smplkit.logging._client import _LoggersClient
-    from smplkit.management._buffer import _LoggerRegistrationBuffer
+    from smplkit._buffer import _LoggerRegistrationBuffer
     from unittest.mock import MagicMock as _MM
 
     return _LoggersClient(_MM(), base_url="http://logging:8003", buffer=_LoggerRegistrationBuffer())

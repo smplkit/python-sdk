@@ -77,7 +77,7 @@ from smplkit.config.helpers import (
     _resource_to_config,
 )
 from smplkit.config.models import AsyncConfig, Config
-from smplkit.management._buffer import _CONFIG_BATCH_FLUSH_SIZE, _ConfigRegistrationBuffer
+from smplkit._buffer import _CONFIG_BATCH_FLUSH_SIZE, _ConfigRegistrationBuffer
 from smplkit._ws import SharedWebSocket
 
 if TYPE_CHECKING:

@@ -28,7 +28,7 @@ from smplkit.config._client import (
     _pydantic_field_type,
     _value_to_item_type,
 )
-from smplkit.management._buffer import _ConfigRegistrationBuffer
+from smplkit._buffer import _ConfigRegistrationBuffer
 
 
 # ===========================================================================

@@ -902,7 +902,7 @@ def test_async_client_exposes_async_namespaces():
         _AsyncEventTypesClient,
         _AsyncResourceTypesClient,
     )
-    from smplkit.management.audit import AsyncForwardersClient
+    from smplkit.audit._forwarders import AsyncForwardersClient
 
     client = AsyncAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     try:

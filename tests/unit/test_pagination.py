@@ -164,7 +164,7 @@ class TestConfigRuntimePagination:
 
 class TestFlagsRuntimePagination:
     def _flags_client(self):
-        from smplkit.management._buffer import _ContextRegistrationBuffer
+        from smplkit._buffer import _ContextRegistrationBuffer
         from smplkit.flags._client import FlagsClient
         from smplkit.platform._client import _ContextsClient as ContextsClient
 
@@ -176,7 +176,7 @@ class TestFlagsRuntimePagination:
             return FlagsClient(parent=parent, transport=MagicMock(), contexts=contexts, metrics=parent._metrics)
 
     def _async_flags_client(self):
-        from smplkit.management._buffer import _ContextRegistrationBuffer
+        from smplkit._buffer import _ContextRegistrationBuffer
         from smplkit.flags._client import AsyncFlagsClient
         from smplkit.platform._client import AsyncContextsClient
 

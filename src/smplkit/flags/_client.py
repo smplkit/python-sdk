@@ -77,7 +77,7 @@ from smplkit.flags.models import (
     NumberFlag,
     StringFlag,
 )
-from smplkit.management._buffer import _FLAG_BATCH_FLUSH_SIZE, _FlagRegistrationBuffer
+from smplkit._buffer import _FLAG_BATCH_FLUSH_SIZE, _FlagRegistrationBuffer
 from smplkit._ws import SharedWebSocket
 
 if TYPE_CHECKING:
@@ -380,7 +380,7 @@ class FlagsClient:
             self._owns_transport = True
             self._standalone_api_key = api_key if api_key is not None else self._flags_http.token
             # Standalone: build our own contexts client (and own its app transport).
-            from smplkit.management._buffer import _ContextRegistrationBuffer
+            from smplkit._buffer import _ContextRegistrationBuffer
             from smplkit.platform._client import _ContextsClient
 
             self._app_http_standalone = app_http
@@ -1013,7 +1013,7 @@ class AsyncFlagsClient:
             )
             self._owns_transport = True
             self._standalone_api_key = api_key if api_key is not None else self._flags_http.token
-            from smplkit.management._buffer import _ContextRegistrationBuffer
+            from smplkit._buffer import _ContextRegistrationBuffer
             from smplkit.platform._client import AsyncContextsClient as _AsyncContextsClient
 
             self._app_http_standalone = app_http

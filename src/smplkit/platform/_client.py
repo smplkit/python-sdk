@@ -86,7 +86,7 @@ from smplkit._generated.app.models import (
     ServiceResource as _GenServiceResource,
 )
 from smplkit.flags.types import AsyncContext, Context
-from smplkit.management._buffer import _CONTEXT_BATCH_FLUSH_SIZE, _ContextRegistrationBuffer
+from smplkit._buffer import _CONTEXT_BATCH_FLUSH_SIZE, _ContextRegistrationBuffer
 from smplkit.platform.models import (
     AsyncContextType,
     AsyncEnvironment,

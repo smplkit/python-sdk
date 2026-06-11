@@ -310,13 +310,3 @@ class TestStandaloneConstructionAndClose:
                 assert isinstance(c, AsyncJobsClient)
 
         asyncio.run(_run())
-
-
-def test_management_jobs_back_compat_reexport():
-    """The old ``smplkit.management.jobs`` import path still resolves the
-    shared models (the customer jobs showcase imports HttpConfig from there)."""
-    from smplkit.management.jobs import AsyncJob as MJAsyncJob, HttpConfig as MJHttpConfig, Job as MJJob
-
-    assert MJHttpConfig is HttpConfig
-    assert MJJob is Job
-    assert MJAsyncJob is AsyncJob

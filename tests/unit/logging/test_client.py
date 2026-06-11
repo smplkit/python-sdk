@@ -10,7 +10,7 @@ import pytest
 
 from smplkit import LogLevel
 from smplkit._errors import NotFoundError, ValidationError
-from smplkit.management._buffer import _LoggerRegistrationBuffer
+from smplkit._buffer import _LoggerRegistrationBuffer
 from smplkit.logging._client import (
     LoggingClient,
     SmplLogGroup,

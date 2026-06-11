@@ -34,7 +34,7 @@ from smplkit.flags._client import (
     _hash_context,
     _maybe_reraise_network_error,
 )
-from smplkit.management._buffer import _FLAG_BATCH_FLUSH_SIZE as _FLAG_BULK_FLUSH_THRESHOLD
+from smplkit._buffer import _FLAG_BATCH_FLUSH_SIZE as _FLAG_BULK_FLUSH_THRESHOLD
 from smplkit.flags.helpers import (
     _build_flag_request_body as _build_request_body,
     _build_gen_flag,
@@ -60,7 +60,7 @@ from smplkit.flags.models import (
     StringFlag,
 )
 from smplkit.flags.types import Context
-from smplkit.management._buffer import (
+from smplkit._buffer import (
     _CONTEXT_REGISTRATION_LRU_SIZE,
     _ContextRegistrationBuffer,
     _FlagRegistrationBuffer,

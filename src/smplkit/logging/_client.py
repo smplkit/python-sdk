@@ -106,7 +106,7 @@ from smplkit.logging.models import (  # noqa: F401  (re-exported below)
 )
 from smplkit.logging._resolution import resolve_level
 from smplkit.logging._sources import LoggerSource
-from smplkit.management._buffer import _LOGGER_BATCH_FLUSH_SIZE, _LoggerRegistrationBuffer
+from smplkit._buffer import _LOGGER_BATCH_FLUSH_SIZE, _LoggerRegistrationBuffer
 from smplkit._ws import SharedWebSocket
 
 if TYPE_CHECKING:
