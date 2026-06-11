@@ -1044,6 +1044,20 @@ class TestBindSeedsCacheSync:
         assert client.config.get_value("pro", "max_seats") == 50
         assert client.config.get_value("pro", "tier") == "base"
 
+    def test_merge_pending_seeds_survives_cache_rebuild(self):
+        # A bound-but-unflushed config must survive a cache rebuild (e.g. a
+        # WebSocket event for another config) that omits it.
+        client = self._connected_client()
+        with patch.object(client.config, "register_config"):
+            with patch.object(client.config, "register_config_item"):
+                client.config.bind("billing", _Billing(max_seats=10))
+        rebuilt: dict = {}
+        client.config._merge_pending_seeds(rebuilt)  # true branch: re-seeds
+        assert rebuilt["billing"]["max_seats"] == 10
+        rebuilt = {"billing": {"max_seats": 999}}
+        client.config._merge_pending_seeds(rebuilt)  # false branch: left as-is
+        assert rebuilt["billing"]["max_seats"] == 999
+
 
 class TestBindSeedsCacheAsync:
     def test_subscribe_and_get_value_work_immediately_after_bind(self):
@@ -1070,6 +1084,23 @@ class TestBindSeedsCacheAsync:
                     await client.config.bind("pro", _Billing(max_seats=50), parent=base)
             assert await client.config.get_value("pro", "max_seats") == 50
             assert await client.config.get_value("pro", "tier") == "base"
+
+        asyncio.run(_run())
+
+    def test_merge_pending_seeds_survives_cache_rebuild(self):
+        async def _run():
+            client = _new_async_client()
+            client.config._connected = True
+            client.config._config_cache = {}
+            with patch.object(client.config, "register_config"):
+                with patch.object(client.config, "register_config_item"):
+                    await client.config.bind("billing", _Billing(max_seats=10))
+            rebuilt: dict = {}
+            client.config._merge_pending_seeds(rebuilt)  # true branch: re-seeds
+            assert rebuilt["billing"]["max_seats"] == 10
+            rebuilt = {"billing": {"max_seats": 999}}
+            client.config._merge_pending_seeds(rebuilt)  # false branch: left as-is
+            assert rebuilt["billing"]["max_seats"] == 999
 
         asyncio.run(_run())
 

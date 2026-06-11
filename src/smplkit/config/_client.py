@@ -1193,6 +1193,19 @@ class ConfigClient:
         self._ensure_connected()
         self._do_refresh("manual")
 
+    def _merge_pending_seeds(self, new_cache: dict[str, dict[str, Any]]) -> None:
+        """Re-apply in-memory seeds for bound configs not yet present server-side.
+
+        A freshly-bound config lives only as a seed until it is flushed and
+        fetched; without this, any cache rebuild (a manual refresh, or a
+        WebSocket event for another config) would drop it. Server-present
+        configs are already in ``new_cache`` and are authoritative — only
+        bound ids missing from it are re-seeded.
+        """
+        for bound_id in self._bindings:
+            if bound_id not in new_cache:
+                new_cache[bound_id] = self._resolve_bound_chain(bound_id)
+
     def _do_refresh(self, source: str) -> None:
         configs = self._fetch_all_configs()
         environment = self._environment
@@ -1200,6 +1213,7 @@ class ConfigClient:
         for cfg in configs:
             chain = cfg._build_chain(configs)
             new_cache[cfg.id] = resolve(chain, environment)
+        self._merge_pending_seeds(new_cache)
         with self._cache_lock:
             old_cache = self._config_cache
             self._config_cache = new_cache
@@ -1304,6 +1318,7 @@ class ConfigClient:
         for cfg_id, cfg in raw_cache.items():
             chain = cfg._build_chain(raw_list)
             new_cache[cfg_id] = resolve(chain, environment)
+        self._merge_pending_seeds(new_cache)
         with self._cache_lock:
             old_cache = self._config_cache
             self._config_cache = new_cache
@@ -1881,6 +1896,19 @@ class AsyncConfigClient:
         await self._ensure_connected()
         await self._do_refresh("manual")
 
+    def _merge_pending_seeds(self, new_cache: dict[str, dict[str, Any]]) -> None:
+        """Re-apply in-memory seeds for bound configs not yet present server-side.
+
+        A freshly-bound config lives only as a seed until it is flushed and
+        fetched; without this, any cache rebuild (a manual refresh, or a
+        WebSocket event for another config) would drop it. Server-present
+        configs are already in ``new_cache`` and are authoritative — only
+        bound ids missing from it are re-seeded.
+        """
+        for bound_id in self._bindings:
+            if bound_id not in new_cache:
+                new_cache[bound_id] = self._resolve_bound_chain(bound_id)
+
     async def _do_refresh(self, source: str) -> None:
         configs = await self._fetch_all_configs_async()
         environment = self._environment
@@ -1888,6 +1916,7 @@ class AsyncConfigClient:
         for cfg in configs:
             chain = await cfg._build_chain(configs)
             new_cache[cfg.id] = resolve(chain, environment)
+        self._merge_pending_seeds(new_cache)
         with self._cache_lock:
             old_cache = self._config_cache
             self._config_cache = new_cache
@@ -1989,6 +2018,7 @@ class AsyncConfigClient:
         for cfg_id, cfg in raw_cache.items():
             chain = _build_chain_sync(cfg, raw_cache)
             new_cache[cfg_id] = resolve(chain, environment)
+        self._merge_pending_seeds(new_cache)
         with self._cache_lock:
             old_cache = self._config_cache
             self._config_cache = new_cache
