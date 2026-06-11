@@ -221,7 +221,9 @@ def test_audit_client_borrowed_transport_not_closed() -> None:
     from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 
     auth = _AuditAuthClient(base_url="https://audit.example.com", token="sk_api_test")
-    auth.set_httpx_client(httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(204)), base_url="https://e.com"))
+    auth.set_httpx_client(
+        httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(204)), base_url="https://e.com")
+    )
     client = AuditClient(auth_client=auth)
     assert client._owns_transport is False
     client._close()  # closes the buffer only; must NOT close the borrowed transport

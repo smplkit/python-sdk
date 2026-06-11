@@ -96,5 +96,3 @@ class TestAsyncAccountSettingsSave:
             assert settings._data == {"environment_order": ["prod"]}
 
         asyncio.run(_run())
-
-

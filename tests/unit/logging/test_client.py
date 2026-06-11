@@ -984,9 +984,7 @@ class TestPayloadAssembly:
 
         smpl_explicit = python_level_to_smpl(explicit) if explicit is not None else None
         smpl_effective = python_level_to_smpl(effective)
-        client.loggers._buffer.add(
-            "test.payload.inherit_parent.child", smpl_explicit, smpl_effective, None, None
-        )
+        client.loggers._buffer.add("test.payload.inherit_parent.child", smpl_explicit, smpl_effective, None, None)
         client.loggers.flush()
 
         call_kwargs = mock_bulk.call_args

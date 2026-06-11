@@ -922,7 +922,9 @@ class TestGetValueSync:
         mock_cfg.id = "db"
         mock_cfg._items_raw = {"host": {"value": "localhost"}}
         mock_cfg.environments = {}
-        mock_cfg._build_chain.return_value = [{"id": "db", "items": {"host": {"value": "localhost"}}, "environments": {}}]
+        mock_cfg._build_chain.return_value = [
+            {"id": "db", "items": {"host": {"value": "localhost"}}, "environments": {}}
+        ]
         with patch.object(client.config, "_fetch_all_configs", return_value=[mock_cfg]):
             assert client.config.get_value("db", "host") == "localhost"
         assert client.config._connected is True

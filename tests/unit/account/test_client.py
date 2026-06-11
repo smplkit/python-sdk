@@ -151,5 +151,3 @@ class Test_AsyncSettingsClient:
                 assert result._data == {}
 
         asyncio.run(_run())
-
-

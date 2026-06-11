@@ -53,8 +53,10 @@ class TestStandaloneConstruction:
         assert client._logging_base_url == "http://logging.localhost"
         client.close()
 
-    def test_standalone_api_key_resolved_from_token(self):
-        # api_key omitted → falls back to the resolved transport token.
+    def test_standalone_api_key_resolved_from_token(self, monkeypatch):
+        # api_key omitted → resolved from the ambient config. Provide it via the
+        # env var so the test does not depend on a developer's ~/.smplkit.
+        monkeypatch.setenv("SMPLKIT_API_KEY", "sk_ambient")
         client = LoggingClient(base_url="http://logging.localhost", base_domain="example.test")
         assert client._standalone_api_key is not None
         client.close()
@@ -142,7 +144,8 @@ class TestStandaloneAsyncConstruction:
         assert client._logging_base_url == "http://logging.localhost"
         asyncio.run(client.aclose())
 
-    def test_standalone_api_key_resolved_from_token(self):
+    def test_standalone_api_key_resolved_from_token(self, monkeypatch):
+        monkeypatch.setenv("SMPLKIT_API_KEY", "sk_ambient")
         client = AsyncLoggingClient(base_url="http://logging.localhost", base_domain="example.test")
         assert client._standalone_api_key is not None
         asyncio.run(client.aclose())

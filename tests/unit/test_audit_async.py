@@ -101,7 +101,9 @@ def _handler(req: httpx.Request) -> httpx.Response:
     if path == "/api/v1/forwarders" and m == "POST":
         return httpx.Response(201, json={"data": _forwarder_resource()})
     if path == "/api/v1/forwarders" and m == "GET":
-        return httpx.Response(200, json={"data": [_forwarder_resource()], "meta": {"pagination": {"page": 1, "size": 1000}}})
+        return httpx.Response(
+            200, json={"data": [_forwarder_resource()], "meta": {"pagination": {"page": 1, "size": 1000}}}
+        )
     if path.startswith("/api/v1/forwarders/") and m == "GET":
         return httpx.Response(200, json={"data": _forwarder_resource()})
     if path.startswith("/api/v1/forwarders/") and m == "PUT":

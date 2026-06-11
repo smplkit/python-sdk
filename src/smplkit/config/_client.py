@@ -516,14 +516,12 @@ class LiveConfigProxy:
 
     def __setattr__(self, name: str, value: Any) -> None:
         raise AttributeError(
-            f"LiveConfigProxy is read-only; cannot set {name!r}. "
-            "Edit config values via client.config.get(id) + save()."
+            f"LiveConfigProxy is read-only; cannot set {name!r}. Edit config values via client.config.get(id) + save()."
         )
 
     def __setitem__(self, key: str, value: Any) -> None:
         raise TypeError(
-            f"LiveConfigProxy is read-only; cannot set {key!r}. "
-            "Edit config values via client.config.get(id) + save()."
+            f"LiveConfigProxy is read-only; cannot set {key!r}. Edit config values via client.config.get(id) + save()."
         )
 
     def __delattr__(self, name: str) -> None:

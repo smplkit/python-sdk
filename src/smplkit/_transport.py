@@ -22,9 +22,7 @@ from smplkit._generated.jobs.client import AuthenticatedClient as _JobsAuthClien
 from smplkit._generated.logging.client import AuthenticatedClient as _LoggingAuthClient
 
 
-def _to_transport_config(
-    cfg: ResolvedConfig, extra_headers: dict[str, str] | None = None
-) -> ResolvedManagementConfig:
+def _to_transport_config(cfg: ResolvedConfig, extra_headers: dict[str, str] | None = None) -> ResolvedManagementConfig:
     """Project the runtime :class:`ResolvedConfig` down to the transport subset.
 
     SmplClient's resolved config is a superset of what the transports need;

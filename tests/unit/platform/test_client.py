@@ -2050,7 +2050,9 @@ class TestThresholdFlushHandlesErrors:
 
         with patch("smplkit.logging._client.bulk_register_loggers.sync_detailed") as mock_bulk:
             mock_bulk.side_effect = RuntimeError("network down")
-            client = _AsyncLoggersClient(MagicMock(), base_url="http://logging:8003", buffer=_LoggerRegistrationBuffer())
+            client = _AsyncLoggersClient(
+                MagicMock(), base_url="http://logging:8003", buffer=_LoggerRegistrationBuffer()
+            )
             client.register(LoggerSource(name="l", resolved_level=LogLevel.INFO))
             with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
                 client._threshold_flush()
@@ -2071,7 +2073,6 @@ class TestPendingCountProperty:
         assert client.pending_count == 0
         client.register(Context("user", "u-1"))
         assert client.pending_count == 1
-
 
     def test_loggers_pending_count(self):
         from smplkit import LogLevel

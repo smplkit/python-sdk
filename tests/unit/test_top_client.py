@@ -94,9 +94,7 @@ class TestSmplClientConstruction:
 
     def test_transport_construction_has_no_side_effects(self):
         """Building the per-service transports must not start threads or HTTP."""
-        cfg = _to_transport_config(
-            resolve_management_config(api_key="sk_test", base_domain="example.test")
-        )
+        cfg = _to_transport_config(resolve_management_config(api_key="sk_test", base_domain="example.test"))
         before = {t.ident for t in threading.enumerate()}
         with patch("httpx.Client") as mock_sync_client, patch("httpx.AsyncClient") as mock_async_client:
             build_service_transports(cfg)
@@ -285,9 +283,7 @@ class TestStandaloneAccountClient:
             assert isinstance(account, AccountClient)
 
     def test_extra_headers_forwarded(self):
-        account = AccountClient(
-            api_key="sk_test", base_domain="example.test", extra_headers={"X-Trace": "1"}
-        )
+        account = AccountClient(api_key="sk_test", base_domain="example.test", extra_headers={"X-Trace": "1"})
         assert account.settings._headers["X-Trace"] == "1"
 
 

@@ -284,9 +284,7 @@ class TestStandaloneConstructionAndClose:
         async def _run():
             c = AsyncJobsClient(api_key="sk_test", base_domain="example.com")
             assert c._owns_transport is True
-            c._auth.set_async_httpx_client(
-                httpx.AsyncClient(transport=httpx.MockTransport(_handler), base_url=BASE)
-            )
+            c._auth.set_async_httpx_client(httpx.AsyncClient(transport=httpx.MockTransport(_handler), base_url=BASE))
             assert len(await c.list()) == 2
             await c.aclose()
             assert c._auth._async_client is None
