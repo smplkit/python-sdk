@@ -60,7 +60,6 @@ async def main() -> None:
         environment="production", service="showcase-billing"
     ) as client:
         await cleanup_runtime_showcase(client)
-        await client.config.install()
 
         # bind Pydantic models
         common = await client.config.bind("showcase-common", Common())
@@ -110,9 +109,6 @@ async def main() -> None:
         assert db["primary"]["host"] == "db.acme.example"
         assert db["pool_size"] == 10
 
-        await client.config.flush()
-        await client.config.refresh()
-
         # or read live values via subscribe(id)
         common_view = client.config.subscribe("showcase-common")
         print("showcase-common (via get):")
@@ -121,8 +117,8 @@ async def main() -> None:
         assert common_view["app.name"] == "Acme SaaS"
 
         # or skip the model/dict and just fetch specific keys directly
-        slow_query_ms = client.config.subscribe("showcase-database").get(
-            "slow_query_threshold_ms", 500
+        slow_query_ms = await client.config.get_value(
+            "showcase-database", "slow_query_threshold_ms", 500
         )
         print(
             f"showcase-database.slow_query_threshold_ms = {slow_query_ms}  "
