@@ -79,8 +79,9 @@ class HttpConfiguration:
             ``HttpMethod.POST``.
         url (str): Destination URL the audit service POSTs each event to.
         headers (list[HttpHeader]): Headers attached to every outbound
-            request. Values carry credentials and are encrypted at rest
-            server-side; reads return them redacted.
+            request. Values often carry credentials and are returned in
+            plaintext on reads, so a get-mutate-put round-trip preserves
+            them without re-entering secrets.
         success_status (str): Status the destination must return for
             delivery to count as success — exact code (``"200"``) or
             class (``"2xx"``). Defaults to ``"2xx"``.

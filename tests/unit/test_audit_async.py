@@ -70,7 +70,7 @@ def _forwarder_resource(*, id_: str = FWD_ID, version: int = 1) -> dict:
             "configuration": {
                 "method": "POST",
                 "url": "https://siem.example.com/in",
-                "headers": [{"name": "DD-API-KEY", "value": "<redacted>"}],
+                "headers": [{"name": "DD-API-KEY", "value": "dd-api-key-plaintext"}],
                 "success_status": "2xx",
             },
             "created_at": "2026-05-07T12:00:00+00:00",

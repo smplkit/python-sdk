@@ -264,9 +264,9 @@ class ForwardersClient:
                 (e.g. ``ForwarderType.HTTP``, ``ForwarderType.DATADOG``).
             configuration: Destination HTTP request configuration —
                 an :class:`HttpConfiguration` instance. Header values
-                carry credentials: supply them plaintext on writes; reads
-                return them redacted, so re-supply real values before
-                saving.
+                often carry credentials and are returned in plaintext on
+                reads, so a get-mutate-put round-trip preserves them
+                without re-entering secrets.
             environments: Per-environment overrides keyed by environment
                 key (e.g. ``"production"``). A forwarder delivers in an
                 environment only when that environment's entry has
@@ -363,7 +363,8 @@ class ForwardersClient:
 
         The returned instance is bound to this client, so
         ``forwarder.save()`` and ``forwarder.delete()`` work. Header values
-        come back redacted — re-supply real values before saving.
+        come back in plaintext, so mutating the returned forwarder and
+        calling ``save()`` preserves them without re-entering secrets.
 
         Args:
             forwarder_id: The forwarder's id (key).
@@ -407,9 +408,9 @@ class ForwardersClient:
         :meth:`Forwarder.save` on instances with ``created_at``; not intended
         for direct use.
 
-        Header values must be re-supplied as plaintext; the GET path redacts
-        them, so a PUT body containing ``"<redacted>"`` would persist that
-        literal. Track real header values client-side and round-trip them.
+        Header values come back in plaintext on the GET path, so a fetched
+        forwarder round-trips through this full-replace PUT with its header
+        values intact — no need to re-enter secrets.
         """
         if not forwarder.id:
             raise ValueError("cannot update a Forwarder with no id")
@@ -482,9 +483,9 @@ class AsyncForwardersClient:
                 (e.g. ``ForwarderType.HTTP``, ``ForwarderType.DATADOG``).
             configuration: Destination HTTP request configuration —
                 an :class:`HttpConfiguration` instance. Header values
-                carry credentials: supply them plaintext on writes; reads
-                return them redacted, so re-supply real values before
-                saving.
+                often carry credentials and are returned in plaintext on
+                reads, so a get-mutate-put round-trip preserves them
+                without re-entering secrets.
             environments: Per-environment overrides keyed by environment
                 key (e.g. ``"production"``). A forwarder delivers in an
                 environment only when that environment's entry has
@@ -578,8 +579,9 @@ class AsyncForwardersClient:
 
         The returned instance is bound to this client, so
         ``await forwarder.save()`` and ``await forwarder.delete()`` work.
-        Header values come back redacted — re-supply real values before
-        saving.
+        Header values come back in plaintext, so mutating the returned
+        forwarder and calling ``save()`` preserves them without re-entering
+        secrets.
 
         Args:
             forwarder_id: The forwarder's id (key).
