@@ -796,9 +796,15 @@ class TestAsyncBulkFlush:
         client.loggers._buffer.add("com.test", "INFO", "INFO", None, None)
         with caplog.at_level(stdlib_logging.WARNING, logger="smplkit"):
             asyncio.run(client._flush_bulk_async())
-        assert len(caplog.records) == 1
-        assert "400" in caplog.records[0].message
-        assert caplog.records[0].levelno == stdlib_logging.WARNING
+        # Filter to the bulk-flush warning specifically: a background shared-
+        # WebSocket reconnect thread (logger ``smplkit.ws``, a child of
+        # ``smplkit``) can emit its own WARNING into caplog during this window,
+        # which is unrelated to the behavior under test and would otherwise make
+        # a bare ``len(caplog.records) == 1`` flaky.
+        bulk_warnings = [r for r in caplog.records if "Bulk logger registration failed" in r.message]
+        assert len(bulk_warnings) == 1
+        assert "400" in bulk_warnings[0].message
+        assert bulk_warnings[0].levelno == stdlib_logging.WARNING
 
 
 # ---------------------------------------------------------------------------
