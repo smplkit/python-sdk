@@ -2,7 +2,7 @@
 
 The httpx.MockTransport pattern is reused here — none of these tests
 touch the network. Coverage target is 100% on every line in
-``smplkit.audit._forwarders``.
+``smplkit.audit.forwarders``.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from smplkit.audit import (
     HttpMethod,
     TransformType,
 )
-from smplkit.audit._client import AuditClient
+from smplkit.audit.clients import AuditClient
 
 
 JSONAPI = "application/vnd.api+json"
@@ -862,8 +862,8 @@ class TestForwardersCrud:
 
 def test_async_client_exposes_forwarders():
     """The async audit client exposes the genuinely-async forwarders surface."""
-    from smplkit.audit._client import AsyncAuditClient
-    from smplkit.audit._forwarders import AsyncForwardersClient
+    from smplkit.audit.clients import AsyncAuditClient
+    from smplkit.audit.forwarders import AsyncForwardersClient
 
     auth = _AuditAuthClient(base_url="https://audit.example.com", token="sk_api_test")
     c = AsyncAuditClient(auth_client=auth)

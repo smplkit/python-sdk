@@ -32,7 +32,7 @@ import threading
 from typing import Any, overload
 
 from smplkit._config import _service_url, resolve_client_config
-from smplkit._errors import (
+from smplkit.errors import (
     NotFoundError,
     ValidationError,
     _raise_for_status,
@@ -1575,24 +1575,3 @@ class AsyncPlatformClient:
 
     async def __aexit__(self, *args: object) -> None:
         await self.aclose()
-
-
-# The platform sub-clients are reached through ``client.platform.environments``
-# / ``.services`` / ``.contexts`` / ``.context_types``; present them as
-# ``smplkit.platform.<Name>`` in IDE hover / help() rather than the private
-# ``smplkit.platform._client`` path.
-EnvironmentsClient.__module__ = "smplkit.platform"
-AsyncEnvironmentsClient.__module__ = "smplkit.platform"
-ServicesClient.__module__ = "smplkit.platform"
-AsyncServicesClient.__module__ = "smplkit.platform"
-ContextsClient.__module__ = "smplkit.platform"
-AsyncContextsClient.__module__ = "smplkit.platform"
-ContextTypesClient.__module__ = "smplkit.platform"
-AsyncContextTypesClient.__module__ = "smplkit.platform"
-
-# ``PlatformClient`` / ``AsyncPlatformClient`` (``client.platform``) are
-# re-exported from the top-level ``smplkit`` package; present them as
-# ``smplkit.platform.<Name>`` in IDE hover / help() rather than the private
-# ``smplkit.platform._client`` path.
-PlatformClient.__module__ = "smplkit.platform"
-AsyncPlatformClient.__module__ = "smplkit.platform"

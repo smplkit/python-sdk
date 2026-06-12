@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 if TYPE_CHECKING:
-    from smplkit.audit._forwarders import ForwardersClient
+    from smplkit.audit.forwarders import ForwardersClient
 
 
 class ForwarderType(str, enum.Enum):

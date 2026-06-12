@@ -32,10 +32,3 @@ class LoggerSource:
     level: LogLevel | None = None
     service: str | None = None
     environment: str | None = None
-
-
-# ``LoggerSource`` is part of the public logging surface (re-exported from
-# ``smplkit`` and ``smplkit.logging``); present it as ``smplkit.logging.<Name>``
-# in IDE hover / help() rather than the private ``smplkit.logging._sources``
-# path.
-LoggerSource.__module__ = "smplkit.logging"

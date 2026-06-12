@@ -19,7 +19,7 @@ import pytest
 from smplkit import Error, NotFoundError
 from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 from smplkit.audit import AsyncForwarder, ForwarderType, HttpConfiguration
-from smplkit.audit._client import AsyncAuditClient
+from smplkit.audit.clients import AsyncAuditClient
 
 BASE = "https://audit.example.com"
 EVENT_ID = "11111111-2222-3333-4444-555555555555"

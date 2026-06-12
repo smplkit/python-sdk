@@ -26,7 +26,7 @@ from typing import Any
 import httpx
 
 from smplkit._config import _service_url, resolve_client_config
-from smplkit._errors import _raise_for_status
+from smplkit.errors import _raise_for_status
 from smplkit.account.models import AccountSettings, AsyncAccountSettings
 
 
@@ -251,14 +251,3 @@ class AsyncAccountClient:
 
     async def __aexit__(self, *args: object) -> None:
         await self.aclose()
-
-
-# ``AccountClient`` / ``AsyncAccountClient`` (``client.account``) are
-# re-exported from the top-level ``smplkit`` package, and the settings
-# sub-clients are reached through ``client.account.settings``; present them all
-# as ``smplkit.account.<Name>`` in IDE hover / help() rather than the private
-# ``smplkit.account._client`` path.
-AccountClient.__module__ = "smplkit.account"
-AsyncAccountClient.__module__ = "smplkit.account"
-SettingsClient.__module__ = "smplkit.account"
-AsyncSettingsClient.__module__ = "smplkit.account"

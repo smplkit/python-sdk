@@ -45,7 +45,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from smplkit._config import _service_url, resolve_client_config
 from smplkit._debug import debug
-from smplkit._errors import (
+from smplkit.errors import (
     ConflictError,
     ConnectionError,
     NotFoundError,
@@ -104,13 +104,13 @@ from smplkit.logging.models import (  # noqa: F401  (re-exported below)
     _environments_to_wire as _logger_environments_to_wire,
 )
 from smplkit.logging._resolution import resolve_level
-from smplkit.logging._sources import LoggerSource
+from smplkit.logging.sources import LoggerSource
 from smplkit._buffer import _LOGGER_BATCH_FLUSH_SIZE, _LoggerRegistrationBuffer
 from smplkit._ws import SharedWebSocket
 
 if TYPE_CHECKING:
     from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
-    from smplkit._client import AsyncSmplClient, SmplClient
+    from smplkit.clients import AsyncSmplClient, SmplClient
 
 logger = stdlib_logging.getLogger("smplkit")
 
@@ -2145,21 +2145,3 @@ class AsyncLoggingClient:
 
     async def __aexit__(self, *args: object) -> None:
         await self.aclose()
-
-
-# The loggers / log_groups sub-clients are reached through
-# ``client.logging.loggers`` / ``client.logging.log_groups``; present them as
-# ``smplkit.logging.<Name>`` in IDE hover / help() rather than the private
-# ``smplkit.logging._client`` path.
-LoggersClient.__module__ = "smplkit.logging"
-AsyncLoggersClient.__module__ = "smplkit.logging"
-LogGroupsClient.__module__ = "smplkit.logging"
-AsyncLogGroupsClient.__module__ = "smplkit.logging"
-
-# ``LoggingClient`` / ``AsyncLoggingClient`` are re-exported from the top-level
-# ``smplkit`` package, and ``LoggerChangeEvent`` is delivered by the live
-# surface; present them as ``smplkit.logging.<Name>`` in IDE hover / help()
-# rather than the private ``smplkit.logging._client`` path.
-LoggingClient.__module__ = "smplkit.logging"
-AsyncLoggingClient.__module__ = "smplkit.logging"
-LoggerChangeEvent.__module__ = "smplkit.logging"

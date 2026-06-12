@@ -22,7 +22,7 @@ from typing import Any, Optional
 from uuid import UUID
 
 from smplkit._config import _service_url, resolve_client_config
-from smplkit._errors import _raise_for_status
+from smplkit.errors import _raise_for_status
 from smplkit._generated.jobs.api.jobs import (
     create_job as _gen_create_job,
     delete_job as _gen_delete_job,
@@ -921,18 +921,3 @@ class AsyncJobsClient:
 
     async def __aexit__(self, *args: object) -> None:
         await self.aclose()
-
-
-# The jobs client (``smplkit.JobsClient`` / ``client.jobs``), the runs
-# sub-client (``client.jobs.runs``), and the shared dataclasses are all part of
-# the public jobs surface; present them as ``smplkit.jobs.<Name>`` in IDE hover
-# / help() rather than the private ``smplkit.jobs._client`` path.
-JobsClient.__module__ = "smplkit.jobs"
-AsyncJobsClient.__module__ = "smplkit.jobs"
-RunsClient.__module__ = "smplkit.jobs"
-AsyncRunsClient.__module__ = "smplkit.jobs"
-Job.__module__ = "smplkit.jobs"
-AsyncJob.__module__ = "smplkit.jobs"
-Run.__module__ = "smplkit.jobs"
-Usage.__module__ = "smplkit.jobs"
-HttpConfig.__module__ = "smplkit.jobs"

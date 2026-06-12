@@ -24,7 +24,7 @@ from smplkit._generated.audit.api.forwarders import (
     list_forwarders as _gen_list_forwarders,
     update_forwarder as _gen_update_forwarder,
 )
-from smplkit._errors import Error as _SmplError, _raise_for_status
+from smplkit.errors import Error as _SmplError, _raise_for_status
 from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 from smplkit._generated.audit.models.forwarder import Forwarder as _GenForwarder
 from smplkit._generated.audit.models.forwarder_create_request import (
@@ -656,12 +656,3 @@ __all__ = [
     "ForwarderType",
     "TransformType",
 ]
-
-
-# The forwarders sub-client is reached through ``client.audit.forwarders`` and
-# its list method returns a ``ForwarderListPage``; present them as
-# ``smplkit.audit.<Name>`` in IDE hover / help() rather than the private
-# ``smplkit.audit._forwarders`` path.
-ForwardersClient.__module__ = "smplkit.audit"
-AsyncForwardersClient.__module__ = "smplkit.audit"
-ForwarderListPage.__module__ = "smplkit.audit"

@@ -39,7 +39,7 @@ import httpx
 from pydantic import BaseModel
 
 from smplkit._config import _service_url, resolve_client_config
-from smplkit._errors import (
+from smplkit.errors import (
     ConflictError,
     ConnectionError,
     NotFoundError,
@@ -82,7 +82,7 @@ from smplkit._ws import SharedWebSocket
 
 if TYPE_CHECKING:
     from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
-    from smplkit._client import AsyncSmplClient, SmplClient
+    from smplkit.clients import AsyncSmplClient, SmplClient
 
 logger = logging.getLogger("smplkit")
 ws_logger = logging.getLogger("smplkit.config.ws")
@@ -2426,12 +2426,3 @@ def _maybe_reraise_network_error(exc: Exception, base_url: str | None = None) ->
         raise ConnectionError(msg) from exc
     if isinstance(exc, (NotFoundError, ConflictError, ValidationError)):
         raise exc
-
-
-# These classes are part of the public surface (``smplkit.ConfigClient`` and
-# the live-config helpers), so present them as ``smplkit.config.<Name>`` in
-# IDE hover / help() rather than the private ``smplkit.config._client`` path.
-ConfigClient.__module__ = "smplkit.config"
-AsyncConfigClient.__module__ = "smplkit.config"
-LiveConfigProxy.__module__ = "smplkit.config"
-ConfigChangeEvent.__module__ = "smplkit.config"

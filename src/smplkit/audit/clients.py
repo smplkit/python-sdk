@@ -57,7 +57,7 @@ from smplkit._generated.audit.api.events import (
 from smplkit._generated.audit.api.resource_types import (
     list_resource_types as _gen_list_resource_types,
 )
-from smplkit._errors import Error as _SmplError, _raise_for_status
+from smplkit.errors import Error as _SmplError, _raise_for_status
 from smplkit._generated.audit.client import AuthenticatedClient
 from smplkit._generated.audit.models.event import Event as _GenEvent
 from smplkit._generated.audit.models.event_data import EventData as _GenEventData
@@ -68,7 +68,7 @@ from smplkit.audit._buffer import AuditEventBuffer, _PendingEvent
 from smplkit.audit.models import Category, Event, EventType, ResourceType
 
 if TYPE_CHECKING:  # pragma: no cover
-    from smplkit.audit._forwarders import AsyncForwardersClient, ForwardersClient
+    from smplkit.audit.forwarders import AsyncForwardersClient, ForwardersClient
 
 logger = logging.getLogger("smplkit.audit")
 
@@ -1177,10 +1177,10 @@ class AuditClient:
                 extra_headers=extra_headers,
             )
             self._owns_transport = True
-        # Lazy import breaks the cycle: smplkit.audit._forwarders imports the
+        # Lazy import breaks the cycle: smplkit.audit.forwarders imports the
         # shared audit dataclasses from smplkit.audit.models, which is loaded
         # before this client module.
-        from smplkit.audit._forwarders import ForwardersClient
+        from smplkit.audit.forwarders import ForwardersClient
 
         self.events = EventsClient(auth_client=self._auth)
         self.resource_types = ResourceTypesClient(auth_client=self._auth)
@@ -1253,7 +1253,7 @@ class AsyncAuditClient:
                 extra_headers=extra_headers,
             )
             self._owns_transport = True
-        from smplkit.audit._forwarders import AsyncForwardersClient
+        from smplkit.audit.forwarders import AsyncForwardersClient
 
         self.events = AsyncEventsClient(auth_client=self._auth)
         self.resource_types = AsyncResourceTypesClient(auth_client=self._auth)
@@ -1280,28 +1280,3 @@ class AsyncAuditClient:
 
     async def __aexit__(self, *args: object) -> None:
         await self.aclose()
-
-
-# The events / resource_types / event_types / categories sub-clients are
-# reached through ``client.audit.<name>``; present them as
-# ``smplkit.audit.<Name>`` in IDE hover / help() rather than the private
-# ``smplkit.audit._client`` path.
-EventsClient.__module__ = "smplkit.audit"
-AsyncEventsClient.__module__ = "smplkit.audit"
-ResourceTypesClient.__module__ = "smplkit.audit"
-AsyncResourceTypesClient.__module__ = "smplkit.audit"
-EventTypesClient.__module__ = "smplkit.audit"
-AsyncEventTypesClient.__module__ = "smplkit.audit"
-CategoriesClient.__module__ = "smplkit.audit"
-AsyncCategoriesClient.__module__ = "smplkit.audit"
-
-# The audit client itself (``smplkit.AuditClient`` / ``client.audit``) and the
-# list-page wrappers returned by its read methods are part of the public audit
-# surface; present them as ``smplkit.audit.<Name>`` rather than the private
-# ``smplkit.audit._client`` path.
-AuditClient.__module__ = "smplkit.audit"
-AsyncAuditClient.__module__ = "smplkit.audit"
-EventListPage.__module__ = "smplkit.audit"
-ResourceTypeListPage.__module__ = "smplkit.audit"
-EventTypeListPage.__module__ = "smplkit.audit"
-CategoryListPage.__module__ = "smplkit.audit"

@@ -42,8 +42,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from smplkit._config import _service_url, resolve_client_config
-from smplkit._context import get_context as _get_request_context
-from smplkit._errors import (
+from smplkit.context import get_context as _get_request_context
+from smplkit.errors import (
     ConnectionError,
     NotFoundError,
     TimeoutError,
@@ -82,9 +82,9 @@ from smplkit._ws import SharedWebSocket
 
 if TYPE_CHECKING:
     from smplkit._metrics import _AsyncMetricsReporter, _MetricsReporter
-    from smplkit._client import AsyncSmplClient, SmplClient
+    from smplkit.clients import AsyncSmplClient, SmplClient
     from smplkit.flags.types import Context, FlagDeclaration
-    from smplkit.platform._client import (
+    from smplkit.platform.clients import (
         AsyncContextsClient,
         ContextsClient,
     )
@@ -373,7 +373,7 @@ class FlagsClient:
             self._standalone_api_key = api_key if api_key is not None else self._flags_http.token
             # Standalone: build our own contexts client (and own its app transport).
             from smplkit._buffer import _ContextRegistrationBuffer
-            from smplkit.platform._client import ContextsClient
+            from smplkit.platform.clients import ContextsClient
 
             self._app_http_standalone = app_http
             self._contexts = ContextsClient(app_http, _ContextRegistrationBuffer())
@@ -1166,7 +1166,7 @@ class AsyncFlagsClient:
             self._owns_transport = True
             self._standalone_api_key = api_key if api_key is not None else self._flags_http.token
             from smplkit._buffer import _ContextRegistrationBuffer
-            from smplkit.platform._client import AsyncContextsClient as _AsyncContextsClient
+            from smplkit.platform.clients import AsyncContextsClient as _AsyncContextsClient
 
             self._app_http_standalone = app_http
             self._contexts = _AsyncContextsClient(app_http, _ContextRegistrationBuffer())
@@ -1973,13 +1973,3 @@ def _evaluate_flag(flag_def: dict[str, Any], environment: str | None, eval_dict:
             continue
 
     return fallback
-
-
-# ``FlagsClient`` / ``AsyncFlagsClient`` are re-exported from the top-level
-# ``smplkit`` package, and ``FlagChangeEvent`` / ``FlagStats`` are returned by
-# the live surface; present them as ``smplkit.flags.<Name>`` in IDE hover /
-# help() rather than the private ``smplkit.flags._client`` path.
-FlagsClient.__module__ = "smplkit.flags"
-AsyncFlagsClient.__module__ = "smplkit.flags"
-FlagChangeEvent.__module__ = "smplkit.flags"
-FlagStats.__module__ = "smplkit.flags"
