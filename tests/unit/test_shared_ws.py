@@ -11,6 +11,18 @@ import websockets.frames
 from smplkit._ws import SharedWebSocket, _BACKOFF_SCHEDULE
 
 
+@pytest.fixture(autouse=True)
+def _no_real_websocket():
+    """Override the conftest no-op patch of ``SharedWebSocket.start``.
+
+    This module tests the genuine ``start`` / ``_connect`` / ``_reconnect``
+    machinery directly, mocking the network at the ``websockets.connect``
+    boundary per-test. It must keep the real ``SharedWebSocket.start``, so
+    this no-op override shadows the autouse fixture in ``tests/conftest.py``.
+    """
+    yield
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
