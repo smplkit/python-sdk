@@ -253,8 +253,12 @@ class AsyncAccountClient:
         await self.aclose()
 
 
-# The settings sub-clients are reached through ``client.account.settings``;
-# present them as ``smplkit.account.<Name>`` in IDE hover / help() rather
-# than the private ``smplkit.account._client`` path.
+# ``AccountClient`` / ``AsyncAccountClient`` (``client.account``) are
+# re-exported from the top-level ``smplkit`` package, and the settings
+# sub-clients are reached through ``client.account.settings``; present them all
+# as ``smplkit.account.<Name>`` in IDE hover / help() rather than the private
+# ``smplkit.account._client`` path.
+AccountClient.__module__ = "smplkit.account"
+AsyncAccountClient.__module__ = "smplkit.account"
 SettingsClient.__module__ = "smplkit.account"
 AsyncSettingsClient.__module__ = "smplkit.account"

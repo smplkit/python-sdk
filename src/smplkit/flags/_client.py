@@ -1973,3 +1973,13 @@ def _evaluate_flag(flag_def: dict[str, Any], environment: str | None, eval_dict:
             continue
 
     return fallback
+
+
+# ``FlagsClient`` / ``AsyncFlagsClient`` are re-exported from the top-level
+# ``smplkit`` package, and ``FlagChangeEvent`` / ``FlagStats`` are returned by
+# the live surface; present them as ``smplkit.flags.<Name>`` in IDE hover /
+# help() rather than the private ``smplkit.flags._client`` path.
+FlagsClient.__module__ = "smplkit.flags"
+AsyncFlagsClient.__module__ = "smplkit.flags"
+FlagChangeEvent.__module__ = "smplkit.flags"
+FlagStats.__module__ = "smplkit.flags"

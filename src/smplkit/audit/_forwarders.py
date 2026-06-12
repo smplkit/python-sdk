@@ -658,8 +658,10 @@ __all__ = [
 ]
 
 
-# The forwarders sub-client is reached through ``client.audit.forwarders``;
-# present it as ``smplkit.audit.<Name>`` in IDE hover / help() rather than the
-# private ``smplkit.audit._forwarders`` path.
+# The forwarders sub-client is reached through ``client.audit.forwarders`` and
+# its list method returns a ``ForwarderListPage``; present them as
+# ``smplkit.audit.<Name>`` in IDE hover / help() rather than the private
+# ``smplkit.audit._forwarders`` path.
 ForwardersClient.__module__ = "smplkit.audit"
 AsyncForwardersClient.__module__ = "smplkit.audit"
+ForwarderListPage.__module__ = "smplkit.audit"

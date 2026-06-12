@@ -1589,3 +1589,10 @@ ContextsClient.__module__ = "smplkit.platform"
 AsyncContextsClient.__module__ = "smplkit.platform"
 ContextTypesClient.__module__ = "smplkit.platform"
 AsyncContextTypesClient.__module__ = "smplkit.platform"
+
+# ``PlatformClient`` / ``AsyncPlatformClient`` (``client.platform``) are
+# re-exported from the top-level ``smplkit`` package; present them as
+# ``smplkit.platform.<Name>`` in IDE hover / help() rather than the private
+# ``smplkit.platform._client`` path.
+PlatformClient.__module__ = "smplkit.platform"
+AsyncPlatformClient.__module__ = "smplkit.platform"

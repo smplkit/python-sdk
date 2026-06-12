@@ -173,3 +173,17 @@ def _raise_for_status(status_code: int, content: bytes) -> None:
         exc_cls = Error
 
     raise exc_cls(message, errors=errors, status_code=status_code)
+
+
+# The exception hierarchy and ``ApiErrorDetail`` are top-level public symbols
+# (``smplkit.NotFoundError`` etc.); present them as ``smplkit.<Name>`` in IDE
+# hover / help() rather than the private ``smplkit._errors`` path.
+ApiErrorDetail.__module__ = "smplkit"
+Error.__module__ = "smplkit"
+ConnectionError.__module__ = "smplkit"
+TimeoutError.__module__ = "smplkit"
+NotFoundError.__module__ = "smplkit"
+ConflictError.__module__ = "smplkit"
+ValidationError.__module__ = "smplkit"
+PaymentRequiredError.__module__ = "smplkit"
+NotInstalledError.__module__ = "smplkit"

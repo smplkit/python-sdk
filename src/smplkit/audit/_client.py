@@ -1294,3 +1294,14 @@ EventTypesClient.__module__ = "smplkit.audit"
 AsyncEventTypesClient.__module__ = "smplkit.audit"
 CategoriesClient.__module__ = "smplkit.audit"
 AsyncCategoriesClient.__module__ = "smplkit.audit"
+
+# The audit client itself (``smplkit.AuditClient`` / ``client.audit``) and the
+# list-page wrappers returned by its read methods are part of the public audit
+# surface; present them as ``smplkit.audit.<Name>`` rather than the private
+# ``smplkit.audit._client`` path.
+AuditClient.__module__ = "smplkit.audit"
+AsyncAuditClient.__module__ = "smplkit.audit"
+EventListPage.__module__ = "smplkit.audit"
+ResourceTypeListPage.__module__ = "smplkit.audit"
+EventTypeListPage.__module__ = "smplkit.audit"
+CategoryListPage.__module__ = "smplkit.audit"

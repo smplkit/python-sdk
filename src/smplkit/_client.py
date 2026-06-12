@@ -738,3 +738,10 @@ class AsyncSmplClient:
 
 # Use the existing debug function from _debug module.
 _debug = debug
+
+
+# ``SmplClient`` / ``AsyncSmplClient`` are the top-level entry point of the
+# SDK; present them as ``smplkit.<Name>`` in IDE hover / help() rather than the
+# private ``smplkit._client`` path.
+SmplClient.__module__ = "smplkit"
+AsyncSmplClient.__module__ = "smplkit"

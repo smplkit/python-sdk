@@ -2155,3 +2155,11 @@ LoggersClient.__module__ = "smplkit.logging"
 AsyncLoggersClient.__module__ = "smplkit.logging"
 LogGroupsClient.__module__ = "smplkit.logging"
 AsyncLogGroupsClient.__module__ = "smplkit.logging"
+
+# ``LoggingClient`` / ``AsyncLoggingClient`` are re-exported from the top-level
+# ``smplkit`` package, and ``LoggerChangeEvent`` is delivered by the live
+# surface; present them as ``smplkit.logging.<Name>`` in IDE hover / help()
+# rather than the private ``smplkit.logging._client`` path.
+LoggingClient.__module__ = "smplkit.logging"
+AsyncLoggingClient.__module__ = "smplkit.logging"
+LoggerChangeEvent.__module__ = "smplkit.logging"

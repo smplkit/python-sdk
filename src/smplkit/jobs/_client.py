@@ -923,8 +923,16 @@ class AsyncJobsClient:
         await self.aclose()
 
 
-# The runs sub-client is reached through ``client.jobs.runs``; present it as
-# ``smplkit.jobs.<Name>`` in IDE hover / help() rather than the private
-# ``smplkit.jobs._client`` path.
+# The jobs client (``smplkit.JobsClient`` / ``client.jobs``), the runs
+# sub-client (``client.jobs.runs``), and the shared dataclasses are all part of
+# the public jobs surface; present them as ``smplkit.jobs.<Name>`` in IDE hover
+# / help() rather than the private ``smplkit.jobs._client`` path.
+JobsClient.__module__ = "smplkit.jobs"
+AsyncJobsClient.__module__ = "smplkit.jobs"
 RunsClient.__module__ = "smplkit.jobs"
 AsyncRunsClient.__module__ = "smplkit.jobs"
+Job.__module__ = "smplkit.jobs"
+AsyncJob.__module__ = "smplkit.jobs"
+Run.__module__ = "smplkit.jobs"
+Usage.__module__ = "smplkit.jobs"
+HttpConfig.__module__ = "smplkit.jobs"
