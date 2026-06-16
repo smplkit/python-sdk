@@ -88,7 +88,9 @@ def sync_detailed(
 
     Args:
         filterjob (None | str | Unset):
-        pagesize (int | None | Unset):
+        pagesize (int | None | Unset): Number of runs per page. Optional; defaults to `50` when
+            omitted. Must be between `1` and `1000` inclusive — requests outside that range are
+            rejected with a 400 error.
         pageafter (None | str | Unset):
 
     Raises:
@@ -127,7 +129,9 @@ def sync(
 
     Args:
         filterjob (None | str | Unset):
-        pagesize (int | None | Unset):
+        pagesize (int | None | Unset): Number of runs per page. Optional; defaults to `50` when
+            omitted. Must be between `1` and `1000` inclusive — requests outside that range are
+            rejected with a 400 error.
         pageafter (None | str | Unset):
 
     Raises:
@@ -161,7 +165,9 @@ async def asyncio_detailed(
 
     Args:
         filterjob (None | str | Unset):
-        pagesize (int | None | Unset):
+        pagesize (int | None | Unset): Number of runs per page. Optional; defaults to `50` when
+            omitted. Must be between `1` and `1000` inclusive — requests outside that range are
+            rejected with a 400 error.
         pageafter (None | str | Unset):
 
     Raises:
@@ -198,7 +204,9 @@ async def asyncio(
 
     Args:
         filterjob (None | str | Unset):
-        pagesize (int | None | Unset):
+        pagesize (int | None | Unset): Number of runs per page. Optional; defaults to `50` when
+            omitted. Must be between `1` and `1000` inclusive — requests outside that range are
+            rejected with a 400 error.
         pageafter (None | str | Unset):
 
     Raises:
