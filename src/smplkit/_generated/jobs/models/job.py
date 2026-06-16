@@ -44,6 +44,8 @@ class Job:
                 permits them. Default: 'ALLOW'.
             next_run_at (datetime.datetime | None | Unset): The next scheduled fire time. `null` once a one-off job has
                 fired.
+            recurring (bool | Unset): Whether the job runs on a repeating schedule. `true` for a cron schedule; `false` for
+                a one-off datetime or `now` schedule, which runs a single time. Derived from `schedule`. Default: False.
             created_at (datetime.datetime | None | Unset): When the job was created.
             updated_at (datetime.datetime | None | Unset): When the job was last modified.
             deleted_at (datetime.datetime | None | Unset): When the job was deleted. `null` for active jobs.
@@ -58,6 +60,7 @@ class Job:
     type_: Literal["http"] | Unset = "http"
     concurrency_policy: Literal["ALLOW"] | Unset = "ALLOW"
     next_run_at: datetime.datetime | None | Unset = UNSET
+    recurring: bool | Unset = False
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     deleted_at: datetime.datetime | None | Unset = UNSET
@@ -90,6 +93,8 @@ class Job:
             next_run_at = self.next_run_at.isoformat()
         else:
             next_run_at = self.next_run_at
+
+        recurring = self.recurring
 
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
@@ -140,6 +145,8 @@ class Job:
             field_dict["concurrency_policy"] = concurrency_policy
         if next_run_at is not UNSET:
             field_dict["next_run_at"] = next_run_at
+        if recurring is not UNSET:
+            field_dict["recurring"] = recurring
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
         if updated_at is not UNSET:
@@ -197,6 +204,8 @@ class Job:
             return cast(datetime.datetime | None | Unset, data)
 
         next_run_at = _parse_next_run_at(d.pop("next_run_at", UNSET))
+
+        recurring = d.pop("recurring", UNSET)
 
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -267,6 +276,7 @@ class Job:
             type_=type_,
             concurrency_policy=concurrency_policy,
             next_run_at=next_run_at,
+            recurring=recurring,
             created_at=created_at,
             updated_at=updated_at,
             deleted_at=deleted_at,
