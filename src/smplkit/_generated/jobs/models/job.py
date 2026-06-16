@@ -44,8 +44,8 @@ class Job:
                 permits them. Default: 'ALLOW'.
             next_run_at (datetime.datetime | None | Unset): The next scheduled fire time. `null` once a one-off job has
                 fired.
-            recurring (bool | Unset): Whether the job runs on a repeating schedule. `true` for a cron schedule; `false` for
-                a one-off datetime or `now` schedule, which runs a single time. Derived from `schedule`. Default: False.
+            recurring (bool | None | Unset): Whether the job runs on a repeating schedule. `true` for a cron schedule;
+                `false` for a one-off datetime or `now` schedule, which runs a single time. Derived from `schedule`.
             created_at (datetime.datetime | None | Unset): When the job was created.
             updated_at (datetime.datetime | None | Unset): When the job was last modified.
             deleted_at (datetime.datetime | None | Unset): When the job was deleted. `null` for active jobs.
@@ -60,7 +60,7 @@ class Job:
     type_: Literal["http"] | Unset = "http"
     concurrency_policy: Literal["ALLOW"] | Unset = "ALLOW"
     next_run_at: datetime.datetime | None | Unset = UNSET
-    recurring: bool | Unset = False
+    recurring: bool | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     deleted_at: datetime.datetime | None | Unset = UNSET
@@ -94,7 +94,11 @@ class Job:
         else:
             next_run_at = self.next_run_at
 
-        recurring = self.recurring
+        recurring: bool | None | Unset
+        if isinstance(self.recurring, Unset):
+            recurring = UNSET
+        else:
+            recurring = self.recurring
 
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
@@ -205,7 +209,14 @@ class Job:
 
         next_run_at = _parse_next_run_at(d.pop("next_run_at", UNSET))
 
-        recurring = d.pop("recurring", UNSET)
+        def _parse_recurring(data: object) -> bool | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(bool | None | Unset, data)
+
+        recurring = _parse_recurring(d.pop("recurring", UNSET))
 
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
