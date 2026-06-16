@@ -14,6 +14,7 @@ from ...types import Unset
 def _get_kwargs(
     *,
     filterenabled: bool | None | Unset = UNSET,
+    filterrecurring: bool | None | Unset = UNSET,
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
@@ -27,6 +28,13 @@ def _get_kwargs(
     else:
         json_filterenabled = filterenabled
     params["filter[enabled]"] = json_filterenabled
+
+    json_filterrecurring: bool | None | Unset
+    if isinstance(filterrecurring, Unset):
+        json_filterrecurring = UNSET
+    else:
+        json_filterrecurring = filterrecurring
+    params["filter[recurring]"] = json_filterrecurring
 
     params["page[number]"] = pagenumber
 
@@ -70,6 +78,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     filterenabled: bool | None | Unset = UNSET,
+    filterrecurring: bool | None | Unset = UNSET,
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
@@ -80,6 +89,7 @@ def sync_detailed(
 
     Args:
         filterenabled (bool | None | Unset):
+        filterrecurring (bool | None | Unset):
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
             Default: 1.
@@ -101,6 +111,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         filterenabled=filterenabled,
+        filterrecurring=filterrecurring,
         pagenumber=pagenumber,
         pagesize=pagesize,
         metatotal=metatotal,
@@ -117,6 +128,7 @@ def sync(
     *,
     client: AuthenticatedClient,
     filterenabled: bool | None | Unset = UNSET,
+    filterrecurring: bool | None | Unset = UNSET,
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
@@ -127,6 +139,7 @@ def sync(
 
     Args:
         filterenabled (bool | None | Unset):
+        filterrecurring (bool | None | Unset):
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
             Default: 1.
@@ -149,6 +162,7 @@ def sync(
     return sync_detailed(
         client=client,
         filterenabled=filterenabled,
+        filterrecurring=filterrecurring,
         pagenumber=pagenumber,
         pagesize=pagesize,
         metatotal=metatotal,
@@ -159,6 +173,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     filterenabled: bool | None | Unset = UNSET,
+    filterrecurring: bool | None | Unset = UNSET,
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
@@ -169,6 +184,7 @@ async def asyncio_detailed(
 
     Args:
         filterenabled (bool | None | Unset):
+        filterrecurring (bool | None | Unset):
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
             Default: 1.
@@ -190,6 +206,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         filterenabled=filterenabled,
+        filterrecurring=filterrecurring,
         pagenumber=pagenumber,
         pagesize=pagesize,
         metatotal=metatotal,
@@ -204,6 +221,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     filterenabled: bool | None | Unset = UNSET,
+    filterrecurring: bool | None | Unset = UNSET,
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
@@ -214,6 +232,7 @@ async def asyncio(
 
     Args:
         filterenabled (bool | None | Unset):
+        filterrecurring (bool | None | Unset):
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
             Default: 1.
@@ -237,6 +256,7 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             filterenabled=filterenabled,
+            filterrecurring=filterrecurring,
             pagenumber=pagenumber,
             pagesize=pagesize,
             metatotal=metatotal,
