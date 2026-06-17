@@ -241,10 +241,13 @@ def _normalize_environments(
         if isinstance(value, JobEnvironment):
             out[env_key] = value
         else:
-            out[env_key] = JobEnvironment(
-                enabled=bool(value.get("enabled", False)),
-                configuration=value.get("configuration"),
-            )
+            # A dict-form override may carry its configuration as an HttpConfig
+            # or a plain dict — coerce a dict so it serializes on save (matches
+            # the server-parse path in JobEnvironment._from_dict).
+            cfg = value.get("configuration")
+            if cfg is not None and not isinstance(cfg, HttpConfig):
+                cfg = HttpConfig.from_dict(cfg)
+            out[env_key] = JobEnvironment(enabled=bool(value.get("enabled", False)), configuration=cfg)
     return out
 
 
@@ -779,8 +782,9 @@ class JobsClient:
             configuration: The HTTP request the job sends each time it fires.
             description: Free-text description for the job. Defaults to none.
             environments: Per-environment overrides for a recurring job, keyed
-                by environment key — each a :class:`JobEnvironment` (or a plain
-                dict ``{"enabled": bool, "configuration": ...}``). A recurring
+                by environment key — each a :class:`JobEnvironment`, or a plain
+                dict ``{"enabled": bool}`` optionally with a ``"configuration"``
+                override (an :class:`HttpConfig` or its dict form). A recurring
                 job fires only in environments enabled here. Ignored for a
                 one-off job, which is born in ``environment`` (below).
             concurrency_policy: How overlapping runs are handled. ``"ALLOW"``
@@ -984,8 +988,9 @@ class AsyncJobsClient:
             configuration: The HTTP request the job sends each time it fires.
             description: Free-text description for the job. Defaults to none.
             environments: Per-environment overrides for a recurring job, keyed
-                by environment key — each a :class:`JobEnvironment` (or a plain
-                dict ``{"enabled": bool, "configuration": ...}``). A recurring
+                by environment key — each a :class:`JobEnvironment`, or a plain
+                dict ``{"enabled": bool}`` optionally with a ``"configuration"``
+                override (an :class:`HttpConfig` or its dict form). A recurring
                 job fires only in environments enabled here. Ignored for a
                 one-off job, which is born in ``environment`` (below).
             concurrency_policy: How overlapping runs are handled. ``"ALLOW"``

@@ -379,12 +379,36 @@ class TestEnvironmentModelsAndHelpers:
         assert _normalize_environments({}) == {}
         out = _normalize_environments(
             {
-                "production": JobEnvironment(enabled=True),
-                "staging": {"enabled": True, "configuration": _CFG},
+                "production": JobEnvironment(enabled=True),  # passthrough instance
+                "staging": {"enabled": True, "configuration": _CFG},  # dict w/ HttpConfig instance
+                "dev": {"enabled": False, "configuration": {"url": "https://dev.example.com"}},  # dict w/ dict cfg
+                "qa": {"enabled": True},  # dict, no configuration
             }
         )
-        assert out["production"].enabled is True  # passthrough JobEnvironment
-        assert out["staging"].enabled is True and out["staging"].configuration is _CFG  # dict coerced
+        assert out["production"].enabled is True
+        assert out["staging"].configuration is _CFG  # instance passed through unchanged
+        # a dict-form configuration is coerced to HttpConfig so it serializes on save
+        assert isinstance(out["dev"].configuration, HttpConfig)
+        assert out["dev"].configuration.url == "https://dev.example.com"
+        assert out["qa"].configuration is None
+
+    def test_create_sends_dict_form_environment_configuration(self):
+        # The documented plain-dict form (incl. a dict configuration override)
+        # must round-trip through new().save() without crashing.
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        job = c.new(
+            "my-job",
+            name="My Job",
+            schedule="0 * * * *",
+            configuration=_CFG,
+            environments={"staging": {"enabled": True, "configuration": {"url": "https://staging.example.com/x"}}},
+        )
+        job.save()
+        post = next(x for x in caps if x["method"] == "POST" and x["path"] == "/api/v1/jobs")
+        staging = post["body"]["data"]["attributes"]["environments"]["staging"]
+        assert staging["enabled"] is True
+        assert staging["configuration"]["url"] == "https://staging.example.com/x"
 
     def test_set_enabled_and_set_configuration(self):
         job = Job(None, id="x", name="X", schedule="0 * * * *", configuration=_CFG)

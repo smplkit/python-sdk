@@ -21,7 +21,7 @@ Usage::
 import asyncio
 import uuid
 
-from smplkit import AsyncJobsClient, NotFoundError
+from smplkit import AsyncJobsClient, ConflictError, NotFoundError
 from smplkit.jobs import HttpConfig, JobEnvironment
 
 
@@ -46,7 +46,7 @@ async def main() -> None:
                 schedule="0 2 * * *",  # 5-field cron, UTC -> recurring
                 configuration=HttpConfig(
                     method="POST",
-                    url="https://api.example.com/cache/warm",
+                    url="https://httpbin.org/post",  # a real endpoint, so triggered runs succeed
                     headers=[("Authorization", "Bearer s3cr3t")],
                     body='{"scope": "all"}',
                     timeout=30,
@@ -101,19 +101,25 @@ async def main() -> None:
             assert got.environment == "production"
             print(f"Listed {len(runs)} production run(s); fetched run {got.id} (env={got.environment})")
 
-            # re-run from a prior run (inherits its environment), then cancel it
+            # re-run from a prior run (inherits its environment)
             rerun = await jobs.runs.rerun(run.id)
             assert rerun.trigger == "RERUN" and rerun.environment == run.environment
-            canceled = await jobs.runs.cancel(rerun.id)
-            assert canceled.status == "CANCELED"
-            print(f"Re-ran ({rerun.id}, env={rerun.environment}) then canceled it -> {canceled.status}")
+            print(f"Re-ran {run.id} -> {rerun.id} (env={rerun.environment})")
+
+            # cancel is best-effort ("stop tracking"): a run the worker has
+            # already finished can no longer be canceled.
+            try:
+                canceled = await jobs.runs.cancel(rerun.id)
+                print(f"Canceled run {canceled.id} -> {canceled.status}")
+            except ConflictError:
+                print(f"Run {rerun.id} already finished before it could be canceled")
 
             # create a one-off job born in development (single-shot; no environments map)
             oneoff = jobs.new(
                 oneoff_id,
                 name="One-shot reindex",
                 schedule="now",  # one-off -> born in the named environment
-                configuration=HttpConfig(method="POST", url="https://api.example.com/reindex"),
+                configuration=HttpConfig(method="POST", url="https://httpbin.org/post"),
                 environment="development",
             )
             await oneoff.save()
