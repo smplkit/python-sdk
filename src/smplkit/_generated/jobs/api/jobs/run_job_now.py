@@ -55,9 +55,13 @@ def sync_detailed(
 
      Trigger one immediate run of the job (a `MANUAL` run).
 
-    The job's schedule and enabled state are untouched. The run is enqueued and
-    executed by the worker; if the account is over its run allotment the run
-    will fail with reason `QUOTA_EXCEEDED` rather than being rejected here.
+    The job's schedule and enabled state are untouched. The run executes in the
+    environment named by the `X-Smplkit-Environment` header; when the job is
+    enabled in exactly one environment that environment is used, and a
+    single-environment credential implies it. The run executes the job's
+    effective configuration for that environment. It is enqueued and executed
+    by the worker; if the account is over its run allotment the run will fail
+    with reason `QUOTA_EXCEEDED` rather than being rejected here.
 
     Args:
         job_id (str):
@@ -90,9 +94,13 @@ def sync(
 
      Trigger one immediate run of the job (a `MANUAL` run).
 
-    The job's schedule and enabled state are untouched. The run is enqueued and
-    executed by the worker; if the account is over its run allotment the run
-    will fail with reason `QUOTA_EXCEEDED` rather than being rejected here.
+    The job's schedule and enabled state are untouched. The run executes in the
+    environment named by the `X-Smplkit-Environment` header; when the job is
+    enabled in exactly one environment that environment is used, and a
+    single-environment credential implies it. The run executes the job's
+    effective configuration for that environment. It is enqueued and executed
+    by the worker; if the account is over its run allotment the run will fail
+    with reason `QUOTA_EXCEEDED` rather than being rejected here.
 
     Args:
         job_id (str):
@@ -120,9 +128,13 @@ async def asyncio_detailed(
 
      Trigger one immediate run of the job (a `MANUAL` run).
 
-    The job's schedule and enabled state are untouched. The run is enqueued and
-    executed by the worker; if the account is over its run allotment the run
-    will fail with reason `QUOTA_EXCEEDED` rather than being rejected here.
+    The job's schedule and enabled state are untouched. The run executes in the
+    environment named by the `X-Smplkit-Environment` header; when the job is
+    enabled in exactly one environment that environment is used, and a
+    single-environment credential implies it. The run executes the job's
+    effective configuration for that environment. It is enqueued and executed
+    by the worker; if the account is over its run allotment the run will fail
+    with reason `QUOTA_EXCEEDED` rather than being rejected here.
 
     Args:
         job_id (str):
@@ -153,9 +165,13 @@ async def asyncio(
 
      Trigger one immediate run of the job (a `MANUAL` run).
 
-    The job's schedule and enabled state are untouched. The run is enqueued and
-    executed by the worker; if the account is over its run allotment the run
-    will fail with reason `QUOTA_EXCEEDED` rather than being rejected here.
+    The job's schedule and enabled state are untouched. The run executes in the
+    environment named by the `X-Smplkit-Environment` header; when the job is
+    enabled in exactly one environment that environment is used, and a
+    single-environment credential implies it. The run executes the job's
+    effective configuration for that environment. It is enqueued and executed
+    by the worker; if the account is over its run allotment the run will fail
+    with reason `QUOTA_EXCEEDED` rather than being rejected here.
 
     Args:
         job_id (str):

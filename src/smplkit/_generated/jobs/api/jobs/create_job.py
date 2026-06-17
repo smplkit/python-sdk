@@ -60,9 +60,12 @@ def sync_detailed(
 
      Create a job for this account.
 
-    The caller supplies the job's id as `data.id`. Ids are unique
-    within an account and immutable. An enabled job begins scheduling
-    immediately.
+    The caller supplies the job's id as `data.id`. Ids are unique within an
+    account and immutable. A recurring job supplies `environments` to choose
+    where it runs and begins scheduling immediately in each enabled
+    environment. A one-off job is created in the environment named by the
+    `X-Smplkit-Environment` header (implied when the credential is scoped to a
+    single environment).
 
     Args:
         body (JobCreateRequest): JSON:API request envelope for creating a job (caller-supplied
@@ -96,9 +99,12 @@ def sync(
 
      Create a job for this account.
 
-    The caller supplies the job's id as `data.id`. Ids are unique
-    within an account and immutable. An enabled job begins scheduling
-    immediately.
+    The caller supplies the job's id as `data.id`. Ids are unique within an
+    account and immutable. A recurring job supplies `environments` to choose
+    where it runs and begins scheduling immediately in each enabled
+    environment. A one-off job is created in the environment named by the
+    `X-Smplkit-Environment` header (implied when the credential is scoped to a
+    single environment).
 
     Args:
         body (JobCreateRequest): JSON:API request envelope for creating a job (caller-supplied
@@ -127,9 +133,12 @@ async def asyncio_detailed(
 
      Create a job for this account.
 
-    The caller supplies the job's id as `data.id`. Ids are unique
-    within an account and immutable. An enabled job begins scheduling
-    immediately.
+    The caller supplies the job's id as `data.id`. Ids are unique within an
+    account and immutable. A recurring job supplies `environments` to choose
+    where it runs and begins scheduling immediately in each enabled
+    environment. A one-off job is created in the environment named by the
+    `X-Smplkit-Environment` header (implied when the credential is scoped to a
+    single environment).
 
     Args:
         body (JobCreateRequest): JSON:API request envelope for creating a job (caller-supplied
@@ -161,9 +170,12 @@ async def asyncio(
 
      Create a job for this account.
 
-    The caller supplies the job's id as `data.id`. Ids are unique
-    within an account and immutable. An enabled job begins scheduling
-    immediately.
+    The caller supplies the job's id as `data.id`. Ids are unique within an
+    account and immutable. A recurring job supplies `environments` to choose
+    where it runs and begins scheduling immediately in each enabled
+    environment. A one-off job is created in the environment named by the
+    `X-Smplkit-Environment` header (implied when the credential is scoped to a
+    single environment).
 
     Args:
         body (JobCreateRequest): JSON:API request envelope for creating a job (caller-supplied
