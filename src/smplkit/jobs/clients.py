@@ -50,6 +50,7 @@ __all__ = [
     "Job",
     "AsyncJob",
     "Run",
+    "AsyncRun",
     "Usage",
     "RunsClient",
     "AsyncRunsClient",
@@ -338,12 +339,49 @@ class _JobBase:
         """Enable or disable the job in a single environment."""
         self._environment_override(environment).enabled = enabled
 
+    def is_enabled(self, environment: Optional[str] = None) -> bool:
+        """Whether the job is enabled.
+
+        With ``environment=None`` (the default), returns the roll-up — ``True``
+        when the job is enabled in at least one environment. With an
+        ``environment``, returns whether the job is enabled in that specific
+        environment.
+        """
+        if environment is None:
+            return self.enabled
+        override = self.environments.get(environment)
+        return bool(override and override.enabled)
+
     def set_configuration(self, configuration: HttpConfig, environment: Optional[str] = None) -> None:
         """Set the job's configuration — base (``environment=None``) or per-environment."""
         if environment is None:
             self.configuration = configuration
         else:
             self._environment_override(environment).configuration = configuration
+
+    def get_configuration(self, environment: Optional[str] = None) -> HttpConfig:
+        """The job's effective configuration.
+
+        With ``environment=None`` (the default), returns the base
+        configuration. With an ``environment``, returns that environment's
+        configuration override when it has one, else the base configuration —
+        the request the job actually sends when it fires in that environment.
+        """
+        if environment is not None:
+            override = self.environments.get(environment)
+            if override is not None and override.configuration is not None:
+                return override.configuration
+        return self.configuration
+
+    def set_schedule(self, schedule: str) -> None:
+        """Set the job's schedule.
+
+        The schedule is **environment-agnostic** — a job has a single cron /
+        datetime / ``now`` schedule shared across every environment it runs in
+        (each enabled environment fires on the same cadence). There is no
+        per-environment schedule, so this setter takes no ``environment``.
+        """
+        self.schedule = schedule
 
     def _attributes(self) -> dict[str, Any]:
         attrs: dict[str, Any] = {
@@ -414,6 +452,48 @@ class Job(_JobBase):
             raise RuntimeError("Job was constructed without a client; cannot delete")
         self._client.delete(self.id)
 
+    def trigger(self, *, environment: Optional[str] = None) -> "Run":
+        """Trigger one immediate, manual run of this job (a ``MANUAL`` run).
+
+        Args:
+            environment: Environment the run executes in. Defaults to the
+                client's configured environment; when the job is enabled in
+                exactly one environment that environment is used.
+
+        Returns:
+            The :class:`Run` that was started.
+        """
+        if self._client is None:
+            raise RuntimeError("Job was constructed without a client; cannot trigger a run")
+        return self._client.run(self.id, environment=environment)
+
+    def list_runs(
+        self,
+        *,
+        environment: Optional[str] = None,
+        page_size: Optional[int] = None,
+        after: Optional[str] = None,
+    ) -> "list[Run]":
+        """List this job's run history, most recent first.
+
+        Args:
+            environment: Restrict to runs stamped with this environment. ``None``
+                covers every environment you can access.
+            page_size: Maximum number of runs to return in this page.
+            after: Opaque cursor from a previous page.
+
+        Returns:
+            The runs in this page, as a list of :class:`Run`.
+        """
+        if self._client is None:
+            raise RuntimeError("Job was constructed without a client; cannot list runs")
+        return self._client.runs.list(
+            job=self.id,
+            environments=[environment] if environment is not None else None,
+            page_size=page_size,
+            after=after,
+        )
+
 
 class AsyncJob(_JobBase):
     """A job definition (async). Mutate fields, then ``await save()``."""
@@ -440,9 +520,51 @@ class AsyncJob(_JobBase):
             raise RuntimeError("AsyncJob was constructed without a client; cannot delete")
         await self._client.delete(self.id)
 
+    async def trigger(self, *, environment: Optional[str] = None) -> "AsyncRun":
+        """Trigger one immediate, manual run of this job (a ``MANUAL`` run).
 
-class Run:
-    """A single execution of a job (read-only)."""
+        Args:
+            environment: Environment the run executes in. Defaults to the
+                client's configured environment; when the job is enabled in
+                exactly one environment that environment is used.
+
+        Returns:
+            The :class:`AsyncRun` that was started.
+        """
+        if self._client is None:
+            raise RuntimeError("AsyncJob was constructed without a client; cannot trigger a run")
+        return await self._client.run(self.id, environment=environment)
+
+    async def list_runs(
+        self,
+        *,
+        environment: Optional[str] = None,
+        page_size: Optional[int] = None,
+        after: Optional[str] = None,
+    ) -> "list[AsyncRun]":
+        """List this job's run history, most recent first.
+
+        Args:
+            environment: Restrict to runs stamped with this environment. ``None``
+                covers every environment you can access.
+            page_size: Maximum number of runs to return in this page.
+            after: Opaque cursor from a previous page.
+
+        Returns:
+            The runs in this page, as a list of :class:`Run`.
+        """
+        if self._client is None:
+            raise RuntimeError("AsyncJob was constructed without a client; cannot list runs")
+        return await self._client.runs.list(
+            job=self.id,
+            environments=[environment] if environment is not None else None,
+            page_size=page_size,
+            after=after,
+        )
+
+
+class _RunBase:
+    """Shared read-only state for ``Run`` / ``AsyncRun``."""
 
     def __init__(self, attributes: dict[str, Any], id: str) -> None:
         self.id = id
@@ -464,12 +586,56 @@ class Run:
         self.result: Optional[dict[str, Any]] = attributes.get("result")
         self.created_at = _parse_dt(attributes.get("created_at"))
 
-    @classmethod
-    def _from_resource(cls, resource: dict[str, Any]) -> "Run":
-        return cls(resource["attributes"], id=resource["id"])
-
     def __repr__(self) -> str:
         return f"Run(id={self.id!r}, job={self.job!r}, status={self.status!r})"
+
+
+class Run(_RunBase):
+    """A single execution of a job (read-only) with ``rerun`` / ``cancel`` (sync)."""
+
+    def __init__(self, attributes: dict[str, Any], id: str, runs: "Optional[RunsClient]" = None) -> None:
+        super().__init__(attributes, id)
+        self._runs = runs
+
+    @classmethod
+    def _from_resource(cls, resource: dict[str, Any], runs: "Optional[RunsClient]" = None) -> "Run":
+        return cls(resource["attributes"], id=resource["id"], runs=runs)
+
+    def rerun(self) -> "Run":
+        """Start a new run that repeats this one (a ``RERUN``), in the same environment."""
+        if self._runs is None:
+            raise RuntimeError("Run was constructed without a client; cannot rerun")
+        return self._runs.rerun(self.id)
+
+    def cancel(self) -> "Run":
+        """Cancel this run if it has not finished yet."""
+        if self._runs is None:
+            raise RuntimeError("Run was constructed without a client; cannot cancel")
+        return self._runs.cancel(self.id)
+
+
+class AsyncRun(_RunBase):
+    """A single execution of a job (read-only) with ``rerun`` / ``cancel`` (async)."""
+
+    def __init__(self, attributes: dict[str, Any], id: str, runs: "Optional[AsyncRunsClient]" = None) -> None:
+        super().__init__(attributes, id)
+        self._runs = runs
+
+    @classmethod
+    def _from_resource(cls, resource: dict[str, Any], runs: "Optional[AsyncRunsClient]" = None) -> "AsyncRun":
+        return cls(resource["attributes"], id=resource["id"], runs=runs)
+
+    async def rerun(self) -> "AsyncRun":
+        """Start a new run that repeats this one (a ``RERUN``), in the same environment."""
+        if self._runs is None:
+            raise RuntimeError("AsyncRun was constructed without a client; cannot rerun")
+        return await self._runs.rerun(self.id)
+
+    async def cancel(self) -> "AsyncRun":
+        """Cancel this run if it has not finished yet."""
+        if self._runs is None:
+            raise RuntimeError("AsyncRun was constructed without a client; cannot cancel")
+        return await self._runs.cancel(self.id)
 
 
 class Usage:
@@ -570,7 +736,7 @@ class RunsClient:
             **_run_list_kwargs(job, page_size, after),
         )
         _check(resp)
-        return [Run._from_resource(r) for r in _data(resp)]
+        return [Run._from_resource(r, self) for r in _data(resp)]
 
     def get(self, run_id: str | UUID) -> Run:
         """Fetch a single run by its id.
@@ -583,7 +749,7 @@ class RunsClient:
         """
         resp = _gen_get_run.sync_detailed(UUID(str(run_id)), client=self._auth)
         _check(resp)
-        return Run._from_resource(_data(resp))
+        return Run._from_resource(_data(resp), self)
 
     def cancel(self, run_id: str | UUID) -> Run:
         """Cancel a run that has not finished yet.
@@ -596,7 +762,7 @@ class RunsClient:
         """
         resp = _gen_cancel_run.sync_detailed(UUID(str(run_id)), client=self._auth)
         _check(resp)
-        return Run._from_resource(_data(resp))
+        return Run._from_resource(_data(resp), self)
 
     def rerun(self, run_id: str | UUID) -> Run:
         """Start a new run that repeats a previous one.
@@ -609,7 +775,7 @@ class RunsClient:
         """
         resp = _gen_rerun_run.sync_detailed(UUID(str(run_id)), client=self._auth)
         _check(resp)
-        return Run._from_resource(_data(resp))
+        return Run._from_resource(_data(resp), self)
 
 
 class AsyncRunsClient:
@@ -632,7 +798,7 @@ class AsyncRunsClient:
         environments: Optional[list[str]] = None,
         page_size: Optional[int] = None,
         after: Optional[str] = None,
-    ) -> list[Run]:
+    ) -> list[AsyncRun]:
         """List past runs, most recent first.
 
         Args:
@@ -647,7 +813,7 @@ class AsyncRunsClient:
                 follow it. ``None`` starts from the first page.
 
         Returns:
-            The runs in this page, as a list of :class:`Run`.
+            The runs in this page, as a list of :class:`AsyncRun`.
         """
         resp = await _gen_list_runs.asyncio_detailed(
             client=self._auth,
@@ -655,46 +821,46 @@ class AsyncRunsClient:
             **_run_list_kwargs(job, page_size, after),
         )
         _check(resp)
-        return [Run._from_resource(r) for r in _data(resp)]
+        return [AsyncRun._from_resource(r, self) for r in _data(resp)]
 
-    async def get(self, run_id: str | UUID) -> Run:
+    async def get(self, run_id: str | UUID) -> AsyncRun:
         """Fetch a single run by its id.
 
         Args:
             run_id: Identifier of the run to fetch.
 
         Returns:
-            The matching :class:`Run`.
+            The matching :class:`AsyncRun`.
         """
         resp = await _gen_get_run.asyncio_detailed(UUID(str(run_id)), client=self._auth)
         _check(resp)
-        return Run._from_resource(_data(resp))
+        return AsyncRun._from_resource(_data(resp), self)
 
-    async def cancel(self, run_id: str | UUID) -> Run:
+    async def cancel(self, run_id: str | UUID) -> AsyncRun:
         """Cancel a run that has not finished yet.
 
         Args:
             run_id: Identifier of the run to cancel.
 
         Returns:
-            The updated :class:`Run` reflecting the cancellation.
+            The updated :class:`AsyncRun` reflecting the cancellation.
         """
         resp = await _gen_cancel_run.asyncio_detailed(UUID(str(run_id)), client=self._auth)
         _check(resp)
-        return Run._from_resource(_data(resp))
+        return AsyncRun._from_resource(_data(resp), self)
 
-    async def rerun(self, run_id: str | UUID) -> Run:
+    async def rerun(self, run_id: str | UUID) -> AsyncRun:
         """Start a new run that repeats a previous one.
 
         Args:
             run_id: Identifier of the run to repeat.
 
         Returns:
-            The new :class:`Run`, with ``rerun_of`` set to ``run_id``.
+            The new :class:`AsyncRun`, with ``rerun_of`` set to ``run_id``.
         """
         resp = await _gen_rerun_run.asyncio_detailed(UUID(str(run_id)), client=self._auth)
         _check(resp)
-        return Run._from_resource(_data(resp))
+        return AsyncRun._from_resource(_data(resp), self)
 
 
 class JobsClient:
@@ -878,7 +1044,7 @@ class JobsClient:
             x_smplkit_environment=_env_header(environment if environment is not None else self._environment),
         )
         _check(resp)
-        return Run._from_resource(_data(resp))
+        return Run._from_resource(_data(resp), self.runs)
 
     def usage(self) -> Usage:
         """Report current-period usage against the account's plan allotments.
@@ -1062,7 +1228,7 @@ class AsyncJobsClient:
         resp = await _gen_delete_job.asyncio_detailed(id, client=self._auth)
         _check(resp)
 
-    async def run(self, id: str, *, environment: Optional[str] = None) -> Run:
+    async def run(self, id: str, *, environment: Optional[str] = None) -> AsyncRun:
         """Trigger one immediate, manual run of a job, ignoring its schedule.
 
         This starts an ad-hoc run right now in addition to any scheduled runs;
@@ -1077,7 +1243,7 @@ class AsyncJobsClient:
                 single-environment credential implies it.
 
         Returns:
-            The :class:`Run` that was started, with ``trigger`` set to
+            The :class:`AsyncRun` that was started, with ``trigger`` set to
             ``"MANUAL"``.
         """
         resp = await _gen_run_job_now.asyncio_detailed(
@@ -1086,7 +1252,7 @@ class AsyncJobsClient:
             x_smplkit_environment=_env_header(environment if environment is not None else self._environment),
         )
         _check(resp)
-        return Run._from_resource(_data(resp))
+        return AsyncRun._from_resource(_data(resp), self.runs)
 
     async def usage(self) -> Usage:
         """Report current-period usage against the account's plan allotments.

@@ -1,12 +1,6 @@
 """
 Demonstrates the smplkit management SDK for Smpl Jobs.
 
-A job is enabled per environment: a recurring job carries an ``environments``
-map (each entry an enablement flag plus an optional per-environment request
-override), while a one-off job is born in a single environment. Every run is
-stamped with the environment it executed in, and run history can be filtered by
-environment. This showcase walks through both.
-
 Prerequisites:
     - ``pip install smplkit-sdk``
     - A valid smplkit API key, provided via one of:
@@ -19,124 +13,140 @@ Usage::
 """
 
 import asyncio
-import uuid
 
-from smplkit import AsyncJobsClient, ConflictError, NotFoundError
-from smplkit.jobs import HttpConfig, JobEnvironment
+from smplkit import AsyncJobsClient, ConflictError
+from smplkit.jobs import HttpConfig
+
+from setup.jobs_setup import cleanup_showcase, setup_showcase
+
+RECURRING_JOB_ID = "showcase-recurring"
+ONEOFF_JOB_ID = "showcase-oneoff"
 
 
 async def main() -> None:
 
-    # Jobs has no runtime/management split — one client. Here we use the
-    # standalone AsyncJobsClient (use JobsClient for synchronous use); the same
-    # surface is also reachable as ``client.jobs`` on a SmplClient. The
-    # configured environment is the default for run history and the environment
-    # a one-off job is born in.
-    async with AsyncJobsClient(environment="production") as jobs:
-        job_id = f"showcase-mgmt-{uuid.uuid4().hex[:8]}"
-        oneoff_id = f"showcase-oneoff-{uuid.uuid4().hex[:8]}"
-
+    # or SmplClient for synchronous use
+    async with AsyncJobsClient() as jobs:
+        await setup_showcase(jobs)
         try:
-            # create a recurring job enabled in production, with a development
-            # override that posts to a different URL
+            # create a recurring job, enabled in production with a development override
             job = jobs.new(
-                job_id,
+                RECURRING_JOB_ID,
                 name="Nightly cache warm",
                 description="Warms the product cache every night at 02:00 UTC.",
-                schedule="0 2 * * *",  # 5-field cron, UTC -> recurring
+                schedule="0 2 * * *",
                 configuration=HttpConfig(
                     method="POST",
-                    url="https://httpbin.org/post",  # a real endpoint, so triggered runs succeed
+                    url="https://httpbin.org/post",
                     headers=[("Authorization", "Bearer s3cr3t")],
                     body='{"scope": "all"}',
                     timeout=30,
                 ),
-                environments={
-                    "production": JobEnvironment(enabled=True),
-                    "development": JobEnvironment(
-                        enabled=False,
-                        configuration=HttpConfig(
-                            method="POST",
-                            url="https://development.example.com/cache/warm",
-                            headers=[("Authorization", "Bearer development-s3cr3t")],
-                            body='{"scope": "all"}',
-                        ),
-                    ),
-                },
             )
+            job.set_configuration(
+                HttpConfig(
+                    method="POST",
+                    url="https://development.example.com/cache/warm",
+                    headers=[("Authorization", "Bearer development-s3cr3t")],
+                    body='{"scope": "all"}',
+                ),
+                environment="development",
+            )
+            job.set_enabled(False, environment="development")
+            job.set_enabled(True, environment="production")
             await job.save()
             assert job.version == 1
-            enabled_in = sorted(k for k, v in job.environments.items() if v.enabled)
-            print(f"Created recurring job {job.id!r} (v{job.version}) enabled in {enabled_in}")
+            assert job.is_enabled(environment="development") is False
+            assert job.is_enabled(environment="production") is True
+            print(f"Created recurring job {job.id!r} (v{job.version})")
 
-            # get a job: 'enabled' is a read-only roll-up (enabled in >= 1 env),
-            # and each environment's override round-trips
-            fetched = await jobs.get(job_id)
-            assert fetched.enabled is True
-            assert fetched.environments["development"].configuration.url == "https://development.example.com/cache/warm"
-            print(f"Fetched job {job_id!r} (enabled={fetched.enabled})")
+            # get a job
+            fetched = await jobs.get(RECURRING_JOB_ID)
+            assert fetched.is_enabled(environment="development") is False
+            assert fetched.is_enabled(environment="production") is True
+            assert (
+                fetched.get_configuration(environment="development").url
+                == "https://development.example.com/cache/warm"
+            )
+            print(f"Fetched job {RECURRING_JOB_ID!r}")
 
-            # list jobs (filter by the derived 'enabled' roll-up)
-            listing = await jobs.list(enabled=True)
-            assert job_id in {j.id for j in listing}
-            print(f"Found job {job_id!r} in the enabled listing")
+            # list jobs
+            listing = await jobs.list()
+            assert RECURRING_JOB_ID in {j.id for j in listing}
+            print(f"Found job {RECURRING_JOB_ID!r} in the listing")
 
-            # update: rename, reschedule, and turn on development too
+            # update a job (the schedule is environment-agnostic)
             job.name = "Nightly cache warm (v2)"
-            job.schedule = "30 2 * * *"
+            job.set_schedule("30 2 * * *")
             job.set_enabled(True, environment="development")
             await job.save()
-            assert job.version == 2 and job.environments["development"].enabled is True
-            print(f"Updated job to v{job.version}: now enabled in production and development")
+            assert (
+                job.version == 2
+                and job.is_enabled(environment="development") is True
+            )
+            print(
+                f"Updated job to v{job.version}: now enabled in production and development"
+            )
 
-            # trigger an immediate run (a MANUAL run) in production
-            run = await jobs.run(job_id, environment="production")
+            # trigger an immediate run
+            run = await job.trigger(environment="production")
             assert run.trigger == "MANUAL" and run.environment == "production"
-            print(f"Triggered run {run.id} (trigger={run.trigger}, env={run.environment})")
+            print(
+                f"Triggered run {run.id} (trigger={run.trigger}, env={run.environment})"
+            )
 
-            # read this job's production run history, and fetch a single run
-            runs = await jobs.runs.list(job=job_id, environments=["production"])
+            # get this job's runs
+            runs = await job.list_runs(environment="production")
             assert any(r.id == run.id for r in runs)
-            got = await jobs.runs.get(run.id)
-            assert got.environment == "production"
-            print(f"Listed {len(runs)} production run(s); fetched run {got.id} (env={got.environment})")
+            print(f"Listed {len(runs)} production run(s)")
 
-            # re-run from a prior run (inherits its environment)
-            rerun = await jobs.runs.rerun(run.id)
-            assert rerun.trigger == "RERUN" and rerun.environment == run.environment
+            # get a run
+            run = await jobs.runs.get(run.id)
+            assert run.environment == "production"
+            print(f"Fetched run {run.id} (env={run.environment})")
+
+            # re-run a prior run (inherits its environment)
+            rerun = await run.rerun()
+            assert (
+                rerun.trigger == "RERUN"
+                and rerun.environment == run.environment
+            )
             print(f"Re-ran {run.id} -> {rerun.id} (env={rerun.environment})")
 
-            # cancel is best-effort ("stop tracking"): a run the worker has
-            # already finished can no longer be canceled.
+            # cancel a run (best-effort: a finished run can no longer be canceled)
             try:
-                canceled = await jobs.runs.cancel(rerun.id)
+                canceled = await rerun.cancel()
                 print(f"Canceled run {canceled.id} -> {canceled.status}")
             except ConflictError:
-                print(f"Run {rerun.id} already finished before it could be canceled")
+                print(
+                    f"Run {rerun.id} already finished before it could be canceled"
+                )
 
-            # create a one-off job born in development (single-shot; no environments map)
+            # create a one-off job, born in a single environment
             oneoff = jobs.new(
-                oneoff_id,
+                ONEOFF_JOB_ID,
                 name="One-shot reindex",
-                schedule="now",  # one-off -> born in the named environment
-                configuration=HttpConfig(method="POST", url="https://httpbin.org/post"),
+                schedule="now",
+                configuration=HttpConfig(
+                    method="POST", url="https://httpbin.org/post"
+                ),
                 environment="development",
             )
             await oneoff.save()
-            assert oneoff.version == 1 and oneoff.environments["development"].enabled is True
+            assert (
+                oneoff.version == 1
+                and oneoff.is_enabled(environment="development") is True
+            )
             print(f"Created one-off job {oneoff.id!r} born in development")
 
             # delete a job
             await job.delete()
-            assert job_id not in {j.id for j in await jobs.list()}
-            print(f"Deleted job {job_id!r} — jobs showcase complete.")
+            assert RECURRING_JOB_ID not in {j.id for j in await jobs.list()}
+            print(
+                f"Deleted job {RECURRING_JOB_ID!r} — jobs showcase complete."
+            )
         finally:
-            # tear-down: never leave a showcase job behind, even on failure
-            for stale in (job_id, oneoff_id):
-                try:
-                    await jobs.delete(stale)
-                except NotFoundError:
-                    pass
+            await cleanup_showcase(jobs)
 
 
 if __name__ == "__main__":

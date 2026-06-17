@@ -14,6 +14,7 @@ The shared dataclasses (:class:`Job`, :class:`AsyncJob`, :class:`Run`,
 
 from smplkit.jobs.clients import (
     AsyncJob,
+    AsyncRun,
     AsyncRunsClient,
     HttpConfig,
     Job,
@@ -25,6 +26,7 @@ from smplkit.jobs.clients import (
 
 __all__ = [
     "AsyncJob",
+    "AsyncRun",
     "AsyncRunsClient",
     "HttpConfig",
     "Job",

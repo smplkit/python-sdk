@@ -17,7 +17,7 @@ import pytest
 from smplkit import AsyncJobsClient, JobsClient
 from smplkit.errors import ConflictError, NotFoundError
 from smplkit._generated.jobs.client import AuthenticatedClient
-from smplkit.jobs import AsyncJob, HttpConfig, Job, JobEnvironment, Run, Usage
+from smplkit.jobs import AsyncJob, AsyncRun, HttpConfig, Job, JobEnvironment, Run, Usage
 
 BASE = "https://jobs.example.com"
 RUN_ID = "8f2b1c4a-0000-4a1b-9c3d-1e2f3a4b5c6d"
@@ -551,5 +551,107 @@ class TestEnvironmentsAsync:
             # parsed run carries its environment
             run = await c.run("my-job")
             assert run.environment == "production"
+
+        asyncio.run(_run())
+
+
+class TestConvenienceGettersSetters:
+    def test_is_enabled(self):
+        job = Job(None, id="x", name="X", schedule="0 * * * *", configuration=_CFG)
+        assert job.is_enabled() is False  # roll-up default (no envs)
+        job.set_enabled(True, environment="production")
+        assert job.is_enabled(environment="production") is True  # per-env present
+        assert job.is_enabled(environment="staging") is False  # env absent from map
+        job.enabled = True  # simulate the server roll-up
+        assert job.is_enabled() is True
+
+    def test_get_configuration(self):
+        base = HttpConfig(url="https://base.example.com")
+        job = Job(None, id="x", name="X", schedule="0 * * * *", configuration=base)
+        assert job.get_configuration() is base  # base
+        assert job.get_configuration(environment="production") is base  # no override -> base
+        override = HttpConfig(url="https://prod.example.com")
+        job.set_configuration(override, environment="production")
+        assert job.get_configuration(environment="production") is override  # override wins
+        # an env entry with no configuration still falls back to base
+        job.set_enabled(True, environment="staging")
+        assert job.get_configuration(environment="staging") is base
+
+    def test_set_schedule(self):
+        job = Job(None, id="x", name="X", schedule="now", configuration=_CFG)
+        job.set_schedule("0 2 * * *")
+        assert job.schedule == "0 2 * * *"
+
+
+class TestActiveRecordSync:
+    def test_job_trigger_and_list_runs(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        job = c.get("my-job")
+        run = job.trigger(environment="production")
+        assert run.trigger == "MANUAL"
+        assert caps[-1]["env_header"] == "production"
+        runs = job.list_runs(environment="production")
+        assert len(runs) == 1
+        assert caps[-1]["filter_env"] == "production"
+        # no-environment list omits the filter
+        job.list_runs()
+        assert caps[-1]["filter_env"] is None
+
+    def test_job_active_record_requires_client(self):
+        job = Job(None, id="x", name="X", schedule="now", configuration=_CFG)
+        with pytest.raises(RuntimeError):
+            job.trigger()
+        with pytest.raises(RuntimeError):
+            job.list_runs()
+
+    def test_run_rerun_and_cancel(self):
+        c = _sync()
+        run = c.runs.get(RUN_ID)
+        assert run.rerun().trigger == "RERUN"
+        assert run.cancel().status == "CANCELED"
+        # a run trigger()'d off a Job is also bound and can rerun
+        triggered = c.get("my-job").trigger()
+        assert triggered.rerun().trigger == "RERUN"
+
+    def test_run_active_record_requires_client(self):
+        run = Run._from_resource(_run_resource())  # no runs backref
+        with pytest.raises(RuntimeError):
+            run.rerun()
+        with pytest.raises(RuntimeError):
+            run.cancel()
+
+
+class TestActiveRecordAsync:
+    def test_async_job_trigger_and_list_runs(self):
+        async def _run():
+            caps: list[dict] = []
+            c = AsyncJobsClient(auth_client=_auth(_recording(caps), is_async=True), environment="production")
+            job = await c.get("my-job")
+            run = await job.trigger(environment="development")
+            assert run.trigger == "MANUAL"
+            assert caps[-1]["env_header"] == "development"
+            runs = await job.list_runs(environment="development")
+            assert len(runs) == 1
+            assert caps[-1]["filter_env"] == "development"
+            unbound = AsyncJob(None, id="x", name="X", schedule="now", configuration=_CFG)
+            with pytest.raises(RuntimeError):
+                await unbound.trigger()
+            with pytest.raises(RuntimeError):
+                await unbound.list_runs()
+
+        asyncio.run(_run())
+
+    def test_async_run_rerun_and_cancel(self):
+        async def _run():
+            c = _async()
+            run = await c.runs.get(RUN_ID)
+            assert (await run.rerun()).trigger == "RERUN"
+            assert (await run.cancel()).status == "CANCELED"
+            unbound = AsyncRun._from_resource(_run_resource())
+            with pytest.raises(RuntimeError):
+                await unbound.rerun()
+            with pytest.raises(RuntimeError):
+                await unbound.cancel()
 
         asyncio.run(_run())
