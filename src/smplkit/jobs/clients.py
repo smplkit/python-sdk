@@ -352,9 +352,7 @@ class _JobBase:
             "concurrency_policy": self.concurrency_policy,
         }
         if self.environments:
-            attrs["environments"] = {
-                env_key: env._to_payload() for env_key, env in self.environments.items()
-            }
+            attrs["environments"] = {env_key: env._to_payload() for env_key, env in self.environments.items()}
         return attrs
 
     def __repr__(self) -> str:
@@ -365,8 +363,7 @@ class _JobBase:
 def _job_base_from_resource(resource: dict[str, Any]) -> _JobBase:
     a = resource["attributes"]
     environments = {
-        env_key: JobEnvironment._from_dict(env_raw or {})
-        for env_key, env_raw in (a.get("environments") or {}).items()
+        env_key: JobEnvironment._from_dict(env_raw or {}) for env_key, env_raw in (a.get("environments") or {}).items()
     }
     return _JobBase(
         id=resource["id"],

@@ -360,9 +360,7 @@ class TestEnvironmentModelsAndHelpers:
     def test_job_environment_from_dict_branches(self):
         bare = JobEnvironment._from_dict({"enabled": True})
         assert bare.enabled is True and bare.configuration is None
-        with_cfg = JobEnvironment._from_dict(
-            {"enabled": False, "configuration": {"url": "https://e.com"}}
-        )
+        with_cfg = JobEnvironment._from_dict({"enabled": False, "configuration": {"url": "https://e.com"}})
         assert with_cfg.enabled is False
         assert isinstance(with_cfg.configuration, HttpConfig)
         assert with_cfg.configuration.url == "https://e.com"
