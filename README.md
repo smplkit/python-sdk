@@ -122,7 +122,10 @@ from smplkit import SmplAuditClient, SmplClient
 with SmplClient(api_key="sk_api_...", environment="production") as client:
     client.audit.events.record("invoice.created", "invoice", "inv-1", flush=True)
     forwarders = client.audit.forwarders.list()
-    client.jobs.new("nightly", schedule="0 2 * * *", configuration=...).save()
+    # jobs are enabled per environment:
+    job = client.jobs.new("nightly", schedule="0 2 * * *", configuration=...)
+    job.set_enabled(True, environment="production")
+    job.save()
 
 # audit-only? construct just the audit client (no environment needed):
 with SmplAuditClient(api_key="sk_api_...") as audit:
