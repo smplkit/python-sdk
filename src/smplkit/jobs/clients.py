@@ -683,10 +683,14 @@ def _run_list_kwargs(job: Optional[str], page_size: Optional[int], after: Option
     return kwargs
 
 
-def _list_jobs_kwargs(enabled, page_number, page_size) -> dict[str, Any]:
+def _list_jobs_kwargs(enabled, recurring, name, page_number, page_size) -> dict[str, Any]:
     kwargs: dict[str, Any] = {}
     if enabled is not None:
         kwargs["filterenabled"] = enabled
+    if recurring is not None:
+        kwargs["filterrecurring"] = recurring
+    if name is not None:
+        kwargs["filtername"] = name
     if page_number is not None:
         kwargs["pagenumber"] = page_number
     if page_size is not None:
@@ -979,13 +983,24 @@ class JobsClient:
         return job
 
     def list(
-        self, *, enabled: Optional[bool] = None, page_number: Optional[int] = None, page_size: Optional[int] = None
+        self,
+        *,
+        enabled: Optional[bool] = None,
+        recurring: Optional[bool] = None,
+        name: Optional[str] = None,
+        page_number: Optional[int] = None,
+        page_size: Optional[int] = None,
     ) -> list[Job]:
         """List jobs in the account.
 
         Args:
-            enabled: Return only jobs with this enabled state. ``None`` lists
+            enabled: Return only jobs with this enabled state (the read-only
+                roll-up — enabled in at least one environment). ``None`` lists
                 both enabled and paused jobs.
+            recurring: Return only recurring (``True``) or one-off (``False``)
+                jobs. ``None`` lists both.
+            name: Return only jobs whose name contains this text
+                (case-insensitive). ``None`` lists all.
             page_number: 1-based page to return. ``None`` returns the first
                 page.
             page_size: Maximum number of jobs to return in this page. ``None``
@@ -994,7 +1009,9 @@ class JobsClient:
         Returns:
             The jobs in this page, as a list of :class:`Job`.
         """
-        resp = _gen_list_jobs.sync_detailed(client=self._auth, **_list_jobs_kwargs(enabled, page_number, page_size))
+        resp = _gen_list_jobs.sync_detailed(
+            client=self._auth, **_list_jobs_kwargs(enabled, recurring, name, page_number, page_size)
+        )
         _check(resp)
         return [Job._from_resource(r, self) for r in _data(resp)]
 
@@ -1185,13 +1202,24 @@ class AsyncJobsClient:
         return job
 
     async def list(
-        self, *, enabled: Optional[bool] = None, page_number: Optional[int] = None, page_size: Optional[int] = None
+        self,
+        *,
+        enabled: Optional[bool] = None,
+        recurring: Optional[bool] = None,
+        name: Optional[str] = None,
+        page_number: Optional[int] = None,
+        page_size: Optional[int] = None,
     ) -> list[AsyncJob]:
         """List jobs in the account.
 
         Args:
-            enabled: Return only jobs with this enabled state. ``None`` lists
+            enabled: Return only jobs with this enabled state (the read-only
+                roll-up — enabled in at least one environment). ``None`` lists
                 both enabled and paused jobs.
+            recurring: Return only recurring (``True``) or one-off (``False``)
+                jobs. ``None`` lists both.
+            name: Return only jobs whose name contains this text
+                (case-insensitive). ``None`` lists all.
             page_number: 1-based page to return. ``None`` returns the first
                 page.
             page_size: Maximum number of jobs to return in this page. ``None``
@@ -1201,7 +1229,7 @@ class AsyncJobsClient:
             The jobs in this page, as a list of :class:`AsyncJob`.
         """
         resp = await _gen_list_jobs.asyncio_detailed(
-            client=self._auth, **_list_jobs_kwargs(enabled, page_number, page_size)
+            client=self._auth, **_list_jobs_kwargs(enabled, recurring, name, page_number, page_size)
         )
         _check(resp)
         return [AsyncJob._from_resource(r, self) for r in _data(resp)]
