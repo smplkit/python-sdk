@@ -227,6 +227,14 @@ class TestSyncSurface:
         c.delete("my-job")
         c.get("my-job").delete()  # active-record delete with bound client
 
+    def test_list_recurring_and_name_filters(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        c.list(recurring=True, name="health")
+        params = caps[-1]["params"]
+        assert params.get("filter[recurring]") == "true"
+        assert params.get("filter[name]") == "health"
+
     def test_run_runs_usage(self):
         c = _sync()
         assert c.run("my-job").trigger == "MANUAL"
@@ -346,6 +354,7 @@ def _recording(captures: list[dict]):
             {
                 "method": req.method,
                 "path": req.url.path,
+                "params": dict(req.url.params),
                 "env_header": req.headers.get("X-Smplkit-Environment"),
                 "filter_env": req.url.params.get("filter[environment]"),
                 "body": json.loads(req.content) if req.content else None,
