@@ -123,7 +123,7 @@ with SmplClient(api_key="sk_api_...", environment="production") as client:
     client.audit.events.record("invoice.created", "invoice", "inv-1", flush=True)
     forwarders = client.audit.forwarders.list()
     # jobs are enabled per environment:
-    job = client.jobs.new("nightly", schedule="0 2 * * *", configuration=...)
+    job = client.jobs.new_recurring_job("nightly", name="Nightly", schedule="0 2 * * *", configuration=...)
     job.set_enabled(True, environment="production")
     job.save()
 
