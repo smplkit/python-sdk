@@ -24,7 +24,7 @@ only an `api_key` is required. Every product hangs off it:
 |-----------|---------|
 | `client.flags` / `client.config` / `client.logging` | **Runtime instrumentation** — flag evaluation, config reads, log-level control (environment-scoped) |
 | `client.audit` | **Audit** — record/read events, discovery, SIEM forwarders |
-| `client.jobs` | **Jobs** — scheduled HTTP jobs |
+| `client.jobs` | **Jobs** — scheduled or on-demand HTTP jobs |
 | `client.manage` | **Management / CRUD** — flag/config/logger definitions, environments, contexts, account settings |
 
 `environment` and `service` are **optional** — supply them when instrumenting with
