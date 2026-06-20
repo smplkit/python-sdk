@@ -21,6 +21,7 @@ def _get_kwargs(
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
     filterscheduled_for: None | str | Unset = UNSET,
+    last_run_only: bool | Unset = False,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListRunsSort | Unset = "-created_at",
@@ -76,6 +77,8 @@ def _get_kwargs(
     else:
         json_filterscheduled_for = filterscheduled_for
     params["filter[scheduled_for]"] = json_filterscheduled_for
+
+    params["last_run_only"] = last_run_only
 
     json_pagesize: int | None | Unset
     if isinstance(pagesize, Unset):
@@ -139,11 +142,12 @@ def sync_detailed(
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
     filterscheduled_for: None | str | Unset = UNSET,
+    last_run_only: bool | Unset = False,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListRunsSort | Unset = "-created_at",
 ) -> Response[RunListResponse]:
-    """List Runs
+    r"""List Runs
 
      List runs for this account (cursor paginated).
 
@@ -164,6 +168,14 @@ def sync_detailed(
     - `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
       `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
       parameter for the interval syntax).
+
+    Set `last_run_only=true` to collapse the result to the last completed run
+    for each job-and-environment combination. \"Completed\" means a terminal state
+    — succeeded, failed, or canceled; in-flight runs (pending or running) are
+    not included, so a job that is mid-run still surfaces its previous completed
+    result and a combination with no completed run yet returns nothing. The
+    filters above still apply, evaluated before the collapse, so each row is the
+    most recent completed run in its group that also satisfies them.
 
     Args:
         filterjob (None | str | Unset):
@@ -194,6 +206,12 @@ def sync_detailed(
             is `]` (inclusive) or `)` (exclusive). Example:
             `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June;
             `[2026-06-01T00:00:00Z,*)` is everything from then onward.
+        last_run_only (bool | Unset): Return only the last completed run for each job-and-
+            environment combination. "Completed" means a terminal state — succeeded, failed, or
+            canceled; runs still in flight (pending or running) are not included, so a job that is
+            currently running still shows its previous completed result. The other filters and date
+            ranges apply first, then the results collapse, so each row is the most recent completed
+            run in its group that also matches them. Defaults to `false`. Default: False.
         pagesize (int | None | Unset): Number of runs per page. Optional; defaults to `50` when
             omitted. Must be between `1` and `1000` inclusive — requests outside that range are
             rejected with a 400 error.
@@ -220,6 +238,7 @@ def sync_detailed(
         filterstarted_at=filterstarted_at,
         filterfinished_at=filterfinished_at,
         filterscheduled_for=filterscheduled_for,
+        last_run_only=last_run_only,
         pagesize=pagesize,
         pageafter=pageafter,
         sort=sort,
@@ -242,11 +261,12 @@ def sync(
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
     filterscheduled_for: None | str | Unset = UNSET,
+    last_run_only: bool | Unset = False,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListRunsSort | Unset = "-created_at",
 ) -> RunListResponse | None:
-    """List Runs
+    r"""List Runs
 
      List runs for this account (cursor paginated).
 
@@ -267,6 +287,14 @@ def sync(
     - `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
       `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
       parameter for the interval syntax).
+
+    Set `last_run_only=true` to collapse the result to the last completed run
+    for each job-and-environment combination. \"Completed\" means a terminal state
+    — succeeded, failed, or canceled; in-flight runs (pending or running) are
+    not included, so a job that is mid-run still surfaces its previous completed
+    result and a combination with no completed run yet returns nothing. The
+    filters above still apply, evaluated before the collapse, so each row is the
+    most recent completed run in its group that also satisfies them.
 
     Args:
         filterjob (None | str | Unset):
@@ -297,6 +325,12 @@ def sync(
             is `]` (inclusive) or `)` (exclusive). Example:
             `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June;
             `[2026-06-01T00:00:00Z,*)` is everything from then onward.
+        last_run_only (bool | Unset): Return only the last completed run for each job-and-
+            environment combination. "Completed" means a terminal state — succeeded, failed, or
+            canceled; runs still in flight (pending or running) are not included, so a job that is
+            currently running still shows its previous completed result. The other filters and date
+            ranges apply first, then the results collapse, so each row is the most recent completed
+            run in its group that also matches them. Defaults to `false`. Default: False.
         pagesize (int | None | Unset): Number of runs per page. Optional; defaults to `50` when
             omitted. Must be between `1` and `1000` inclusive — requests outside that range are
             rejected with a 400 error.
@@ -324,6 +358,7 @@ def sync(
         filterstarted_at=filterstarted_at,
         filterfinished_at=filterfinished_at,
         filterscheduled_for=filterscheduled_for,
+        last_run_only=last_run_only,
         pagesize=pagesize,
         pageafter=pageafter,
         sort=sort,
@@ -340,11 +375,12 @@ async def asyncio_detailed(
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
     filterscheduled_for: None | str | Unset = UNSET,
+    last_run_only: bool | Unset = False,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListRunsSort | Unset = "-created_at",
 ) -> Response[RunListResponse]:
-    """List Runs
+    r"""List Runs
 
      List runs for this account (cursor paginated).
 
@@ -365,6 +401,14 @@ async def asyncio_detailed(
     - `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
       `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
       parameter for the interval syntax).
+
+    Set `last_run_only=true` to collapse the result to the last completed run
+    for each job-and-environment combination. \"Completed\" means a terminal state
+    — succeeded, failed, or canceled; in-flight runs (pending or running) are
+    not included, so a job that is mid-run still surfaces its previous completed
+    result and a combination with no completed run yet returns nothing. The
+    filters above still apply, evaluated before the collapse, so each row is the
+    most recent completed run in its group that also satisfies them.
 
     Args:
         filterjob (None | str | Unset):
@@ -395,6 +439,12 @@ async def asyncio_detailed(
             is `]` (inclusive) or `)` (exclusive). Example:
             `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June;
             `[2026-06-01T00:00:00Z,*)` is everything from then onward.
+        last_run_only (bool | Unset): Return only the last completed run for each job-and-
+            environment combination. "Completed" means a terminal state — succeeded, failed, or
+            canceled; runs still in flight (pending or running) are not included, so a job that is
+            currently running still shows its previous completed result. The other filters and date
+            ranges apply first, then the results collapse, so each row is the most recent completed
+            run in its group that also matches them. Defaults to `false`. Default: False.
         pagesize (int | None | Unset): Number of runs per page. Optional; defaults to `50` when
             omitted. Must be between `1` and `1000` inclusive — requests outside that range are
             rejected with a 400 error.
@@ -421,6 +471,7 @@ async def asyncio_detailed(
         filterstarted_at=filterstarted_at,
         filterfinished_at=filterfinished_at,
         filterscheduled_for=filterscheduled_for,
+        last_run_only=last_run_only,
         pagesize=pagesize,
         pageafter=pageafter,
         sort=sort,
@@ -441,11 +492,12 @@ async def asyncio(
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
     filterscheduled_for: None | str | Unset = UNSET,
+    last_run_only: bool | Unset = False,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListRunsSort | Unset = "-created_at",
 ) -> RunListResponse | None:
-    """List Runs
+    r"""List Runs
 
      List runs for this account (cursor paginated).
 
@@ -466,6 +518,14 @@ async def asyncio(
     - `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
       `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
       parameter for the interval syntax).
+
+    Set `last_run_only=true` to collapse the result to the last completed run
+    for each job-and-environment combination. \"Completed\" means a terminal state
+    — succeeded, failed, or canceled; in-flight runs (pending or running) are
+    not included, so a job that is mid-run still surfaces its previous completed
+    result and a combination with no completed run yet returns nothing. The
+    filters above still apply, evaluated before the collapse, so each row is the
+    most recent completed run in its group that also satisfies them.
 
     Args:
         filterjob (None | str | Unset):
@@ -496,6 +556,12 @@ async def asyncio(
             is `]` (inclusive) or `)` (exclusive). Example:
             `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June;
             `[2026-06-01T00:00:00Z,*)` is everything from then onward.
+        last_run_only (bool | Unset): Return only the last completed run for each job-and-
+            environment combination. "Completed" means a terminal state — succeeded, failed, or
+            canceled; runs still in flight (pending or running) are not included, so a job that is
+            currently running still shows its previous completed result. The other filters and date
+            ranges apply first, then the results collapse, so each row is the most recent completed
+            run in its group that also matches them. Defaults to `false`. Default: False.
         pagesize (int | None | Unset): Number of runs per page. Optional; defaults to `50` when
             omitted. Must be between `1` and `1000` inclusive — requests outside that range are
             rejected with a 400 error.
@@ -524,6 +590,7 @@ async def asyncio(
             filterstarted_at=filterstarted_at,
             filterfinished_at=filterfinished_at,
             filterscheduled_for=filterscheduled_for,
+            last_run_only=last_run_only,
             pagesize=pagesize,
             pageafter=pageafter,
             sort=sort,
