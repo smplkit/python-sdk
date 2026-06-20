@@ -7,28 +7,36 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-T = TypeVar("T", bound="RunListMeta")
+from uuid import UUID
+
+
+T = TypeVar("T", bound="RunRetry")
 
 
 @_attrs_define
-class RunListMeta:
-    """Cursor-pagination meta for the runs list.
+class RunRetry:
+    """Where a `RETRY` run sits in its retry chain.
 
     Attributes:
-        page_size (int): Number of runs returned per page.
+        of (UUID): The id of the chain's original run — the first attempt that failed and started the chain.
+        attempt (int): Which retry this run is: `1` for the first retry, `2` for the second, and so on.
     """
 
-    page_size: int
+    of: UUID
+    attempt: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        page_size = self.page_size
+        of = str(self.of)
+
+        attempt = self.attempt
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "page_size": page_size,
+                "of": of,
+                "attempt": attempt,
             }
         )
 
@@ -37,14 +45,17 @@ class RunListMeta:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        page_size = d.pop("page_size")
+        of = UUID(d.pop("of"))
 
-        run_list_meta = cls(
-            page_size=page_size,
+        attempt = d.pop("attempt")
+
+        run_retry = cls(
+            of=of,
+            attempt=attempt,
         )
 
-        run_list_meta.additional_properties = d
-        return run_list_meta
+        run_retry.additional_properties = d
+        return run_retry
 
     @property
     def additional_keys(self) -> list[str]:

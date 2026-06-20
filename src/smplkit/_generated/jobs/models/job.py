@@ -67,6 +67,9 @@ class Job:
                 the `X-Smplkit-Environment` header. Every referenced environment must exist for the account.
             concurrency_policy (Literal['ALLOW'] | Unset): How overlapping runs are handled. `ALLOW` (the only value today)
                 permits them. Default: 'ALLOW'.
+            retry_policy (None | str | Unset): The base retry policy for failed runs — the `id` of a retry policy (or the
+                built-in `Default`), overridable per environment. Omit (or send `null`) to use `Default`, which never retries —
+                so a job that sets nothing behaves exactly as before retries existed.
             kind (JobKindType0 | None | Unset): How the job runs, derived from its base `schedule`: `recurring` for a cron
                 schedule (fires on a repeating cadence), `manual` for no schedule (never auto-fires; runs only when triggered),
                 or `one_off` for a `now` or datetime schedule (runs a single time, then is spent).
@@ -84,6 +87,7 @@ class Job:
     timezone: None | str | Unset = UNSET
     environments: JobEnvironments | Unset = UNSET
     concurrency_policy: Literal["ALLOW"] | Unset = "ALLOW"
+    retry_policy: None | str | Unset = UNSET
     kind: JobKindType0 | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
@@ -121,6 +125,12 @@ class Job:
             environments = self.environments.to_dict()
 
         concurrency_policy = self.concurrency_policy
+
+        retry_policy: None | str | Unset
+        if isinstance(self.retry_policy, Unset):
+            retry_policy = UNSET
+        else:
+            retry_policy = self.retry_policy
 
         kind: None | str | Unset
         if isinstance(self.kind, Unset):
@@ -180,6 +190,8 @@ class Job:
             field_dict["environments"] = environments
         if concurrency_policy is not UNSET:
             field_dict["concurrency_policy"] = concurrency_policy
+        if retry_policy is not UNSET:
+            field_dict["retry_policy"] = retry_policy
         if kind is not UNSET:
             field_dict["kind"] = kind
         if created_at is not UNSET:
@@ -244,6 +256,15 @@ class Job:
         concurrency_policy = cast(Literal["ALLOW"] | Unset, d.pop("concurrency_policy", UNSET))
         if concurrency_policy != "ALLOW" and not isinstance(concurrency_policy, Unset):
             raise ValueError(f"concurrency_policy must match const 'ALLOW', got '{concurrency_policy}'")
+
+        def _parse_retry_policy(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        retry_policy = _parse_retry_policy(d.pop("retry_policy", UNSET))
 
         def _parse_kind(data: object) -> JobKindType0 | None | Unset:
             if data is None:
@@ -331,6 +352,7 @@ class Job:
             timezone=timezone,
             environments=environments,
             concurrency_policy=concurrency_policy,
+            retry_policy=retry_policy,
             kind=kind,
             created_at=created_at,
             updated_at=updated_at,

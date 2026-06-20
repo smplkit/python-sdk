@@ -17,6 +17,7 @@ def _get_kwargs(
     filterjob: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
     filterenvironment: None | str | Unset = UNSET,
+    filtertrigger: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
@@ -49,6 +50,13 @@ def _get_kwargs(
     else:
         json_filterenvironment = filterenvironment
     params["filter[environment]"] = json_filterenvironment
+
+    json_filtertrigger: None | str | Unset
+    if isinstance(filtertrigger, Unset):
+        json_filtertrigger = UNSET
+    else:
+        json_filtertrigger = filtertrigger
+    params["filter[trigger]"] = json_filtertrigger
 
     json_filtercreated_at: None | str | Unset
     if isinstance(filtercreated_at, Unset):
@@ -138,6 +146,7 @@ def sync_detailed(
     filterjob: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
     filterenvironment: None | str | Unset = UNSET,
+    filtertrigger: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
@@ -163,6 +172,8 @@ def sync_detailed(
 
     - `filter[job]={id}` — a single job's run history.
     - `filter[status]` — one state or a comma-separated list (any-of).
+    - `filter[trigger]` — one trigger (`SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`)
+      or a comma-separated list of them (any-of).
     - `filter[environment]` — one environment key or a comma-separated list
       (any-of); omitted covers every environment you can access.
     - `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
@@ -185,6 +196,9 @@ def sync_detailed(
         filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
             results to (e.g. `production,staging`). When omitted, results cover every environment you
             can access.
+        filtertrigger (None | str | Unset): Restrict to runs with the given trigger. One of
+            `SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`, or a comma-separated list of them to match any
+            (e.g. `SCHEDULE,RETRY` to see a job's automatic runs).
         filtercreated_at (None | str | Unset): Restrict to runs whose `created_at` falls in a
             half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open.
             The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]`
@@ -234,6 +248,7 @@ def sync_detailed(
         filterjob=filterjob,
         filterstatus=filterstatus,
         filterenvironment=filterenvironment,
+        filtertrigger=filtertrigger,
         filtercreated_at=filtercreated_at,
         filterstarted_at=filterstarted_at,
         filterfinished_at=filterfinished_at,
@@ -257,6 +272,7 @@ def sync(
     filterjob: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
     filterenvironment: None | str | Unset = UNSET,
+    filtertrigger: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
@@ -282,6 +298,8 @@ def sync(
 
     - `filter[job]={id}` — a single job's run history.
     - `filter[status]` — one state or a comma-separated list (any-of).
+    - `filter[trigger]` — one trigger (`SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`)
+      or a comma-separated list of them (any-of).
     - `filter[environment]` — one environment key or a comma-separated list
       (any-of); omitted covers every environment you can access.
     - `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
@@ -304,6 +322,9 @@ def sync(
         filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
             results to (e.g. `production,staging`). When omitted, results cover every environment you
             can access.
+        filtertrigger (None | str | Unset): Restrict to runs with the given trigger. One of
+            `SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`, or a comma-separated list of them to match any
+            (e.g. `SCHEDULE,RETRY` to see a job's automatic runs).
         filtercreated_at (None | str | Unset): Restrict to runs whose `created_at` falls in a
             half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open.
             The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]`
@@ -354,6 +375,7 @@ def sync(
         filterjob=filterjob,
         filterstatus=filterstatus,
         filterenvironment=filterenvironment,
+        filtertrigger=filtertrigger,
         filtercreated_at=filtercreated_at,
         filterstarted_at=filterstarted_at,
         filterfinished_at=filterfinished_at,
@@ -371,6 +393,7 @@ async def asyncio_detailed(
     filterjob: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
     filterenvironment: None | str | Unset = UNSET,
+    filtertrigger: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
@@ -396,6 +419,8 @@ async def asyncio_detailed(
 
     - `filter[job]={id}` — a single job's run history.
     - `filter[status]` — one state or a comma-separated list (any-of).
+    - `filter[trigger]` — one trigger (`SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`)
+      or a comma-separated list of them (any-of).
     - `filter[environment]` — one environment key or a comma-separated list
       (any-of); omitted covers every environment you can access.
     - `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
@@ -418,6 +443,9 @@ async def asyncio_detailed(
         filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
             results to (e.g. `production,staging`). When omitted, results cover every environment you
             can access.
+        filtertrigger (None | str | Unset): Restrict to runs with the given trigger. One of
+            `SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`, or a comma-separated list of them to match any
+            (e.g. `SCHEDULE,RETRY` to see a job's automatic runs).
         filtercreated_at (None | str | Unset): Restrict to runs whose `created_at` falls in a
             half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open.
             The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]`
@@ -467,6 +495,7 @@ async def asyncio_detailed(
         filterjob=filterjob,
         filterstatus=filterstatus,
         filterenvironment=filterenvironment,
+        filtertrigger=filtertrigger,
         filtercreated_at=filtercreated_at,
         filterstarted_at=filterstarted_at,
         filterfinished_at=filterfinished_at,
@@ -488,6 +517,7 @@ async def asyncio(
     filterjob: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
     filterenvironment: None | str | Unset = UNSET,
+    filtertrigger: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
@@ -513,6 +543,8 @@ async def asyncio(
 
     - `filter[job]={id}` — a single job's run history.
     - `filter[status]` — one state or a comma-separated list (any-of).
+    - `filter[trigger]` — one trigger (`SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`)
+      or a comma-separated list of them (any-of).
     - `filter[environment]` — one environment key or a comma-separated list
       (any-of); omitted covers every environment you can access.
     - `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
@@ -535,6 +567,9 @@ async def asyncio(
         filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
             results to (e.g. `production,staging`). When omitted, results cover every environment you
             can access.
+        filtertrigger (None | str | Unset): Restrict to runs with the given trigger. One of
+            `SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`, or a comma-separated list of them to match any
+            (e.g. `SCHEDULE,RETRY` to see a job's automatic runs).
         filtercreated_at (None | str | Unset): Restrict to runs whose `created_at` falls in a
             half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open.
             The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]`
@@ -586,6 +621,7 @@ async def asyncio(
             filterjob=filterjob,
             filterstatus=filterstatus,
             filterenvironment=filterenvironment,
+            filtertrigger=filtertrigger,
             filtercreated_at=filtercreated_at,
             filterstarted_at=filterstarted_at,
             filterfinished_at=filterfinished_at,
