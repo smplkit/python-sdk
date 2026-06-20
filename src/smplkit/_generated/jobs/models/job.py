@@ -49,17 +49,22 @@ class Job:
             type_ (Literal['http'] | Unset): Job type. Only `http` is supported today. Default: 'http'.
             schedule (None | str | Unset): The base schedule every environment inherits unless it overrides it, and the
                 field that determines the job's `kind`. Omit it (or send `null`) to create a permanent **manual** job that never
-                auto-fires and runs only when triggered. Provide a 5-field cron expression evaluated in **UTC** for a
-                **recurring** job, an ISO-8601 datetime for a **one-off** run at that instant, or the literal `now` for a one-
-                off run as soon as possible. A datetime or `now` job disables itself after it fires.
+                auto-fires and runs only when triggered. Provide a 5-field cron expression evaluated in the job's `timezone`
+                (UTC by default) for a **recurring** job, an ISO-8601 datetime for a **one-off** run at that instant, or the
+                literal `now` for a one-off run as soon as possible. A datetime or `now` job disables itself after it fires.
+            timezone (None | str | Unset): IANA timezone the cron `schedule` is evaluated in (e.g. `America/New_York`); null
+                or omitted means UTC. The base every environment inherits unless it sets its own `timezone`. The cron fires on
+                this zone's wall clock (DST-aware) while `next_run_at` is still reported as a UTC instant. Only valid on a
+                recurring (cron) job — it cannot be set on a manual or one-off job.
             environments (JobEnvironments | Unset): Per-environment overrides keyed by environment key (e.g. `production`,
                 `staging`). Each entry sets `enabled` (whether the job is enabled — scheduled, for a recurring job, or
                 triggerable, for a manual job — in that environment), an optional `schedule` override (a cron expression for
-                recurring jobs; omit to inherit the base `schedule`), and an optional `configuration` override (omit to inherit
-                the base `configuration`); it also reports the read-only `next_run_at` for that environment. A job with no entry
-                for an environment is disabled there. For a recurring or manual job, supply this map to choose where it runs.
-                For a one-off job, the environment it is created in is recorded here automatically — name it with the
-                `X-Smplkit-Environment` header. Every referenced environment must exist for the account.
+                recurring jobs; omit to inherit the base `schedule`), an optional `timezone` override (an IANA zone for
+                recurring jobs; omit to inherit the base `timezone`, else UTC), and an optional `configuration` override (omit
+                to inherit the base `configuration`); it also reports the read-only `next_run_at` for that environment. A job
+                with no entry for an environment is disabled there. For a recurring or manual job, supply this map to choose
+                where it runs. For a one-off job, the environment it is created in is recorded here automatically — name it with
+                the `X-Smplkit-Environment` header. Every referenced environment must exist for the account.
             concurrency_policy (Literal['ALLOW'] | Unset): How overlapping runs are handled. `ALLOW` (the only value today)
                 permits them. Default: 'ALLOW'.
             kind (JobKindType0 | None | Unset): How the job runs, derived from its base `schedule`: `recurring` for a cron
@@ -76,6 +81,7 @@ class Job:
     description: None | str | Unset = UNSET
     type_: Literal["http"] | Unset = "http"
     schedule: None | str | Unset = UNSET
+    timezone: None | str | Unset = UNSET
     environments: JobEnvironments | Unset = UNSET
     concurrency_policy: Literal["ALLOW"] | Unset = "ALLOW"
     kind: JobKindType0 | None | Unset = UNSET
@@ -103,6 +109,12 @@ class Job:
             schedule = UNSET
         else:
             schedule = self.schedule
+
+        timezone: None | str | Unset
+        if isinstance(self.timezone, Unset):
+            timezone = UNSET
+        else:
+            timezone = self.timezone
 
         environments: dict[str, Any] | Unset = UNSET
         if not isinstance(self.environments, Unset):
@@ -162,6 +174,8 @@ class Job:
             field_dict["type"] = type_
         if schedule is not UNSET:
             field_dict["schedule"] = schedule
+        if timezone is not UNSET:
+            field_dict["timezone"] = timezone
         if environments is not UNSET:
             field_dict["environments"] = environments
         if concurrency_policy is not UNSET:
@@ -210,6 +224,15 @@ class Job:
             return cast(None | str | Unset, data)
 
         schedule = _parse_schedule(d.pop("schedule", UNSET))
+
+        def _parse_timezone(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        timezone = _parse_timezone(d.pop("timezone", UNSET))
 
         _environments = d.pop("environments", UNSET)
         environments: JobEnvironments | Unset
@@ -305,6 +328,7 @@ class Job:
             description=description,
             type_=type_,
             schedule=schedule,
+            timezone=timezone,
             environments=environments,
             concurrency_policy=concurrency_policy,
             kind=kind,
