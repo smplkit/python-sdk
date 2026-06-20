@@ -1,34 +1,41 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, TYPE_CHECKING
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 
-T = TypeVar("T", bound="RunListMeta")
+if TYPE_CHECKING:
+    from ..models.retry_policy_resource import RetryPolicyResource
+
+
+T = TypeVar("T", bound="RetryPolicyResponse")
 
 
 @_attrs_define
-class RunListMeta:
-    """Cursor-pagination meta for the runs list.
+class RetryPolicyResponse:
+    """JSON:API single-resource response for a retry policy.
 
     Attributes:
-        page_size (int): Number of runs returned per page.
+        data (RetryPolicyResource): JSON:API resource envelope for a retry policy. The caller supplies `id` on create.
+            Example: {'attributes': {'backoff': 'exponential', 'delay_seconds': 2, 'max_delay_seconds': 60, 'max_retries':
+            5, 'name': 'Retry on server errors', 'retry_on': {'reasons': ['TIMEOUT', 'CONNECTION_ERROR'], 'statuses': [429,
+            503]}}, 'id': 'retry-on-5xx', 'type': 'retry_policy'}.
     """
 
-    page_size: int
+    data: RetryPolicyResource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        page_size = self.page_size
+        data = self.data.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "page_size": page_size,
+                "data": data,
             }
         )
 
@@ -36,15 +43,17 @@ class RunListMeta:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        d = dict(src_dict)
-        page_size = d.pop("page_size")
+        from ..models.retry_policy_resource import RetryPolicyResource
 
-        run_list_meta = cls(
-            page_size=page_size,
+        d = dict(src_dict)
+        data = RetryPolicyResource.from_dict(d.pop("data"))
+
+        retry_policy_response = cls(
+            data=data,
         )
 
-        run_list_meta.additional_properties = d
-        return run_list_meta
+        retry_policy_response.additional_properties = d
+        return retry_policy_response
 
     @property
     def additional_keys(self) -> list[str]:

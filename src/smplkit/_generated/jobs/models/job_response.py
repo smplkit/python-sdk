@@ -27,8 +27,8 @@ class JobResponse:
             {'body': '{"scope":"all"}', 'headers': [{'name': 'Authorization', 'value': 'Bearer staging'}], 'method': 'POST',
             'success_status': '2xx', 'timeout': 30, 'tls_verify': True, 'url': 'https://staging.example.com/cache/warm'},
             'enabled': True, 'schedule': '0 3 * * *', 'timezone': 'Europe/London'}}, 'name': 'Nightly cache warm',
-            'schedule': '0 2 * * *', 'timezone': 'America/New_York', 'type': 'http'}, 'id': 'nightly-cache-warm', 'type':
-            'job'}.
+            'retry_policy': 'retry-on-5xx', 'schedule': '0 2 * * *', 'timezone': 'America/New_York', 'type': 'http'}, 'id':
+            'nightly-cache-warm', 'type': 'job'}.
     """
 
     data: JobResource
