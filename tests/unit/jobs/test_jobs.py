@@ -34,6 +34,7 @@ _DEFAULT_ENVIRONMENTS = {
     "staging": {
         "enabled": False,
         "schedule": "0 3 * * *",
+        "timezone": "Europe/London",
         "configuration": {
             "method": "POST",
             "url": "https://staging.example.com/hook",
@@ -58,6 +59,7 @@ def _job_resource(job_id="my-job", *, created=True, version=1, environments="def
         "kind": "recurring",
         "type": "http",
         "schedule": "0 * * * *",
+        "timezone": "America/New_York",
         "configuration": {
             "method": "POST",
             "url": "https://api.example.com/hook",
@@ -443,16 +445,19 @@ class TestEnvironmentModelsAndHelpers:
         bare = JobEnvironment._from_dict({"enabled": True})
         assert bare.enabled is True and bare.configuration is None
         assert bare.schedule is None and bare.next_run_at is None  # both absent
+        assert bare.timezone is None  # absent per-env timezone
         with_cfg = JobEnvironment._from_dict(
             {
                 "enabled": False,
                 "schedule": "0 6 * * *",
+                "timezone": "America/New_York",
                 "configuration": {"url": "https://e.com"},
                 "next_run_at": "2026-06-05T00:00:00Z",
             }
         )
         assert with_cfg.enabled is False
         assert with_cfg.schedule == "0 6 * * *"  # per-env schedule read back
+        assert with_cfg.timezone == "America/New_York"  # per-env timezone read back
         assert isinstance(with_cfg.configuration, HttpConfig)
         assert with_cfg.configuration.url == "https://e.com"
         # read-only next_run_at parsed back to a datetime
@@ -464,12 +469,13 @@ class TestEnvironmentModelsAndHelpers:
         env = JobEnvironment(
             enabled=True,
             schedule="0 7 * * *",
+            timezone="Europe/London",
             next_run_at=datetime.datetime(2026, 6, 5),
         )
         payload = env._to_payload()
-        assert payload == {"enabled": True, "schedule": "0 7 * * *"}
+        assert payload == {"enabled": True, "schedule": "0 7 * * *", "timezone": "Europe/London"}
         assert "next_run_at" not in payload
-        # with no schedule override, only enabled is written
+        # with no schedule / timezone override, only enabled is written
         assert JobEnvironment(enabled=False)._to_payload() == {"enabled": False}
 
     def test_join_environments(self):
@@ -489,7 +495,8 @@ class TestEnvironmentModelsAndHelpers:
                 "production": JobEnvironment(enabled=True),  # passthrough instance
                 "staging": {"enabled": True, "configuration": _CFG},  # dict w/ HttpConfig instance
                 "dev": {"enabled": False, "configuration": {"url": "https://dev.example.com"}},  # dict w/ dict cfg
-                "qa": {"enabled": True, "schedule": "0 8 * * *"},  # dict w/ per-env schedule, no configuration
+                # dict w/ per-env schedule + timezone, no configuration
+                "qa": {"enabled": True, "schedule": "0 8 * * *", "timezone": "Asia/Tokyo"},
             }
         )
         assert out["production"].enabled is True
@@ -499,6 +506,8 @@ class TestEnvironmentModelsAndHelpers:
         assert out["dev"].configuration.url == "https://dev.example.com"
         assert out["qa"].configuration is None
         assert out["qa"].schedule == "0 8 * * *"  # dict-form per-env schedule carried through
+        assert out["qa"].timezone == "Asia/Tokyo"  # dict-form per-env timezone carried through
+        assert out["staging"].timezone is None  # absent dict-form timezone stays None
 
     def test_create_sends_dict_form_environment_configuration(self):
         # The documented plain-dict form (incl. a dict configuration override)
@@ -545,15 +554,19 @@ class TestEnvironmentModelsAndHelpers:
         job = c.get("my-job")
         assert job.enabled is True  # derived roll-up (production enabled)
         assert job.kind is JobKind.RECURRING and job.is_recurring()
+        assert job.timezone == "America/New_York"  # base timezone decoded off the wire
         assert job.environments["production"].enabled is True
         assert job.environments["production"].configuration is None  # inherits base
         assert job.environments["production"].schedule is None  # inherits base schedule
+        assert job.environments["production"].timezone is None  # inherits base timezone
         # read-only per-env next_run_at parsed back off the wire
         assert job.environments["production"].next_run_at is not None
         assert job.environments["production"].next_run_at.year == 2026
         assert job.environments["staging"].configuration.url == "https://staging.example.com/hook"
         # per-env schedule override parsed back off the wire
         assert job.environments["staging"].schedule == "0 3 * * *"
+        # per-env timezone override parsed back off the wire
+        assert job.environments["staging"].timezone == "Europe/London"
         # next_run_at is null for the disabled environment
         assert job.environments["staging"].next_run_at is None
 
@@ -616,6 +629,7 @@ class TestEnvironmentsSync:
                 "production": JobEnvironment(
                     enabled=True,
                     schedule="0 9 * * *",
+                    timezone="Europe/London",
                     next_run_at=datetime.datetime(2026, 6, 5),
                 ),
             },
@@ -624,7 +638,30 @@ class TestEnvironmentsSync:
         body = next(c for c in caps if c["method"] == "POST" and c["path"] == "/api/v1/jobs")
         prod = body["body"]["data"]["attributes"]["environments"]["production"]
         assert prod["schedule"] == "0 9 * * *"
+        assert prod["timezone"] == "Europe/London"  # per-env timezone sent on save
         assert "next_run_at" not in prod  # read-only: never sent
+
+    def test_create_sends_base_timezone_and_omits_when_unset(self):
+        # The base timezone is sent on the wire when set, and omitted entirely
+        # (leaving the server default of UTC) when None.
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        job = c.new_recurring_job("my-job", name="My Job", schedule="0 * * * *", configuration=_CFG)
+        job.set_timezone("America/New_York")
+        assert job.timezone == "America/New_York"
+        job.save()
+        attrs = next(x for x in caps if x["method"] == "POST" and x["path"] == "/api/v1/jobs")["body"]["data"][
+            "attributes"
+        ]
+        assert attrs["timezone"] == "America/New_York"  # base timezone on the wire
+
+        caps.clear()
+        plain = c.new_recurring_job("plain", name="Plain", schedule="0 * * * *", configuration=_CFG)
+        plain.save()
+        plain_attrs = next(x for x in caps if x["method"] == "POST" and x["path"] == "/api/v1/jobs")["body"]["data"][
+            "attributes"
+        ]
+        assert "timezone" not in plain_attrs  # omitted when unset
 
     def test_runs_list_explicit_environments_filter(self):
         caps: list[dict] = []
@@ -750,6 +787,21 @@ class TestConvenienceGettersSetters:
         assert job.environments["staging"].schedule == "15 5 * * *"
         # the base schedule is untouched by per-env overrides
         assert job.schedule == "0 2 * * *"
+
+    def test_set_timezone(self):
+        job = Job(None, id="x", name="X", schedule="0 2 * * *", configuration=_CFG)
+        assert job.timezone is None  # defaults to None (UTC)
+        # base timezone (environment=None)
+        job.set_timezone("America/New_York")
+        assert job.timezone == "America/New_York"
+        # per-environment timezone override — create-new-entry branch
+        job.set_timezone("Europe/London", environment="staging")
+        assert job.environments["staging"].timezone == "Europe/London"
+        # existing-entry branch (the env already has an override)
+        job.set_timezone("Asia/Tokyo", environment="staging")
+        assert job.environments["staging"].timezone == "Asia/Tokyo"
+        # the base timezone is untouched by per-env overrides
+        assert job.timezone == "America/New_York"
 
 
 class TestActiveRecordSync:

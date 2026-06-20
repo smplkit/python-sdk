@@ -243,17 +243,25 @@ class JobEnvironment:
         schedule: Optional per-environment cron override that varies the cadence
             for this environment. ``None`` (the default) inherits the job's base
             :attr:`Job.schedule`.
+        timezone: Optional per-environment IANA timezone override (e.g.
+            ``"America/New_York"``) for evaluating this environment's cron
+            schedule (recurring jobs only). ``None`` (the default) inherits the
+            job's base :attr:`Job.timezone`, else UTC. It may be set on an
+            environment that inherits the base schedule — it need not also
+            override :attr:`schedule`. Sent on writes only when not ``None``.
         configuration: Optional per-environment request configuration that
             fully replaces the job's base :attr:`Job.configuration` for this
             environment. ``None`` (the default) inherits the base
             configuration.
         next_run_at: Read-only next scheduled fire time in this environment, as
-            reported by the server. ``None`` when the environment is not enabled
-            or once a one-off run has fired. Never sent on save.
+            reported by the server, always a UTC instant. ``None`` when the
+            environment is not enabled or once a one-off run has fired. Never
+            sent on save.
     """
 
     enabled: bool = False
     schedule: Optional[str] = None
+    timezone: Optional[str] = None
     configuration: Optional[HttpConfig] = None
     next_run_at: Optional[datetime.datetime] = None
 
@@ -263,6 +271,7 @@ class JobEnvironment:
         return cls(
             enabled=bool(raw.get("enabled", False)),
             schedule=raw.get("schedule"),
+            timezone=raw.get("timezone"),
             configuration=HttpConfig.from_dict(cfg) if cfg else None,
             next_run_at=_parse_dt(raw.get("next_run_at")),
         )
@@ -271,6 +280,8 @@ class JobEnvironment:
         payload: dict[str, Any] = {"enabled": self.enabled}
         if self.schedule is not None:
             payload["schedule"] = self.schedule
+        if self.timezone is not None:
+            payload["timezone"] = self.timezone
         if self.configuration is not None:
             payload["configuration"] = self.configuration.to_dict()
         return payload
@@ -296,6 +307,7 @@ def _normalize_environments(
             out[env_key] = JobEnvironment(
                 enabled=bool(value.get("enabled", False)),
                 schedule=value.get("schedule"),
+                timezone=value.get("timezone"),
                 configuration=cfg,
             )
     return out
@@ -335,6 +347,7 @@ class _JobBase:
         id: str,
         name: str,
         schedule: Optional[str] = None,
+        timezone: Optional[str] = None,
         configuration: HttpConfig,
         description: Optional[str] = None,
         environments: Optional[dict[str, JobEnvironment]] = None,
@@ -358,6 +371,12 @@ class _JobBase:
         self.kind = kind
         self.type = type
         self.schedule = schedule
+        # Base IANA timezone the cron schedule is evaluated in (e.g.
+        # "America/New_York"); ``None`` means UTC. The base every environment
+        # inherits unless it sets its own timezone. The cron fires on this
+        # zone's wall clock (DST-aware) while next_run_at stays a UTC instant.
+        # Only meaningful on a recurring job. Sent on writes only when not None.
+        self.timezone = timezone
         self.configuration = configuration
         self.concurrency_policy = concurrency_policy
         self.created_at = created_at
@@ -454,6 +473,24 @@ class _JobBase:
         else:
             self._environment_override(environment).schedule = schedule
 
+    def set_timezone(self, timezone: str, environment: Optional[str] = None) -> None:
+        """Set the IANA timezone the cron schedule runs in — base or per-environment.
+
+        With ``environment=None`` (the default) this sets the job's base
+        :attr:`timezone`, the zone every environment inherits unless it
+        overrides it; ``None``/unset means UTC. With an ``environment``, this
+        sets a per-environment timezone override for just that environment,
+        creating the override entry if it doesn't exist yet (preserving any
+        already-set ``enabled`` / ``schedule`` / ``configuration`` on it). A
+        timezone is only meaningful on a recurring (cron) job, and an
+        environment may set one even while inheriting the base schedule.
+        :attr:`next_run_at` is still reported as a UTC instant.
+        """
+        if environment is None:
+            self.timezone = timezone
+        else:
+            self._environment_override(environment).timezone = timezone
+
     def _attributes(self) -> dict[str, Any]:
         attrs: dict[str, Any] = {
             "name": self.name,
@@ -463,6 +500,10 @@ class _JobBase:
             "configuration": self.configuration.to_dict(),
             "concurrency_policy": self.concurrency_policy,
         }
+        # Timezone is the IANA zone the cron is evaluated in (recurring jobs
+        # only); ``None`` is omitted, leaving the server default of UTC.
+        if self.timezone is not None:
+            attrs["timezone"] = self.timezone
         if self.environments:
             attrs["environments"] = {env_key: env._to_payload() for env_key, env in self.environments.items()}
         return attrs
@@ -486,6 +527,7 @@ def _job_base_from_resource(resource: dict[str, Any]) -> _JobBase:
         kind=JobKind(raw_kind) if raw_kind else None,
         type=a.get("type", "http"),
         schedule=a.get("schedule"),
+        timezone=a.get("timezone"),
         configuration=HttpConfig.from_dict(a["configuration"]),
         concurrency_policy=a.get("concurrency_policy", "ALLOW"),
         created_at=_parse_dt(a.get("created_at")),
@@ -505,7 +547,14 @@ class Job(_JobBase):
     @classmethod
     def _from_resource(cls, resource: dict[str, Any], client: "JobsClient") -> "Job":
         base = _job_base_from_resource(resource)
-        job = cls(client, id=base.id, name=base.name, schedule=base.schedule, configuration=base.configuration)
+        job = cls(
+            client,
+            id=base.id,
+            name=base.name,
+            schedule=base.schedule,
+            timezone=base.timezone,
+            configuration=base.configuration,
+        )
         job._apply(base)
         return job
 
@@ -575,7 +624,14 @@ class AsyncJob(_JobBase):
     @classmethod
     def _from_resource(cls, resource: dict[str, Any], client: "AsyncJobsClient") -> "AsyncJob":
         base = _job_base_from_resource(resource)
-        job = cls(client, id=base.id, name=base.name, schedule=base.schedule, configuration=base.configuration)
+        job = cls(
+            client,
+            id=base.id,
+            name=base.name,
+            schedule=base.schedule,
+            timezone=base.timezone,
+            configuration=base.configuration,
+        )
         job._apply(base)
         return job
 
