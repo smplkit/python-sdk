@@ -18,7 +18,23 @@ import pytest
 from smplkit import AsyncJobsClient, JobsClient
 from smplkit.errors import ConflictError, NotFoundError
 from smplkit._generated.jobs.client import AuthenticatedClient
-from smplkit.jobs import AsyncJob, AsyncRun, HttpConfig, Job, JobEnvironment, JobKind, Run, RunTrigger, Usage
+from smplkit.jobs import (
+    AsyncJob,
+    AsyncRetryPolicy,
+    AsyncRun,
+    Backoff,
+    HttpConfig,
+    Job,
+    JobEnvironment,
+    JobKind,
+    RetryOn,
+    RetryPolicy,
+    RetryReason,
+    Run,
+    RunRetry,
+    RunTrigger,
+    Usage,
+)
 
 BASE = "https://jobs.example.com"
 RUN_ID = "8f2b1c4a-0000-4a1b-9c3d-1e2f3a4b5c6d"
@@ -35,6 +51,7 @@ _DEFAULT_ENVIRONMENTS = {
         "enabled": False,
         "schedule": "0 3 * * *",
         "timezone": "Europe/London",
+        "retry_policy": "retry-on-5xx",
         "configuration": {
             "method": "POST",
             "url": "https://staging.example.com/hook",
@@ -60,6 +77,7 @@ def _job_resource(job_id="my-job", *, created=True, version=1, environments="def
         "type": "http",
         "schedule": "0 * * * *",
         "timezone": "America/New_York",
+        "retry_policy": "retry-on-5xx",
         "configuration": {
             "method": "POST",
             "url": "https://api.example.com/hook",
@@ -93,7 +111,9 @@ def _kind_resource(kind):
     return res
 
 
-def _run_resource(run_id=RUN_ID, status="SUCCEEDED", trigger="SCHEDULE", rerun_of=None, environment="production"):
+def _run_resource(
+    run_id=RUN_ID, status="SUCCEEDED", trigger="SCHEDULE", rerun_of=None, environment="production", retry=None
+):
     return {
         "id": run_id,
         "type": "run",
@@ -103,6 +123,7 @@ def _run_resource(run_id=RUN_ID, status="SUCCEEDED", trigger="SCHEDULE", rerun_o
             "environment": environment,
             "trigger": trigger,
             "rerun_of": rerun_of,
+            "retry": retry,
             "scheduled_for": "2026-06-05T00:00:00Z",
             "status": status,
             "started_at": "2026-06-05T00:00:00.1Z",
@@ -117,6 +138,29 @@ def _run_resource(run_id=RUN_ID, status="SUCCEEDED", trigger="SCHEDULE", rerun_o
             "created_at": "2026-06-05T00:00:00Z",
         },
     }
+
+
+_RETRY_POLICY_ID = "retry-on-5xx"
+
+
+def _retry_policy_resource(policy_id=_RETRY_POLICY_ID, *, created=True, version=1, retry_on="default", max_delay=60):
+    if retry_on == "default":
+        retry_on = {"statuses": [429, 503], "reasons": ["TIMEOUT", "CONNECTION_ERROR"]}
+    attributes = {
+        "name": "Retry on server errors",
+        "max_retries": 5,
+        "backoff": "exponential",
+        "delay_seconds": 2,
+        "created_at": "2026-06-04T00:00:00Z" if created else None,
+        "updated_at": "2026-06-04T00:00:00Z" if created else None,
+        "deleted_at": None,
+        "version": version,
+    }
+    if max_delay is not None:
+        attributes["max_delay_seconds"] = max_delay
+    if retry_on is not None:
+        attributes["retry_on"] = retry_on
+    return {"id": policy_id, "type": "retry_policy", "attributes": attributes}
 
 
 _USAGE = {
@@ -148,6 +192,22 @@ def _handler(req: httpx.Request) -> httpx.Response:
     if path.startswith("/api/v1/jobs/") and m == "PUT":
         return httpx.Response(200, json={"data": _job_resource(version=2)})
     if path.startswith("/api/v1/jobs/") and m == "DELETE":
+        return httpx.Response(204)
+    if path == "/api/v1/retry-policies" and m == "POST":
+        return httpx.Response(201, json={"data": _retry_policy_resource()})
+    if path == "/api/v1/retry-policies" and m == "GET":
+        return httpx.Response(
+            200,
+            json={
+                "data": [_retry_policy_resource("a"), _retry_policy_resource("b")],
+                "meta": {"pagination": {"page": 1, "size": 1000}},
+            },
+        )
+    if path.startswith("/api/v1/retry-policies/") and m == "GET":
+        return httpx.Response(200, json={"data": _retry_policy_resource()})
+    if path.startswith("/api/v1/retry-policies/") and m == "PUT":
+        return httpx.Response(200, json={"data": _retry_policy_resource(version=2)})
+    if path.startswith("/api/v1/retry-policies/") and m == "DELETE":
         return httpx.Response(204)
     if path == "/api/v1/usage":
         return httpx.Response(200, json={"data": _USAGE})
@@ -788,6 +848,20 @@ class TestConvenienceGettersSetters:
         # the base schedule is untouched by per-env overrides
         assert job.schedule == "0 2 * * *"
 
+    def test_set_schedule_with_timezone(self):
+        # The optional timezone is set at the same scope as the schedule.
+        job = Job(None, id="x", name="X", schedule="now", configuration=_CFG)
+        # base scope: sets both schedule and timezone
+        job.set_schedule("0 2 * * *", timezone="America/New_York")
+        assert job.schedule == "0 2 * * *" and job.timezone == "America/New_York"
+        # per-env scope: sets the env's schedule and timezone together
+        job.set_schedule("30 2 * * *", timezone="America/Los_Angeles", environment="production")
+        prod = job.environments["production"]
+        assert prod.schedule == "30 2 * * *" and prod.timezone == "America/Los_Angeles"
+        # omitting timezone leaves the existing zone untouched
+        job.set_schedule("0 6 * * *", environment="production")
+        assert job.environments["production"].timezone == "America/Los_Angeles"
+
     def test_set_timezone(self):
         job = Job(None, id="x", name="X", schedule="0 2 * * *", configuration=_CFG)
         assert job.timezone is None  # defaults to None (UTC)
@@ -874,5 +948,273 @@ class TestActiveRecordAsync:
                 await unbound.rerun()
             with pytest.raises(RuntimeError):
                 await unbound.cancel()
+
+        asyncio.run(_run())
+
+
+class TestRetryModels:
+    def test_retry_on_round_trip(self):
+        on = RetryOn(statuses=[429, 503], reasons=[RetryReason.TIMEOUT, RetryReason.CONNECTION_ERROR])
+        d = on.to_dict()
+        assert d == {"statuses": [429, 503], "reasons": ["TIMEOUT", "CONNECTION_ERROR"]}
+        back = RetryOn.from_dict(d)
+        assert back.statuses == [429, 503]
+        assert back.reasons == [RetryReason.TIMEOUT, RetryReason.CONNECTION_ERROR]
+
+    def test_retry_on_empty_defaults(self):
+        # Empty RetryOn retries nothing; from_dict tolerates missing keys.
+        assert RetryOn().to_dict() == {"statuses": [], "reasons": []}
+        empty = RetryOn.from_dict({})
+        assert empty.statuses == [] and empty.reasons == []
+
+    def test_run_retry_parsed_on_retry_trigger(self):
+        chain = "11111111-2222-3333-4444-555555555555"
+        run = Run._from_resource(_run_resource(trigger="RETRY", retry={"of": chain, "attempt": 2}))
+        assert run.trigger == RunTrigger.RETRY and run.trigger == "RETRY"
+        assert isinstance(run.retry, RunRetry)
+        assert run.retry.of == chain and run.retry.attempt == 2
+
+    def test_run_without_retry_is_none(self):
+        # A non-retry run carries no retry chain position.
+        assert Run._from_resource(_run_resource()).retry is None
+
+
+class TestJobRetryPolicy:
+    def test_base_retry_policy_round_trip(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        # parsed back off the wire (the fixture sets retry_policy)
+        job = c.get("my-job")
+        assert job.retry_policy == "retry-on-5xx"
+        assert job.environments["staging"].retry_policy == "retry-on-5xx"  # per-env parsed
+        assert job.environments["production"].retry_policy is None  # inherits base
+        # set base + serialize on save
+        job.set_retry_policy("retry-aggressive")
+        job.save()
+        attrs = next(x for x in caps if x["method"] == "PUT")["body"]["data"]["attributes"]
+        assert attrs["retry_policy"] == "retry-aggressive"
+
+    def test_base_retry_policy_omitted_when_unset(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        job = c.new_recurring_job("plain", name="Plain", schedule="0 * * * *", configuration=_CFG)
+        assert job.retry_policy is None
+        job.save()
+        attrs = next(x for x in caps if x["method"] == "POST")["body"]["data"]["attributes"]
+        assert "retry_policy" not in attrs
+
+    def test_new_recurring_job_accepts_retry_policy_and_timezone(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        job = c.new_recurring_job(
+            "tz-job",
+            name="TZ",
+            schedule="0 2 * * *",
+            timezone="America/New_York",
+            retry_policy="retry-on-5xx",
+            configuration=_CFG,
+        )
+        assert job.timezone == "America/New_York" and job.retry_policy == "retry-on-5xx"
+        job.save()
+        attrs = next(x for x in caps if x["method"] == "POST")["body"]["data"]["attributes"]
+        assert attrs["timezone"] == "America/New_York"
+        assert attrs["retry_policy"] == "retry-on-5xx"
+
+    def test_new_manual_and_schedule_accept_retry_policy(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        c.new_manual_job("m", name="M", configuration=_CFG, retry_policy="retry-on-5xx").save()
+        man = next(x for x in caps if x["method"] == "POST" and x["body"]["data"]["id"] == "m")
+        assert man["body"]["data"]["attributes"]["retry_policy"] == "retry-on-5xx"
+        when = datetime.datetime(2030, 1, 1)
+        c.schedule("o", name="O", schedule=when, configuration=_CFG, retry_policy="retry-on-5xx").save()
+        off = next(x for x in caps if x["method"] == "POST" and x["body"]["data"]["id"] == "o")
+        assert off["body"]["data"]["attributes"]["retry_policy"] == "retry-on-5xx"
+
+    def test_set_retry_policy_base_and_per_environment(self):
+        job = Job(None, id="x", name="X", schedule="0 2 * * *", configuration=_CFG)
+        assert job.retry_policy is None
+        job.set_retry_policy("base-policy")
+        assert job.retry_policy == "base-policy"
+        # per-env create-new-entry branch
+        job.set_retry_policy("staging-policy", environment="staging")
+        assert job.environments["staging"].retry_policy == "staging-policy"
+        # existing-entry branch
+        job.set_retry_policy("staging-policy-2", environment="staging")
+        assert job.environments["staging"].retry_policy == "staging-policy-2"
+        assert job.retry_policy == "base-policy"  # base untouched
+
+    def test_set_retry_policy_accepts_object_or_id(self):
+        # A RetryPolicy / AsyncRetryPolicy instance contributes its id; a bare
+        # string id is used as-is.
+        job = Job(None, id="x", name="X", schedule="0 2 * * *", configuration=_CFG)
+        policy = RetryPolicy(None, id="retry-on-5xx", name="P", max_retries=1, backoff=Backoff.FIXED, delay_seconds=1)
+        job.set_retry_policy(policy)  # base, from object
+        assert job.retry_policy == "retry-on-5xx"
+        apolicy = AsyncRetryPolicy(
+            None, id="retry-async", name="P", max_retries=1, backoff=Backoff.FIXED, delay_seconds=1
+        )
+        job.set_retry_policy(apolicy, environment="staging")  # per-env, from object
+        assert job.environments["staging"].retry_policy == "retry-async"
+
+    def test_env_to_payload_includes_retry_policy(self):
+        env = JobEnvironment(enabled=True, retry_policy="retry-on-5xx")
+        assert env._to_payload() == {"enabled": True, "retry_policy": "retry-on-5xx"}
+        assert "retry_policy" not in JobEnvironment(enabled=True)._to_payload()
+
+    def test_normalize_environments_carries_retry_policy(self):
+        from smplkit.jobs.clients import _normalize_environments
+
+        out = _normalize_environments({"staging": {"enabled": True, "retry_policy": "retry-on-5xx"}})
+        assert out["staging"].retry_policy == "retry-on-5xx"
+
+
+class TestRunsListNewFilters:
+    def test_triggers_and_last_run_only_params(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        c.runs.list(triggers=[RunTrigger.SCHEDULE, RunTrigger.RETRY], last_run_only=True)
+        params = caps[-1]["params"]
+        assert params["filter[trigger]"] == "SCHEDULE,RETRY"
+        assert params["last_run_only"] == "true"
+
+    def test_defaults_omit_new_params(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        c.runs.list()
+        params = caps[-1]["params"]
+        assert "filter[trigger]" not in params and "last_run_only" not in params
+
+    def test_job_list_runs_passes_new_filters(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        c.get("my-job").list_runs(triggers=[RunTrigger.RETRY], last_run_only=True)
+        params = caps[-1]["params"]
+        assert params["filter[trigger]"] == "RETRY"
+        assert params["last_run_only"] == "true"
+
+    def test_async_triggers_and_last_run_only(self):
+        async def _run():
+            caps: list[dict] = []
+            c = AsyncJobsClient(auth_client=_auth(_recording(caps), is_async=True))
+            await c.runs.list(triggers=[RunTrigger.RETRY], last_run_only=True)
+            params = caps[-1]["params"]
+            assert params["filter[trigger]"] == "RETRY" and params["last_run_only"] == "true"
+            job = await c.get("my-job")
+            await job.list_runs(triggers=[RunTrigger.SCHEDULE], last_run_only=True)
+            assert caps[-1]["params"]["filter[trigger]"] == "SCHEDULE"
+
+        asyncio.run(_run())
+
+
+class TestRetryPoliciesSync:
+    def test_new_save_creates_then_updates(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        policy = c.retry_policies.new(
+            _RETRY_POLICY_ID,
+            name="Retry on server errors",
+            max_retries=5,
+            backoff=Backoff.EXPONENTIAL,
+            delay_seconds=2,
+            max_delay_seconds=60,
+            retry_on=RetryOn(statuses=[429, 503], reasons=[RetryReason.TIMEOUT]),
+        )
+        assert policy.created_at is None
+        policy.save()  # create
+        assert policy.created_at is not None and policy.version == 1
+        post = next(x for x in caps if x["method"] == "POST")["body"]["data"]
+        assert post["type"] == "retry_policy" and post["id"] == _RETRY_POLICY_ID
+        attrs = post["attributes"]
+        assert attrs["backoff"] == "exponential"  # Backoff serialized to its value
+        assert attrs["max_delay_seconds"] == 60
+        assert attrs["retry_on"] == {"statuses": [429, 503], "reasons": ["TIMEOUT"]}
+        policy.name = "renamed"
+        policy.save()  # update
+        assert policy.version == 2
+        assert any(x["method"] == "PUT" for x in caps)
+
+    def test_attributes_omit_max_delay_for_fixed(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        c.retry_policies.new("fixed", name="Fixed", max_retries=3, backoff=Backoff.FIXED, delay_seconds=5).save()
+        attrs = next(x for x in caps if x["method"] == "POST")["body"]["data"]["attributes"]
+        assert "max_delay_seconds" not in attrs  # omitted when None
+        assert attrs["retry_on"] == {"statuses": [], "reasons": []}  # empty default
+
+    def test_get_list_delete(self):
+        c = _sync()
+        policy = c.retry_policies.get(_RETRY_POLICY_ID)
+        assert policy.name == "Retry on server errors"
+        assert policy.backoff is Backoff.EXPONENTIAL and policy.max_delay_seconds == 60
+        assert policy.retry_on.statuses == [429, 503]
+        assert policy.retry_on.reasons == [RetryReason.TIMEOUT, RetryReason.CONNECTION_ERROR]
+        assert "RetryPolicy(" in repr(policy)
+        assert len(c.retry_policies.list()) == 2
+        c.retry_policies.delete(_RETRY_POLICY_ID)
+        policy.delete()  # active-record delete with bound client
+
+    def test_list_filters(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        c.retry_policies.list(name="server", page_number=1, page_size=10)
+        params = caps[-1]["params"]
+        assert params["filter[name]"] == "server"
+        assert params["page[number]"] == "1" and params["page[size]"] == "10"
+
+    def test_get_policy_without_retry_on_or_max_delay(self):
+        # retry_on absent -> empty RetryOn; max_delay absent -> None.
+        def h(req):
+            if req.url.path.startswith("/api/v1/retry-policies/") and req.method == "GET":
+                res = _retry_policy_resource(retry_on=None, max_delay=None)
+                return httpx.Response(200, json={"data": res})
+            return _handler(req)
+
+        policy = _sync(h).retry_policies.get(_RETRY_POLICY_ID)
+        assert policy.retry_on.statuses == [] and policy.retry_on.reasons == []
+        assert policy.max_delay_seconds is None
+
+    def test_unsaved_guards(self):
+        policy = RetryPolicy(None, id="x", name="X", max_retries=1, backoff=Backoff.FIXED, delay_seconds=1)
+        with pytest.raises(RuntimeError):
+            policy.save()
+        with pytest.raises(RuntimeError):
+            policy.delete()
+
+
+class TestRetryPoliciesAsync:
+    def test_full_lifecycle(self):
+        async def _run():
+            caps: list[dict] = []
+            c = AsyncJobsClient(auth_client=_auth(_recording(caps), is_async=True))
+            policy = c.retry_policies.new(
+                _RETRY_POLICY_ID,
+                name="Retry on server errors",
+                max_retries=5,
+                backoff=Backoff.EXPONENTIAL,
+                delay_seconds=2,
+                max_delay_seconds=60,
+                retry_on=RetryOn(statuses=[503], reasons=[RetryReason.NON_SUCCESS_STATUS]),
+            )
+            await policy.save()
+            assert policy.created_at is not None
+            policy.name = "renamed"
+            await policy.save()
+            assert policy.version == 2
+            assert len(await c.retry_policies.list(name="server")) == 2
+            fetched = await c.retry_policies.get(_RETRY_POLICY_ID)
+            assert isinstance(fetched, AsyncRetryPolicy)
+            await c.retry_policies.delete(_RETRY_POLICY_ID)
+            await fetched.delete()
+
+        asyncio.run(_run())
+
+    def test_unsaved_guards(self):
+        async def _run():
+            policy = AsyncRetryPolicy(None, id="x", name="X", max_retries=1, backoff=Backoff.FIXED, delay_seconds=1)
+            with pytest.raises(RuntimeError):
+                await policy.save()
+            with pytest.raises(RuntimeError):
+                await policy.delete()
 
         asyncio.run(_run())
