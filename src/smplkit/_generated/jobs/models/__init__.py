@@ -1,5 +1,8 @@
 """Contains all the data models used in inputs/outputs"""
 
+from .error import Error
+from .error_response import ErrorResponse
+from .error_source_type_0 import ErrorSourceType0
 from .http_header import HttpHeader
 from .job import Job
 from .job_create_request import JobCreateRequest
@@ -45,6 +48,9 @@ from .usage_resource import UsageResource
 from .usage_response import UsageResponse
 
 __all__ = (
+    "Error",
+    "ErrorResponse",
+    "ErrorSourceType0",
     "HttpHeader",
     "Job",
     "JobCreateRequest",
