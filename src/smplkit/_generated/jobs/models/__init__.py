@@ -21,8 +21,6 @@ from .list_meta import ListMeta
 from .list_retry_policies_sort import ListRetryPoliciesSort
 from .list_runs_sort import ListRunsSort
 from .pagination_meta import PaginationMeta
-from .retry_on import RetryOn
-from .retry_on_reasons_item import RetryOnReasonsItem
 from .retry_policy import RetryPolicy
 from .retry_policy_backoff import RetryPolicyBackoff
 from .retry_policy_create_request import RetryPolicyCreateRequest
@@ -69,8 +67,6 @@ __all__ = (
     "ListRetryPoliciesSort",
     "ListRunsSort",
     "PaginationMeta",
-    "RetryOn",
-    "RetryOnReasonsItem",
     "RetryPolicy",
     "RetryPolicyBackoff",
     "RetryPolicyCreateRequest",
