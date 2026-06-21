@@ -18,7 +18,7 @@ from __future__ import annotations
 import datetime
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
 from uuid import UUID
@@ -935,9 +935,7 @@ class _RetryPolicyBase:
         self.retry_on_timeout = retry_on_timeout
         self.retry_on_connection_error = retry_on_connection_error
         self.retry_statuses = list(retry_statuses) if retry_statuses is not None else []
-        self.retry_statuses_except = (
-            list(retry_statuses_except) if retry_statuses_except is not None else []
-        )
+        self.retry_statuses_except = list(retry_statuses_except) if retry_statuses_except is not None else []
         self.created_at = created_at
         self.updated_at = updated_at
         self.deleted_at = deleted_at
