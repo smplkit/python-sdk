@@ -45,7 +45,8 @@ class Forwarder:
                 as members of a discriminated union under a ``configuration`` field.
             description (None | str | Unset): Free-text description for the forwarder.
             enabled (bool | Unset): Always false. Enablement is per-environment: a forwarder delivers in an environment only
-                when `environments[<env>].enabled` is true. The base value is pinned false and cannot be set. Default: False.
+                when that environment's entry in `environments` sets `enabled` to true. The base value is pinned false and
+                cannot be set. Default: False.
             forward_smplkit_events (bool | Unset): When true, this forwarder also receives platform change events that
                 smplkit records about your own resources (flag, configuration, and similar changes). Each such event is
                 delivered through every environment this forwarder is enabled in, using that environment's resolved
@@ -60,9 +61,12 @@ class Forwarder:
                 ``transform_type``: for `JSONATA`, a string containing a JSONata expression. Omit to deliver the event JSON
                 unchanged.
             environments (ForwarderEnvironments | Unset): Per-environment overrides keyed by environment key (e.g.
-                `production`, `staging`). Each entry sets `enabled` (whether the forwarder delivers in that environment) and an
-                optional `configuration` override (omit to inherit the base `configuration`). A forwarder with no entry for an
-                environment is disabled there. Every referenced environment must exist and be managed for the account.
+                `production`, `staging`). Each entry is a sparse map of only the fields that differ in that environment:
+                `enabled` (whether the forwarder delivers there) plus any of `url`, `method`, `success_status`, `tls_verify`,
+                `ca_cert`, and individual headers as `headers.<name>` (e.g. `headers.Authorization`). Fields you omit are
+                inherited from the base `configuration`; an entry never needs to repeat the whole configuration. A forwarder
+                with no entry for an environment is disabled there. Every referenced environment must exist and be managed for
+                the account.
             created_at (datetime.datetime | None | Unset): When the forwarder was created.
             updated_at (datetime.datetime | None | Unset): When the forwarder was last modified.
             deleted_at (datetime.datetime | None | Unset): When the forwarder was deleted. `null` for active forwarders.
