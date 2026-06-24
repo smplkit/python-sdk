@@ -62,17 +62,16 @@ class Job:
                 present, and everything absent is inherited. Set `enabled` to `true` to run the job in that environment (the
                 base is disabled everywhere; an environment with no entry, or an entry without `enabled: true`, does not run).
                 Overridable leaves are `url`, `method`, `timeout`, `body`, `success_status`, `tls_verify`, `ca_cert`, `schedule`
-                and `timezone` (recurring jobs only), `retry_policy` (the `id` of a retry policy, or `Default`), and an
-                individual header as `headers.<name>` (e.g. `headers.Authorization`). On read, each entry also reports the read-
-                only `next_run_at` for that environment (the next fire time, or `null`). For a recurring or manual job, supply
-                this map to choose where it runs. For a one-off job, the environment it is created in is recorded here
-                automatically — name it with the `X-Smplkit-Environment` header. Every referenced environment must exist for the
-                account.
+                and `timezone` (recurring jobs only), `retry_policy` (the `id` of a retry policy), and an individual header as
+                `headers.<name>` (e.g. `headers.Authorization`). On read, each entry also reports the read-only `next_run_at`
+                for that environment (the next fire time, or `null`). For a recurring or manual job, supply this map to choose
+                where it runs. For a one-off job, the environment it is created in is recorded here automatically — name it with
+                the `X-Smplkit-Environment` header. Every referenced environment must exist for the account.
             concurrency_policy (Literal['ALLOW'] | Unset): How overlapping runs are handled. `ALLOW` (the only value today)
                 permits them. Default: 'ALLOW'.
-            retry_policy (None | str | Unset): The base retry policy for failed runs — the `id` of a retry policy (or the
-                built-in `Default`), overridable per environment. Omit (or send `null`) to use `Default`, which never retries —
-                so a job that sets nothing behaves exactly as before retries existed.
+            retry_policy (None | str | Unset): The base retry policy for failed runs — the `id` of a retry policy,
+                overridable per environment. Omit (or send `null`) to reference no policy, in which case failed runs are never
+                retried.
             kind (JobKindType0 | None | Unset): How the job runs, derived from its base `schedule`: `recurring` for a cron
                 schedule (fires on a repeating cadence), `manual` for no schedule (never auto-fires; runs only when triggered),
                 or `one_off` for a `now` or datetime schedule (runs a single time, then is spent).
