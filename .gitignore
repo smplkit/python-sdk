@@ -28,3 +28,4 @@ src/smplkit/_version.py
 CLAUDE.md
 CLAUDE.local.md
 .claude/
+.DS_Store
