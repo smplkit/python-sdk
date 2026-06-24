@@ -23,9 +23,9 @@ class JobEnvironments:
     `body`, `success_status`, `tls_verify`, `ca_cert`, `schedule` and `timezone` (recurring jobs only), `retry_policy`
     (the `id` of a retry policy), and an individual header as `headers.<name>` (e.g. `headers.Authorization`). On read,
     each entry also reports the read-only `next_run_at` for that environment (the next fire time, or `null`). For a
-    recurring or manual job, supply this map to choose where it runs. For a one-off job, the environment it is created
-    in is recorded here automatically — name it with the `X-Smplkit-Environment` header. Every referenced environment
-    must exist for the account.
+    recurring or manual job, supply this map to choose where it runs. For a one-off job, name its target environment(s)
+    here as the map keys — one run is enqueued per named environment; when the map is empty a single-environment
+    credential implies the one environment. Every referenced environment must exist for the account.
 
     """
 
