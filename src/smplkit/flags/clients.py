@@ -181,24 +181,29 @@ def _flags_transport(
     profile: str | None,
     base_domain: str | None,
     scheme: str | None,
+    environment: str | None,
+    service: str | None,
     debug: bool | None,
     extra_headers: dict[str, str] | None,
-) -> tuple[AuthenticatedClient, _AppAuthClient, str]:
-    """Build standalone flags + app transports and resolve the app base URL.
+) -> tuple[AuthenticatedClient, _AppAuthClient, str, str | None, str | None]:
+    """Build standalone flags + app transports; resolve app URL, environment, service.
 
     ``base_url``/``api_key`` are used directly when both are supplied (the
     path a top-level client takes after it has already resolved them);
     otherwise the config resolver fills in whatever is missing
-    (``~/.smplkit`` / env vars / defaults). The app transport backs the
-    standalone contexts client (evaluation-context registration); the app
-    base URL is returned so a standalone client can open its own WebSocket
-    against the event gateway.
+    (``~/.smplkit`` / env vars / defaults). ``environment`` and ``service``
+    resolve through the same chain (constructor kwarg wins). The app
+    transport backs the standalone contexts client (evaluation-context
+    registration); the app base URL is returned so a standalone client can
+    open its own WebSocket against the event gateway.
     """
     cfg = resolve_client_config(
         profile=profile,
         api_key=api_key,
         base_domain=base_domain,
         scheme=scheme,
+        environment=environment,
+        service=service,
         debug=debug,
     )
     resolved_key = api_key if api_key is not None else cfg.api_key
@@ -209,7 +214,7 @@ def _flags_transport(
     headers.update(extra_headers or {})
     flags_http = AuthenticatedClient(base_url=flags_url.rstrip("/"), token=resolved_key, headers=headers)
     app_http = _AppAuthClient(base_url=app_url.rstrip("/"), token=resolved_key, headers=headers)
-    return flags_http, app_http, app_url
+    return flags_http, app_http, app_url, cfg.environment, cfg.service
 
 
 # ---------------------------------------------------------------------------
@@ -311,7 +316,11 @@ class FlagsClient:
         api_key: API key. When omitted, resolved from ``SMPLKIT_API_KEY`` or
             ``~/.smplkit``.
         environment: Deployment environment used to resolve runtime flag
-            values and to scope discovery declarations. Optional.
+            values and to scope discovery declarations. When omitted,
+            resolved from ``SMPLKIT_ENVIRONMENT`` or ``~/.smplkit``. Optional.
+        service: Service name auto-injected into the evaluation context and
+            used to scope discovery declarations. When omitted, resolved from
+            ``SMPLKIT_SERVICE`` or ``~/.smplkit``. Optional.
         base_url: Full flags-service base URL. Usually resolved from
             ``base_domain``/``scheme``; supplied directly by the top-level
             clients which have already computed it.
@@ -320,6 +329,12 @@ class FlagsClient:
         scheme: URL scheme (default ``"https"``).
         debug: Enable SDK debug logging.
         extra_headers: Extra headers attached to every request.
+        streaming: When ``True`` (the default), the first live call opens a
+            WebSocket so flag changes arrive live. Pass ``False`` for
+            stateless mode: the first live call still fetches every flag
+            definition once, but no WebSocket and no background threads are
+            ever created — call :meth:`refresh` to re-fetch on demand. The
+            right shape for serverless environments.
         parent: Internal — the owning :class:`smplkit.SmplClient`. Not for
             direct use.
         transport: Internal — a pre-built flags transport supplied by a
@@ -335,12 +350,14 @@ class FlagsClient:
         api_key: str | None = None,
         *,
         environment: str | None = None,
+        service: str | None = None,
         base_url: str | None = None,
         profile: str | None = None,
         base_domain: str | None = None,
         scheme: str | None = None,
         debug: bool | None = None,
         extra_headers: dict[str, str] | None = None,
+        streaming: bool = True,
         parent: SmplClient | None = None,
         transport: AuthenticatedClient | None = None,
         contexts: ContextsClient | None = None,
@@ -348,11 +365,13 @@ class FlagsClient:
     ) -> None:
         self._parent = parent
         self._metrics = metrics
-        self._environment = parent._environment if parent is not None else environment
-        self._service = parent._service if parent is not None else None
+        self._streaming = streaming
         self._standalone_api_key: str | None = None
         self._owns_contexts = False
         if transport is not None:
+            # Parent-wired: the parent's resolved environment/service win.
+            self._environment = parent._environment if parent is not None else environment
+            self._service = parent._service if parent is not None else service
             self._flags_http = transport
             self._app_base_url: str | None = None
             self._owns_transport = False
@@ -360,12 +379,14 @@ class FlagsClient:
             # registration seam.
             self._contexts: ContextsClient | None = contexts
         else:
-            self._flags_http, app_http, self._app_base_url = _flags_transport(
+            self._flags_http, app_http, self._app_base_url, self._environment, self._service = _flags_transport(
                 api_key=api_key,
                 base_url=base_url,
                 profile=profile,
                 base_domain=base_domain,
                 scheme=scheme,
+                environment=environment,
+                service=service,
                 debug=debug,
                 extra_headers=extra_headers,
             )
@@ -648,7 +669,14 @@ class FlagsClient:
             self.flush()
             return
         if self._buffer.pending_count >= _FLAG_BATCH_FLUSH_SIZE:
+            self._schedule_threshold_flush()
+
+    def _schedule_threshold_flush(self) -> None:
+        """Flush past the batch threshold — on a daemon thread in streaming mode, inline otherwise."""
+        if self._streaming:
             threading.Thread(target=self._threshold_flush, daemon=True).start()
+        else:
+            self._threshold_flush()
 
     def _threshold_flush(self) -> None:
         try:
@@ -733,6 +761,12 @@ class FlagsClient:
         if self._connected:
             return
 
+        # Acquire the socket up front (streaming mode) so a failure to open
+        # the live channel surfaces before any fetch or state mutation. In
+        # stateless mode (streaming=False) no socket is ever created and
+        # refresh() re-fetches on demand.
+        ws = self._ensure_ws() if self._streaming else None
+
         # Flush discovered flags BEFORE fetching definitions so the fetch
         # reflects them. Items stay in the buffer until the POST succeeds.
         try:
@@ -744,11 +778,11 @@ class FlagsClient:
         self._cache.clear()
         self._connected = True
 
-        self._ws_manager = self._ensure_ws()
-        if not self._ws_subscribed:
-            self._ws_manager.on("flag_changed", self._handle_flag_changed)
-            self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
-            self._ws_manager.on("flags_changed", self._handle_flags_changed)
+        if ws is not None and not self._ws_subscribed:
+            self._ws_manager = ws
+            ws.on("flag_changed", self._handle_flag_changed)
+            ws.on("flag_deleted", self._handle_flag_deleted)
+            ws.on("flags_changed", self._handle_flags_changed)
             self._ws_subscribed = True
 
     # ------------------------------------------------------------------
@@ -1107,7 +1141,11 @@ class AsyncFlagsClient:
         api_key: API key. When omitted, resolved from ``SMPLKIT_API_KEY`` or
             ``~/.smplkit``.
         environment: Deployment environment used to resolve runtime flag
-            values and to scope discovery declarations. Optional.
+            values and to scope discovery declarations. When omitted,
+            resolved from ``SMPLKIT_ENVIRONMENT`` or ``~/.smplkit``. Optional.
+        service: Service name auto-injected into the evaluation context and
+            used to scope discovery declarations. When omitted, resolved from
+            ``SMPLKIT_SERVICE`` or ``~/.smplkit``. Optional.
         base_url: Full flags-service base URL. Usually resolved from
             ``base_domain``/``scheme``; supplied directly by the top-level
             clients which have already computed it.
@@ -1116,6 +1154,12 @@ class AsyncFlagsClient:
         scheme: URL scheme (default ``"https"``).
         debug: Enable SDK debug logging.
         extra_headers: Extra headers attached to every request.
+        streaming: When ``True`` (the default), the first awaited live call
+            opens a WebSocket so flag changes arrive live. Pass ``False`` for
+            stateless mode: the first awaited live call still fetches every
+            flag definition once, but no WebSocket and no background threads
+            are ever created — ``await refresh()`` to re-fetch on demand. The
+            right shape for serverless environments.
         parent: Internal — the owning :class:`smplkit.AsyncSmplClient`. Not for
             direct use.
         transport: Internal — a pre-built flags transport supplied by a
@@ -1131,12 +1175,14 @@ class AsyncFlagsClient:
         api_key: str | None = None,
         *,
         environment: str | None = None,
+        service: str | None = None,
         base_url: str | None = None,
         profile: str | None = None,
         base_domain: str | None = None,
         scheme: str | None = None,
         debug: bool | None = None,
         extra_headers: dict[str, str] | None = None,
+        streaming: bool = True,
         parent: AsyncSmplClient | None = None,
         transport: AuthenticatedClient | None = None,
         contexts: AsyncContextsClient | None = None,
@@ -1144,22 +1190,26 @@ class AsyncFlagsClient:
     ) -> None:
         self._parent = parent
         self._metrics = metrics
-        self._environment = parent._environment if parent is not None else environment
-        self._service = parent._service if parent is not None else None
+        self._streaming = streaming
         self._standalone_api_key: str | None = None
         self._owns_contexts = False
         if transport is not None:
+            # Parent-wired: the parent's resolved environment/service win.
+            self._environment = parent._environment if parent is not None else environment
+            self._service = parent._service if parent is not None else service
             self._flags_http = transport
             self._app_base_url: str | None = None
             self._owns_transport = False
             self._contexts: AsyncContextsClient | None = contexts
         else:
-            self._flags_http, app_http, self._app_base_url = _flags_transport(
+            self._flags_http, app_http, self._app_base_url, self._environment, self._service = _flags_transport(
                 api_key=api_key,
                 base_url=base_url,
                 profile=profile,
                 base_domain=base_domain,
                 scheme=scheme,
+                environment=environment,
+                service=service,
                 debug=debug,
                 extra_headers=extra_headers,
             )
@@ -1453,7 +1503,14 @@ class AsyncFlagsClient:
         for d in batch:
             self._buffer.add(d.id, d.type, d.default, d.service, d.environment)
         if self._buffer.pending_count >= _FLAG_BATCH_FLUSH_SIZE:
+            self._schedule_threshold_flush()
+
+    def _schedule_threshold_flush(self) -> None:
+        """Flush past the batch threshold — on a daemon thread in streaming mode, inline otherwise."""
+        if self._streaming:
             threading.Thread(target=self._threshold_flush_sync, daemon=True).start()
+        else:
+            self._threshold_flush_sync()
 
     def _threshold_flush_sync(self) -> None:
         try:
@@ -1542,6 +1599,12 @@ class AsyncFlagsClient:
         if self._connected:
             return
 
+        # Acquire the socket up front (streaming mode) so a failure to open
+        # the live channel surfaces before any fetch or state mutation. In
+        # stateless mode (streaming=False) no socket is ever created and
+        # refresh() re-fetches on demand.
+        ws = self._ensure_ws() if self._streaming else None
+
         try:
             await self.flush()
         except Exception as exc:
@@ -1551,11 +1614,11 @@ class AsyncFlagsClient:
         self._cache.clear()
         self._connected = True
 
-        self._ws_manager = self._ensure_ws()
-        if not self._ws_subscribed:
-            self._ws_manager.on("flag_changed", self._handle_flag_changed)
-            self._ws_manager.on("flag_deleted", self._handle_flag_deleted)
-            self._ws_manager.on("flags_changed", self._handle_flags_changed)
+        if ws is not None and not self._ws_subscribed:
+            self._ws_manager = ws
+            ws.on("flag_changed", self._handle_flag_changed)
+            ws.on("flag_deleted", self._handle_flag_deleted)
+            ws.on("flags_changed", self._handle_flags_changed)
             self._ws_subscribed = True
 
     # ------------------------------------------------------------------
