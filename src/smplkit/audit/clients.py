@@ -486,6 +486,7 @@ class EventsClient:
         resource_id: str | None = None,
         actor_type: str | None = None,
         actor_id: str | None = None,
+        category: str | None = None,
         occurred_at_range: str | None = None,
         search: str | None = None,
         environments: list[str] | None = None,
@@ -525,6 +526,9 @@ class EventsClient:
                 value. Omit to match any.
             actor_id: Return only events whose ``actor_id`` matches this
                 value as a literal string. Omit to match any.
+            category: Filter to this exact category — the indexed
+                correlation label callers stamp on related events. Omit
+                to match any.
             occurred_at_range: Restrict to events whose ``occurred_at``
                 falls in this range. Omit to leave the time window open.
             search: Optional free-text filter — returns only events whose
@@ -551,6 +555,7 @@ class EventsClient:
             filterresource_id=resource_id if resource_id is not None else UNSET,
             filteractor_type=actor_type if actor_type is not None else UNSET,
             filteractor_id=actor_id if actor_id is not None else UNSET,
+            filtercategory=category if category is not None else UNSET,
             filteroccurred_at=occurred_at_range if occurred_at_range is not None else UNSET,
             filtersearch=search if search is not None else UNSET,
             filterenvironment=_resolve_environment_filter(environments, self._environment),
@@ -890,6 +895,7 @@ class AsyncEventsClient:
         resource_id: str | None = None,
         actor_type: str | None = None,
         actor_id: str | None = None,
+        category: str | None = None,
         occurred_at_range: str | None = None,
         search: str | None = None,
         environments: list[str] | None = None,
@@ -929,6 +935,9 @@ class AsyncEventsClient:
                 value. Omit to match any.
             actor_id: Return only events whose ``actor_id`` matches this
                 value as a literal string. Omit to match any.
+            category: Filter to this exact category — the indexed
+                correlation label callers stamp on related events. Omit
+                to match any.
             occurred_at_range: Restrict to events whose ``occurred_at``
                 falls in this range. Omit to leave the time window open.
             search: Optional free-text filter — returns only events whose
@@ -955,6 +964,7 @@ class AsyncEventsClient:
             filterresource_id=resource_id if resource_id is not None else UNSET,
             filteractor_type=actor_type if actor_type is not None else UNSET,
             filteractor_id=actor_id if actor_id is not None else UNSET,
+            filtercategory=category if category is not None else UNSET,
             filteroccurred_at=occurred_at_range if occurred_at_range is not None else UNSET,
             filtersearch=search if search is not None else UNSET,
             filterenvironment=_resolve_environment_filter(environments, self._environment),
