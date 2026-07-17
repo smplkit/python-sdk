@@ -42,6 +42,7 @@ from uuid import UUID
 import httpx
 
 from smplkit._config import _service_url, resolve_client_config
+from smplkit._transport import with_default_user_agent
 
 from smplkit._generated.audit.api.categories import (
     list_categories as _gen_list_categories,
@@ -275,6 +276,7 @@ def _audit_transport(
     headers: dict[str, str] = {"Accept": "application/vnd.api+json"}
     headers.update(cfg_extra or {})
     headers.update(extra_headers or {})
+    headers = with_default_user_agent(headers)
     auth = AuthenticatedClient(
         base_url=base_url.rstrip("/"),
         token=api_key,

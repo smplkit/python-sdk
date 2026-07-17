@@ -39,6 +39,7 @@ import httpx
 from pydantic import BaseModel
 
 from smplkit._config import _service_url, resolve_client_config
+from smplkit._transport import with_default_user_agent
 from smplkit.errors import (
     ConflictError,
     ConnectionError,
@@ -190,6 +191,7 @@ def _config_transport(
     headers: dict[str, str] = {}
     headers.update(cfg.extra_headers or {})
     headers.update(extra_headers or {})
+    headers = with_default_user_agent(headers)
     transport = _ConfigAuthClient(base_url=config_url.rstrip("/"), token=resolved_key, headers=headers)
     return transport, app_url, cfg.environment, cfg.service
 

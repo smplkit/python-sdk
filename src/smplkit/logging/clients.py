@@ -44,6 +44,7 @@ from importlib.metadata import entry_points
 from typing import TYPE_CHECKING, Any, Callable
 
 from smplkit._config import _service_url, resolve_client_config
+from smplkit._transport import with_default_user_agent
 from smplkit._debug import debug
 from smplkit.errors import (
     ConflictError,
@@ -223,6 +224,7 @@ def _logging_transport(
     headers: dict[str, str] = {}
     headers.update(cfg.extra_headers or {})
     headers.update(extra_headers or {})
+    headers = with_default_user_agent(headers)
     logging_http = AuthenticatedClient(base_url=logging_url.rstrip("/"), token=resolved_key, headers=headers)
     app_http = _AppAuthClient(base_url=app_url.rstrip("/"), token=resolved_key, headers=headers)
     return logging_http, app_http, app_url, cfg.environment, cfg.service
@@ -1885,10 +1887,13 @@ class AsyncLoggingClient:
         debug("websocket", "loggers_changed: full re-fetch")
         api_key = self._standalone_api_key if self._parent is None else self._parent._api_key
         logging_base_url = self._logging_base_url
+        # Mirror the main transport's headers so this loop-scoped rebuild
+        # keeps the caller's extra headers and the User-Agent decision.
+        headers = with_default_user_agent(dict(self._logging_http._headers))
         pre = self._snapshot_effective_levels()
 
         async def _do_refresh() -> None:
-            http = AuthenticatedClient(base_url=logging_base_url, token=api_key)
+            http = AuthenticatedClient(base_url=logging_base_url, token=api_key, headers=headers)
             try:
                 await self._fetch_cache(trigger="loggers_changed WS event", http_client=http)
             finally:
@@ -1917,10 +1922,13 @@ class AsyncLoggingClient:
         """
         api_key = self._standalone_api_key if self._parent is None else self._parent._api_key
         logging_base_url = self._logging_base_url
+        # Mirror the main transport's headers so this loop-scoped rebuild
+        # keeps the caller's extra headers and the User-Agent decision.
+        headers = with_default_user_agent(dict(self._logging_http._headers))
         import asyncio as _asyncio
 
         async def _run_async() -> None:
-            http = AuthenticatedClient(base_url=logging_base_url, token=api_key)
+            http = AuthenticatedClient(base_url=logging_base_url, token=api_key, headers=headers)
             try:
                 await coro_fn(key, http, pre)
             finally:

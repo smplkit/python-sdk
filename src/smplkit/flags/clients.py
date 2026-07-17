@@ -42,6 +42,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from smplkit._config import _service_url, resolve_client_config
+from smplkit._transport import with_default_user_agent
 from smplkit.context import get_context as _get_request_context
 from smplkit.errors import (
     ConnectionError,
@@ -212,6 +213,7 @@ def _flags_transport(
     headers: dict[str, str] = {}
     headers.update(cfg.extra_headers or {})
     headers.update(extra_headers or {})
+    headers = with_default_user_agent(headers)
     flags_http = AuthenticatedClient(base_url=flags_url.rstrip("/"), token=resolved_key, headers=headers)
     app_http = _AppAuthClient(base_url=app_url.rstrip("/"), token=resolved_key, headers=headers)
     return flags_http, app_http, app_url, cfg.environment, cfg.service

@@ -24,6 +24,7 @@ from typing import Any, Optional
 from uuid import UUID
 
 from smplkit._config import _service_url, resolve_client_config
+from smplkit._transport import with_default_user_agent
 from smplkit._generated.jobs.types import UNSET
 from smplkit.errors import _raise_for_status
 from smplkit._generated.jobs.api.jobs import (
@@ -188,6 +189,7 @@ def _jobs_transport(
     headers = {"Accept": "application/vnd.api+json"}
     headers.update(cfg.extra_headers or {})
     headers.update(extra_headers or {})
+    headers = with_default_user_agent(headers)
     return _JobsAuthClient(base_url=jobs_url, token=cfg.api_key, headers=headers), cfg.environment
 
 
