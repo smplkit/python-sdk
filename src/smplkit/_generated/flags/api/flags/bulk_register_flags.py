@@ -3,11 +3,12 @@ from typing import Any
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...types import Response
+from ... import errors
+
 from ...models.flag_bulk_request import FlagBulkRequest
 from ...models.flag_bulk_response import FlagBulkResponse
-from ...types import Response
 
 
 def _get_kwargs(
