@@ -4,10 +4,11 @@ from urllib.parse import quote
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.config_response import ConfigResponse
 from ...types import Response
+from ... import errors
+
+from ...models.config_response import ConfigResponse
 
 
 def _get_kwargs(

@@ -1,14 +1,15 @@
 from http import HTTPStatus
 from typing import Any, cast
 from urllib.parse import quote
-from uuid import UUID
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.error_response import ErrorResponse
 from ...types import Response
+from ... import errors
+
+from ...models.error_response import ErrorResponse
+from uuid import UUID
 
 
 def _get_kwargs(

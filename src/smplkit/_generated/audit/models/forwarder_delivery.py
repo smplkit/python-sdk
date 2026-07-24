@@ -1,17 +1,19 @@
 from __future__ import annotations
 
-import datetime
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar, cast
-from uuid import UUID
+from typing import Any, TypeVar, TYPE_CHECKING
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-from dateutil.parser import isoparse
-from typing_extensions import Self
 
-from ..models.forwarder_delivery_status import ForwarderDeliveryStatus, check_forwarder_delivery_status
 from ..types import UNSET, Unset
+
+from ..models.forwarder_delivery_status import check_forwarder_delivery_status
+from ..models.forwarder_delivery_status import ForwarderDeliveryStatus
+from dateutil.parser import isoparse
+from typing import cast
+from uuid import UUID
+import datetime
 
 if TYPE_CHECKING:
     from ..models.forwarder_delivery_request_type_0 import ForwarderDeliveryRequestType0
@@ -134,7 +136,7 @@ class ForwarderDelivery:
         return field_dict
 
     @classmethod
-    def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.forwarder_delivery_request_type_0 import ForwarderDeliveryRequestType0
 
         d = dict(src_dict)
