@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, cast
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-from dateutil.parser import isoparse
-from typing_extensions import Self
 
-from ..models.sso_domain_status import SSODomainStatus, check_sso_domain_status
 from ..types import UNSET, Unset
+
+from ..models.sso_domain_status import check_sso_domain_status
+from ..models.sso_domain_status import SSODomainStatus
+from dateutil.parser import isoparse
+from typing import cast
+import datetime
+
 
 T = TypeVar("T", bound="SSODomain")
 
@@ -98,7 +101,7 @@ class SSODomain:
         return field_dict
 
     @classmethod
-    def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
 
         def _parse_dns_txt_token(data: object) -> None | str | Unset:

@@ -3,11 +3,13 @@ from typing import Any
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...types import Response, UNSET
+from ... import errors
+
 from ...models.category_list_response import CategoryListResponse
 from ...models.list_categories_sort import ListCategoriesSort
-from ...types import UNSET, Response, Unset
+from ...types import Unset
 
 
 def _get_kwargs(

@@ -3,11 +3,12 @@ from typing import Any, cast
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...types import Response
+from ... import errors
+
 from ...models.error_response import ErrorResponse
 from ...models.metric_bulk_request import MetricBulkRequest
-from ...types import Response
 
 
 def _get_kwargs(

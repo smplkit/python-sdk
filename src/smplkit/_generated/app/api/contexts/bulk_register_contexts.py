@@ -3,12 +3,13 @@ from typing import Any
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...types import Response
+from ... import errors
+
 from ...models.context_batch_response import ContextBatchResponse
 from ...models.context_bulk_register import ContextBulkRegister
 from ...models.error_response import ErrorResponse
-from ...types import Response
 
 
 def _get_kwargs(
