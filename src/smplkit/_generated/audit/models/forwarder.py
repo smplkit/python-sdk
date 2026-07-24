@@ -1,19 +1,16 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.forwarder_type import check_forwarder_type
-from ..models.forwarder_type import ForwarderType
 from dateutil.parser import isoparse
-from typing import cast
-from typing import Literal
-import datetime
+from typing_extensions import Self
+
+from ..models.forwarder_type import ForwarderType, check_forwarder_type
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.forwarder_environments import ForwarderEnvironments
@@ -188,7 +185,7 @@ class Forwarder:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+    def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
         from ..models.forwarder_environments import ForwarderEnvironments
         from ..models.forwarder_filter_type_0 import ForwarderFilterType0
         from ..models.forwarder_http_configuration import ForwarderHttpConfiguration
