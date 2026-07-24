@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
-
-
-from typing import cast
+from typing_extensions import Self
 
 if TYPE_CHECKING:
     from ..models.forwarder_type_header import ForwarderTypeHeader
@@ -60,7 +58,7 @@ class ForwarderTypeHttpConfiguration:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+    def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
         from ..models.forwarder_type_header import ForwarderTypeHeader
 
         d = dict(src_dict)

@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+from typing_extensions import Self
 
+from ..models.subscription_preview_resource_id import (
+    SubscriptionPreviewResourceId,
+    check_subscription_preview_resource_id,
+)
+from ..models.subscription_preview_resource_type import (
+    SubscriptionPreviewResourceType,
+    check_subscription_preview_resource_type,
+)
 from ..types import UNSET, Unset
-
-from ..models.subscription_preview_resource_id import check_subscription_preview_resource_id
-from ..models.subscription_preview_resource_id import SubscriptionPreviewResourceId
-from ..models.subscription_preview_resource_type import check_subscription_preview_resource_type
-from ..models.subscription_preview_resource_type import SubscriptionPreviewResourceType
 
 if TYPE_CHECKING:
     from ..models.subscription_preview_attributes import SubscriptionPreviewAttributes
@@ -65,7 +69,7 @@ class SubscriptionPreviewResource:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+    def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
         from ..models.subscription_preview_attributes import SubscriptionPreviewAttributes
 
         d = dict(src_dict)

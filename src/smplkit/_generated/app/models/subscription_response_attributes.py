@@ -1,19 +1,18 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
+from typing_extensions import Self
 
 from ..models.subscription_response_attributes_discount_source import (
+    SubscriptionResponseAttributesDiscountSource,
     check_subscription_response_attributes_discount_source,
 )
-from ..models.subscription_response_attributes_discount_source import SubscriptionResponseAttributesDiscountSource
-from typing import cast
-from uuid import UUID
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.next_tier_response import NextTierResponse
@@ -134,7 +133,7 @@ class SubscriptionResponseAttributes:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+    def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
         from ..models.next_tier_response import NextTierResponse
         from ..models.subscription_item_response import SubscriptionItemResponse
 
