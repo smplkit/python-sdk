@@ -3,11 +3,12 @@ from typing import Any
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...types import Response
+from ... import errors
+
 from ...models.event_search_request import EventSearchRequest
 from ...models.event_search_response import EventSearchResponse
-from ...types import Response
 
 
 def _get_kwargs(
