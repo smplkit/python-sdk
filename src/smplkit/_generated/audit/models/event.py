@@ -1,18 +1,16 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.severity import check_severity
-from ..models.severity import Severity
 from dateutil.parser import isoparse
-from typing import cast
-import datetime
+from typing_extensions import Self
+
+from ..models.severity import Severity, check_severity
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.event_data import EventData
@@ -194,7 +192,7 @@ class Event:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+    def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
         from ..models.event_data import EventData
 
         d = dict(src_dict)

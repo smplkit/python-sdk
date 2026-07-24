@@ -1,19 +1,16 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.job_kind_type_0 import check_job_kind_type_0
-from ..models.job_kind_type_0 import JobKindType0
 from dateutil.parser import isoparse
-from typing import cast
-from typing import Literal
-import datetime
+from typing_extensions import Self
+
+from ..models.job_kind_type_0 import JobKindType0, check_job_kind_type_0
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.job_environments import JobEnvironments
@@ -209,7 +206,7 @@ class Job:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+    def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
         from ..models.job_environments import JobEnvironments
         from ..models.job_http_configuration import JobHttpConfiguration
 

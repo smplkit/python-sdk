@@ -1,23 +1,19 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-from ..models.run_failure_reason_type_0 import check_run_failure_reason_type_0
-from ..models.run_failure_reason_type_0 import RunFailureReasonType0
-from ..models.run_status import check_run_status
-from ..models.run_status import RunStatus
-from ..models.run_trigger import check_run_trigger
-from ..models.run_trigger import RunTrigger
 from dateutil.parser import isoparse
-from typing import cast
-from uuid import UUID
-import datetime
+from typing_extensions import Self
+
+from ..models.run_failure_reason_type_0 import RunFailureReasonType0, check_run_failure_reason_type_0
+from ..models.run_status import RunStatus, check_run_status
+from ..models.run_trigger import RunTrigger, check_run_trigger
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.run_request_type_0 import RunRequestType0
@@ -237,7 +233,7 @@ class Run:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+    def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
         from ..models.run_request_type_0 import RunRequestType0
         from ..models.run_result_type_0 import RunResultType0
         from ..models.run_retry import RunRetry

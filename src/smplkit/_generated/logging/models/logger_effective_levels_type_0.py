@@ -5,11 +5,9 @@ from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+from typing_extensions import Self
 
-
-from ..models.log_level import check_log_level
-from ..models.log_level import LogLevel
-
+from ..models.log_level import LogLevel, check_log_level
 
 T = TypeVar("T", bound="LoggerEffectiveLevelsType0")
 
@@ -32,7 +30,7 @@ class LoggerEffectiveLevelsType0:
         return field_dict
 
     @classmethod
-    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+    def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
         d = dict(src_dict)
         logger_effective_levels_type_0 = cls()
 
