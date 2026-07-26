@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python 3.13
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
@@ -57,7 +57,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -94,7 +94,7 @@ jobs:
       # oldest interpreter + oldest dependencies is the worst case a customer
       # can install, and old dep versions often predate newer Python support.
       - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
@@ -152,7 +152,7 @@ jobs:
 
       - name: Set up Python
         if: steps.prep.outputs.released == 'true'
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.13'
 
