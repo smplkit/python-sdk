@@ -3,6 +3,7 @@
 from .error import Error
 from .error_response import ErrorResponse
 from .error_source_type_0 import ErrorSourceType0
+from .get_run_stats_bucket_type_0 import GetRunStatsBucketType0
 from .job import Job
 from .job_create_request import JobCreateRequest
 from .job_create_resource import JobCreateResource
@@ -40,6 +41,14 @@ from .run_resource import RunResource
 from .run_response import RunResponse
 from .run_result_type_0 import RunResultType0
 from .run_retry import RunRetry
+from .run_stat import RunStat
+from .run_stat_bucket import RunStatBucket
+from .run_stat_failure import RunStatFailure
+from .run_stat_failure_failure_reason_type_0 import RunStatFailureFailureReasonType0
+from .run_stat_next_scheduled import RunStatNextScheduled
+from .run_stat_resource import RunStatResource
+from .run_stat_tally import RunStatTally
+from .run_stats_response import RunStatsResponse
 from .run_status import RunStatus
 from .run_trigger import RunTrigger
 from .usage import Usage
@@ -50,6 +59,7 @@ __all__ = (
     "Error",
     "ErrorResponse",
     "ErrorSourceType0",
+    "GetRunStatsBucketType0",
     "Job",
     "JobCreateRequest",
     "JobCreateResource",
@@ -87,6 +97,14 @@ __all__ = (
     "RunResponse",
     "RunResultType0",
     "RunRetry",
+    "RunStat",
+    "RunStatBucket",
+    "RunStatFailure",
+    "RunStatFailureFailureReasonType0",
+    "RunStatNextScheduled",
+    "RunStatResource",
+    "RunStatTally",
+    "RunStatsResponse",
     "RunStatus",
     "RunTrigger",
     "Usage",
